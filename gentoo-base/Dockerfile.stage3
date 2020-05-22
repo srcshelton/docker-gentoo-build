@@ -1,0 +1,41 @@
+
+# stage3:
+#    This is the *only way* to persist variables across docker stages, without
+#    having to write files within containers :(
+
+ARG env_name="gentoo-env"
+ARG env_id=""
+
+ARG stage3_image="gentoo/stage3-amd64"
+ARG stage3_tag="latest"
+ARG stage3_id=""
+
+#ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
+
+
+# -----------------------------------------------------------------------------
+
+FROM "${stage3_image}:${stage3_tag}" AS stage3
+
+#RUN test -x /bin/sh
+
+
+# -----------------------------------------------------------------------------
+
+FROM "${env_name}:latest"
+
+ARG env_name
+ARG env_id
+
+ARG stage3_image
+ARG stage3_id
+
+
+LABEL envrionment_from="${env_name}:${env_id}"
+LABEL stage3_from="${stage3_image}:${stage3_id}"
+
+COPY --from=stage3 / /
+
+RUN [ ! -e /var/db/repos ] || rm -r /var/db/repos
+
+# vi: set syntax=dockerfile expandtab nowrap colorcolumn=80:

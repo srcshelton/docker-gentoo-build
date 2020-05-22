@@ -1,0 +1,245 @@
+
+*/*					 CPU_FLAGS_X86: aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3
+*/*					 L10N: en_GB en
+*/*					 VIDEO_CARDS: vesa matrox
+sys-boot/grub				 GRUB_PLATFORMS: efi-64 multiboot pc
+
+# General USE flags:
+*/*					-apache2 -awt acpi adns aio ao audit
+*/*					 bash-completion berkdb bzip2
+*/*					-cairo -cdb -common-lisp -cups caps chroot curl cxx
+*/*					-dbi
+*/*					 encode expat
+*/*					-fontconfig -fortran fam fftw filecaps ftp
+*/*					-gnutls -gpm -graph -gtk -gtk3 -guile gd gdbm gmp
+*/*					 http2
+*/*					-introspection icu idn iodbc ipv6 ithreads
+*/*					-java javascript json
+*/*					-kerberos
+*/*					-ldap -lua libatomic libedit libffi libidn2 libwww lighttpd lz4 lzma lzo
+*/*					 mariadb mbox memcached mmap mpfr mysql mysqli
+*/*					 ncurses network nfs nls nntp
+*/*					-openmp odbc
+*/*					-pango -policykit pcre perl php python
+*/*					 readline rpc
+*/*					-samba -sasl -slang -smartcard -snmp -source -startup-notification sctp
+*/*					 seccomp server slp smtp snmp spell sql sqlite ssl syslog
+*/*					-test tcmalloc threads
+*/*					-udev -usb unicode unwind urandom uuid
+*/*					 vim-syntax
+*/*					-xcb xattr xinetd xml
+*/*					 yaml
+*/*					 zlib
+
+# A/V & Fonts USE flags:
+*/*					-truetype -xpm
+*/*					 ffmpeg flac gif id3tag jpeg jpeg2k ladspa lame libsamplerate mad mp3
+*/*					 ogg png sndfile speex svg theora tiff vorbis wavpack x264 xvid
+
+# Filesystem layout USE flags:
+*/*					 sep-usr split-usr
+
+# Local USE flags:
+*/*					-tmpfiles
+
+
+app-admin/hddtemp			 network-cron
+app-admin/syslog-ng			-snmp spoof-source
+app-admin/ulogd				 nfacct pcap
+app-arch/libarchive			 nettle
+app-arch/unzip				 natspec
+app-benchmarks/bootchart		 acct
+app-benchmarks/bootchart2		-X
+# move app-admin/eselect-php app-eselect/eselect-php
+app-crypt/gnupg				-ssl ecc idea mta
+#app-crypt/gpgme			-python # Requires dev-lang/swig, but only as a BDEPEND
+app-editors/vim				-sound cscope vim-pager
+app-eselect/eselect-php			 fpm
+app-misc/screen				 multiuser
+app-portage/eix				 tools
+app-portage/portage-utils		 python
+<app-shells/bash-4.3			 bashlogger mem-scramble plugins
+app-text/dictd				 judy
+app-text/enchant			-aspell
+dev-db/mariadb				-tcmalloc client-libs extraengine innodb-lz4 innodb-lzo innodb-snappy jemalloc oqgraph sphinx tokudb
+dev-db/mysql				-berkdb big-tables community extraengine max-idx-128 pbxt profiling xtradb
+>dev-db/mysql-5.1.50			-max-idx-128 big-tables community extraengine pbxt profiling xtradb
+dev-db/redis				-tcmalloc luajit # Only one of jemalloc || tcmalloc may be active
+dev-db/sqlite				 extensions fts3 secure-delete soundex unlock-notify
+dev-java/gjdoc				 xmldoclet
+dev-java/icedtea			-*
+dev-java/oracle-jdk-bin			-X -javafx headless-awt jce
+dev-java/sun-jdk			 jce
+dev-lang/php				-readline bcmath calendar cgi ctype curlwrappers exif flatfile fpm hash iconv imap inifile intl ldap-sasl mhash mysqlnd pcntl pdo posix session simplexml soap sockets sqlite2 sqlite3 sysvipc tidy tokenizer truetype wddx xmlreader xmlrpc xmlwriter xslt zip
+dev-lang/python				-berkdb
+dev-libs/cyrus-sasl			-berkdb srp
+dev-libs/geoip				 city perl-geoipupdate
+dev-libs/glib				-mime
+dev-libs/gmp				 pgo
+dev-libs/leveldb			-snappy
+dev-libs/libmemcached			 hsieh
+#dev-libs/libnatspec			-python # Requires dev-lang/tcl, but only as a DEPEND
+dev-libs/libnl				 utils
+dev-libs/libpcre			-readline
+dev-libs/libpcre2			-readline
+dev-libs/libsecp256k1			 endomorphism # ecdh experimental
+dev-libs/libxml2			 test
+dev-libs/oniguruma			 combination-explosion-check crnl-as-line-terminator
+dev-libs/openssl			-sslv3 rfc3779
+dev-perl/File-HomeDir			-xdg
+dev-perl/GD				 animgif test
+dev-perl/Spreadsheet-ParseExcel		 test
+dev-python/pycrypto			 test
+dev-python/pygobject			-X
+dev-python/pyyaml			 libyaml
+dev-scheme/guile			 discouraged elisp networking
+dev-util/cmake				-server
+dev-vcs/subversion			 ctypes-python
+#gnome-base/librsvg			 tools
+gnome-base/librsvg			-vala
+mail-mta/msmtp				-ssl
+mail-client/alpine			 passfile smime
+mail-client/mutt			 imap sidebar smime
+mail-client/pine			 largeterminal passfile
+mail-client/roundcube			 enigma
+mail-filter/dcc				 cgi
+mail-filter/libmilter			 poll
+#mail-filter/opendkim			 opendbx poll unbound
+mail-filter/opendkim			-curl -memcached -opendbx libevent poll unbound
+mail-filter/opendmarc			 spf
+mail-filter/spamassassin		 cron
+mail-mta/postfix			-ldap-bind dovecot-sasl
+media-fonts/dejavu			-X -fontforge
+media-fonts/liberation-fonts		-X -fontforge
+media-gfx/imagemagick			-X -corefonts webp
+media-libs/alsa-lib			 alisp
+media-libs/harfbuzz			-graphite
+media-libs/libpng			 apng
+media-libs/libsdl			-joystick -sound -video
+media-libs/libvorbis			 aotuv
+media-libs/speex			 vorbis-psy
+media-sound/lame			-mp3rtp
+media-sound/musepack-tools		 16bit
+media-sound/squeezecenter		 alac
+media-video/ffmpeg			-X small
+net-analyzer/fping			 suid
+net-analyzer/munin			 cgi dhcpd http
+net-analyzer/nagios-plugins		-radius -samba nagios-dns nagios-ntp nagios-ping nagios-ssh smart ssh sudo # radius plugin confilcts with radiusclient-ng
+net-analyzer/netdata			 fping nfacct
+net-analyzer/net-snmp			-perl -python diskio elf mfd-rewrites netlink pci smux
+net-analyzer/nmap			 ncat ndiff nmap-update nping
+net-analyzer/rrdtool			 rrdcgi
+net-analyzer/symon			 symux
+net-analyzer/tcpdump			-samba suid
+net-analyzer/wireshark			-adns -gtk2 -qt -qt4 -qt5 -ssl ares gcrypt libxml2 nghttp2 randpkt randpktdump smi snappy tfshark # exclude SSL to remove final consumer of gnutls
+net-analyzer/zabbix			-odbc -postgres -sqlite agent frontend libxml2 openipmi ssh
+net-dialup/freeradius			 pcap udpfromto
+net-dns/avahi				-python autoipd # howl-compat # mdnsresponder-compat
+net-dns/bind				-berkdb -geoip -idn -mysql -odbc dnstap filter-aaaa lmdb nslint rpz
+net-dns/bind-tools			-idn gssapi pkcs11
+net-dns/unbound				 dnscrypt dnstap ecs
+net-firewall/nftables			 xtables
+net-firewall/iptables			-extensions -imq -l7filter conntrack netlink nftables pcap xlate
+net-fs/cifs-utils			-acl -ads -caps caps-ng creds upcall
+net-fs/nfs-utils			 junction nfsdcld nfsidmap nfsv41
+net-fs/samba				-avahi async automount ldb libclamav oav quota quotas smbsharemodes smbtav2 swat winbind
+net-ftp/lftp				 openssl
+net-im/bitlbee				 libevent twitter
+#net-libs/ldns				-python dane # Requires dev-lang/swig, but only as a DEPEND
+#sys-libs/libcap-ng			-python # Requires dev-lang/swig, but only as a DEPEND
+net-libs/libpcap			-netlink libnl
+net-libs/miniupnpc			-python
+net-mail/dovecot			 cydir dbox managesieve imapc lucene mdbox sdbox sieve solr # suid
+net-mail/fetchmail			 hesiod
+<net-misc/bfgminer-3.1.0		-adl -opencl sse2_4way
+>=net-misc/bfgminer-3.1.0		-adl -lm_sensors -opencl cpumining sse2_4way
+net-misc/cgminer			-adl -lm_sensors -opencl sse2_4way
+net-misc/curl				-adns -ares libssh2 test
+net-misc/dhcpcd				-compat
+net-misc/ntp				-snmp openntpd
+net-misc/openssh			-X509 hpn ldns skey
+#net-misc/scponly			 gftp logging passwd quota rsync scp sftp subversion unison wildcards winscp
+net-misc/scponly			-sftp logging passwd quota scp wildcards
+net-nds/openldap			-slp overlays pbkdf2 sha2
+net-p2p/bitcoind			 bitcoin_policy_cpfp bitcoin_policy_cltv bitcoin_policy_dcmp bitcoin_policy_rbf bitcoin_policy_spamfilter knots ljr logrotate upnp
+# move net-misc/openvpn net-vpn/openvpn
+net-vpn/openvpn				 down-root eurephia iproute2 passwordsave
+perl-core/bignum			 test
+sci-mathematics/pari			-X
+sys-apps/busybox			-pam -sep-usr -split-usr math mdev static
+sys-apps/debianutils			-installkernel
+sys-apps/hal				 disk-partition
+sys-apps/hwids				 usb
+sys-apps/ipmitool			 openipmi
+sys-apps/irqbalance			-numa
+sys-apps/lm_sensors			-sensord
+sys-apps/man				-nls
+sys-apps/man-db				-berkdb -nls
+sys-apps/memtest86			 serial
+sys-apps/memtest86+			 serial
+#sys-apps/microcode-data		 initramfs monolithic split-ucode
+sys-apps/module-init-tools		 no-old-linux
+sys-apps/openrc				 compat newnet
+sys-apps/pciutils			-zlib dns
+sys-apps/portage			-rsync-verify
+sys-apps/smartmontools			 update_drivedb
+sys-apps/usbutils			 experimental
+sys-apps/util-linux			 tty-helpers
+sys-auth/opie				-server
+sys-auth/pam_mobile_otp			 manager
+sys-auth/pambase			 #mktemp
+sys-block/parted			 device-mapper
+sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
+sys-cluster/galera			 garbd
+sys-devel/clang				 system-cxx-headers
+sys-devel/gcc				 go mudflap
+# gccgo from gcc-6.4.0 tries to include a deprecated glibc header, ustat.h, and fails.
+~sys-devel/gcc-6.4.0			-go
+sys-devel/gettext			 cvs git
+sys-devel/llvm				 clang llvm-gcc udis86
+# move sys-apps/microcode-data sys-firmware/intel-microcode
+sys-firmware/intel-microcode		 hostonly split-ucode
+sys-fs/cryptsetup			-static dynamic
+sys-fs/lvm2				-lvm1 -static -static-libs -thin
+sys-fs/udev				-extras action_modeswitch edd hwdb keymap
+sys-libs/glibc				-gd nptlonly nscd
+#sys-libs/libcap-ng			-python # Requires dev-lang/swig, but only as a DEPEND
+sys-libs/ncurses			 trace
+sys-libs/pam				 pam_chroot pam_console pam_timestamp
+sys-libs/timezone-data			 leaps_timezone right_timezone
+sys-power/powertop			-X
+#sys-process/audit			-python # Requires dev-lang/swig, but only as a DEPEND
+sys-process/cronie			-anacron
+sys-process/glances			-doc
+sys-process/procps			 modern-top
+www-apps/horde-imp			-crypt
+www-apps/mediawiki			 imagemagick
+www-apps/opennab			 test demo
+#www-client/links			-tiff javascript
+www-client/links			-deprecated
+www-client/elinks			-javascript -mouse -samba bittorrent finger gopher
+www-servers/lighttpd			-memcached fastcgi libev memcache uploadprogress webdav
+>=www-servers/lighttpd-1.4.53		-kerberos
+www-misc/monitorix			 hddtemp postfix
+x11-libs/cairo				-X cleartype lcdfilter
+
+app-shells/stdlib			 colour
+mail-client/roundcube::srcshelton	 plugins zxcvbn
+
+sys-kernel/gentoo-sources		 symlink experimental
+
+# required by sys-libs/libunwind-1.2.1-r3[lzma]
+>=app-arch/xz-utils-5.2.4-r2		 static-libs
+
+# required by dev-db/mariadb-10.1.22[extraengine,server]
+>=sys-libs/zlib-1.2.11			 minizip
+
+# device-mapper support in docker is now deprecated...
+#
+# required by app-emulation/docker-18.09.6[device-mapper]
+#>=sys-fs/lvm2-2.02.183			 thin
+
+# requires Java AWT/JNI components
+>=media-libs/libjpeg-turbo-2.0.3	-java
+
+# vi: set nowrap:

@@ -1,0 +1,12 @@
+# THIS IS A BUILD-TIME ONLY CONFIGURATION FILE
+#
+# This file will be removed during the 'base' phase
+#
+
+# We can't compile glibc during docker's 'build' phase, so we have to exclude
+# it (and its virtuals) from the system package set here.
+#-*virtual/libc
+#-*sys-libs/glibc
+
+# The above is no longer the case, as all package build steps are now executed
+# during 'run' stages.

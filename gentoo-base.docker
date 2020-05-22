@@ -1,0 +1,283 @@
+#! /bin/sh
+
+set -eu
+#set -o pipefail
+
+trace="${TRACE:-}"
+
+cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+
+[ ! -s common/vars.sh ] || . common/vars.sh
+
+[ -d gentoo-base ]
+[ -e gentoo-base/Dockerfile.env ]
+[ -e gentoo-base/Dockerfile.init ]
+[ -e gentoo-base/Dockerfile.build ]
+
+[ -d log ] || mkdir log
+
+IMAGE="${base_name}:latest"
+[ -s common/run.sh ] && . common/run.sh
+
+if [ -n "${*:-}" ]; then
+	if echo " ${*} " | grep -Eq -- ' -(h|-help) '; then
+		echo >&2 "Usage: $( basename "${0}" ) [--env] [--stage3] [--init] [[--force] --base] [[--force] --build]"
+		exit 0
+	elif ! echo "${*}" | grep -Eq -- '^(\s*--(env|stage3|init|base|build|force)\s*){1,6}$'; then
+		echo >&2 "FATAL: Unknown args '${*}'"
+		exit 1
+	fi
+
+	if echo " ${*} " | grep -Fq -- ' --force '; then
+		if ! echo " ${*} " | grep -Eq -- ' --(base|build) '; then
+			echo >&2 "FATAL: '--force' is only valid with '--base' or '--build'"
+			exit 1
+		fi
+	fi
+fi
+
+docker_setup
+
+pushd >/dev/null gentoo-base
+
+sum="$( sha1sum entrypoint.sh | cut -d' ' -f 1 )"
+env_id="$( docker image ls --format='{{.ID}}' "${env_name}:latest" )"
+stage3_id="$( docker image ls --format='{{.ID}}' "${stage3_name}:latest" )"
+
+[ -n "${trace:-}" ] && set -o xtrace
+
+# Create empty stage with shared environment variables ...
+#
+if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
+	echo
+	echo " ${blue}*${reset} Creating image '${env_name}:latest' ..."
+	echo
+
+	# NAME:    env
+	# LABELS:  
+	# USES:    
+	# USED_BY: stage3 build
+
+	set -o pipefail
+	docker build \
+			--compress \
+			--file 'Dockerfile.env' \
+			--build-arg SET_TERM="${TERM}" \
+			--tag "${env_name}:latest" \
+		. 2>&1 | tee ../log/"docker.${env_name}.log"
+	echo " -> ${?}"
+	set +o pipefail
+
+	[ "${*:-}" = '--env' ] && exit 0
+
+	echo
+	echo " ${blue}*${reset} Stage 'env' complete, next is 'stage3' ..."
+	echo
+fi
+
+env_id="$( docker image ls --format='{{.ID}}' "${env_name}:latest" )"
+
+if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
+	echo
+	echo " ${blue}*${reset} Creating image '${stage3_name}:latest' ..."
+	echo
+
+	# We have to 'pull' manually, or else this stage fails ...
+	stage3_image="$( grep '^ARG stage3_image=' Dockerfile.stage3 | cut -d'"' -f 2 )"
+	docker pull -q "${stage3_image}:latest"
+	stage3_id="$( docker image ls --format='{{.ID}}' "${stage3_image}:latest" )"
+
+	# NAME:    stage3
+	# LABELS:  envrionment_from stage3_from
+	# USES:    [gentoo/stage3-amd64] env
+	# USED_BY: init
+
+	set -o pipefail
+	docker build \
+			--compress \
+			--file 'Dockerfile.stage3' \
+			--build-arg env_id="${env_id}" \
+			--build-arg stage3_image="${stage3_image}" \
+			--build-arg stage3_id="${stage3_id}" \
+			--tag "${stage3_name}:latest" \
+		. 2>&1 | tee -a ../log/"docker.${env_name}.log"
+	echo " -> ${?}"
+	set +o pipefail
+
+	[ "${*:-}" = '--stage3' ] && exit 0
+
+	echo
+	echo " ${blue}*${reset} Stage 'stage3' complete, next is 'init' ..."
+	echo
+fi
+
+stage3_image="$( grep '^ARG stage3_image=' Dockerfile.stage3 | cut -d'"' -f 2 )"
+stage3_id="$( docker image ls --format='{{.ID}}' "${stage3_image}:latest" )"
+
+# Create initial image from Gentoo stage3 ...
+#
+if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
+	if docker image ls | grep -q -- "^${init_name}"; then
+		imagesum="$( docker inspect --format='{{.Config.Labels.entrypoint_sum}}' "${init_name}:latest" )"
+		if [ "${imagesum}" != "${sum}" ]; then
+			if echo " ${*} " | grep -Fq -- ' --force '; then
+				echo >&2
+				echo >&2 "${bold}WARN${reset}:  ${red}entrypoint.sh sum from '${init_name}:latest' image (${imagesum}) does not match file on disk (${sum}) - forcing continuation with existing embedded script ...${reset}"
+			else
+				echo >&2
+				echo >&2 "${bold}WARN${reset}:  ${red}entrypoint.sh sum from '${init_name}:latest' image (${imagesum}) does not match file on disk (${sum}) - rebuilding initial image ...${reset}"
+				set --
+			fi
+		fi
+	else
+		echo >&2 "docker image '${init_name}' not found - rebuilding initial image ..."
+		set --
+	fi
+fi
+
+if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
+	echo
+	echo " ${blue}*${reset} Creating image '${init_name}:latest' ..."
+	echo
+
+	stage3_env_id="$( docker inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
+	if [ "${env_id}" != "${stage3_env_id}" ]; then
+		echo >&2 "${bold}WARN${reset}:  ${red}The current 'environment' image differs from that used to build the 'stage3' image about to be linked to this stage${reset}"
+	fi
+	stage3_src_id="$( docker inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
+	if [ "${stage3_id}" != "${stage3_src_id}" ]; then
+		echo >&2 "${bold}WARN${reset}:  ${red}The upstream 'stage3' image differs from that used to build the 'stage3' image about to be linked to this stage${reset}"
+	fi
+
+	# NAME:    init
+	# LABELS:  stage3_from entrypoint_sum
+	# USES:    stage3
+	# USED_BY: base
+
+	set -o pipefail
+	docker build \
+			--compress \
+			--file 'Dockerfile.init' \
+			--build-arg environment_filter="${environment_filter}" \
+			--build-arg stage3_image="${stage3_image}" \
+			--build-arg stage3_id="${stage3_id}" \
+			--build-arg entrypoint_sum="${sum}" \
+			--tag "${init_name}:latest" \
+		. 2>&1 | tee ../log/"docker.${init_name}.log"
+	echo " -> ${?}"
+	set +o pipefail
+
+	echo
+	echo " ${blue}*${reset} Stage 'init' complete, next is 'base' ..."
+	echo
+fi
+
+# Launch initial image and run entrypoint script to install root @system, then
+# snapshot the result to create a base image ...
+#
+if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
+	docker image ls | grep -q -- "^${init_name}" || { echo >&2 "docker image '${init_name}' not found" ; exit 1 ; }
+
+	echo
+	echo " ${blue}*${reset} Deploying container '${base_name}' from image '${init_name}:latest' ..."
+	echo
+
+	stage3_env_id="$( docker inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
+	if [ "${env_id}" != "${stage3_env_id}" ]; then
+		echo >&2 "${bold}WARN${reset}:  ${red}The current 'environment' image differs from that used to build the 'stage3' image inherited by this stage${reset}"
+	fi
+	stage3_src_id="$( docker inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
+	if [ "${stage3_id}" != "${stage3_src_id}" ]; then
+		echo >&2 "${bold}WARN${reset}:  ${red}The upstream 'stage3' image differs from that used to build the 'stage3' image inherited by this stage${reset}"
+	fi
+
+	# NAME:    base
+	# LABELS:  (stage3_from) (entrypoint_sum)
+	# USES:    (init)
+	# USED_BY: build
+
+	set -o pipefail
+	(
+		export name="${base_name}"
+		export image="${init_name}:latest"
+		docker_run \
+				--usepkg=y \
+			'=virtual/libc-1' 2>&1 | tee ../log/"docker.${base_name}.log"
+	)
+	echo " -> ${?}"
+
+	echo
+	echo " ${blue}*${reset} Saving container '${base_name}' as image '${base_name}:latest' ..."
+	echo
+
+	docker commit "${base_name}" "${base_name}:latest" 2>&1 | tee -a ../log/"docker.${base_name}.log"
+	docker rm "${base_name}" 2>&1 | tee -a ../log/"docker.${base_name}.log"
+	echo " -> ${?}"
+	set +o pipefail
+
+	echo
+	echo " ${blue}*${reset} Stage 'base' complete, next is 'build' ..."
+	echo
+fi
+
+# Ensure that @system is correctly installed to ROOT=/ and snapshot result as
+# build image.
+if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
+	docker image ls | grep -q -- "^${base_name}" || { echo >&2 "docker image '${base_name}' not found" ; exit 1 ; }
+
+	echo
+	echo " ${blue}*${reset} Deploying container '${build_name}' ..."
+	echo
+
+	stage3_env_id="$( docker inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
+	if [ "${env_id}" != "${stage3_env_id}" ]; then
+		echo >&2 "${bold}WARN${reset}:  ${red}The current 'environment' image differs from that used to build the 'stage3' image inherited by this stage${reset}"
+	fi
+	stage3_src_id="$( docker inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
+	if [ "${stage3_id}" != "${stage3_src_id}" ]; then
+		echo >&2 "${bold}WARN${reset}:  ${red}The upstream 'stage3' image differs from that used to build the 'stage3' image inherited by this stage${reset}"
+	fi
+
+	# NAME:    build
+	# LABELS:  envrionment_from
+	# USES:    base env
+	# USED_BY: service
+
+	set -o pipefail
+	docker build \
+			--compress \
+			--file 'Dockerfile.build' \
+			--build-arg environment_filter="${environment_filter}" \
+			--build-arg env_id="${env_id}" \
+			--tag "${build_name}-root:latest" \
+		. 2>&1 | tee ../log/"docker.${build_name}.log"
+
+	(
+		export name="${build_name}"
+		export image="${build_name}-root:latest"
+		docker_run \
+				--update \
+				--usepkg=y \
+				--with-bdeps=n \
+				--with-bdeps-auto=n \
+			'@system' 2>&1 | tee -a ../log/"docker.${build_name}.log"
+	)
+	echo " -> ${?}"
+
+	echo
+	echo " ${blue}*${reset} Saving container '${build_name}' as image '${build_name}:latest' ..."
+	echo
+	docker commit "${build_name}" "${build_name}:latest" 2>&1 | tee -a ../log/"docker.${build_name}.log"
+	docker rm "${build_name}" 2>&1 | tee -a ../log/"docker.${build_name}.log"
+	docker image rm "${build_name}-root:latest" 2>&1 | tee -a ../log/"docker.${build_name}.log"
+	echo " -> ${?}"
+	set +o pipefail
+
+	echo
+	echo " ${blue}*${reset} Stage 'build' complete - all done"
+	echo
+fi
+
+set +o xtrace
+
+popd >/dev/null

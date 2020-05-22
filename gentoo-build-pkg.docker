@@ -1,0 +1,24 @@
+#! /bin/sh
+
+set -eu
+
+#set -o xtrace
+
+cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+
+[ ! -s common/vars.sh ] || . common/vars.sh
+
+IMAGE="${build_name}:latest"
+[ -s common/run.sh ] && . common/run.sh
+
+if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
+	echo >&2 "Usage: $( basename "${0}" ) [category/package_name [portage_atom...]]"
+	exit 0
+fi
+
+# Provide a '--name' to prevent the container being removed on exit.
+# Invoke with '--usepkg=n' to rebuild existing packages...
+
+docker_build "${@:-}"
+
+# vi: set syntax=sh:

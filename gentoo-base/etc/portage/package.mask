@@ -1,0 +1,117 @@
+
+# perl dependencies are still a mess :(
+<dev-lang/perl-5.30.1
+
+# Maintainers have tried to improve default security, and make broken the local
+# setup in the process...
+>mail-filter/opendkim-2.10.3-r3
+
+# perl build is broken, installing to /usr/local/perl...
+=net-analyzer/munin-2.0.49
+
+# No longer appears to build correctly...
+<dev-vcs/subversion-1.8
+
+# init scripts still need porting...
+#>sys-fs/lvm2-2.02.103
+
+# Having migrated to mariadb, block mysql
+<virtual/mysql-5.6
+dev-db/mysql
+
+# Don't revert to old GA versions
+<dev-db/mariadb-10.1
+
+# zabbix requires <=net-analyzer/fping-2.9
+#>net-analyzer/fping-2.9
+
+# nftables is now in-tree
+=net-firewall/nftables-9999
+
+# Latest dev-lang/php fails with:
+#
+#In file included from php-5.3.28/work/sapis-build/cli/ext/standard/basic_functions.c:49:0:
+#php-5.3.28/work/sapis-build/cli/Zend/zend_language_parser.h:317:5: error: conflicting types for 'zendparse'
+#In file included from php-5.3.28/work/sapis-build/cli/Zend/zend_globals.h:28:0,
+#                 from php-5.3.28/work/sapis-build/cli/Zend/zend_compile.h:342,
+#                 from php-5.3.28/work/sapis-build/cli/Zend/zend_modules.h:26,
+#                 from php-5.3.28/work/sapis-build/cli/Zend/zend_API.h:26,
+#                 from php-5.3.28/work/sapis-build/cli/main/php.h:38,
+#                 from php-5.3.28/work/sapis-build/cli/ext/standard/basic_functions.c:22:
+=dev-lang/php-5.3.28
+
+# bfgminer-3.1.2 fails to compile on x86/with cpu-mining
+=net-misc/bfgminer-3.1.2
+=net-misc/bfgminer-3.1.3
+
+# sysvinit-2.88-r4 requires util-linux-2.23+, which is masked
+# sysvinit-2.88-r5 has no requirements, but is not marked stable
+# sysvinit-2.88-r3 blocks util-linux-2.22+
+=sys-apps/sysvinit-2.88-r4
+=sys-apps/util-linux-2.22.2
+
+# Seems to a lacking a ttree.cfg from the docs subdirectory...
+=dev-perl/Template-Toolkit-2.20
+
+# Says that I should use Fedora...
+=app-text/xmlto-0.0.18
+=app-text/xmlto-0.0.21
+
+# Requires xmlto, which is fubar
+=sys-power/pm-utils-1.2.3-r1
+=sys-power/pm-utils-1.2.4
+
+# Latest mysql segfaults on startup - Bug #335995
+#=virtual/mysql-5.1
+~dev-db/mysql-5.1.50
+
+# Latest mysql doesn't support pbxt plugin - Bug #415427
+~dev-db/mysql-5.1.62
+
+# Either breaks with existing chroot environments, or
+# something weird is going on...
+# (New additions to zonefiles weren't resolvable, and
+#  reverting the named build somehow reverted the
+#  zonefiles also!)
+=net-dns/bind-9.7.2_p3-r1
+
+# www-client/elinks doesn't like newer spidermonkey
+# releases
+>dev-lang/spidermonkey-1.8
+
+# roundcube-0.5.2 doesn't save messages to the Sent folder,
+# other versions up to this are fine...
+=mail-client/roundcube-0.5.2
+
+# roundcube-0.7.3/0.8.0 don't refresh the message list correctly,
+# and several plugins no longer work correctly...
+#>=mail-client/roundcube-0.7.3
+# Might have been a problem with dev-perl/pecl-memcached instead?
+
+# ISC DHCP 4.2.2 doesn't support chroot gaols :(
+#~net-misc/dhcp-4.2.2
+
+# Build fails trying to find c++config.h
+=sys-devel/clang-3.1-r2
+=sys-devel/clang-3.1-r3
+
+# Newer versions are less functional and don't load
+# properly on Safari :(
+>www-apps/phpsysinfo-3.0
+
+# RedHat are evil :(
+>=sys-fs/udev-181
+# https://wiki.gentoo.org/wiki/Mdev
+#sys-fs/udev
+
+# Portage keeps wanting to pull-in an earlier kernel...
+#<sys-kernel/gentoo-sources-2.6.35
+# ... and we're all 3.0 now!
+<sys-kernel/gentoo-sources-3.0
+
+# Latest openssh lacks HPN support
+=net-misc/openssh-7.2_p2::gentoo
+
+# For some reason, pulls in an unstable perl package...
+#=virtual/perl-DB_File-1.840.0-r1
+

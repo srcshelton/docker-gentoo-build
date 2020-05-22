@@ -1,0 +1,103 @@
+#! /bin/sh
+
+set -eu
+
+cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+
+[ ! -s common/vars.sh ] || . common/vars.sh
+
+IMAGE="${build_name}:latest"
+[ -s common/run.sh ] && . common/run.sh >/dev/null
+
+# Provide a '--name' to prevent the container being removed on exit.
+
+if [ -n "${*:-}" ]; then
+	if echo " ${*} " | grep -Eq -- ' -(h|-help) '; then
+		echo >&2 "Usage: $( basename "${0}" ) --image=<image> [--name=<name>] [--remove] [commands]"
+		exit 0
+	fi
+fi
+
+docker_parse() {
+	for arg in "${@}"; do
+		if [ "${name}" = '<next>' ]; then
+			export name="${arg}"
+
+		elif [ "${image}" = '<next>' ]; then
+			export image="${arg}"
+
+		elif echo "${arg}" | grep -Eq -- '^-(n|-name)(=[a-z0-9]+([._-]{1,2}[a-z0-9]+)*)?$'; then
+			if echo "${arg}" | grep -Fq -- '=' ; then
+				export name="$( echo "${arg}" | cut -d'=' -f 2- )"
+			else
+				name='<next>'
+			fi
+
+		elif echo "${arg}" | grep -Eq -- '^-(i|-image)(=[a-z0-9]+([._-]{1,2}[a-z0-9]+)*)?(:.*)?$'; then
+			if echo "${arg}" | grep -Fq -- '=' ; then
+				export image="$( echo "${arg}" | cut -d'=' -f 2- )"
+			else
+				image='<next>'
+			fi
+
+		elif echo "${arg}" | grep -Eq -- '^-(r|-rm|-remove)$'; then
+			rm=1
+
+		else
+			args="${args:+${args} }${arg}"
+		fi
+	done
+	if [ "${name}" = '<next>' ]; then
+		export name=''
+	else
+		:
+	fi
+	if [ "${image}" = '<next>' ]; then
+		export image=''
+	else
+		:
+	fi
+}
+
+docker_run() {
+	# shellcheck disable=SC2086
+	docker run \
+		${TERM:+--env TERM} \
+		${USE:+--env USE} \
+		${ACCEPT_KEYWORDS:+--env ACCEPT_KEYWORDS} \
+		${FEATURES:=--env FEATURES} \
+		--mount type=bind,source=/var/cache/portage/pkg/amd64/xeon_e56.docker,destination=/var/cache/portage/pkg/amd64/docker \
+		--mount type=bind,source=/var/cache/portage/dist,destination=/var/cache/portage/dist \
+		--mount type=bind,source=/var/log/portage,destination=/var/log/portage \
+		--mount type=bind,source=/var/db/repo/gentoo,destination=/var/db/repo/gentoo,readonly \
+		--mount type=bind,source=/var/db/repo/srcshelton,destination=/var/db/repo/srcshelton,readonly \
+		--privileged \
+		--cap-add SYS_PTRACE \
+		--interactive \
+		--tty \
+		--entrypoint '/bin/sh' \
+		--name "${name}" \
+		"${image}" \
+			-c ${args:-bash}
+}
+
+docker_setup
+docker_parse "${@:-}"
+
+image="${image:-${IMAGE}}"
+name="${name:-${image//:/_}-inspect}"
+
+if [ -n "${rm}" ]; then
+	docker rm "${name}" 2>/dev/null || :
+fi
+
+echo >&2 "Launching container '${name}' from image '${image}' ..."
+
+set -o xtrace
+docker_run
+
+if [ -n "${rm}" ]; then
+	docker rm "${name}"
+fi
+
+# vi: set syntax=sh:

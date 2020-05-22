@@ -1,0 +1,110 @@
+#! /bin/sh
+
+set -eu
+
+DEFAULT_JOBS='__JOBS__'
+DEFAULT_MAXLOAD='__MAXLOAD__'
+
+#ARCH="${ARCH:-amd64}"
+#
+#PKGHOST='docker'
+#PKGCACHE='/var/cache/portage/pkg'
+#
+#PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
+#DISTDIR="${DISTDIR:-/var/cache/portage/dist}"
+#PORTAGE_LOGDIR="${PORTAGE_LOGDIR:-/var/log/portage}"
+#
+#PORTAGE_TMPDIR="${PORTAGE_TMPDIR:-/var/tmp}"
+#RPMDIR="${RPMDIR:-/var/cache/portage/rpm}"
+##PORTAGE_DEPCACHEDIR="${PORTAGE_DEPCACHEDIR:-/var/cache/edb/dep}"
+
+[ -s /usr/libexec/environment.sh ] &&
+        . /usr/libexec/environment.sh ||
+        {
+            echo >&2 "FATAL: gentoo-build:entrypoint.sh Unable to source '/usr/libexec/environment.sh': ${?}"
+            exit 1
+        }
+
+env-update
+. /etc/profile
+
+if echo " ${*:-} " | grep -Fq -- ' --verbose-build '; then
+	parallel='--jobs=1 --quiet-build=n'
+else
+	if [ -n "${JOBS:-}" ]; then
+		case "${JOBS}" in
+			0)
+				parallel=''
+				;;
+			'*')
+				parallel='--jobs'
+				;;
+			[0-9]*)
+				parallel="--jobs=${JOBS}"
+				;;
+			*)
+				parallel="--jobs=${DEFAULT_JOBS}"
+				;;
+		esac
+	else
+		parallel="--jobs=${DEFAULT_JOBS}"
+	fi
+fi
+
+if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
+	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-${DEFAULT_MAXLOAD}}"
+fi
+
+#EMERGE_DEFAULT_OPTS="${EMERGE_DEFAULT_OPTS:+${EMERGE_DEFAULT_OPTS} }--usepkg=y"
+
+#export ACCEPT_KEYWORDS ACCEPT_LICENSE DISTDIR EMERGE_DEFAULT_OPTS FEATURES MAKEOPTS PKGDIR PORTAGE_LOGDIR USE
+
+info="$( emerge --info --verbose )"
+echo
+echo 'Resolved build variables for build stage:'
+echo '-----------------------------------------'
+echo
+echo "ROOT                = $( echo "${info}" | grep '^ROOT=' | cut -d'=' -f 2- )"
+echo "SYSROOT             = $( echo "${info}" | grep '^SYSROOT=' | cut -d'=' -f 2- )"
+echo "PORTAGE_CONFIGROOT  = $( echo "${info}" | grep '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2- )"
+echo
+echo "FEATURES            = $( echo "${info}" | grep '^FEATURES=' | cut -d'=' -f 2- )"
+echo "ACCEPT_LICENSE      = $( echo "${info}" | grep '^ACCEPT_LICENSE=' | cut -d'=' -f 2- )"
+echo "ACCEPT_KEYWORDS     = $( echo "${info}" | grep '^ACCEPT_KEYWORDS=' | cut -d'=' -f 2- )"
+echo "USE                 = \"$( echo "${info}" | grep '^USE=' | cut -d'"' -f 2 )\""
+echo "MAKEOPTS            = $( echo "${info}" | grep '^MAKEOPTS=' | cut -d'=' -f 2- )"
+echo
+echo "EMERGE_DEFAULT_OPTS = $( echo "${info}" | grep '^EMERGE_DEFAULT_OPTS=' | cut -d'=' -f 2- )"
+echo
+echo "DISTDIR             = $( echo "${info}" | grep '^DISTDIR=' | cut -d'=' -f 2- )"
+echo "PKGDIR              = $( echo "${info}" | grep '^PKGDIR=' | cut -d'=' -f 2- )"
+echo "PORTAGE_LOGDIR      = $( echo "${info}" | grep '^PORTAGE_LOGDIR=' | cut -d'=' -f 2- )"
+echo
+unset info
+
+case "${1:-}" in
+	'')
+		package='app-shells/bash'
+
+		echo "DEBUG: Running 'exec emerge ${parallel:+${parallel} }\"${package}\""
+
+		# shellcheck disable=SC2086
+		exec emerge ${parallel} "${package}"
+		;;
+	sh|/bin/sh)
+		[ -n "${2:-}" ] && shift
+
+		exec /bin/sh "${@}"
+		;;
+	bash|/bin/bash)
+		[ -n "${2:-}" ] && shift
+
+		exec /bin/bash "${@}"
+		;;
+	*)
+		echo "DEBUG: Running 'exec emerge ${parallel:+${parallel} }${*}"
+
+		# shellcheck disable=SC2086
+		exec emerge ${parallel} "${@}"
+		;;
+esac

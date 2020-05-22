@@ -1,0 +1,9 @@
+# Default ACCEPT_LICENSE:
+*/*					-* @FREE
+# Less restrictive ACCEPT_LICENSE:
+#*/*					 * -@EULA
+# Unrestricted ACCEPT_LICENSE:
+#*/*					 *
+
+sys-firmware/intel-microcode		 intel-ucode
+sys-kernel/linux-firmware		 linux-fw-redistributable no-source-code

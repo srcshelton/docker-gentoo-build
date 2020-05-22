@@ -1,0 +1,8 @@
+# MariaDB 10.4.x is the stable/GA branch, yet only 10.1.x (previous release
+# test branch) are marked as stable... this is not helpful.
+#<dev-db/mariadb-10.5.0					~amd64
+
+# required by dev-db/mariadb-10.1.34[-bindist]
+#=sys-libs/binutils-libs-2.30-r3				~amd64
+
+#~sys-cluster/galera-25.3.13				~amd64

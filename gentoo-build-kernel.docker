@@ -1,0 +1,206 @@
+#! /bin/sh
+
+set -eu
+
+#set -o xtrace
+
+cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+
+[ ! -s common/vars.sh ] || . common/vars.sh
+
+IMAGE="${build_name}:latest"
+[ -s common/run.sh ] && . common/run.sh
+
+if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
+	echo >&2 "Usage: $( basename "${0}" ) [--menuconfig] [--keep-build[=<dir>]] [--config=<file> [--force]]"
+	echo >&2
+	echo >&2 "Options:"
+	echo >&2 "        --menuconfig  Interactively reconfigure the kernel"
+	echo >&2 "        --keep-build  Cache the kernel build artefacts for re-use"
+	echo >&2 "                      (optionally in the specified directory)"
+	echo >&2 "        --config      Use specified file as kernel base configuration"
+	echo >&2 "                      (specify config.gz or /proc/config.gz to auto-extract the"
+	echo >&2 "                       active kernel configuration)"
+	echo >&2 "        --force       Overwrite build-cache configuration with specified file"
+	echo >&2
+	exit 0
+fi
+menuconfig=0
+force=0
+build=0
+config=''
+build_dir=''
+if echo " ${*:-} " | grep -q -- ' --menuconfig '; then
+	menuconfig=1
+fi
+if echo " ${*:-} " | grep -q -- ' --config'; then
+	if echo " ${*:-} " | grep -q -- ' --config=[^ ]\+ '; then
+		config="$( echo " ${*} " | grep -o -- '--config=[^ ]\+ ' | cut -d'=' -f 2- | sed 's/ $//' )"
+	elif echo " ${*:-} " | grep -q -- ' --config [^ -]\+ '; then
+		config="$( echo " ${*} " | grep -o -- '--config [^ ]\+ ' | cut -d' ' -f 2- | sed 's/ $//' )"
+	else
+		echo "WARN:  Invalid option '$( echo " ${*:-} " | grep -o -- '--config[^ ]\+ ' | sed 's/ $//' )'"
+	fi
+	if echo " ${*:-} " | grep -q -- ' --force '; then
+		force=1
+	fi
+else
+	if echo " ${*:-} " | grep -q -- ' --force '; then
+		echo >&2 "WARN:  '--force' is not a valid option without '--config'"
+	fi
+	if [ "${menuconfig}" = '1' ]; then
+		echo >&2 "WARN:  Changes made to configuration will not be saved externally"
+	fi
+fi
+if echo " ${*:-} " | grep -q -- ' --keep-build'; then
+	if echo " ${*:-} " | grep -q -- ' --keep-build=[^ ]\+ '; then
+		build_dir="$( echo " ${*} " | grep -o -- '--keep-build=[^ ]\+ ' | cut -d'=' -f 2- | sed 's/ $//' )"
+		build=1
+	elif echo " ${*:-} " | grep -q -- ' --keep-build [^ -]\+ '; then
+		build_dir="$( echo " ${*} " | grep -o -- '--keep-build [^ ]\+ ' | cut -d' ' -f 2- | sed 's/ $//' )"
+		build=1
+	elif echo " ${*:-} " | grep -q -- ' --keep-build '; then
+		build=1
+	else
+		echo "WARN:  Invalid option '$( echo " ${*:-} " | grep -o -- '--keep-build[^ ]\+ ' | sed 's/ $//' )'"
+	fi
+fi
+
+docker image ls | grep -q -- "^${IMAGE%:*}" || { echo >&2 "docker image '${IMAGE%:*}' not found" ; exit 1 ; }
+
+docker_setup
+
+package=''
+package_version=''
+container=''
+docker_resolve 'sys-kernel/gentoo-sources'
+export container="${package/\//.}"
+
+build_version="$( echo "${package_version:-}" | cut -d'.' -f 1-2 )"
+if [ -z "${build_dir:-}" ]; then
+	build_dir="/usr/src/build-${build_version}.x"
+fi
+if [ "${build:-}" = '1' ]; then
+	echo >&2 "INFO:  Using build directory '${build_dir}' ..."
+	mkdir -p "${build_dir}" || exit 1
+fi
+
+if [ -n "${config:-}" ]; then
+	if [ "${build:-}" = '1' ]; then
+		if [ -e "${build_dir}"/.config ]; then
+			if ! [ "${force:-}" = '1' ]; then
+				echo >&2 "FATAL: '${build_dir}/.config' already exists"
+				exit 1
+			fi
+		fi
+	fi
+	if [ "${config}" = 'config.gz' ] || [ "${config}" = '/proc/config.gz' ]; then
+		if ! [ -r /proc/config.gz ]; then
+			echo >&2 "FATAL: Cannot read '/proc/config.gz' - do you need to 'sudo modprobe configs'?"
+			exit 1
+		fi
+		if [ "${build:-}" = '1' ]; then
+			zcat /proc/config.gz > "${build_dir}"/.config || exit 1
+			config="${build_dir}/.config"
+		else
+			if [ -e "${TMPDIR:-/tmp}/config" ]; then
+				echo >&2 "FATAL: '${TMPDIR:-/tmp}/config' already exists"
+				exit 1
+			fi
+			echo >&2 "NOTE:  Extracting /proc/config.gz to '${TMPDIR:-/tmp}' ..."
+			zcat /proc/config.gz > "${TMPDIR:-/tmp}/config"
+			config="${TMPDIR:-/tmp}/config"
+		fi
+	else
+		if [ "${build:-}" = '1' ]; then
+			cp "${config}" "${build_dir}"/.config || exit 1
+			config="${build_dir}/.config"
+		fi
+	fi
+	config="$( readlink -e "${config}" )"
+	if ! [ -s "${config}" ]; then
+		echo >&2 "FATAL: Cannot read kernel configuration file '${config}'"
+		exit 1
+	fi
+	if ! [ -w "${config}" ]; then
+		echo >&2 "FATAL: Cannot write to kernel configuration file '${config}'"
+		exit 1
+	fi
+	if ! [ "${build:-}" = '1' ]; then
+		echo >&2 "INFO:  Using '${config}' as kernel configuration - changes WILL BE saved to this file..."
+	fi
+fi
+
+[ -d log ] || mkdir log
+
+if ! [ "$( docker image ls "${container%-${package_version}}:${package_version}" | wc -l )" = '2' ]; then
+	ACCEPT_LICENSE="linux-fw-redistributable no-source-code" \
+	USE="-lib-only symlink" \
+	name="${container}" \
+	image="${IMAGE}" \
+		docker_run \
+				--update \
+				--usepkg=y \
+				"=${package}" sys-kernel/linux-firmware sys-firmware/intel-microcode sys-devel/gcc app-arch/cpio sys-apps/coreutils \
+			2>&1 | tee log/"docker.${container}.log"
+	echo " -> ${?}"
+
+	docker commit "${container}" "${container%-${package_version}}:${package_version}" 2>&1 | tee -a log/"docker.${container}.log"
+	docker rm "${container}" 2>&1 | tee -a log/"docker.${container}.log"
+	echo " -> ${?}"
+fi
+
+DOCKER_EXTRA_MOUNTS=''
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS} --mount type=bind,source=/lib/modules,destination=/lib/modules"
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS} --mount type=bind,source=/boot,destination=/boot"
+DOCKER_ENTRYPOINT='/bin/sh'
+DOCKER_INTERACTIVE=1
+deforoldconfig='defconfig'
+if [ -n "${build_dir:-}" ]; then
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS} --mount type=bind,source=${build_dir},destination=/usr/src/build"
+	if [ -e "${build_dir}"/.config ]; then
+		deforoldconfig='oldconfig'
+	fi
+fi
+if [ -n "${config:-}" ]; then
+	deforoldconfig='oldconfig'
+	if ! [ -n "${build_dir:-}" ] && [ -w "${config}" ]; then
+		DOCKER_VOLUMES="--volume ${config}:/usr/src/build/.config"
+	fi
+fi
+
+DOCKER_SCRIPT="$( cat <<-EOF
+	set -eu ;
+	[ -e /usr/src/linux ] || { 
+		echo >&2 "FATAL: '/usr/src/linux' does not exist in container" ;
+		exit 1 ;
+	} ;
+	echo "Detected terminal size: \$( stty size )" ;
+	export TERM LINES COLUMNS ;
+	echo "Setting terminal to \${COLUMNS}x\${LINES}..." ;
+	stty cols "\${COLUMNS}" rows "\${LINES}" ;
+	echo "Detected terminal size: \$( stty size )" ;
+	cd /usr/src/linux ;
+	make mrproper ;
+	mkdir -p ../build ;
+	set -x ;
+	make O=../build ${deforoldconfig} prepare ${menuconfig:+menuconfig} vmlinux modules bzImage modules_install ;
+	set +x ;
+	cp ../build/.config /boot/config-${package_version}-gentoo ;
+	cp ../build/System.map /boot/System.map-${package_version}-gentoo ;
+	cp ../build/arch/x86/boot/bzImage /boot/kernel-${package_version}-gentoo ;
+	echo 'Linux kernel-${package_version}-gentoo installed - please update your bootloader' ;
+EOF
+)"
+DOCKER_SCRIPT="$( echo "${DOCKER_SCRIPT}" | tr $'\n' ' ' )"
+
+image="${container%-${package_version}}:${package_version}" \
+TERM="${TERM:-}" \
+DOCKER_VARS="--env LINES=${LINES} --env COLUMNS=${COLUMNS}" \
+	docker_run \
+			-c "${DOCKER_SCRIPT}" \
+		2>&1 | tee -a log/"docker.${container}.log"
+#DOCKER_DEVICES="--device=/dev/tty --device=/dev/tty0" \
+echo " -> ${?}"
+
+

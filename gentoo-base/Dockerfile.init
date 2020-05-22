@@ -1,0 +1,80 @@
+
+# init:
+#    Create a base-image with a default Gentoo stage3 image and common
+#    variables required to rebuild a custom base system.
+#    This image *does not* import a package repo, as this can be more
+#    efficiently mounted when the resulting image is run.
+
+ARG stage3_image="gentoo/stage3-amd64"
+ARG stage3_name="gentoo-stage3"
+ARG stage3_id=""
+ARG entrypoint_sum=""
+
+ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
+
+
+# -----------------------------------------------------------------------------
+
+FROM "${stage3_name:-gentoo-stage3}:latest"
+
+ARG stage3_image
+ARG stage3_id
+ARG entrypoint_sum
+
+ARG environment_filter
+
+
+LABEL maintainer="stuart@shelton.me"
+LABEL Description="Deploy gentoo base-image and build binary package(s) for named Portage atom"
+LABEL Notices="To build certain pacakges, such a glibc, this container must be started with '--cap-add SYS_PTRACE --privileged'"
+
+LABEL stage3_from="${stage3_image}:${stage3_id}"
+LABEL entrypoint_sum="${entrypoint_sum}"
+
+
+# Save initial environment ...
+RUN emerge --info --verbose >/usr/libexec/stage3.info 2>/dev/null
+
+
+# Try to get nice colours ...
+#
+ARG SET_TERM="${TERM:-xterm}"
+ENV TERM="${SET_TERM}"
+
+
+# Perform initial setup ...
+#
+RUN set -u ; \
+    mkdir -p "${PKGDIR}" "${DISTDIR}" "${PORTAGE_LOGDIR}" "${PORTAGE_TMPDIR}" \
+        "${RPMDIR}" && \
+    rm -r /etc/portage && \
+    mkdir /etc/portage
+
+COPY etc/ /etc/
+
+# Confirm correct extraction...
+#
+RUN test -s /etc/timezone && \
+    test -e /etc/portage/package.accept_keywords && \
+    test -s /etc/portage/profile/package.provided
+
+RUN set -u ; \
+    ln -sf /usr/share/portage/config/make.globals /etc/portage/make.globals ; \
+    ln -sf "/var/db/repo/gentoo/profiles/${GENTOO_PROFILE}" /etc/portage/make.profile
+
+COPY entrypoint.sh /usr/libexec/
+RUN test -s /usr/libexec/entrypoint.sh
+
+RUN set -u ; \
+    sed -i \
+            -e "s|__JOBS__|${JOBS}|" \
+            -e "s|__MAXLOAD__|${MAXLOAD}|" \
+            -e "s|__PROFILE__|${GENTOO_PROFILE}|" \
+            -e "s:__ENVFILTER__:${environment_filter}:" \
+        /usr/libexec/entrypoint.sh && \
+    chmod 0755 /usr/libexec/entrypoint.sh 
+
+ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
+CMD ["app-shells/bash"]
+
+# vi: set syntax=dockerfile expandtab nowrap colorcolumn=80:

@@ -1,0 +1,182 @@
+
+# build:
+#   A docker container containing an installed system image built from a local
+#   package repo, extracted from the stage3 environment ROOT.
+
+
+ARG base_name="gentoo-base"
+ARG env_name="gentoo-env"
+ARG env_id=""
+
+ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
+
+ARG ROOT="/build"
+ARG SYSROOT="${ROOT}"
+ARG PORTAGE_CONFIGROOT="${SYSROOT}"
+
+
+# -----------------------------------------------------------------------------
+
+# Import system image
+#
+FROM "${base_name:-gentoo-base}:latest" AS base
+
+ARG ROOT
+
+RUN test -s "${ROOT}"/usr/libexec/environment.sh
+
+
+# -----------------------------------------------------------------------------
+
+# Create a new container
+#
+FROM "${env_name:-gentoo-env}:latest"
+
+ARG env_name
+ARG env_id
+
+ARG environment_filter
+
+ARG ROOT
+ARG SYSROOT
+ARG PORTAGE_CONFIGROOT
+
+
+# Copy the portage tree into the current stage
+#
+COPY --from=base "${ROOT}" /
+RUN test -s /usr/libexec/environment.sh
+
+#RUN printf >&2 " * 'build' stage imported environment:\n\n%s\n\n" "$( < /usr/libexec/environment.sh )"
+
+LABEL maintainer="stuart@shelton.me"
+LABEL Description="Gentoo base @system image"
+
+LABEL envrionment_from="${env_name}:${env_id}"
+
+
+# Set resources usage limits ...
+#
+#ARG JOBS="4"
+#ARG MAXLOAD="5.00"
+
+
+# Set core architectural settings ...
+#
+#ARG ARCH="amd64"
+#ARG PKGHOST="docker"
+#ARG PKGCACHE="/var/cache/portage/pkg"
+#ARG FEATURES_COMMON="							\
+#         binpkg-logs binpkg-multi-instance buildpkg			\
+#        -collision-protect cgroup clean-logs compress-build-logs	\
+#         compressdebug							\
+#         ebuild-locks							\
+#         fixlafiles							\
+#         multilib-strict						\
+#         news								\
+#        -protect-owned parallel-fetch parallel-install preserve-libs	\
+#         qa-unresolved-soname-deps					\
+#         sfperms split-elog split-log splitdebug strict			\
+#         unknown-features-filter unknown-features-warn unmerge-orphans	\
+#         userfetch userpriv usersync					\
+#         xattr								\
+#         ipc-sandbox mount-sandbox network-sandbox pid-sandbox sandbox	\
+#         usersandbox							\
+#    "
+#ARG EMERGE_COMMON_OPTS="--autounmask-write=y --backtrack=100 --binpkg-changed-deps=y --binpkg-respect-use=y --buildpkg=y --color=y --deep --keep-going=y --rebuild-if-new-slot=y --rebuilt-binaries=y --tree --verbose=y --verbose-conflicts"
+
+# Reset variables for future builds ...
+#
+#ENV FEATURES="${FEATURES_COMMON} fakeroot"
+#ENV EMERGE_DEFAULT_OPTS="${EMERGE_COMMON_OPTS} --with-bdeps=y --with-bdeps-auto=y"
+#ENV PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
+#ENV DISTDIR="/var/cache/portage/dist"
+#ENV PORTAGE_LOGDIR="/var/log/portage"
+
+
+# Further clean-up to minimise image size ...
+#
+RUN [ -s /usr/libexec/environment.sh ] && \
+        . /usr/libexec/environment.sh || \
+        { \
+            echo >&2 "FATAL: Unable to source '/usr/libexec/environment.sh': ${?}" ; \
+            exit 1 ; \
+        } ; \
+    set -u ; \
+    etc-update --quiet --preen 2>/dev/null && \
+    find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete ; \
+    [ -d /var/db/repo ] && \
+        find /var/db/repo/ -mindepth 1 -maxdepth 1 -type d | while read -r d; do \
+            rm -r -- "${d}" && mkdir -p -- "${d}" ; \
+        done ; \
+    [ ! -d "${PORTAGE_TMPDIR}/portage" ] || rm -r "${PORTAGE_TMPDIR}/portage" ; \
+    [ ! -d "${PORTAGE_LOGDIR}" ] || rm -r "${PORTAGE_LOGDIR}" ; \
+    [ ! -d "${DISTDIR}" ] || rm -r "${DISTDIR}" ; \
+    [ ! -d "${PKGDIR}" ] || rm -r "${PKGDIR}" ; \
+    [ ! -d "${ROOT}" ] || rm -r "${ROOT}" ; \
+    mkdir -p -- "${PORTAGE_LOGDIR}" "${DISTDIR}" "${PKGDIR}" ; \
+    find /tmp/ -type f -delete ; \
+    find /tmp/ -mindepth 1 -type d -delete ; \
+    find /var/tmp/ -type f -delete ; \
+    find /var/tmp/ -mindepth 1 -type d -delete ; \
+    find /var/log/ -type f -delete ; \
+    find /var/log/ -mindepth 1 -type d -delete ; \
+    [ -d /root ] || mkdir -m 0700 -- /root
+
+
+# Reset ROOT to install packages directly into container ...
+#
+ENV ROOT="/"
+ENV SYSROOT="${ROOT}"
+ENV PORTAGE_CONFIGROOT="${SYSROOT}"
+
+# Rewrite filteredenvironment with new values ...
+#
+RUN [ -s /usr/libexec/environment.sh ] && \
+        . /usr/libexec/environment.sh || \
+        { \
+            echo >&2 "FATAL: Unable to source '/usr/libexec/environment.sh': ${?}" ; \
+            exit 1 ; \
+        } ; \
+    gcc-config 1 2>/dev/null && \
+    . /etc/profile && \
+    printf "#FILTER: '%s'\n\n" "${environment_filter}" > /usr/libexec/environment.sh && \
+    export -p | \
+	grep -- '=' | \
+	grep -Ev -- "${environment_filter}" \
+	>> /usr/libexec/environment.sh && \
+    cat /usr/libexec/environment.sh | \
+        grep >&2 -- ' ROOT=' && { \
+            printf >&2 "Invalid 'ROOT' directive in '/usr/libexec/environment.sh':\n\n%s\n\n" "$( < /usr/libexec/environment.sh )" ; \
+            exit 1 ; \
+        } || :
+#RUN printf >&2 " * 'build' stage propagated environment:\n\n%s\n\n" "$( < /usr/libexec/environment.sh )"
+
+
+# Setup entrypoint script to perform a one-time copy of binary system packages
+# to the (hopefully) host-mounted packages directory ...
+#
+COPY entrypoint.sh.build /usr/libexec/entrypoint.sh
+RUN test -s /usr/libexec/entrypoint.sh
+
+RUN [ -s /usr/libexec/environment.sh ] && \
+        . /usr/libexec/environment.sh || \
+        { \
+            echo >&2 "FATAL: Unable to source '/usr/libexec/environment.sh': ${?}" ; \
+            exit 1 ; \
+        } ; \
+    set -u ; \
+    sed -i \
+        -e "s/__JOBS__/${JOBS}/" \
+        -e "s/__MAXLOAD__/${MAXLOAD}/" \
+            /usr/libexec/entrypoint.sh && \
+    chmod 0755 /usr/libexec/entrypoint.sh 
+
+# This container is anticipated to be inherited rather than run, or run with
+# (a) package atom(s) - but let's (re)emerge bash if executed directly without
+# parameters ...
+#
+ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
+CMD ["app-shells/bash"]
+
+# vi: set syntax=dockerfile expandtab nowrap colorcolumn=80:

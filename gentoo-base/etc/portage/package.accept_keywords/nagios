@@ -1,0 +1,7 @@
+# Nagios
+~net-analyzer/nagios-core-4.4.5				~amd64
+~net-analyzer/nagios-plugins-2.3.1			~amd64
+#net-analyzer/nagios					~amd64
+#net-analyzer/nagios-core				~amd64
+#net-analyzer/nagios-imagepack				~amd64
+#net-analyzer/nagios-plugins				~amd64
