@@ -26,7 +26,7 @@ ARG environment_filter
 
 LABEL maintainer="stuart@shelton.me"
 LABEL Description="Deploy gentoo base-image and build binary package(s) for named Portage atom"
-LABEL Notices="To build certain pacakges, such a glibc, this container must be started with '--cap-add SYS_PTRACE --privileged'"
+LABEL Notices="To build certain packages, such a glibc, this container must be started with '--cap-add SYS_PTRACE'"
 
 LABEL stage3_from="${stage3_image}:${stage3_id}"
 LABEL entrypoint_sum="${entrypoint_sum}"
@@ -57,6 +57,10 @@ COPY etc/ /etc/
 RUN test -s /etc/timezone && \
     test -e /etc/portage/package.accept_keywords && \
     test -s /etc/portage/profile/package.provided
+
+RUN [ -d /etc/portage/package.use.init ] && \
+    [ ! -e /etc/portage/package.use ] && \
+    mv /etc/portage/package.use.init /etc/portage/package.use
 
 RUN set -u ; \
     ln -sf /usr/share/portage/config/make.globals /etc/portage/make.globals ; \
