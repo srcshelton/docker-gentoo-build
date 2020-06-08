@@ -5,35 +5,47 @@ set -eu
 DEFAULT_JOBS='__JOBS__'
 DEFAULT_MAXLOAD='__MAXLOAD__'
 
-#ARCH="${ARCH:-amd64}"
-#
-#PKGHOST='docker'
-#PKGCACHE='/var/cache/portage/pkg'
-#
-#PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
-#DISTDIR="${DISTDIR:-/var/cache/portage/dist}"
-#PORTAGE_LOGDIR="${PORTAGE_LOGDIR:-/var/log/portage}"
-#
-#PORTAGE_TMPDIR="${PORTAGE_TMPDIR:-/var/tmp}"
-#RPMDIR="${RPMDIR:-/var/cache/portage/rpm}"
-##PORTAGE_DEPCACHEDIR="${PORTAGE_DEPCACHEDIR:-/var/cache/edb/dep}"
+die() {
+	printf 'FATAL: %s\n' "${*:-Unknown error}"
+	exit 1
+} # die
+
+warn() {
+	[ -z "${*:-}" ] && echo || printf 'WARN:  %s\n' "${*}"
+} # warn
+
+print() {
+	[ -z "${*:-}" ] && echo || printf 'DEBUG: %s\n' "${*}"
+} # print
+
+if [ -n "${DEV_MODE:-}" ]; then
+	cat <<EOF
+*******************************************************************************
+*                                                                             *
+* OPERATING IN DEV_MODE                                                       *
+*                                                                             *
+* This script is running as it exists on-disk, overriding the Docker image    *
+* contents.  Do not use the output of this mode for reliable builds.          *
+*                                                                             *
+*******************************************************************************
+
+EOF
+fi
 
 [ -s /usr/libexec/environment.sh ] &&
-        . /usr/libexec/environment.sh ||
-        {
-            echo >&2 "FATAL: gentoo-build:entrypoint.sh Unable to source '/usr/libexec/environment.sh': ${?}"
-            exit 1
-        }
+	. /usr/libexec/environment.sh ||
+		die "FATAL: gentoo-build:entrypoint.sh Unable to source '/usr/libexec/environment.sh': ${?}"
 
 env-update
+ROOT='/' gcc-config 1
 . /etc/profile
 
-if echo " ${*:-} " | grep -Fq -- ' --verbose-build '; then
+if printf '%s' " ${*:-} " | grep -Fq -- ' --verbose-build '; then
 	parallel='--jobs=1 --quiet-build=n'
 else
 	if [ -n "${JOBS:-}" ]; then
 		case "${JOBS}" in
-			0)
+			0|1)
 				parallel=''
 				;;
 			'*')
@@ -55,41 +67,232 @@ if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
 	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-${DEFAULT_MAXLOAD}}"
 fi
 
-#EMERGE_DEFAULT_OPTS="${EMERGE_DEFAULT_OPTS:+${EMERGE_DEFAULT_OPTS} }--usepkg=y"
+TUSE='' pre_remove='' pre_pkgs='' pre_use='' post_pkgs='' post_use='' change_sysroot='0'
+for arg in "${@}"; do
+        shift
+	case "${arg}" in
+		--pre-remove=*)
+			pre_remove="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			continue
+			;;
+		--pre-pkgs=*)
+			pre_pkgs="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			continue
+			;;
+		--pre-use=*)
+			pre_use="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			continue
+			;;
+		--post-pkgs=*)
+			post_pkgs="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			continue
+			;;
+		--post-use=*)
+			post_use="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			continue
+			;;
+		--sysroot)
+			change_sysroot='1'
+			continue
+			;;
+		--verbose-build)
+			continue
+			;;
+		--with-use=*)
+			TUSE="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			continue
+			;;
+		*)
+		        set -- "${@}" "${arg}"
+			;;
+	esac
+done
 
-#export ACCEPT_KEYWORDS ACCEPT_LICENSE DISTDIR EMERGE_DEFAULT_OPTS FEATURES MAKEOPTS PKGDIR PORTAGE_LOGDIR USE
+# post_use should be based on the original USE flags, without --with-use
+# additions...
+if [ -n "${post_use:-}" ]; then
+	if ! printf ' %s ' "${post_use:-}" | grep -Fq -- ' -* '; then
+		post_use="${USE:+${USE} }${post_use:-}"
+	fi
+else
+	post_use="${USE:-}"
+fi
+post_use="${post_use:+${post_use} }${use_essential:+ ${use_essential}}"
 
-info="$( emerge --info --verbose )"
+if [ -n "${TUSE:-}" ]; then
+	if ! printf '%s' " ${TUSE} " | grep -Fq -- ' -* '; then
+		TUSE="${USE:+${USE} }${TUSE}"
+	fi
+	export USE="${TUSE}${use_essential:+ ${use_essential}}"
+fi
+
+info="$( LC_ALL='C' emerge --info --verbose )"
 echo
 echo 'Resolved build variables for build stage:'
-echo '-----------------------------------------'
+echo '----------------------------------------'
 echo
-echo "ROOT                = $( echo "${info}" | grep '^ROOT=' | cut -d'=' -f 2- )"
-echo "SYSROOT             = $( echo "${info}" | grep '^SYSROOT=' | cut -d'=' -f 2- )"
-echo "PORTAGE_CONFIGROOT  = $( echo "${info}" | grep '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2- )"
+echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
+echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+echo "PORTAGE_CONFIGROOT  = $( echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2- )"
 echo
-echo "FEATURES            = $( echo "${info}" | grep '^FEATURES=' | cut -d'=' -f 2- )"
-echo "ACCEPT_LICENSE      = $( echo "${info}" | grep '^ACCEPT_LICENSE=' | cut -d'=' -f 2- )"
-echo "ACCEPT_KEYWORDS     = $( echo "${info}" | grep '^ACCEPT_KEYWORDS=' | cut -d'=' -f 2- )"
-echo "USE                 = \"$( echo "${info}" | grep '^USE=' | cut -d'"' -f 2 )\""
-echo "MAKEOPTS            = $( echo "${info}" | grep '^MAKEOPTS=' | cut -d'=' -f 2- )"
+echo "FEATURES            = $( echo "${info}" | grep -- '^FEATURES=' | cut -d'=' -f 2- )"
+echo "ACCEPT_LICENSE      = $( echo "${info}" | grep -- '^ACCEPT_LICENSE=' | cut -d'=' -f 2- )"
+echo "ACCEPT_KEYWORDS     = $( echo "${info}" | grep -- '^ACCEPT_KEYWORDS=' | cut -d'=' -f 2- )"
+echo "USE                 = \"$( echo "${info}" | grep -- '^USE=' | cut -d'"' -f 2 )\""
+echo "MAKEOPTS            = $( echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2- )"
 echo
-echo "EMERGE_DEFAULT_OPTS = $( echo "${info}" | grep '^EMERGE_DEFAULT_OPTS=' | cut -d'=' -f 2- )"
+echo "EMERGE_DEFAULT_OPTS = $( echo "${info}" | grep -- '^EMERGE_DEFAULT_OPTS=' | cut -d'=' -f 2- )"
 echo
-echo "DISTDIR             = $( echo "${info}" | grep '^DISTDIR=' | cut -d'=' -f 2- )"
-echo "PKGDIR              = $( echo "${info}" | grep '^PKGDIR=' | cut -d'=' -f 2- )"
-echo "PORTAGE_LOGDIR      = $( echo "${info}" | grep '^PORTAGE_LOGDIR=' | cut -d'=' -f 2- )"
+echo "DISTDIR             = $( echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2- )"
+echo "PKGDIR              = $( echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2- )"
+echo "PORTAGE_LOGDIR      = $( echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2- )"
 echo
 unset info
 
+package='app-shells/bash'
+opts='--tree'
+printf ' %s ' "${*}" | grep -Fq -- ' --nodeps ' && opts='' || :
+
+if [ -e /.docker-build-started ]; then
+	echo " * Container has previously run, dropping to shell ..."
+	echo
+
+	if [ -z "${1:-}" ]; then
+		print "Would have run default 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y \"${package}\"'${USE:+ with USE='${USE}'}"
+	elif [ -z "${post_pkgs:-}" ]; then
+		print "Would have run 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
+	else
+		print "Would have run 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
+		print "Would have run 'exec emerge ${opts:+${opts} }--jobs=1 --quiet-build=n --buildpkg=y --usepkg=y ${post_pkgs}'${post_use:+ with USE='${post_use}'}"
+	fi
+
+	# FIXME: At this point, we either exit immediately, or get stuck
+	#        reading input but doing nothing until killed from another
+	#        shell... but why?!
+
+	set -o xtrace
+	if [ -x /bin/bash ]; then
+		exec /bin/bash
+	else
+		exec /bin/sh
+	fi
+	set +o xtrace
+else
+	touch /.docker-build-started
+fi
+
+if [ -n "${pre_remove:-}" ]; then
+	echo " * Removing specified pre-installation '${pre_remove}' packages ..."
+	echo
+	(
+		export ROOT='/'
+		export LC_ALL='C'
+		emerge \
+				--ignore-default-opts \
+				--color=y \
+				--depclean \
+				--verbose \
+				--verbose-conflicts \
+			${pre_remove}
+		# emerge --depclean exits with code zero even if removal
+		# doesn't succeed :(
+		if \
+			ls -1d "${ROOT}/var/db/pkg/${pre_remove}"* >/dev/null 2>&1 ||
+			ls -1d "${ROOT}/var/db/pkg"/*/"${pre_remove}"* >/dev/null 2>&1 ;
+		then
+			emerge \
+					--ignore-default-opts \
+					--color=y \
+					--rage-clean \
+					--verbose=y \
+					--verbose-conflicts \
+				${pre_remove}
+		fi
+	)
+fi
+
+if [ -n "${pre_pkgs:-}" ]; then
+	echo " * Building specified pre-installation '${pre_pkgs}' packages ..."
+	echo
+	(
+		if [ -n "${pre_use:-}" ]; then
+			if ! printf '%s' " ${pre_use} " | grep -Fq -- ' -* '; then
+				pre_use="${USE:+${USE} }${pre_use}"
+			fi
+			export USE="${pre_use}${use_essential:+ ${use_essential}}"
+		fi
+		export ROOT='/'
+		export FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
+		export LC_ALL='C'
+		emerge \
+				--ignore-default-opts \
+				${parallel} \
+				--binpkg-respect-use=y \
+				--buildpkg=y \
+				--color=y \
+				--keep-going=y \
+				--quiet-build=y \
+				--tree \
+				--usepkg=y \
+				--verbose=y \
+				--verbose-conflicts \
+				--with-bdeps=n \
+				--with-bdeps-auto=n \
+			${pre_pkgs}
+				#--binpkg-changed-deps=y \
+				#--rebuild-if-new-slot=y \
+				#--rebuilt-binaries=y \
+	)
+fi
+
+echo " * Ensuring base packages in '/service/' ROOT are current:"
+
+# Replace default file with patched version
+if [ -s /etc/bash/bashrc ]; then
+	mkdir -p /service/etc/bash
+	cp /etc/bash/bashrc /service/etc/bash/
+fi
+
+# sys-apps/shadow is needed for /sbin/nologin
+# sys-apps/coreutils needed for cat/chmod
+FEATURES="-fail-clean" \
+USE="-* lib-only make-symlinks timezone-tools" \
+ROOT='/service' \
+LC_ALL='C' \
+	emerge \
+			--ignore-default-opts \
+			${parallel} \
+			--binpkg-changed-deps=y \
+			--binpkg-respect-use=y \
+			--buildpkg=y \
+			--color=y \
+			--keep-going=y \
+			--rebuild-if-new-slot=y \
+			--quiet-build=y \
+			--update \
+			--tree \
+			--usepkg=y \
+			--verbose=y \
+			--verbose-conflicts \
+			--with-bdeps=n \
+			--with-bdeps-auto=n \
+		virtual/libc sys-apps/busybox
+		#virtual/libc app-shells/bash sys-apps/shadow sys-apps/coreutils 
+			#--rebuilt-binaries=y \
+
+if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ] && [ "${change_sysroot:-}" = '1' ]; then
+	export SYSROOT="${ROOT}"
+fi
+
 case "${1:-}" in
 	'')
-		package='app-shells/bash'
-
-		echo "DEBUG: Running 'exec emerge ${parallel:+${parallel} }\"${package}\""
+		echo
+		echo " * Building default '${package}' package ..."
+		echo
+		print "Running default 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y \"${package}\"'"
 
 		# shellcheck disable=SC2086
-		exec emerge ${parallel} "${package}"
+		LC_ALL='C' exec emerge ${parallel} ${opts} --buildpkg=y --usepkg=y "${package}"
 		;;
 	sh|/bin/sh)
 		[ -n "${2:-}" ] && shift
@@ -102,9 +305,32 @@ case "${1:-}" in
 		exec /bin/bash "${@}"
 		;;
 	*)
-		echo "DEBUG: Running 'exec emerge ${parallel:+${parallel} }${*}"
+		if [ -z "${post_pkgs:-}" ]; then
+			echo
+			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages ..."
+			echo
 
-		# shellcheck disable=SC2086
-		exec emerge ${parallel} "${@}"
+			print "Running 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
+			# shellcheck disable=SC2086
+			LC_ALL='C' exec emerge ${parallel} ${opts} --buildpkg=y --usepkg=y "${@}"
+		else
+			echo
+			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages ..."
+			echo
+
+			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
+			# shellcheck disable=SC2086
+			LC_ALL='C' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y "${@}"
+
+			echo
+			echo " * Building specified post-installation '${post_pkgs}' packages ..."
+			echo
+
+			[ -n "${post_use:-}" ] && export USE="${post_use}"
+
+			print "Running 'exec emerge ${opts:+${opts} }--jobs=1 --quiet-build=n --buildpkg=y --usepkg=y ${post_pkgs}'${USE:+ with USE='${USE}'}"
+			# shellcheck disable=SC2086
+			LC_ALL='C' exec emerge ${opts} --jobs=1 --quiet-build=n --buildpkg=y --usepkg=y ${post_pkgs}
+		fi
 		;;
 esac
