@@ -27,7 +27,7 @@ if echo " ${*:-} " | grep -Fq -- ' --verbose-build '; then
 else
 	if [ -n "${JOBS:-}" ]; then
 		case "${JOBS}" in
-			0)
+			0|1)
 				parallel=''
 				;;
 			'*')
@@ -47,6 +47,57 @@ fi
 
 if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
 	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-${DEFAULT_MAXLOAD}}"
+fi
+
+TUSE='' post_pkgs='' post_use=''
+for arg in "${@}"; do
+        shift
+	case "${arg}" in
+		--post-pkgs=*)
+			post_pkgs="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			continue
+			;;
+		--post-use=*)
+			post_use="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			continue
+			;;
+		--verbose-build)
+			continue
+			;;
+		--with-use=*)
+			if false; then # Not valid here
+			#TUSE="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			:
+			fi
+			warn "Option '--with-use' is not valid during initial build stage"
+			continue
+			;;
+		*)
+		        set -- "${@}" "${arg}"
+			;;
+	esac
+done
+
+# post_use should be based on the original USE flags, without --with-use
+# additions...
+# (... even though we're not using those here!)
+if [ -n "${post_use:-}" ]; then
+	if ! printf ' %s ' "${post_use:-}" | grep -Fq -- ' -* '; then
+		post_use="${USE:+${USE} }${post_use:-}"
+	fi
+else
+	post_use="${USE:-}"
+fi
+post_use="${post_use:+${post_use} }${use_essential:+ ${use_essential}}"
+
+if false; then # Not valid here
+#if [ -n "${TUSE:-}" ]; then
+#	if ! printf '%s' " ${TUSE} " | grep -Fq -- ' -* '; then
+#		TUSE="${USE:+${USE} }${TUSE}"
+#	fi
+#	export USE="${TUSE}${use_essential:+ ${use_essential}}"
+#fi
+:
 fi
 
 # At the point we're executed, we expect to be in a stage3 with appropriate
@@ -82,6 +133,11 @@ echo "PORTAGE_LOGDIR      = $( echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut
 echo
 unset info
 
+# We should *definitely* have this...
+package='virtual/libc'
+opts='--tree'
+printf ' %s ' "${*}" | grep -Fq -- ' --nodeps ' && opts='' || :
+
 eselect --colour=yes profile list
 eselect --colour=yes profile set "${DEFAULT_PROFILE}" # 2>/dev/null
 
@@ -98,7 +154,17 @@ echo
 (
 	export USE="$( cat /usr/libexec/stage3.info | grep -- '^USE=' | cut -d'"' -f 2 )"
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean -fakeroot"
-	emerge --ignore-default-opts --binpkg-respect-use=y --buildpkg=n --color=y --keep-going=y --quiet-build=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n sys-apps/fakeroot
+	emerge \
+			--ignore-default-opts \
+			--binpkg-respect-use=y \
+			--buildpkg=n \
+			--color=y \
+			--keep-going=y \
+			--quiet-build=y \
+			--usepkg=y \
+			--with-bdeps=n \
+			--with-bdeps-auto=n \
+		sys-apps/fakeroot
 )
 eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
 etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
@@ -109,7 +175,7 @@ export FEATURES="${FEATURES:+${FEATURES} }fakeroot"
 # dependencies, and so require prior package installation directly into the
 # stage3 environment...
 #
-for pkg in 'sys-libs/libcap' 'sys-process/audit' 'dev-perl/Locale-gettext' 'dev-libs/libxml2'; do
+for pkg in 'sys-libs/libcap' 'sys-process/audit' 'dev-perl/Locale-gettext' 'dev-libs/libxml2' 'app-editors/vim'; do
 	echo
 	echo " * Building stage3 '${pkg}' package ..."
 	echo
@@ -117,7 +183,17 @@ for pkg in 'sys-libs/libcap' 'sys-process/audit' 'dev-perl/Locale-gettext' 'dev-
 	(
 		export USE="$( cat /usr/libexec/stage3.info | grep -- '^USE=' | cut -d'"' -f 2 )"
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
-		emerge --ignore-default-opts --binpkg-respect-use=y --buildpkg=n --color=y --keep-going=y --quiet-build=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n "${pkg}"
+		emerge \
+				--ignore-default-opts \
+				--binpkg-respect-use=y \
+				--buildpkg=n \
+				--color=y \
+				--keep-going=y \
+				--quiet-build=y \
+				--usepkg=y \
+				--with-bdeps=n \
+				--with-bdeps-auto=n \
+			"${pkg}"
 	)
 	eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
 	etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
@@ -132,7 +208,17 @@ echo
 (
 	export USE="$( cat /usr/libexec/stage3.info | grep -- '^USE=' | cut -d'"' -f 2 ) symlink"
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
-	emerge --ignore-default-opts --buildpkg=n --color=y --keep-going=y --quiet-build=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n sys-kernel/gentoo-sources
+	emerge \
+			--ignore-default-opts \
+			--binpkg-respect-use=y \
+			--buildpkg=n \
+			--color=y \
+			--keep-going=y \
+			--quiet-build=y \
+			--usepkg=y \
+			--with-bdeps=n \
+			--with-bdeps-auto=n \
+		sys-kernel/gentoo-sources
 )
 eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
 etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
@@ -165,8 +251,7 @@ mv /usr/src/linux* "${ROOT}"/usr/src/
 ln -s ../../"${ROOT}"/usr/src/linux /usr/src/
 
 mkdir -p "${ROOT}"/etc
-mv /etc/portage "${ROOT}"/etc/
-ln -s ../"${ROOT}"/etc/portage /etc/
+cp -r /etc/portage "${ROOT}"/etc/
 cp /etc/locale.gen "${ROOT}"/etc/
 cp /etc/timezone "${ROOT}"/etc/
 cp /etc/etc-update.conf "${ROOT}"/etc/
@@ -178,10 +263,10 @@ env-update
 . /etc/profile
 eselect --colour=yes profile set "${DEFAULT_PROFILE}" 2>&1 | grep -v -- 'Warning:' || :
 
-info="$( emerge --info --verbose )"
+info="$( LC_ALL='C' emerge --info --verbose )"
 echo
 echo 'Resolved build variables for @system:'
-echo '-------------------------------------'
+echo '------------------------------------'
 echo
 echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
 echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
@@ -222,8 +307,22 @@ if [ -n "${pkg_initial:-}" ]; then
 	for pkg in ${pkg_initial:-}; do
 		#set -x
 		FEATURES="${FEATURES:+${FEATURES} }fail-clean" \
-		USE="${pkg_initial_use}" \
-			emerge ${parallel} --ignore-default-opts --binpkg-changed-deps=n --binpkg-respect-use=y --buildpkg=n --color=y --keep-going=y --quiet-build=y --tree --usepkg=y --verbose=y --verbose-conflict --with-bdeps=n --with-bdeps-auto=n \
+		USE="${pkg_initial_use}${use_essential:+ ${use_essential}}" \
+			emerge \
+					--ignore-default-opts \
+					${parallel} \
+					--binpkg-changed-deps=n \
+					--binpkg-respect-use=y \
+					--buildpkg=n \
+					--color=y \
+					--keep-going=y \
+					--quiet-build=y \
+					--tree \
+					--usepkg=y \
+					--verbose=y \
+					--verbose-conflict \
+					--with-bdeps=n \
+					--with-bdeps-auto=n \
 				${pkg} ${pkg_exclude:-} || :
 		set +x
 		etc-update --quiet --preen ; find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
@@ -240,13 +339,34 @@ if [ -n "${pkg_initial:-}" ]; then
 fi
 
 echo
-echo ' * Building @system packacges ...'
+echo ' * Building @system packages ...'
 echo
 
 #set -x
+# sys-apps/shadow is needed for /sbin/nologin
+# dev-libs/icu is needed for circular dependencies on icu -> python -> sqlite -> icu
 FEATURES="${FEATURES:+${FEATURES} }fail-clean" \
-	emerge ${parallel} --ignore-default-opts --binpkg-changed-deps=y --binpkg-respect-use=y --buildpkg=y --color=y --deep --emptytree --keep-going=y --rebuild-if-new-slot=y --rebuilt-binaries=y --quiet-build=y --root-deps --tree --usepkg=y --verbose=y --verbose-conflicts --with-bdeps=y --with-bdeps-auto=n \
-		@system ${pkg_exclude:-} || :
+	emerge \
+			--ignore-default-opts \
+			${parallel} \
+			--binpkg-changed-deps=y \
+			--binpkg-respect-use=y \
+			--buildpkg=y \
+			--color=y \
+			--deep \
+			--emptytree \
+			--keep-going=y \
+			--rebuild-if-new-slot=y \
+			--rebuilt-binaries=y \
+			--quiet-build=y \
+			--root-deps \
+			--tree \
+			--usepkg=y \
+			--verbose=y \
+			--verbose-conflicts \
+			--with-bdeps=n \
+			--with-bdeps-auto=n \
+		@system sys-apps/shadow dev-libs/icu ${pkg_exclude:-} || :
 set +x
 etc-update --quiet --preen ; find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
@@ -255,6 +375,22 @@ if ! [ -x "${ROOT}"/bin/sh ]; then
 	echo " * Fixing @system '/bin/sh' symlink ..."
 	[ ! -e "${ROOT}"/bin/sh ] || rm "${ROOT}"/bin/sh
 	ln -sf bash "${ROOT}"/bin/sh
+fi
+
+# ... and fix the default bash prompt setup w.r.t. 'screen' window names!
+if [ -s /etc/bash/bashrc.patch ]; then
+	if ! type -pf patch >/dev/null; then
+		echo "WARN: @system build has not installed package 'sys-devel/patch'"
+	else
+		pushd >/dev/null "${ROOT}"/etc/bash/
+		if [ -s bashrc ]; then
+			echo ' * Patching /etc/bash/bashrc ...'
+			cat /etc/bash/bashrc.patch | patch -p1 >/dev/null
+		else
+			echo "WARN: '${ROOT%/}/etc/bash/bashrc' does not exist or is empty"
+		fi
+		popd >/dev/null
+	fi
 fi
 
 echo
@@ -330,15 +466,53 @@ test -s "${ROOT}"/usr/libexec/environment.sh || echo "WARN: '${ROOT%/}/usr/libex
 cat "${ROOT}"/usr/libexec/environment.sh | grep -- ' ROOT=' && die "Invalid 'ROOT' directive in '${ROOT%/}/usr/libexec/environment.sh'"
 #printf " * Initial propagated environment:\n\n%s\n\n" "$( < "${ROOT}"/usr/libexec/environment.sh )"
 
-if [ -z "${*:-}" ]; then
-	# We should *definitely* have this...
-	package='virtual/libc'
+case "${1:-}" in
+	'')
+		echo
+		echo " * Building default '${package}' package ..."
+		echo
+		echo "Running default 'exec emerge ${parallel:+${parallel} }${opts:+${opts} } --usepkg=y \"${package}\"'"
 
-	#set -x
-	# shellcheck disable=SC2086
-	exec emerge ${parallel} --usepkg=y "${package}"
-else
-	#set -x
-	# shellcheck disable=SC2086
-	exec emerge ${parallel} "${@}"
-fi
+		# shellcheck disable=SC2086
+		LC_ALL='C' exec emerge ${parallel} ${opts} --usepkg=y "${package}"
+		;;
+	sh|/bin/sh)
+		[ -n "${2:-}" ] && shift
+
+		exec /bin/sh "${@}"
+		;;
+	bash|/bin/bash)
+		[ -n "${2:-}" ] && shift
+
+		exec /bin/bash "${@}"
+		;;
+	*)
+		if [ -z "${post_pkgs:-}" ]; then
+			echo
+			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages ..."
+			echo
+
+			print "Running 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${*}'${USE:+ with USE='${USE}'}"
+			# shellcheck disable=SC2086
+			LC_ALL='C' exec emerge ${parallel} ${opts} --usepkg=y "${@}"
+		else
+			echo
+			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages ..."
+			echo
+
+			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${*}'${USE:+ with USE='${USE}'}"
+			# shellcheck disable=SC2086
+			LC_ALL='C' emerge ${parallel} ${opts} --usepkg=y "${@}"
+
+			echo
+			echo " * Building specified post-installation '${post_pkgs}' packages ..."
+			echo
+
+			[ -n "${post_use:-}" ] && export USE="${post_use}"
+
+			print "Running 'exec emerge ${opts:+${opts} }--jobs=1 --quiet-build=n --usepkg=y ${post_pkgs}'${USE:+ with USE='${USE}'}"
+			# shellcheck disable=SC2086
+			LC_ALL='C' exec emerge ${opts} --jobs=1 --quiet-build=n --usepkg=y ${post_pkgs}
+		fi
+		;;
+esac
