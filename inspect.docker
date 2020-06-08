@@ -61,25 +61,34 @@ docker_parse() {
 
 docker_run() {
 	# shellcheck disable=SC2086
-	docker run \
+	$docker run \
 		${TERM:+--env TERM} \
 		${USE:+--env USE} \
 		${ACCEPT_KEYWORDS:+--env ACCEPT_KEYWORDS} \
 		${FEATURES:=--env FEATURES} \
-		--mount type=bind,source=/var/cache/portage/pkg/amd64/xeon_e56.docker,destination=/var/cache/portage/pkg/amd64/docker \
-		--mount type=bind,source=/var/cache/portage/dist,destination=/var/cache/portage/dist \
-		--mount type=bind,source=/var/log/portage,destination=/var/log/portage \
-		--mount type=bind,source=/var/db/repo/gentoo,destination=/var/db/repo/gentoo,readonly \
-		--mount type=bind,source=/var/db/repo/srcshelton,destination=/var/db/repo/srcshelton,readonly \
-		--privileged \
+		--mount type=bind,source=/var/cache/portage/pkg/amd64/xeon_e56.docker/,destination=/var/cache/portage/pkg/amd64/docker \
+		--mount type=bind,source=/var/cache/portage/dist/,destination=/var/cache/portage/dist \
+		--mount type=bind,source=/var/log/portage/,destination=/var/log/portage \
+		--mount type=bind,source=/var/db/repo/gentoo/,destination=/var/db/repo/gentoo${docker_readonly:+,${docker_readonly}} \
+		--mount type=bind,source=/var/db/repo/srcshelton/,destination=/var/db/repo/srcshelton${docker_readonly:+,${docker_readonly}} \
+		--mount type=bind,source=/var/db/repo/container/,destination=/var/db/repo/container${docker_readonly:+,${docker_readonly}} \
+		--mount type=bind,source=/etc/portage/repos.conf/,destination=/etc/portage/repos.conf${docker_readonly:+,${docker_readonly}} \
 		--cap-add SYS_PTRACE \
 		--interactive \
 		--tty \
 		--entrypoint '/bin/sh' \
 		--name "${name}" \
 		"${image}" \
-			-c ${args:-bash}
+			-c ${args:-sh}
+
+		#--privileged \
 }
+
+if type -pf podman >/dev/null 2>&1; then
+	docker='podman'
+	docker_readonly='ro=true'
+	#extra_build_args='--format docker'
+fi
 
 docker_setup
 docker_parse "${@:-}"
@@ -88,7 +97,7 @@ image="${image:-${IMAGE}}"
 name="${name:-${image//:/_}-inspect}"
 
 if [ -n "${rm}" ]; then
-	docker rm "${name}" 2>/dev/null || :
+	$docker rm "${name}" 2>/dev/null || :
 fi
 
 echo >&2 "Launching container '${name}' from image '${image}' ..."
@@ -97,7 +106,7 @@ set -o xtrace
 docker_run
 
 if [ -n "${rm}" ]; then
-	docker rm "${name}"
+	$docker rm "${name}"
 fi
 
 # vi: set syntax=sh:
