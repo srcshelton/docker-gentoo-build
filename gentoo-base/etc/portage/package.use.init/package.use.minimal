@@ -1,0 +1,21 @@
+
+# General USE flags:
+*/*					-*
+
+*/*					 CPU_FLAGS_X86: aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3
+*/*					 L10N: en_GB en
+*/*					 VIDEO_CARDS: vesa matrox
+sys-boot/grub				 GRUB_PLATFORMS: efi-64 multiboot pc
+
+*/*					 PYTHON_TARGETS: python3_7
+*/*					 PYTHON_SINGLE_TARGET: python3_7
+
+app-arch/tar				 xattr
+dev-lang/python:3.7			 ssl xml
+sys-apps/busybox			 mdev
+sys-apps/help2man			-nls
+sys-apps/kmod				 tools
+sys-apps/man-db				 berkdb
+sys-libs/gdbm				 berkdb
+
+# vi: set nowrap:

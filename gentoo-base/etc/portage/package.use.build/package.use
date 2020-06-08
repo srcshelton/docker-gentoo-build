@@ -54,6 +54,7 @@ app-benchmarks/bootchart2		-X
 app-crypt/gnupg				-ssl ecc idea mta
 #app-crypt/gpgme			-python # Requires dev-lang/swig, but only as a BDEPEND
 app-editors/vim				-sound cscope vim-pager
+app-emulation/libpod			-fuse -rootless
 app-eselect/eselect-php			 fpm
 app-misc/screen				 multiuser
 app-portage/eix				 tools
@@ -136,7 +137,7 @@ net-analyzer/zabbix			-odbc -postgres -sqlite agent frontend libxml2 openipmi ss
 net-dialup/freeradius			 pcap udpfromto
 net-dns/avahi				-python autoipd # howl-compat # mdnsresponder-compat
 net-dns/bind				-berkdb -geoip -idn -mysql -odbc dnstap filter-aaaa lmdb nslint rpz
-net-dns/bind-tools			-idn gssapi pkcs11
+net-dns/bind-tools			-gssapi -idn pkcs11
 net-dns/unbound				 dnscrypt dnstap ecs
 net-firewall/nftables			 xtables
 net-firewall/iptables			-extensions -imq -l7filter conntrack netlink nftables pcap xlate
@@ -146,7 +147,6 @@ net-fs/samba				-avahi async automount ldb libclamav oav quota quotas smbsharemo
 net-ftp/lftp				 openssl
 net-im/bitlbee				 libevent twitter
 #net-libs/ldns				-python dane # Requires dev-lang/swig, but only as a DEPEND
-#sys-libs/libcap-ng			-python # Requires dev-lang/swig, but only as a DEPEND
 net-libs/libpcap			-netlink libnl
 net-libs/miniupnpc			-python
 net-mail/dovecot			 cydir dbox managesieve imapc lucene mdbox sdbox sieve solr # suid
@@ -157,6 +157,7 @@ net-misc/cgminer			-adl -lm_sensors -opencl sse2_4way
 net-misc/curl				-adns -ares libssh2 test
 net-misc/dhcpcd				-compat
 net-misc/ntp				-snmp openntpd
+net-misc/openntpd			 libressl
 net-misc/openssh			-X509 hpn ldns skey
 #net-misc/scponly			 gftp logging passwd quota rsync scp sftp subversion unison wildcards winscp
 net-misc/scponly			-sftp logging passwd quota scp wildcards
@@ -169,6 +170,7 @@ sci-mathematics/pari			-X
 sys-apps/busybox			-pam -sep-usr -split-usr math mdev static
 sys-apps/debianutils			-installkernel
 sys-apps/hal				 disk-partition
+sys-apps/help2man			-nls # Requires dev-perl/Locale-gettext, but then can't find it in many cases :(
 sys-apps/hwids				 usb
 sys-apps/ipmitool			 openipmi
 sys-apps/irqbalance			-numa
