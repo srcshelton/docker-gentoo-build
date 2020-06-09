@@ -1,0 +1,120 @@
+
+# service:
+#   Extract a ROOT-installed service.
+
+ARG image_name
+ARG service_name
+ARG service_version
+
+ARG service_ports
+ARG service_user="root"
+ARG service_group="root"
+ARG service_cmd="/bin/sh"
+ARG service_cwd="/"
+ARG service_fs_name
+
+ARG ROOT="/service"
+ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
+
+
+# -----------------------------------------------------------------------------
+
+# Import system image
+#
+FROM "${image_name}:${service_version}" AS base
+
+ARG ROOT
+ARG environment_filter
+
+
+RUN test -s /usr/libexec/environment.sh
+
+RUN set -u ; \
+    mkdir -p "${ROOT}"/usr/libexec && \
+    printf "#FILTER: '%s'\n\n" "${environment_filter}" > "${ROOT}"/usr/libexec/environment.sh && \
+    export -p | \
+	grep -- '=' | \
+	grep -Ev -- "${environment_filter}" \
+	>> "${ROOT}"/usr/libexec/environment.sh && \
+    cat "${ROOT}"/usr/libexec/environment.sh | \
+        grep >&2 -- ' ROOT=' && { \
+            printf >&2 "Invalid 'ROOT' directive in '%s/usr/libexec/environment.sh':\n\n%s\n\n" "${ROOT%/}" "$( < "${ROOT}"/usr/libexec/environment.sh )" ; \
+            exit 1 ; \
+        } || :
+#RUN printf >&2 " * 'service' stage propagated environment:\n\n%s\n\n" "$( < "${ROOT}"/usr/libexec/environment.sh )"
+
+
+# -----------------------------------------------------------------------------
+
+# Create a new container
+#
+FROM scratch
+
+ARG service_name
+ARG service_version
+
+ARG service_ports
+ARG service_user
+ARG service_group
+ARG service_cmd
+ARG service_fs_name
+
+ENV fs_name="${service_fs_name}"
+ARG ROOT
+
+
+# Copy the installed tree into the current image
+#
+COPY --from=base "${ROOT}" /
+RUN test -s /usr/libexec/environment.sh
+
+COPY --from=base /etc/group /etc/
+#COPY --from=base /etc/gshadow /etc/ # Doesn't exist in source image
+COPY --from=base /etc/passwd /etc/
+COPY --from=base /etc/services /etc/
+COPY --from=base /etc/shadow /etc/
+
+LABEL maintainer="stuart@shelton.me"
+LABEL Description="Gentoo ${service_name}-${service_version} service"
+
+# Try to get nice colours ...
+#
+ARG SET_TERM="${TERM:-xterm}"
+ENV TERM="${SET_TERM}"
+
+RUN cat "/var/db/pkg/${service_name}-${service_version}/CONTENTS"
+
+RUN for d in empty log run; do \
+        mkdir -pm 0755 "/var/${d}/" ; \
+    done && \
+    if [ -n "${fs_name:-}" ]; then \
+        for d in log run; do \
+            mkdir -pm 0755 "/var/${d}/${fs_name}/" ; \
+        done ; \
+    fi
+
+# Setup entrypoint script to perform a one-time copy of binary system packages
+# to the (hopefully) host-mounted packages directory ...
+#
+COPY entrypoint.sh.service /usr/libexec/entrypoint.sh
+RUN chmod 0755 /usr/libexec/entrypoint.sh && \
+    test -x /usr/libexec/entrypoint.sh
+
+RUN test -x "${service_cmd}"
+
+RUN sed -i "s|exec |exec '${service_cmd}' |" /usr/libexec/entrypoint.sh
+
+EXPOSE "${service_ports}"
+
+WORKDIR "${service_cwd}"
+
+USER "${service_user}:${service_group}"
+
+# This container is anticipated to be inherited rather than run, or run with
+# (a) package atom(s) - but let's (re)emerge bash if executed directly without
+# parameters ...
+#
+ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
+CMD ["${service_cmd}"]
+
+# vi: set syntax=dockerfile expandtab nowrap colorcolumn=80:

@@ -1,0 +1,267 @@
+#! /bin/sh
+
+set -eu
+
+trace="${TRACE:-}"
+
+cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+
+[ ! -s common/vars.sh ] || . common/vars.sh
+
+if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
+	echo >&2 "Usage: $( basename "${0}" ) <service> [<ports> <user> <group> <command> [directory [fs_name]]]"
+	echo >&2
+	echo >&2 "Known services:"
+	echo >&2 "  bitlbee"
+	echo >&2 "  imapproxyd"
+	echo >&2 "  irqbalance"
+	echo >&2 "  lynis"
+	echo >&2 "  memcached"
+	echo >&2 "  openntpd"
+	echo >&2 "  redis"
+	echo >&2 "  syslog-ng"
+	echo >&2 "  watchdog"
+	echo >&2
+	echo >&2 "  all"
+	echo >&2
+	if [ -z "${*:-}" ]; then
+		exit 1
+	else
+		exit 0
+	fi
+fi
+service="${1:-}"
+ports="${2:-0}"
+user="${3:-root}"
+group="${4:-root}"
+cmd="${5:-}"
+cwd="${6:-/}" # Optional
+fs_name="${7:-}" # Optional
+
+if [ "${service:-}" = 'all' ]; then
+	rc=0
+	s=''
+	for s in bitlbee imapproxyd irqbalance lynis memcached openntpd redis syslog-ng watchdog; do
+		./$( basename "${0}" ) "${s}"
+		: $(( rc = rc + ${?} ))
+	done
+	exit ${rc}
+fi
+
+IMAGE="${build_name}:latest"
+[ -s common/run.sh ] && . common/run.sh
+
+$docker image ls | grep -Eq -- "^(localhost/)?${IMAGE%:*}" || { echo >&2 "docker image '${IMAGE%:*}' not found" ; exit 1 ; }
+
+docker_setup
+
+case "${service:-}" in
+	bitlbee)
+		service='>=net-im/bitlbee-3.6-r1'
+		;;
+	imapproxy|imapproxyd)
+		service='>=net-mail/imapproxy-1.2.8_p14843-r1::srcshelton'
+		;;
+	irqbalance)
+		service='sys-apps/irqbalance'
+		;;
+	lynis)
+		service='app-forensics/lynis'
+		;;
+	memcache|memcached)
+		service='net-misc/memcached'
+		;;
+	ntpd|openntpd)
+		service='net-misc/openntpd::container'
+		;;
+	redis)
+		service='dev-db/redis'
+		;;
+	syslog-ng)
+		service='app-admin/syslog-ng'
+		;;
+	watchdog)
+		service='sys-apps/watchdog'
+		;;
+	'')
+		echo >&2 "FATAL: No service name or description provided"
+		exit 1
+		;;
+esac
+
+package=''
+package_name=''
+package_version=''
+repo=''
+container=''
+docker_resolve "${service%::*}"
+export container="${package/\//.}"
+export package_name="${package_name/\//.}"
+echo "${service}" | grep -Fq -- '::' && repo="${service#*::}"
+
+if [ -z "${package_name:-}" ]; then
+	echo >&2 "FATAL: Cannot extract package name from service name '${service}' (${package})"
+	exit 1
+fi
+if [ -z "${package_version:-}" ]; then
+	echo >&2 "FATAL: Cannot extract package version from service name '${service}' (${package})"
+	exit 1
+fi
+
+pre_remove='' pre_pkgs='' pre_use='' with_use='' post_pkgs='' post_use='' python_target=''
+# There's probably a better way of doing this, but for now let's assume that
+# the python configuration for the root system and the python confguration for
+# the container build environment is the same (... which is reasonable, unless
+# overridden, as they share a common portage tree and therefore base set of
+# python defaults).
+python_target="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
+case "${package_name}" in
+	*bitlbee*)
+		# debug +gnutls ipv6 libevent libressl msn nss oscar otr +plugins purple selinux test twitter xinetd +xmpp
+		with_use="-* ${use_essential:+${use_essential} }libevent plugins twitter xmpp"
+
+		ports='6667'
+		user='bitlbee'
+		group='bitlbee'
+		cmd='/usr/sbin/bitlbee'
+		cwd='/var/lib/bitlbee'
+		;;
+	*imapproxy*)
+		# kerberos ssl +tcpd
+		with_use="-* ${use_essential:+${use_essential} }ssl tcpd"
+
+		ports='8143'
+		cmd='/usr/sbin/imapproxyd'
+		;;
+	*irqbalance*)
+		# caps +numa selinux systemd tui
+		with_use="-* ${use_essential:+${use_essential} }caps tui unicode"
+
+		cmd='/usr/sbin/irqbalance'
+		;;
+	*lynis*)
+		with_use="-* ${use_essential:-}"
+
+		cmd='/usr/sbin/lynis'
+		;;
+	*memcache*)
+		# debug sasl seccomp selinux slabs-reassign systemd test
+		with_use="-* ${use_essential:+${use_essential} }seccomp python_single_target_${python_target} python_targets_${python_target}"
+
+		cmd='/usr/bin/memcached'
+		;;
+	*openntpd*)
+		# -libressl (-selinux) -systemd
+		CURL_SSL="libressl"
+		pre_remove='dev-libs/openssl'
+		pre_use="-* ${use_essential:+${use_essential} }libressl openssl ssl python_single_target_${python_target} python_targets_${python_target}"
+		pre_pkgs="dev-libs/libressl @system @world"
+		with_use="-* ${use_essential:-} libressl"
+
+		ports='123/udp'
+		#user='openntpd'
+		#group='openntpd'
+		cmd='/usr/sbin/ntpd'
+		cwd='/var/empty'
+		fs_name='openntpd'
+		;;
+	*redis*)
+		# +jemalloc luajit systemd tcmalloc test
+		echo "Setting build variables for package 'redis' ..."
+		pre_use='-lib-only nls'
+		pre_pkgs='sys-apps/help2man sys-devel/gcc'
+		with_use="-* ${use_essential:+${use_essential} }jemalloc luajit"
+		post_use="-* ${use_essential:+${use_essential} }lib-only"
+		post_pkgs='sys-devel/gcc --nodeps'
+
+		ports='6379 26379'
+		user='redis'
+		group='redis'
+		cmd='/usr/sbin/redis-server'
+		cwd='/var/lib/redis'
+		;;
+	*syslog-ng*)
+		# caps ipv6 json python smtp spoof-source tcpd -amqp -dbi -geoip -geoip2 -http -kafka -libressl -mongodb -pacct -redis -snmp -systemd
+		# json pulls in json-c which has a run-time dependency on cmake
+		with_use="-* ${use_essential:+${use_essential} }caps smtp spoof-source tcpd python_single_target_${python_target} python_targets_${python_target}"
+
+		ports='514/udp'
+		cmd='/usr/sbin/syslog-ng'
+		cwd='/var/lib/syslog-ng'
+		;;
+	*watchdog*)
+		# nfs
+		with_use="-* ${use_essential:+${use_essential} }nfs"
+
+		cmd='/usr/sbin/watchdog'
+		;;
+esac
+#echo >&2 "DEBUG: Additional USE flags are '${with_use:-<none>}'"
+
+if [ -z "${cmd:-}" ]; then
+	echo >&2 "FATAL: No container command provided"
+	exit 1
+fi
+
+[ -n "${trace:-}" ] && set -o xtrace
+
+if [ "$( $docker image ls "buildsvc-${package_name}:${package_version}" | wc -l )" != '2' ]; then
+	echo >&2 " ${blue}*${reset} Building ${package_name}:${package_version} root image ..."
+
+	# shadow needed for /sbin/nologin; coreutils needed for chmod
+	USE="${USE:+${USE} }lib-only" \
+	ROOT="/service" \
+	name="buildsvc-${container}" \
+	image="${IMAGE}" \
+	docker_run \
+			${pre_remove:+--pre-remove="${pre_remove}"} \
+			${pre_pkgs:+--pre-pkgs="${pre_pkgs}"} \
+			${pre_use:+--pre-use="${pre_use}"} \
+			${with_use:+--with-use="${with_use}"} \
+			${post_pkgs:+--post-pkgs="${post_pkgs}"} \
+			${post_use:+--post-use="${post_use}"} \
+			--usepkg=y \
+			--with-bdeps=n \
+			--with-bdeps-auto=n \
+			"=${package}${repo:+::${repo}}" \
+		2>&1 | tee log/"docker.buildsvc-${container}.log"
+	echo " -> ${?}"
+
+	$docker commit \
+			"buildsvc-${container}" \
+			"buildsvc-${package_name}:${package_version}" \
+		2>&1 | tee -a log/"docker.buildsvc-${container}.log"
+	echo " -> ${?}"
+fi
+
+$docker rm "buildsvc-${container}" 2>&1 | tee -a log/"docker.buildsvc-${container}.log"
+
+pushd >/dev/null gentoo-base || exit 1
+
+echo >&2 " ${blue}*${reset} Building ${package_name}:${package_version} service image ..."
+
+$docker build \
+		--compress \
+		--file 'Dockerfile.service' \
+		--build-arg SET_TERM="${TERM}" \
+		--build-arg environment_filter="${environment_filter}" \
+		--build-arg image_name="buildsvc-${package_name}" \
+		--build-arg service_name="${package_name/./\/}" \
+		--build-arg service_version="${package_version}" \
+		--build-arg service_ports="${ports}" \
+		--build-arg service_user="${user}" \
+		--build-arg service_group="${group}" \
+		--build-arg service_cmd="${cmd}" \
+		${cwd:+--build-arg service_cwd="${cwd}"} \
+		${fs_name:+--build-arg service_fs_name="${fs_name}"} \
+		--tag "service.${package_name}:${package_version}" \
+		. \
+	2>&1 | tee ../log/"docker.service.${container}.log"
+echo " -> ${?}"
+popd >/dev/null
+
+$docker image rm "buildsvc-${package_name}:${package_version}" 2>&1 | tee -a log/"docker.buildsvc-${container}.log"
+
+set +o xtrace
+
+exit 0

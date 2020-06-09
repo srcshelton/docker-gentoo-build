@@ -1,0 +1,47 @@
+#! /bin/sh
+
+set -eu
+
+debug=${DEBUG:-}
+trace=${TRACE:-}
+
+[ -n "${trace:-}" ] && set -o xtrace
+
+print() {
+	[ -z "${debug:-}" ] || echo >&2 "${*}"
+}
+
+if [ -s /usr/libexec/environment.sh ]; then
+	print "Sourcing environment ..."
+	. /usr/libexec/environment.sh
+fi
+
+print "Checking for root aaccess ..."
+uid=''
+if [ -n "${EUID:-}" ]; then
+	uid="${EUID}"
+else
+	uid="$( id -u )"
+fi
+
+if [ -n "${uid:-}" ] && [ "${uid}" = '0' ]; then
+	print "Creating service directories  ..."
+
+	for d in empty log run; do
+		mkdir -pm 755 "/var/${d}/"
+	done
+
+	if [ -n "${fs_name:-}" ]; then
+		print "Creating '${fs_name}'  directories  ..."
+		for d in log run; do
+			mkdir -pm 755 "/var/${d}/${fs_name}/"
+		done
+	fi
+fi
+
+unset uid
+
+set +o xtrace
+
+print "Running service ..."
+exec "${@}"
