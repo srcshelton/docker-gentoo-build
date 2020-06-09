@@ -47,6 +47,18 @@ ARG PORTAGE_CONFIGROOT
 COPY --from=base "${ROOT}" /
 RUN test -s /usr/libexec/environment.sh
 
+# The acct-* packages don't appear to account for situations when ROOT != /,
+# and so without this we have packages registered as installed, without the
+# requisite system changes having occurred.
+#COPY --from=base /etc/group /etc/
+##COPY --from=base /etc/gshadow /etc/ # Doesn't exist in source image
+#COPY --from=base /etc/passwd /etc/
+#COPY --from=base /etc/shadow /etc/
+#
+# ... alternatively (using -f so as not to error if either of the arguments
+# doesn't exist):
+RUN rm -rf /var/db/pkg/acct-* /var/empty/.keep_acct-user_sshd-0
+
 #RUN printf >&2 " * 'build' stage imported environment:\n\n%s\n\n" "$( < /usr/libexec/environment.sh )"
 
 LABEL maintainer="stuart@shelton.me"
@@ -83,7 +95,7 @@ LABEL envrionment_from="${env_name}:${env_id}"
 #         ipc-sandbox mount-sandbox network-sandbox pid-sandbox sandbox	\
 #         usersandbox							\
 #    "
-#ARG EMERGE_COMMON_OPTS="--autounmask-write=y --backtrack=100 --binpkg-changed-deps=y --binpkg-respect-use=y --buildpkg=y --color=y --deep --keep-going=y --rebuild-if-new-slot=y --rebuilt-binaries=y --tree --verbose=y --verbose-conflicts"
+#ARG EMERGE_COMMON_OPTS="--autounmask-write=y --backtrack=100 --binpkg-changed-deps=y --binpkg-respect-use=y --buildpkg=y --color=y --deep --keep-going=y --rebuild-if-new-slot=y --tree --verbose=y --verbose-conflicts"
 
 # Reset variables for future builds ...
 #
@@ -123,6 +135,9 @@ RUN [ -s /usr/libexec/environment.sh ] && \
     find /var/log/ -mindepth 1 -type d -delete ; \
     [ -d /root ] || mkdir -m 0700 -- /root
 
+RUN [ -d /etc/portage/package.use.build ] && \
+    rm -r /etc/portage/package.use && \
+    mv /etc/portage/package.use.build /etc/portage/package.use
 
 # Reset ROOT to install packages directly into container ...
 #
