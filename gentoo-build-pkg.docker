@@ -2,7 +2,9 @@
 
 set -eu
 
-#set -o xtrace
+trace=${TRACE:-}
+
+[ -n "${trace:-}" ] && set -o xtrace
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
@@ -15,6 +17,36 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	echo >&2 "Usage: $( basename "${0}" ) [category/package_name [portage_atom...]]"
 	exit 0
 fi
+
+# Extract 'entrypoint' argument - all others can be handled by the entrypoint
+# script within the container itself...
+for arg in "${@}"; do
+        shift
+	case "${arg}" in
+		--entrypoint=*)
+			DOCKER_ENTRYPOINT="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			continue
+			;;
+		--cmd=*)
+			DOCKER_CMD="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			continue
+			;;
+		*)
+		        set -- "${@}" "${arg}"
+			;;
+	esac
+done
+
+export DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
+
+echo >&2 "NOTE:  Adding 'libarchive' dependency fix ..."
+if echo "${*}" | grep -q -- 'app-arch/libarchive'; then
+	pkg="$( echo " ${*} " | sed -r 's|^.*\s([^[:space:]]*app-arch/libarchive[^[:space:]]*)\s.*$|\1|' )"
+else
+	pkg='app-arch/libarchive'
+fi
+set -- "${@}" --pre-pkgs='app-arch/libarchive' --pre-use='-lz4'
+unset pkg
 
 # Provide a '--name' to prevent the container being removed on exit.
 # Invoke with '--usepkg=n' to rebuild existing packages...
