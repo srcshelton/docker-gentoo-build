@@ -41,8 +41,8 @@ docker_setup
 pushd >/dev/null gentoo-base
 
 sum="$( sha1sum entrypoint.sh | cut -d' ' -f 1 )"
-env_id="$( docker image ls --format='{{.ID}}' "${env_name}:latest" )"
-stage3_id="$( docker image ls --format='{{.ID}}' "${stage3_name}:latest" )"
+env_id="$( $docker image ls --format='{{.ID}}' "${env_name}:latest" )"
+stage3_id="$( $docker image ls --format='{{.ID}}' "${stage3_name}:latest" )"
 
 [ -n "${trace:-}" ] && set -o xtrace
 
@@ -59,10 +59,11 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 	# USED_BY: stage3 build
 
 	set -o pipefail
-	docker build \
+	$docker build \
 			--compress \
 			--file 'Dockerfile.env' \
-			--build-arg SET_TERM="${TERM}" \
+			--build-arg SET_TERM="${TERM:-}" \
+			--build-arg SET_USE_ESSENTIAL="${use_essential:-}" \
 			--tag "${env_name}:latest" \
 		. 2>&1 | tee ../log/"docker.${env_name}.log"
 	echo " -> ${?}"
@@ -75,7 +76,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 	echo
 fi
 
-env_id="$( docker image ls --format='{{.ID}}' "${env_name}:latest" )"
+env_id="$( $docker image ls --format='{{.ID}}' "${env_name}:latest" )"
 
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	echo
@@ -84,8 +85,8 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 
 	# We have to 'pull' manually, or else this stage fails ...
 	stage3_image="$( grep '^ARG stage3_image=' Dockerfile.stage3 | cut -d'"' -f 2 )"
-	docker pull -q "${stage3_image}:latest"
-	stage3_id="$( docker image ls --format='{{.ID}}' "${stage3_image}:latest" )"
+	$docker pull -q "${stage3_image}:latest"
+	stage3_id="$( $docker image ls --format='{{.ID}}' "${stage3_image}:latest" )"
 
 	# NAME:    stage3
 	# LABELS:  envrionment_from stage3_from
@@ -93,7 +94,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	# USED_BY: init
 
 	set -o pipefail
-	docker build \
+	$docker build \
 			--compress \
 			--file 'Dockerfile.stage3' \
 			--build-arg env_id="${env_id}" \
@@ -112,13 +113,13 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 fi
 
 stage3_image="$( grep '^ARG stage3_image=' Dockerfile.stage3 | cut -d'"' -f 2 )"
-stage3_id="$( docker image ls --format='{{.ID}}' "${stage3_image}:latest" )"
+stage3_id="$( $docker image ls --format='{{.ID}}' "${stage3_image}:latest" )"
 
 # Create initial image from Gentoo stage3 ...
 #
 if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
-	if docker image ls | grep -q -- "^${init_name}"; then
-		imagesum="$( docker inspect --format='{{.Config.Labels.entrypoint_sum}}' "${init_name}:latest" )"
+	if $docker image ls | grep -Eq -- "^(localhost/)?${init_name}"; then
+		imagesum="$( $docker inspect --format='{{.Config.Labels.entrypoint_sum}}' "${init_name}:latest" )"
 		if [ "${imagesum}" != "${sum}" ]; then
 			if echo " ${*} " | grep -Fq -- ' --force '; then
 				echo >&2
@@ -140,11 +141,11 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 	echo " ${blue}*${reset} Creating image '${init_name}:latest' ..."
 	echo
 
-	stage3_env_id="$( docker inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
+	stage3_env_id="$( $docker inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
 	if [ "${env_id}" != "${stage3_env_id}" ]; then
 		echo >&2 "${bold}WARN${reset}:  ${red}The current 'environment' image differs from that used to build the 'stage3' image about to be linked to this stage${reset}"
 	fi
-	stage3_src_id="$( docker inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
+	stage3_src_id="$( $docker inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
 	if [ "${stage3_id}" != "${stage3_src_id}" ]; then
 		echo >&2 "${bold}WARN${reset}:  ${red}The upstream 'stage3' image differs from that used to build the 'stage3' image about to be linked to this stage${reset}"
 	fi
@@ -155,7 +156,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 	# USED_BY: base
 
 	set -o pipefail
-	docker build \
+	$docker build \
 			--compress \
 			--file 'Dockerfile.init' \
 			--build-arg environment_filter="${environment_filter}" \
@@ -176,17 +177,17 @@ fi
 # snapshot the result to create a base image ...
 #
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
-	docker image ls | grep -q -- "^${init_name}" || { echo >&2 "docker image '${init_name}' not found" ; exit 1 ; }
+	$docker image ls | grep -Eq -- "^(localhost/)?${init_name}" || { echo >&2 "docker image '${init_name}' not found" ; exit 1 ; }
 
 	echo
 	echo " ${blue}*${reset} Deploying container '${base_name}' from image '${init_name}:latest' ..."
 	echo
 
-	stage3_env_id="$( docker inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
+	stage3_env_id="$( $docker inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
 	if [ "${env_id}" != "${stage3_env_id}" ]; then
 		echo >&2 "${bold}WARN${reset}:  ${red}The current 'environment' image differs from that used to build the 'stage3' image inherited by this stage${reset}"
 	fi
-	stage3_src_id="$( docker inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
+	stage3_src_id="$( $docker inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
 	if [ "${stage3_id}" != "${stage3_src_id}" ]; then
 		echo >&2 "${bold}WARN${reset}:  ${red}The upstream 'stage3' image differs from that used to build the 'stage3' image inherited by this stage${reset}"
 	fi
@@ -196,12 +197,15 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 	# USES:    (init)
 	# USED_BY: build
 
+	# For some reason, installing glibc to a ROOT results in valid libcrypt
+	# symlinks being installed, but the actual libraries missing?!
 	set -o pipefail
 	(
 		export name="${base_name}"
 		export image="${init_name}:latest"
 		docker_run \
 				--usepkg=y \
+				--post-pkgs=sys-libs/glibc \
 			'=virtual/libc-1' 2>&1 | tee ../log/"docker.${base_name}.log"
 	)
 	echo " -> ${?}"
@@ -210,8 +214,8 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 	echo " ${blue}*${reset} Saving container '${base_name}' as image '${base_name}:latest' ..."
 	echo
 
-	docker commit "${base_name}" "${base_name}:latest" 2>&1 | tee -a ../log/"docker.${base_name}.log"
-	docker rm "${base_name}" 2>&1 | tee -a ../log/"docker.${base_name}.log"
+	$docker commit "${base_name}" "${base_name}:latest" 2>&1 | tee -a ../log/"docker.${base_name}.log"
+	$docker rm "${base_name}" 2>&1 | tee -a ../log/"docker.${base_name}.log"
 	echo " -> ${?}"
 	set +o pipefail
 
@@ -223,17 +227,17 @@ fi
 # Ensure that @system is correctly installed to ROOT=/ and snapshot result as
 # build image.
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
-	docker image ls | grep -q -- "^${base_name}" || { echo >&2 "docker image '${base_name}' not found" ; exit 1 ; }
+	$docker image ls | grep -Eq -- "^(localhost/)?${base_name}" || { echo >&2 "docker image '${base_name}' not found" ; exit 1 ; }
 
 	echo
 	echo " ${blue}*${reset} Deploying container '${build_name}' ..."
 	echo
 
-	stage3_env_id="$( docker inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
+	stage3_env_id="$( $docker inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
 	if [ "${env_id}" != "${stage3_env_id}" ]; then
 		echo >&2 "${bold}WARN${reset}:  ${red}The current 'environment' image differs from that used to build the 'stage3' image inherited by this stage${reset}"
 	fi
-	stage3_src_id="$( docker inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
+	stage3_src_id="$( $docker inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" | cut -d':' -f 2- )"
 	if [ "${stage3_id}" != "${stage3_src_id}" ]; then
 		echo >&2 "${bold}WARN${reset}:  ${red}The upstream 'stage3' image differs from that used to build the 'stage3' image inherited by this stage${reset}"
 	fi
@@ -244,7 +248,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	# USED_BY: service
 
 	set -o pipefail
-	docker build \
+	$docker build \
 			--compress \
 			--file 'Dockerfile.build' \
 			--build-arg environment_filter="${environment_filter}" \
@@ -253,23 +257,27 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 		. 2>&1 | tee ../log/"docker.${build_name}.log"
 
 	(
+		# dev-libs/icu is needed for circular dependencies on icu -> python -> sqlite -> icu
 		export name="${build_name}"
 		export image="${build_name}-root:latest"
 		docker_run \
+				--post-pkgs='app-arch/tar' \
+				--post-use="-* ${use_essential:-} xattr" \
 				--update \
 				--usepkg=y \
-				--with-bdeps=n \
 				--with-bdeps-auto=n \
-			'@system' 2>&1 | tee -a ../log/"docker.${build_name}.log"
+				--with-bdeps=n \
+				--with-use="-* -lib-only ${use_essential:-}" \
+			sys-devel/gcc dev-libs/icu @system 2>&1 | tee -a ../log/"docker.${build_name}.log"
 	)
 	echo " -> ${?}"
 
 	echo
 	echo " ${blue}*${reset} Saving container '${build_name}' as image '${build_name}:latest' ..."
 	echo
-	docker commit "${build_name}" "${build_name}:latest" 2>&1 | tee -a ../log/"docker.${build_name}.log"
-	docker rm "${build_name}" 2>&1 | tee -a ../log/"docker.${build_name}.log"
-	docker image rm "${build_name}-root:latest" 2>&1 | tee -a ../log/"docker.${build_name}.log"
+	$docker commit "${build_name}" "${build_name}:latest" 2>&1 | tee -a ../log/"docker.${build_name}.log"
+	$docker rm "${build_name}" 2>&1 | tee -a ../log/"docker.${build_name}.log"
+	$docker image rm "${build_name}-root:latest" 2>&1 | tee -a ../log/"docker.${build_name}.log"
 	echo " -> ${?}"
 	set +o pipefail
 
