@@ -66,7 +66,7 @@ if echo " ${*:-} " | grep -q -- ' --keep-build'; then
 	fi
 fi
 
-docker image ls | grep -q -- "^${IMAGE%:*}" || { echo >&2 "docker image '${IMAGE%:*}' not found" ; exit 1 ; }
+$docker image ls | grep -Eq -- "^(localhost/)?${IMAGE%:*}" || { echo >&2 "docker image '${IMAGE%:*}' not found" ; exit 1 ; }
 
 docker_setup
 
@@ -133,7 +133,7 @@ fi
 
 [ -d log ] || mkdir log
 
-if ! [ "$( docker image ls "${container%-${package_version}}:${package_version}" | wc -l )" = '2' ]; then
+if ! [ "$( $docker image ls "${container%-${package_version}}:${package_version}" | wc -l )" = '2' ]; then
 	ACCEPT_LICENSE="linux-fw-redistributable no-source-code" \
 	USE="-lib-only symlink" \
 	name="${container}" \
@@ -145,14 +145,14 @@ if ! [ "$( docker image ls "${container%-${package_version}}:${package_version}"
 			2>&1 | tee log/"docker.${container}.log"
 	echo " -> ${?}"
 
-	docker commit "${container}" "${container%-${package_version}}:${package_version}" 2>&1 | tee -a log/"docker.${container}.log"
-	docker rm "${container}" 2>&1 | tee -a log/"docker.${container}.log"
+	$docker commit "${container}" "${container%-${package_version}}:${package_version}" 2>&1 | tee -a log/"docker.${container}.log"
+	$docker rm "${container}" 2>&1 | tee -a log/"docker.${container}.log"
 	echo " -> ${?}"
 fi
 
 DOCKER_EXTRA_MOUNTS=''
-DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS} --mount type=bind,source=/lib/modules,destination=/lib/modules"
-DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS} --mount type=bind,source=/boot,destination=/boot"
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS} --mount type=bind,source=/lib/modules/,destination=/lib/modules"
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS} --mount type=bind,source=/boot/,destination=/boot"
 DOCKER_ENTRYPOINT='/bin/sh'
 DOCKER_INTERACTIVE=1
 deforoldconfig='defconfig'
