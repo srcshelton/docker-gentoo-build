@@ -219,9 +219,6 @@ esac
 
 if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:${package_version}" | wc -l )" = '2' ]; then
 	(
-		TMPDIR='/space/podman/tmp'
-		export TMPDIR
-
 		DOCKER_EXTRA_MOUNTS=''
 		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
 		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
@@ -372,7 +369,6 @@ export DOCKER_ENTRYPOINT DOCKER_INTERACTIVE DOCKER_EXTRA_MOUNTS DOCKER_VOLUMES D
 
 #set -x
 #DOCKER_DEVICES="--device=/dev/tty --device=/dev/tty0" \
-TMPDIR='/space/podman/tmp' \
 TERM="${TERM:-}" \
 DOCKER_HOSTNAME="$( hostname )-build" \
 image="${container_name%-${package_version}}.${compiler}:${package_version}" \

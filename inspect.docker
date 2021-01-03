@@ -115,7 +115,6 @@ docker_run() {
 			--tty \
 		"${image}" -c "${args[@]}" || runrc=${?}
 			#--network slirp4netns \
-			#--mount "type=bind,source=/space/package/,destination=/var/cache/portage/pkg/amd64/docker" \
 
 	return ${runrc}
 } # docker_run

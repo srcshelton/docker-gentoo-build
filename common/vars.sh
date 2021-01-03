@@ -64,14 +64,25 @@ reset="$( printf '\e[0m' )"
 
 # Export portage job-control variables...
 #
-export JOBS='6'
-export MAXLOAD='7.0'
-
-# Optional override to specify alternative build temporary directory
-#export TMPDIR=/var/tmp
-export TMPDIR=/space/podman/tmp
+jobs="$( echo "$( nproc ) 0.75 * p" | dc | cut -d'.' -f 1 )"
+: $(( load = $( nproc ) - 1 ))
+export JOBS="${jobs}"
+export MAXLOAD="${load}.00"
+unset load jobs
 
 # Are we using docker or podman?
 docker='docker'
 #extra_build_args=''
 docker_readonly='readonly'
+
+# Optional override to specify alternative build temporary directory
+#export TMPDIR=/var/tmp
+path=''
+$docker info | grep 'graphRoot:' | cut -d':' -f 2- | while read -r path; do
+	tmp="${path}"
+done
+unset path
+mkdir -p "${tmp:=/var/lib/containers/storage/tmp}"
+export TMPDIR="${tmp}"
+
+# vi: set nowrap:
