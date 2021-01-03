@@ -1,0 +1,5 @@
+
+#sys-apps/watchdog			 nfs
+sys-apps/watchdog			 nfs
+
+# vi: set nowrap syntax=gentoo-package-use:

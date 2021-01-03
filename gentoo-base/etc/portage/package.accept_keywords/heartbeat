@@ -1,5 +1,8 @@
+
 # Heartbeat
 #sys-cluster/heartbeat					~amd64
 #sys-cluster/cluster-glue				~amd64
 #sys-cluster/pacemaker					~amd64
 #sys-cluster/resource-agents				~amd64
+
+# vi: set syntax=gentoo-package-keywords:

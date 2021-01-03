@@ -1,0 +1,4 @@
+#net-im/bitlbee				 debug +gnutls ipv6 libevent libressl msn nss oscar otr +plugins purple selinux test twitter xinetd +xmpp
+net-im/bitlbee				 libevent plugins twitter xmpp
+
+# vi: set nowrap syntax=gentoo-package-use:

@@ -1,0 +1,5 @@
+
+#app-editors/vim			 X acl cscope debug gpm lua luajit minimal nls perl python racket ruby selinux sound tcl terminal vim-pager
+app-editors/vim				 nls terminal vim-pager
+
+# vi: set nowrap syntax=gentoo-package-use:

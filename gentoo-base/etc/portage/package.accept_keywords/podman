@@ -1,0 +1,50 @@
+
+#~app-emulation/podman-2.0.6				~amd64
+#~app-emulation/podman-2.1.0				~amd64
+#~app-emulation/podman-2.1.1				~amd64
+#~app-emulation/podman-2.2.0_rc1			~amd64
+#~app-emulation/podman-2.2.0_rc2			~amd64
+~app-emulation/podman-2.2.0				~amd64
+~app-emulation/podman-2.2.1				~amd64
+
+#~app-emulation/buildah-1.16.0				~amd64
+#~app-emulation/buildah-1.16.1				~amd64
+#~app-emulation/buildah-1.16.2				~amd64
+#~app-emulation/buildah-1.16.3				~amd64
+#~app-emulation/buildah-1.16.4				~amd64
+~app-emulation/buildah-1.16.7				~amd64
+#~app-emulation/buildah-1.17.0				~amd64
+~app-emulation/buildah-1.17.1				~amd64
+~app-emulation/buildah-1.18.0				~amd64
+
+~net-misc/cni-plugins-0.8.7				~amd64
+
+#~app-emulation/crun-0.14.1				~amd64
+#~app-emulation/crun-0.15				~amd64
+#~app-emulation/crun-0.15.1				~amd64
+~app-emulation/crun-0.16				~amd64
+
+~app-emulation/runc-1.0.0_rc92				~amd64
+
+# originally required by app-emulation/podman-1.9.3
+#~app-emulation/conmon-2.0.20				~amd64
+~app-emulation/conmon-2.0.21				~amd64
+
+# originally required by app-emulation/podman-1.9.3[rootless]
+#~app-emulation/slirp4netns-1.1.4			~amd64
+#~app-emulation/slirp4netns-1.1.6			~amd64
+#~app-emulation/slirp4netns-1.1.7			~amd64
+~app-emulation/slirp4netns-1.1.8			~amd64
+~net-libs/libslirp-4.3.1				~amd64
+
+# originally required by app-emulation/podman-1.9.3[fuse]
+~sys-fs/fuse-overlayfs-1.1.2				~amd64
+
+# originally required by app-emulation/podman-2.0.0_rc7
+#~app-emulation/catatonit-0.1.5				~amd64
+
+# originally required by app-emulation/buildah-1.15.0
+#~app-emulation/skopeo-1.1.1				~amd64
+~app-emulation/skopeo-1.2.0				~amd64
+
+# vi: set syntax=gentoo-package-keywords:

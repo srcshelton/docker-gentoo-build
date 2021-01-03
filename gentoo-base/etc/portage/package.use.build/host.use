@@ -1,0 +1,21 @@
+# USE flag adjustments for more minimal host deployment
+
+*/*					 PYTHON_TARGETS: -* python3_8
+#*/*					-libressl
+
+# bzip2 natspec unicode
+app-arch/unzip				-* bzip2 unicode
+
+# backup extraengine innodb-lz4 innodb-lzo innodb-snappy jemalloc odbc oqgraph pam perl sphinx tokudb xml
+dev-db/mariadb				-* backup bindist
+container/mariadb			-server
+
+dev-lang/perl				-perl-cleaner
+
+# +client ipv6 kernel_linux ldap libressl selinux +server ssl systemd vim-syntax
+net-misc/dhcp				-* client ipv6 ssl vim-syntax
+
+# -lib-only
+#sys-devel/gcc				 lib-only
+
+# vi: set nowrap syntax=gentoo-package-use:

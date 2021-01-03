@@ -1,1 +1,4 @@
 #*/*					 PHP_TARGETS: php7-2 php7-3 php7-4
+*/*					 PHP_TARGETS: php7-4
+
+# vi: set nowrap syntax=gentoo-package-use:

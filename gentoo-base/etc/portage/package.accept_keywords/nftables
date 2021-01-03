@@ -1,6 +1,9 @@
+
 ~app-eselect/eselect-iptables-20200508
 ~net-firewall/arptables-0.0.5
 ~net-firewall/ebtables-2.0.11
 ~net-firewall/iptables-1.8.4
 ~net-firewall/nftables-0.9.4
 ~net-libs/libnftnl-1.1.6
+
+# vi: set syntax=gentoo-package-keywords:

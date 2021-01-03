@@ -1,3 +1,4 @@
+
 # For Email-Outlook-Message
 ~dev-perl/Email-FolderType-0.814.0			~amd64
 ~dev-perl/Email-LocalDelivery-1.200.0			~amd64
@@ -7,3 +8,5 @@
 #dev-perl/File-Path-Expand				~amd64
 #~dev-perl/IO-All-0.460.0				~amd64
 ~dev-perl/IO-All-0.860.0				~amd64
+
+# vi: set syntax=gentoo-package-keywords:

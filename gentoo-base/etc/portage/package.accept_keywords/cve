@@ -1,3 +1,4 @@
+
 # Seven outstanding CVEs in dnsmasq < 2.78...
 =net-dns/dnsmasq-2.78					~amd64
 
@@ -7,3 +8,5 @@
 # CVE-2020-8616 & CVE-2020-8617
 ~net-dns/bind-9.14.12					~amd64
 ~net-dns/bind-tools-9.14.12				~amd64
+
+# vi: set syntax=gentoo-package-keywords:

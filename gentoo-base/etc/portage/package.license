@@ -1,9 +1,187 @@
 # Default ACCEPT_LICENSE:
-*/*					-* @FREE
+#*/*					-* @FREE
 # Less restrictive ACCEPT_LICENSE:
 #*/*					 * -@EULA
 # Unrestricted ACCEPT_LICENSE:
 #*/*					 *
 
+*/*					-*
+*/*					 Apache-2.0
+*/*					 Artistic Artistic-2
+*/*					 BSD BSD-2 BSD-4
+*/*					 GPL-1+ GPL-2 GPL-2+ GPL-3 GPL-3+
+*/*					 ISC
+*/*					 LGPL-2 LGPL-2.1 LGPL-2.1+ LGPL-3 LGPL-3+
+*/*					 MIT
+*/*					 public-domain
+
+
+# System packages:
+#
+
+#dev-libs/libbsd			 BSD-4
+#app-arch/libarchive			 BSD-4 public-domain
+#sys-apps/util-linux			 BSD-4 public-domain
+app-arch/bzip2				 BZIP2
+app-crypt/libb2				 CC0-1.0
+dev-python/certifi			 CC0-1.0
+dev-util/gtk-doc-am			 FDL-1.1
+app-text/sgml-common			 FDL-1.1+
+sys-devel/gcc				 FDL-1.3+
+sys-devel/flex				 FLEX
+sys-libs/glibc				 HPND PCRE inner-net rc 
+media-libs/libjpeg-turbo		 IJG ZLIB
+app-arch/unzip				 Info-ZIP
+app-dicts/aspell-en			 Ispell Princeton myspell-en_CA-KevinAtkinson # public-domain
+#app-text/aspell			 LGPL-2
+#sys-apps/kmod				 LGPL-2
+#dev-libs/libunistring			 LGPL-3
+#dev-libs/libksba			 LGPL-3+
+#net-dns/libidn2			 LGPL-3+
+#sys-devel/gcc				 LGPL-3+
+app-misc/ca-certificates		 MPL-1.1
+dev-lang/php				 PHP-3.01 Zend-2.0 gd
+dev-lang/python				 PSF-2
+sys-libs/db				 Sleepycat
+sys-apps/debianutils			 SMAIL
+sys-libs/zlib				 ZLIB
+net-misc/curl				 curl
+app-text/docbook-xml-dtd		 docbook
+media-libs/libpng			 libpng2
+sys-apps/man-pages			 man-pages
+sys-apps/man-pages-posix		 man-pages-posix-2013
+app-misc/c_rehash			 openssl
+dev-libs/openssl			 openssl
+#app-arch/lzma				 public-domain
+#app-arch/xz-utils			 public-domain
+#app-crypt/openpgp-keys-gentoo-release	 public-domain
+#dev-db/sqlite				 public-domain
+#dev-python/pyelftools			 public-domain
+#dev-util/re2c				 public-domain
+#sys-apps/hwids				 public-domain
+#sys-libs/timezone-data			 public-domain
+net-misc/iputils			 rdisc
+app-editors/vim				 vim
+app-editors/vim-core			 vim
+app-vim/eselect-syntax			 vim
+app-vim/gentoo-syntax			 vim
+
+
+# clang:
+#
+
+sys-devel/clang				 Apache-2.0-with-LLVM-exceptions UoI-NCSA
+sys-devel/llvm				 Apache-2.0-with-LLVM-exceptions UoI-NCSA rc
+sys-devel/clang-common			 Apache-2.0-with-LLVM-exceptions UoI-NCSA
+sys-devel/clang-runtime			 metapackage
+sys-libs/compiler-rt			 Apache-2.0-with-LLVM-exceptions
+sys-libs/compiler-rt-sanitizers		 Apache-2.0-with-LLVM-exceptions
+sys-devel/llvm-common			 Apache-2.0-with-LLVM-exceptions UoI-NCSA
+
+
+# Service packages:
+#
+
 sys-firmware/intel-microcode		 intel-ucode
-sys-kernel/linux-firmware		 linux-fw-redistributable no-source-code
+sys-kernel/linux-firmware		 linux-fw-redistributable no-source-code # BSD-4
+
+dev-perl/Unicode-EastAsianWidth		 CC0-1.0
+
+mail-filter/dcc				 DCC
+
+sys-apps/tcp-wrappers			 tcp_wrappers_license
+
+# required by service app-admin/syslog-ng
+net-libs/libnet				 HPND
+
+# required by service app-editors/vim
+app-vim/dhcpd-syntax			 vim
+#app-vim/help-extra-syntax		 public-domain
+app-vim/nginx-syntax			 vim
+app-vim/ntp-syntax			 vim
+#app-vim/vim-spell-en			 public-domain
+
+# required by service dev-lang/php
+container/php				 PHP-3.01 Zend-2.0
+dev-php/pecl-memcache			 PHP-3
+dev-php/pecl-redis			 PHP-3.01
+
+# required by services dev-lang/php & www-server/lighttpd
+dev-lang/tcl				 tcltk
+dev-php/pecl-imagick			 PHP-3.01
+mail-filter/libmilter			 Sendmail
+media-gfx/imagemagick			 imagemagick
+
+# required by service dev-vcs/subversion
+dev-vcs/subversion			 Subversion FSFAP unicode
+
+# required by service mail-filter/opendkim
+mail-filter/opendkim			 Sendmail-Open-Source
+#net-dns/dnssec-root			 public-domain
+
+# required by service mail-filter/spamassassin
+#dev-perl/BSD-Resource			 Artistic-2 LGPL-2
+#dev-perl/Data-IEEE754			 Artistic-2
+#dev-perl/DateTime			 Artistic-2
+dev-perl/DateTime-Locale		 unicode
+#dev-perl/Devel-StackTrace		 Artistic-2
+dev-perl/Encode-Detect			 MPL-1.1
+#dev-perl/List-AllUtils			 Artistic-2
+#dev-perl/List-SomeUtils-XS		 Artistic-2
+#dev-perl/MaxMind-DB-Common		 Artistic-2
+#dev-perl/MaxMind-DB-Reader		 Artistic-2
+#dev-perl/Module-Implementation		 Artistic-2
+dev-perl/Mozilla-CA			 MPL-2.0
+#dev-perl/Net-SSLeay			 Artistic-2
+#dev-perl/Params-Validate		 Artistic-2
+#dev-perl/Params-ValidationCompiler	 Artistic-2
+#net-dns/libidn5			 LGPL-3
+
+# required by service mail-filter/spampd
+#mail-filter/razor			 Artistic
+dev-libs/geoip				 MaxMind2
+
+# required by service mail-mta/postfix
+mail-mta/postfix			 EPL-2.0 IBM
+dev-libs/cyrus-sasl			 BSD-with-attribution
+#dev-db/tinycdb				 public-domain
+
+# required by service net-dns/bind
+container/bind				 HPND MPL-2.0
+net-dns/bind				 HPND MPL-2.0
+dev-db/lmdb				 OPENLDAP
+
+# required by service net-mail/fetchmail
+#net-mail/fetchmail			 public-domain
+
+# required by service net-misc/dhcp
+net-misc/dhcp				 MPL-2.0 SSLeay
+
+# required by service net-misc/openntpd
+dev-libs/libressl			 openssl
+
+# required by service net-misc/unifi-controller-bin
+container/unifi-controller		 UBNT
+net-misc/unifi-controller-bin		 UBNT
+app-arch/zip				 Info-ZIP
+dev-db/mongodb				 SSPL-1
+dev-java/openjdk-bin			 GPL-2-with-classpath-exception
+dev-libs/boost				 Boost-1.0
+dev-python/typing			 PSF-2
+dev-util/boost-build			 Boost-1.0
+dev-util/cmake				 CMake
+dev-util/gdbus-codegen			 LGPL-2+
+media-libs/libjpeg-turbo		 IJG ZLIB
+
+# required by service net-misc/zxtm
+container/zxtm				 Pulse
+
+# required by web-content
+mail-client/roundcube			 PHP-2.02 PHP-3
+dev-php/Masterminds-HTML5		 HTML5-PHP
+
+# List current licences:
+#
+# cat /var/db/pkg/*/*/LICENSE | xargs -n 1 | grep -Ev '^(\(|\|\||\))$' | sort | uniq -c | sort -rn
+
+# vi: set syntax=gentoo-package-license:

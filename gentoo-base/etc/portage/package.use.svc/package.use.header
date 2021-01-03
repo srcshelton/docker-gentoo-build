@@ -1,0 +1,13 @@
+# vi: set nowrap syntax=gentoo-package-use:
+#
+# package.use.svc - USE-flags for service builds
+
+# Keep the following in sync with common/vars.sh
+*/*					-* asm ipv6 ithreads mdev openssl ssl threads tls-heartbeat zlib
+
+*/*					 CPU_FLAGS_X86: aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3
+*/*					 PYTHON_SINGLE_TARGET: python3_8
+*/*					 PYTHON_TARGETS: python3_8
+*/*					 PHP_TARGETS: php7-4
+*/*					 CURL_SSL: openssl
+

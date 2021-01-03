@@ -1,3 +1,4 @@
+
 # Nessus GPL
 #=net-analyzer/nessus-2.2.9				~amd64
 #=net-analyzer/nessus-plugins-2.2.9-r1			~amd64
@@ -13,3 +14,5 @@
 =net-analyzer/nessus-bin-7.1.5				~amd64
 =net-analyzer/nessus-bin-7.2.3				~amd64
 =net-analyzer/nessus-bin-8.10.0				~amd64
+
+# vi: set syntax=gentoo-package-keywords:

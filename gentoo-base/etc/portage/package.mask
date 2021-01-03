@@ -1,12 +1,11 @@
 
+# dev-db/mariadb-10.4 blocks dev-db/mariadb-10.5
+<dev-db/mariadb-10.5
+
 # virtual/modutils may try to pull-in sys-apps/moduitls, which is for 2.4.x
 # kernels and will fail to compile against more recent sources.  The required
 # is actually sys-apps/kmod.
 sys-apps/modutils
-
-# Maintainers have tried to improve default security, and make broken the local
-# setup in the process...
->mail-filter/opendkim-2.10.3-r3
 
 # Having migrated to mariadb, block mysql
 <virtual/mysql-5.6
@@ -15,5 +14,9 @@ dev-db/mysql
 # We prefer busybox 'mdev' and a lightweight alternative to 'udev':
 # https://wiki.gentoo.org/wiki/Mdev
 sys-fs/udev
+
+# Ensure we're pulling-in the 'fixed' gentoo-functions script
+sys-apps/gentoo-functions::gentoo
+<sys-apps/gentoo-functions-0.13
 
 # vi: set colorcolumn=80:

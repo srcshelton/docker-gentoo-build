@@ -1,12 +1,10 @@
 
-# Always run latest wordpress
-www-apps/wordpress					~amd64
-
 # move app-arch/upx-ucl app-arch/upx
 ~app-arch/upx-3.96					~amd64
 ~app-benchmarks/bootchart2-0.14.8			~amd64
-~app-emulation/libpod-1.9.3				~amd64
-~app-forensics/lynis-2.7.5				~amd64
+#~app-forensics/lynis-2.7.5				~amd64
+#~app-forensics/lynis-3.0.0				~amd64
+~app-forensics/lynis-3.0.1				~amd64
 ~dev-util/dropwatch-1.4_p20150706			~amd64
 ~net-analyzer/fping-4.2					~amd64
 ~net-analyzer/masscan-1.0.3				~amd64
@@ -26,3 +24,5 @@ www-apps/wordpress					~amd64
 ~sys-process/glances-3.1.4.1				~amd64
 ~www-apps/phpBB-3.2.8					~amd64
 ~www-misc/monitorix-3.11.0				~amd64
+
+# vi: set syntax=gentoo-package-keywords:

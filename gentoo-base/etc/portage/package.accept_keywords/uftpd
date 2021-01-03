@@ -1,3 +1,6 @@
+
 # required by net-ftp/uftpd-2.7
 ~dev-libs/libite-2.0.0					~amd64
 ~dev-libs/libuev-2.2.0					~amd64
+
+# vi: set syntax=gentoo-package-keywords:

@@ -1,2 +1,5 @@
+
 # net-analyzer/net-snmp-5.8-r3 no longer compiles with latest mysql-connector-c
 =net-analyzer/net-snmp-5.8-r4				~amd64
+
+# vi: set syntax=gentoo-package-keywords:

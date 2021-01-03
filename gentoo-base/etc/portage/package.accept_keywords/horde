@@ -1,3 +1,4 @@
+
 # Horde
 #www-apps/horde						~amd64
 #www-apps/horde-dimp					~amd64
@@ -5,3 +6,5 @@
 #www-apps/horde-mnemo					~amd64
 #www-apps/horde-nag					~amd64
 #www-apps/horde-pear					~amd64
+
+# vi: set syntax=gentoo-package-keywords:

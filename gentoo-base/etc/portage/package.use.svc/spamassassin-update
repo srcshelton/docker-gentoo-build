@@ -1,0 +1,17 @@
+
+*/*					 nls
+
+dev-lang/perl				 berkdb
+dev-libs/nettle				 gmp
+#dev-perl/DBD-mysql			-mariadb +mysql test +(ssl)
+dev-perl/DBD-mysql			 mysql
+#mail-filter/spamassassin		 berkdb cron ipv6 ldap libressl mysql postgres qmail sqlite (ssl) test
+mail-filter/spamassassin		 berkdb cron mysql sqlite
+sys-apps/busybox			-make-symlinks
+sys-apps/coreutils			 gmp
+sys-devel/gcc				-lib-only nptl
+sys-devel/gcc-config			 native-symlinks
+sys-devel/binutils-config		 native-symlinks
+
+# vi: set nowrap syntax=gentoo-package-use:
+

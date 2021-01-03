@@ -1,3 +1,4 @@
+
 =net-firewall/iptables-1.8.3-r1				~amd64
 
 # Connection logging
@@ -19,3 +20,5 @@
 # required by net-firewall/nftables-0.6-r4
 ~net-libs/libnftnl-1.0.6				~amd64
 #=net-libs/libnftnl-9999				~amd64
+
+# vi: set syntax=gentoo-package-keywords:

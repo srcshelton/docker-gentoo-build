@@ -1,0 +1,5 @@
+
+# Releases prior to 4.2.x still depend on python:2.7
+#=dev-db/mongodb-4.2.8					~amd64
+
+# vi: set syntax=gentoo-package-keywords:

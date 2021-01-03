@@ -1,0 +1,6 @@
+
+*/*					 unicode
+
+#sys-power/powertop			 nls unicode -X
+
+# vi: set nowrap syntax=gentoo-package-use:

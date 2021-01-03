@@ -1,0 +1,12 @@
+
+*/*					 poll
+
+#dev-db/opendbx				 firebird +mysql oracle postgres sqlite
+#mail-filter/libmilter			 ipv6 poll
+#mail-filter/opendkim			+berkdb diffheaders erlang experimental gnutls ldap libevent libressl lmdb lua -memcached opendbx poll querycache sasl selinux +(ssl) static-libs stats systemd test unbound
+#net-dns/unbound			 debug dnscrypt dnstap +ecdsa ecs gost libressl python redis selinux static-libs systemd test (threads)
+dev-db/opendbx				 sqlite
+mail-filter/opendkim			 berkdb libevent opendbx querycache stats unbound
+net-dns/unbound				 dnscrypt ecdsa ecs
+
+# vi: set nowrap syntax=gentoo-package-use:

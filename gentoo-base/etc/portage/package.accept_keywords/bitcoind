@@ -1,3 +1,4 @@
+
 ~net-p2p/bitcoind-0.19.1				~amd64
 
 ~dev-libs/boost-1.62.0					~amd64
@@ -12,3 +13,5 @@
 # required by net-libs/libblkmaker-0.5.0
 # required by net-misc/bfgminer-4.8.0
 =dev-libs/libbase58-0.1.1				~amd64
+
+# vi: set syntax=gentoo-package-keywords:

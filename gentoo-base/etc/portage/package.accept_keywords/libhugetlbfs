@@ -1,4 +1,7 @@
+
 # required by sys-libs/libhugetlbfs
 ~sys-libs/libhugetlbfs-2.20				~amd64
 ~sys-libs/libhugetlbfs-2.21				~amd64
 ~sys-libs/libhugetlbfs-2.22				~amd64
+
+# vi: set syntax=gentoo-package-keywords:

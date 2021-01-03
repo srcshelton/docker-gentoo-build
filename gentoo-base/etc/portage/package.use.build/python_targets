@@ -19,23 +19,27 @@
 #    */* PYTHON_TARGETS: -python3_7 python3_6
 #    */* PYTHON_SINGLE_TARGET: -* python3_6
 
-# Installed packages still requiring python2_7:
-#=dev-java/javatoolkit-0.3.0-r9
-#=dev-lang/yasm-1.3.0
-#=dev-libs/libgamin-0.1.10-r5
-#=dev-libs/libnatspec-0.3.0
-#=dev-libs/libxslt-1.1.33-r1
-#=dev-python/ctypesgen-0_p72-r1
-#=dev-python/enum34-1.1.6-r1
-#=dev-python/ipaddress-1.0.23
-#=dev-python/typing-3.7.4.1
-#=dev-vcs/subversion-1.13.0-r1
-#=net-analyzer/net-snmp-5.8-r5
-#=net-analyzer/nmap-7.80-r1
-#=net-analyzer/rrdtool-1.6.0-r1
-#=net-libs/ldns-1.7.0-r2
-#=net-mail/fetchmail-6.4.1
-#=sys-devel/automake-1.13.4-r2
-#=sys-devel/automake-1.16.1-r1
+#*/*					PYTHON_TARGETS: -* python2_7 python3_8
+*/*					PYTHON_TARGETS: -* python3_8
+*/*					PYTHON_SINGLE_TARGET: -* python3_8
 
-# vi: set nowrap:
+# Installed packages still requiring python2_7:
+#=dev-java/javatoolkit-0.3.0-r9		PYTHON_SINGLE_TARGET: -* python2_7
+#=dev-lang/yasm-1.3.0			PYTHON_SINGLE_TARGET: -* python2_7
+#=dev-libs/libgamin-0.1.10-r5		PYTHON_SINGLE_TARGET: -* python2_7
+#=dev-libs/libnatspec-0.3.0		PYTHON_SINGLE_TARGET: -* python2_7
+#=dev-libs/libxslt-1.1.33-r1		PYTHON_SINGLE_TARGET: -* python2_7
+#=dev-python/ctypesgen-0_p72-r1		PYTHON_SINGLE_TARGET: -* python2_7
+#=dev-python/enum34-1.1.6-r1		PYTHON_SINGLE_TARGET: -* python2_7
+#=dev-python/ipaddress-1.0.23		PYTHON_SINGLE_TARGET: -* python2_7
+#=dev-python/typing-3.7.4.1		PYTHON_SINGLE_TARGET: -* python2_7
+#=dev-vcs/subversion-1.13.0-r1		PYTHON_SINGLE_TARGET: -* python2_7
+#=net-analyzer/net-snmp-5.8-r5		PYTHON_SINGLE_TARGET: -* python2_7
+#=net-analyzer/nmap-7.80-r1		PYTHON_SINGLE_TARGET: -* python2_7
+#=net-analyzer/rrdtool-1.6.0-r1		PYTHON_SINGLE_TARGET: -* python2_7
+#=net-libs/ldns-1.7.0-r2		PYTHON_SINGLE_TARGET: -* python2_7
+#=net-mail/fetchmail-6.4.1		PYTHON_SINGLE_TARGET: -* python2_7
+#=sys-devel/automake-1.13.4-r2		PYTHON_SINGLE_TARGET: -* python2_7
+#=sys-devel/automake-1.16.1-r1		PYTHON_SINGLE_TARGET: -* python2_7
+
+# vi: set nowrap syntax=gentoo-package-use:
