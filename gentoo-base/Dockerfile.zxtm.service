@@ -1,0 +1,349 @@
+
+# service:
+#   Extract a ROOT-installed service, and overlay PulseSecure VTM (Zeus ZXTM).
+
+ARG image_name
+ARG service_name
+ARG service_name_short
+ARG service_version
+
+ARG service_ports
+ARG service_user="root"
+ARG service_group="root"
+#ARG service_cmd="/bin/sh"
+ARG service_cwd="/"
+ARG service_fs_name
+ARG timezone="GB"
+
+ARG ROOT="/service"
+ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
+
+#ARG smtp_smarthost="smtp"
+#ARG smtp_domain="rufus.miltonroad.net"
+
+ARG zxtm_image_name="pulsesecure/vtm"
+ARG zxtm_service_version="20.1"
+ARG ZEUSHOME="/opt/zeus"
+
+
+# -----------------------------------------------------------------------------
+
+# Import system image
+#
+FROM "${zxtm_image_name}:${zxtm_service_version}" AS zxtm
+
+# As-of 20.1 && 20.2:
+#ENV ZEUS_EULA
+#ENV ZEUS_LIC
+#ENV ZEUS_PASS=RANDOM
+#ENV ZEUS_PACKAGES
+#ENV ZEUS_COMMUNITY_EDITION
+#ENV ZEUS_CLUSTER_NAME
+#ENV ZEUS_REGISTER_HOST
+#ENV ZEUS_REGISTER_FP
+#ENV ZEUS_REGISTER_POLICY
+#ENV ZEUS_REGISTER_OWNER
+#ENV ZEUS_REGISTER_SECRET
+#ENV ZEUS_BASE_CONFIG
+#ENV ZEUS_WATCHED_CONFIG
+#ENV ZEUS_CONFIG_IMPORT_ARGS
+
+
+# -----------------------------------------------------------------------------
+
+# Import system image
+#
+FROM "${image_name}:${service_version}" AS base
+
+ARG ROOT
+ARG environment_filter
+
+
+RUN test -s /usr/libexec/environment.sh
+
+# linter ignore=SC2015,ER0001
+RUN { set -o pipefail 2>/dev/null || true ; } ; \
+    set -u ; \
+    mkdir -p "${ROOT}"/usr/libexec && \
+    printf "#FILTER: '%s'\n\n" "${environment_filter}" > "${ROOT}"/usr/libexec/environment.sh && \
+    export -p | \
+            grep -- '=' | \
+            grep -Ev -- "${environment_filter}" | \
+            sed -r 's/\s+/ /g' | \
+            grep -v '^export [a-z_]' \
+        >> "${ROOT}"/usr/libexec/environment.sh && \
+    grep >&2 -- ' ROOT=' "${ROOT}"/usr/libexec/environment.sh && { \
+            printf >&2 "Invalid 'ROOT' directive in '%s/usr/libexec/environment.sh':\n\n%s\n\n" "${ROOT%/}" "$( < "${ROOT}"/usr/libexec/environment.sh )" ; \
+            exit 1 ; \
+        } || :
+#RUN printf >&2 " * 'service' stage propagated environment:\n\n%s\n\n" "$( < "${ROOT}"/usr/libexec/environment.sh )"
+
+
+# -----------------------------------------------------------------------------
+
+# Create a new container
+#
+FROM scratch
+
+#ARG image_name
+ARG service_name
+ARG service_name_short
+ARG service_version
+
+ARG service_ports
+ARG service_user
+ARG service_group
+#ARG service_cmd
+ARG service_cwd
+ARG service_fs_name
+ARG timezone="GB"
+
+ARG zxtm_service_version
+ARG ZEUSHOME
+
+ARG ROOT
+
+#ARG smtp_smarthost
+#ARG smtp_domain
+
+#ENV service_cmd="${service_cmd}"
+ENV fs_name="${service_fs_name}"
+
+ENV ZEUSHOME="${ZEUSHOME}"
+ENV ZEUS_COMMUNITY_EDITION="yes"
+ENV ZEUS_EULA="accept"
+
+
+# Copy ZXTM/PS VTM into the current image
+# ... fails if performed later?!
+COPY --from=zxtm /usr/local/zeus "${ZEUSHOME}/"
+COPY entrypoint.sh.zxtm.service "${ZEUSHOME}/runzeus.sh"
+
+# Copy the installed tree into the current image
+#
+COPY --from=base "${ROOT}" /
+RUN test -s /usr/libexec/environment.sh
+
+ENV ROOT="/"
+
+COPY --from=base /etc/group /etc/
+#COPY --from=base /etc/gshadow /etc/ # Doesn't exist in source image
+COPY --from=base /etc/passwd /etc/
+COPY --from=base /etc/shadow /etc/
+COPY --from=base /etc/ethertypes /etc/
+COPY --from=base /etc/networks /etc/
+COPY --from=base /etc/protocols /etc/
+COPY --from=base /etc/services /etc/
+COPY --from=base /etc/shells /etc/
+COPY --from=base /usr/share/zoneinfo /usr/share/zoneinfo/
+COPY --from=base "/usr/share/zoneinfo/${timezone}" /etc/localtime
+#COPY etc/msmtprc /etc/
+
+LABEL maintainer="stuart@shelton.me"
+LABEL Description="Pulse Secure ${service_name}-${service_version} service"
+
+# Try to get nice colours ...
+#
+ARG SET_TERM="${TERM:-xterm}"
+ENV TERM="${SET_TERM}"
+
+#RUN cat "/var/db/pkg/${service_name}-${service_version}/CONTENTS"
+
+# linter ignore=ER0001
+#RUN i="${image_name}:${service_version}" ; \
+#    for f in /etc/base/*; do \
+#        f="$( basename "${f}" )" ; \
+#        if ! [ -s "/etc/${f}" ]; then \
+#            echo "Adding new file '${f}' from base image '${i}' ..." ; \
+#            mv "/etc/base/${f}" /etc/ ; \
+#        elif ! diff -q "/etc/base/${f}" "/etc/${f}" >/dev/null; then \
+#            echo "Files '/etc/base/${f}' and '/etc/${f}' differ ..." ; \
+#            diff -u "/etc/base/${f}" "/etc/${f}" | sed 's/^/    /' ; \
+#            echo "... keeping file '${f}' from base image '${i}'" ; \
+#            mv "/etc/base/${f}" /etc/ ; \
+#        fi ; \
+#    done ; \
+#    rm -r /etc/base ; \
+#    sed -e "s/__SMTP_SMARTHOST__/${smtp_smarthost}/" \
+#        -e "s/__DOMAIN__/${smtp_domain}/" \
+#        -i /etc/msmtprc
+
+# I suspect the directory group ownership is random and unimportant, but let's
+# keep this image as close to the original as possible...
+#
+# N.B. Not handling file group ownership, as there are too many and it's likely
+#      not significant.
+#
+RUN ln -s /proc/self/mounts /etc/mtab ; \
+    chown -R root:sys "${ZEUSHOME}" ; \
+    chgrp root \
+        "${ZEUSHOME}" \
+        "${ZEUSHOME}"/log \
+        "${ZEUSHOME}"/log/services \
+        "${ZEUSHOME}"/log/statd \
+        "${ZEUSHOME}"/perl \
+        "${ZEUSHOME}"/rc.d \
+        "${ZEUSHOME}"/zxtmadmin/lang ; \
+    rm \
+        "${ZEUSHOME}"/.zdocker \
+        "${ZEUSHOME}"/admin/website.old \
+        "${ZEUSHOME}"/zxtmadmin/lang/ja ; \
+    rm -r "${ZEUSHOME}"/admin/.backup && \
+    rm -r "${ZEUSHOME}"/zxtm/.backup && \
+    rm -r "${ZEUSHOME}"/zxtmadmin/.backup ; \
+    mv "${ZEUSHOME}"/rc.d/S99configure "${ZEUSHOME}"/rc.d/K99configure && \
+    ln -s ../zxtm/rc "${ZEUSHOME}"/rc.d/S10zxtm && \
+    ln -s ../admin/rc "${ZEUSHOME}"/rc.d/S20admin && \
+    ln -s ../zxtm/rc.configd "${ZEUSHOME}"/rc.d/S30configd ; \
+    mkdir "${ZEUSHOME}"/admin/var && \
+    mv "${ZEUSHOME}"/admin/global.cfg "${ZEUSHOME}"/admin/var/ && \
+    mv "${ZEUSHOME}"/admin/website "${ZEUSHOME}"/admin/var/ && \
+    ln -s var/global.cfg "${ZEUSHOME}"/admin/global.cfg && \
+    ln -s var/website "${ZEUSHOME}"/admin/website ; \
+    sed -i \
+        "/^zeushome=/ s|\"[^\"]*\"$|\"${ZEUSHOME}\"|" \
+        "${ZEUSHOME}/runzeus.sh"
+
+# linter ignore=SC2174
+RUN for d in empty log run; do \
+        mkdir -pm 0755 "/var/${d}/" ; \
+    done && \
+    if [ -n "${fs_name:-}" ]; then \
+        for d in log run; do \
+            mkdir -pm 0755 "/var/${d}/${fs_name}/" ; \
+        done ; \
+    fi
+
+#RUN eselect iptables list
+
+# Setup entrypoint script to perform a one-time copy of binary system packages
+# to the (hopefully) host-mounted packages directory ...
+#
+#COPY entrypoint.sh.service /usr/libexec/entrypoint.sh
+#COPY entrypoint.d/ /usr/libexec/entrypoint.d/
+#RUN test -s /usr/libexec/entrypoint.sh && \
+#    chmod 0755 /usr/libexec/entrypoint.sh && \
+#    test -x /usr/libexec/entrypoint.sh ; \
+#    chmod 0755 /usr/libexec/entrypoint.d/*.sh || :
+
+#RUN echo "${service_cmd}" ; \
+#    test -x "${service_cmd}"
+
+# linter ignore=SC2140 # False positive (https://github.com/buddy-works/dockerfile-linter/issues/8)
+RUN test -s "${ZEUSHOME}/runzeus.sh" && \
+    sed -i -e "s|^zeushome=\"/usr/local/zeus\"$|zeushome=\"${ZEUSHOME}\"|" \
+        "${ZEUSHOME}/runzeus.sh" && \
+    chmod 0755 "${ZEUSHOME}/runzeus.sh" && \
+    test -x "${ZEUSHOME}/runzeus.sh"
+
+# No longer needed, since 'service_cmd' is exposed as an ENV ...
+#RUN sed -i "s|^exec |exec '${service_cmd}' |" /usr/libexec/entrypoint.sh && \
+#    sh -n /usr/libexec/entrypoint.sh
+
+RUN mkdir -p "/srv/${service_name_short}/usr/share" ; \
+    if [ -d /usr/share/doc ]; then \
+        mv /usr/share/doc "/srv/${service_name_short}/usr/share/" && \
+        ln -s "../../srv/${service_name_short}/usr/share/doc" /usr/share/ ; \
+    fi ; \
+    if [ -d /usr/share/info ]; then \
+        mv /usr/share/info "/srv/${service_name_short}/usr/share/" && \
+        ln -s "../../srv/${service_name_short}/usr/share/info" /usr/share/ ; \
+    fi ; \
+    if [ -d /usr/share/man ]; then \
+        mv /usr/share/man "/srv/${service_name_short}/usr/share/" && \
+        ln -s "../../srv/${service_name_short}/usr/share/man" /usr/share/ ; \
+    fi
+
+# linter ignore=SC2015,ER0001
+RUN for dir in updater stingrayafm; do \
+        if [ -d "${ZEUSHOME}/${dir}/current/doc" ]; then \
+            mkdir -p "/srv/${service_name_short}/usr/share/doc/zxtm" && \
+            cp -r \
+                "${ZEUSHOME}/${dir}/current/doc" \
+                "/srv/${service_name_short}/usr/share/doc/zxtm/${dir}" ; \
+        fi ; \
+    done ; \
+    for dir in admin zxtm zxtmadmin; do \
+        srcpath="${ZEUSHOME}/${dir}/man/man1" ; \
+        if [ -d "${srcpath}" ]; then \
+            if [ "$( find "${srcpath}" -name '*.1' | wc -l )" != '0' ]; then \
+                for file in "${ZEUSHOME}/${dir}/man/man1"/*.1; do \
+                    name="$( basename "${file}" )" ; \
+                    dstpath="/srv/${service_name_short}/usr/share/man/man1" ; \
+                    [ -d "${dstpath}" ] || \
+                        mkdir -p "${dstpath}" ; \
+                    if \
+                        [ -s "${dstpath}/${name}" ] || \
+                        [ -s "${dstpath}/${name}.bz2" ] ; \
+                    then \
+                        cp "${file}" "${dstpath}/${name%.1}_zeus.1" && \
+                        rm -f "${dstpath}/${name%.1}_zeus.1.bz2" && \
+                        bzip2 "${dstpath}/${name%.1}_zeus.1" ; \
+                    else \
+                        cp "${file}" "${dstpath}/" && \
+                        bzip2 "${dstpath}/${name}" ; \
+                    fi ; \
+                done ; \
+            fi ; \
+        fi ; \
+    done
+
+# Create /var/cache/man/index.db when man-db is installed...
+RUN test ! -x /usr/bin/mandb || \
+    nice mandb --create
+
+# Run eselect for dependent components...
+#RUN if [ -x /usr/bin/eselect ]; then \
+#        if [ -s /usr/share/eselect/modules/python.eselect ]; then \
+#            if [ $(( ${EUID:-$( id -u )} )) -eq 0 ]; then \
+#                echo "Setting python implementation ..." ; \
+#                mkdir -p /etc/python-exec ; \
+#                eselect python cleanup ; \
+#                eselect python update --if-unset ; \
+#            fi ; \
+#        fi ; \
+#        if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
+#            echo "Setting Java VM as initial user ..." ; \
+#            if [ $(( ${EUID:-$( id -u )} )) -eq 0 ]; then \
+#                eselect java-vm set --if-unset system 1 ; \
+#            else \
+#                eselect java-vm set --if-unset user 1 ; \
+#            fi ; \
+#        fi ; \
+#    fi
+
+# http://www.gentoo.org/doc/en/prelink-howto.xml
+RUN test -x /usr/sbin/prelink && \
+    /usr/sbin/prelink -av -m -R -f
+
+EXPOSE "${service_ports}"
+
+# linter ignore=EW0001
+WORKDIR "${service_cwd}"
+
+USER "${service_user}:${service_group}"
+
+#RUN if [ -x /usr/bin/eselect ]; then \
+#        if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
+#            echo "Setting Java VM as '${service_user:-root}' ..." ; \
+#            if [ $(( ${EUID:-$( id -u )} )) -eq 0 ]; then \
+#                eselect java-vm set --if-unset system 1 ; \
+#            else \
+#                eselect java-vm set --if-unset user 1 ; \
+#            fi ; \
+#        fi ; \
+#    fi
+
+#VOLUME ["/srv/${service_name_short}","/var/db/pkg","${ZEUSHOME}/zxtm-${zxtm_service_version}/conf_A"]
+VOLUME ["/srv/${service_name_short}","/var/db/pkg"]
+
+#ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
+# Must be in shell-form to interpolate ARG/ENV values...
+# linter ignore=EJ0002
+ENTRYPOINT "${ZEUSHOME}/runzeus.sh"
+
+# Must be in shell-form to interpolate ARG/ENV values...
+# linter ignore=EJ0002
+#CMD "${service_cmd}"
+
+# vi: set syntax=dockerfile expandtab sw=4 ts=4 nowrap colorcolumn=80:

@@ -19,6 +19,7 @@ ARG PORTAGE_CONFIGROOT="${SYSROOT}"
 
 # Import system image
 #
+# linter ignore=EF0003
 FROM "${base_name:-gentoo-base}:latest" AS base
 
 ARG ROOT
@@ -30,6 +31,7 @@ RUN test -s "${ROOT}"/usr/libexec/environment.sh
 
 # Create a new container
 #
+# linter ignore=EF0003
 FROM "${env_name:-gentoo-env}:latest"
 
 ARG env_name
@@ -88,7 +90,7 @@ LABEL envrionment_from="${env_name}:${env_id}"
 #         news								\
 #        -protect-owned parallel-fetch parallel-install preserve-libs	\
 #         qa-unresolved-soname-deps					\
-#         sfperms split-elog split-log splitdebug strict			\
+#         sfperms split-elog split-log splitdebug strict		\
 #         unknown-features-filter unknown-features-warn unmerge-orphans	\
 #         userfetch userpriv usersync					\
 #         xattr								\
@@ -108,7 +110,11 @@ LABEL envrionment_from="${env_name}:${env_id}"
 
 # Further clean-up to minimise image size ...
 #
-RUN [ -s /usr/libexec/environment.sh ] && \
+# We can't use 'RUN [ -d ... ]' because this is interpreted as being
+# exec-form...
+# linter ignore=SC2015,SC1091,ER0001
+RUN { set -o pipefail 2>/dev/null || true ; } ; \
+    test -s /usr/libexec/environment.sh && \
         . /usr/libexec/environment.sh || \
         { \
             echo >&2 "FATAL: Unable to source '/usr/libexec/environment.sh': ${?}" ; \
@@ -117,15 +123,15 @@ RUN [ -s /usr/libexec/environment.sh ] && \
     set -u ; \
     etc-update --quiet --preen 2>/dev/null && \
     find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete ; \
-    [ -d /var/db/repo ] && \
+    test -d /var/db/repo && \
         find /var/db/repo/ -mindepth 1 -maxdepth 1 -type d | while read -r d; do \
             rm -r -- "${d}" && mkdir -p -- "${d}" ; \
         done ; \
-    [ ! -d "${PORTAGE_TMPDIR}/portage" ] || rm -r "${PORTAGE_TMPDIR}/portage" ; \
-    [ ! -d "${PORTAGE_LOGDIR}" ] || rm -r "${PORTAGE_LOGDIR}" ; \
-    [ ! -d "${DISTDIR}" ] || rm -r "${DISTDIR}" ; \
-    [ ! -d "${PKGDIR}" ] || rm -r "${PKGDIR}" ; \
-    [ ! -d "${ROOT}" ] || rm -r "${ROOT}" ; \
+    test ! -d "${PORTAGE_TMPDIR}/portage" || rm -r "${PORTAGE_TMPDIR}/portage" ; \
+    test ! -d "${PORTAGE_LOGDIR}" || rm -r "${PORTAGE_LOGDIR}" ; \
+    test ! -d "${DISTDIR}" || rm -r "${DISTDIR}" ; \
+    test ! -d "${PKGDIR}" || rm -r "${PKGDIR}" ; \
+    test ! -d "${ROOT}" || rm -r "${ROOT}" ; \
     mkdir -p -- "${PORTAGE_LOGDIR}" "${DISTDIR}" "${PKGDIR}" ; \
     find /tmp/ -type f -delete ; \
     find /tmp/ -mindepth 1 -type d -delete ; \
@@ -133,9 +139,9 @@ RUN [ -s /usr/libexec/environment.sh ] && \
     find /var/tmp/ -mindepth 1 -type d -delete ; \
     find /var/log/ -type f -delete ; \
     find /var/log/ -mindepth 1 -type d -delete ; \
-    [ -d /root ] || mkdir -m 0700 -- /root
+    test -d /root || mkdir -m 0700 -- /root
 
-RUN [ -d /etc/portage/package.use.build ] && \
+RUN test -d /etc/portage/package.use.build && \
     rm -r /etc/portage/package.use && \
     mv /etc/portage/package.use.build /etc/portage/package.use
 
@@ -145,23 +151,31 @@ ENV ROOT="/"
 ENV SYSROOT="${ROOT}"
 ENV PORTAGE_CONFIGROOT="${SYSROOT}"
 
-# Rewrite filteredenvironment with new values ...
+# Rewrite filtered environment.sh with new values ...
 #
-RUN [ -s /usr/libexec/environment.sh ] && \
+# linter ignore=SC2015,SC1091,ER0001
+RUN { set -o pipefail 2>/dev/null || true ; } ; \
+    test -s /usr/libexec/environment.sh && \
         . /usr/libexec/environment.sh || \
         { \
             echo >&2 "FATAL: Unable to source '/usr/libexec/environment.sh': ${?}" ; \
             exit 1 ; \
         } ; \
-    gcc-config 1 2>/dev/null && \
-    . /etc/profile && \
+    gcc-config 1 2>/dev/null ; \
+    . /etc/profile ; \
+    if [ -n "${JOBS:-}" ] && [ $(( JOBS )) -gt 1 ]; then \
+        locale-gen -k -u ${JOBS:+-j ${JOBS}} ; \
+    else \
+        locale-gen -k -u ; \
+    fi ; \
     printf "#FILTER: '%s'\n\n" "${environment_filter}" > /usr/libexec/environment.sh && \
     export -p | \
-	grep -- '=' | \
-	grep -Ev -- "${environment_filter}" \
-	>> /usr/libexec/environment.sh && \
-    cat /usr/libexec/environment.sh | \
-        grep >&2 -- ' ROOT=' && { \
+            grep -- '=' | \
+            grep -Ev -- "${environment_filter}" | \
+            sed -r 's/\s+/ /g' | \
+            grep -v '^export [a-z_]' \
+        >> /usr/libexec/environment.sh && \
+    grep >&2 -- ' ROOT=' /usr/libexec/environment.sh && { \
             printf >&2 "Invalid 'ROOT' directive in '/usr/libexec/environment.sh':\n\n%s\n\n" "$( < /usr/libexec/environment.sh )" ; \
             exit 1 ; \
         } || :
@@ -174,7 +188,8 @@ RUN [ -s /usr/libexec/environment.sh ] && \
 COPY entrypoint.sh.build /usr/libexec/entrypoint.sh
 RUN test -s /usr/libexec/entrypoint.sh
 
-RUN [ -s /usr/libexec/environment.sh ] && \
+# linter ignore=SC2015,SC1091
+RUN test -s /usr/libexec/environment.sh && \
         . /usr/libexec/environment.sh || \
         { \
             echo >&2 "FATAL: Unable to source '/usr/libexec/environment.sh': ${?}" ; \
@@ -185,7 +200,8 @@ RUN [ -s /usr/libexec/environment.sh ] && \
         -e "s/__JOBS__/${JOBS}/" \
         -e "s/__MAXLOAD__/${MAXLOAD}/" \
             /usr/libexec/entrypoint.sh && \
-    chmod 0755 /usr/libexec/entrypoint.sh 
+    chmod 0755 /usr/libexec/entrypoint.sh && \
+    sh -n /usr/libexec/entrypoint.sh
 
 # This container is anticipated to be inherited rather than run, or run with
 # (a) package atom(s) - but let's (re)emerge bash if executed directly without

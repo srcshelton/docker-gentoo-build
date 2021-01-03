@@ -4,6 +4,7 @@
 
 ARG image_name
 ARG service_name
+ARG service_name_short
 ARG service_version
 
 ARG service_ports
@@ -12,9 +13,13 @@ ARG service_group="root"
 ARG service_cmd="/bin/sh"
 ARG service_cwd="/"
 ARG service_fs_name
+ARG timezone="GB"
 
 ARG ROOT="/service"
 ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
+
+ARG smtp_smarthost="smtp"
+ARG smtp_domain="rufus.miltonroad.net"
 
 
 # -----------------------------------------------------------------------------
@@ -29,15 +34,18 @@ ARG environment_filter
 
 RUN test -s /usr/libexec/environment.sh
 
-RUN set -u ; \
+# linter ignore=SC2015,ER0001
+RUN { set -o pipefail 2>/dev/null || true ; } ; \
+    set -u ; \
     mkdir -p "${ROOT}"/usr/libexec && \
     printf "#FILTER: '%s'\n\n" "${environment_filter}" > "${ROOT}"/usr/libexec/environment.sh && \
     export -p | \
-	grep -- '=' | \
-	grep -Ev -- "${environment_filter}" \
-	>> "${ROOT}"/usr/libexec/environment.sh && \
-    cat "${ROOT}"/usr/libexec/environment.sh | \
-        grep >&2 -- ' ROOT=' && { \
+            grep -- '=' | \
+            grep -Ev -- "${environment_filter}" | \
+            sed -r 's/\s+/ /g' | \
+            grep -v '^export [a-z_]' \
+        >> "${ROOT}"/usr/libexec/environment.sh && \
+    grep >&2 -- ' ROOT=' "${ROOT}"/usr/libexec/environment.sh && { \
             printf >&2 "Invalid 'ROOT' directive in '%s/usr/libexec/environment.sh':\n\n%s\n\n" "${ROOT%/}" "$( < "${ROOT}"/usr/libexec/environment.sh )" ; \
             exit 1 ; \
         } || :
@@ -50,17 +58,26 @@ RUN set -u ; \
 #
 FROM scratch
 
+ARG image_name
 ARG service_name
+ARG service_name_short
 ARG service_version
 
 ARG service_ports
 ARG service_user
 ARG service_group
 ARG service_cmd
+ARG service_cwd
 ARG service_fs_name
+ARG timezone="GB"
 
-ENV fs_name="${service_fs_name}"
 ARG ROOT
+
+ARG smtp_smarthost
+ARG smtp_domain
+
+ENV service_cmd="${service_cmd}"
+ENV fs_name="${service_fs_name}"
 
 
 # Copy the installed tree into the current image
@@ -68,11 +85,20 @@ ARG ROOT
 COPY --from=base "${ROOT}" /
 RUN test -s /usr/libexec/environment.sh
 
-COPY --from=base /etc/group /etc/
-#COPY --from=base /etc/gshadow /etc/ # Doesn't exist in source image
-COPY --from=base /etc/passwd /etc/
-COPY --from=base /etc/services /etc/
-COPY --from=base /etc/shadow /etc/
+ENV ROOT="/"
+
+COPY --from=base /etc/group /etc/base/
+#COPY --from=base /etc/gshadow /etc/base/  # Doesn't exist in source image
+COPY --from=base /etc/passwd /etc/base/
+COPY --from=base /etc/shadow /etc/base/
+COPY --from=base /etc/ethertypes /etc/base/
+COPY --from=base /etc/networks /etc/base/
+COPY --from=base /etc/protocols /etc/base/
+COPY --from=base /etc/services /etc/base/
+COPY --from=base /etc/shells /etc/base/
+#COPY --from=base /usr/share/zoneinfo /usr/share/zoneinfo/
+COPY --from=base "/usr/share/zoneinfo/${timezone}" /etc/localtime
+COPY etc/msmtprc /etc/
 
 LABEL maintainer="stuart@shelton.me"
 LABEL Description="Gentoo ${service_name}-${service_version} service"
@@ -82,8 +108,28 @@ LABEL Description="Gentoo ${service_name}-${service_version} service"
 ARG SET_TERM="${TERM:-xterm}"
 ENV TERM="${SET_TERM}"
 
-RUN cat "/var/db/pkg/${service_name}-${service_version}/CONTENTS"
+#RUN cat "/var/db/pkg/${service_name}-${service_version}/CONTENTS"
 
+# linter ignore=ER0001
+RUN i="${image_name}:${service_version}" ; \
+    for f in /etc/base/*; do \
+        f="$( basename "${f}" )" ; \
+        if ! [ -s "/etc/${f}" ]; then \
+            echo "Adding new file '${f}' from base image '${i}' ..." ; \
+            mv "/etc/base/${f}" /etc/ ; \
+        elif ! diff -q "/etc/base/${f}" "/etc/${f}" >/dev/null; then \
+            echo "Files '/etc/base/${f}' and '/etc/${f}' differ ..." ; \
+            diff -u "/etc/base/${f}" "/etc/${f}" | sed 's/^/    /' ; \
+            echo "... keeping file '${f}' from base image '${i}'" ; \
+            mv "/etc/base/${f}" /etc/ ; \
+        fi ; \
+    done ; \
+    rm -r /etc/base ; \
+    sed -e "s/__SMTP_SMARTHOST__/${smtp_smarthost}/" \
+        -e "s/__DOMAIN__/${smtp_domain}/" \
+        -i /etc/msmtprc
+
+# linter ignore=SC2174
 RUN for d in empty log run; do \
         mkdir -pm 0755 "/var/${d}/" ; \
     done && \
@@ -97,24 +143,85 @@ RUN for d in empty log run; do \
 # to the (hopefully) host-mounted packages directory ...
 #
 COPY entrypoint.sh.service /usr/libexec/entrypoint.sh
-RUN chmod 0755 /usr/libexec/entrypoint.sh && \
-    test -x /usr/libexec/entrypoint.sh
+COPY entrypoint.d/ /usr/libexec/entrypoint.d/
+RUN test -s /usr/libexec/entrypoint.sh && \
+    chmod 0755 /usr/libexec/entrypoint.sh && \
+    test -x /usr/libexec/entrypoint.sh ; \
+    chmod 0755 /usr/libexec/entrypoint.d/*.sh || :
 
-RUN test -x "${service_cmd}"
+RUN echo "${service_cmd}" ; \
+    test -x "${service_cmd}"
 
-RUN sed -i "s|exec |exec '${service_cmd}' |" /usr/libexec/entrypoint.sh
+# No longer needed, since 'service_cmd' is exposed as an ENV ...
+#RUN sed -i "s|^exec |exec '${service_cmd}' |" /usr/libexec/entrypoint.sh && \
+#    sh -n /usr/libexec/entrypoint.sh
+
+RUN mkdir -p "/srv/${service_name_short}/usr/share" ; \
+    if [ -d /usr/share/doc ]; then \
+        mv /usr/share/doc "/srv/${service_name_short}/usr/share/" && \
+        ln -s "../../srv/${service_name_short}/usr/share/doc" /usr/share/ ; \
+    fi ; \
+    if [ -d /usr/share/info ]; then \
+        mv /usr/share/info "/srv/${service_name_short}/usr/share/" && \
+        ln -s "../../srv/${service_name_short}/usr/share/info" /usr/share/ ; \
+    fi ; \
+    if [ -d /usr/share/man ]; then \
+        mv /usr/share/man "/srv/${service_name_short}/usr/share/" && \
+        ln -s "../../srv/${service_name_short}/usr/share/man" /usr/share/ ; \
+    fi
+
+# Create /var/cache/man/index.db when man-db is installed...
+RUN test ! -x /usr/bin/mandb || \
+    nice mandb --create
+
+# Run eselect for dependent components...
+RUN if [ -x /usr/bin/eselect ]; then \
+        if [ -s /usr/share/eselect/modules/python.eselect ]; then \
+            if [ $(( ${EUID:-$( id -u )} )) -eq 0 ]; then \
+                echo "Setting python implementation ..." ; \
+                mkdir -p /etc/python-exec ; \
+                eselect python cleanup ; \
+                eselect python update --if-unset ; \
+            fi ; \
+        fi ; \
+        if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
+            echo "Setting Java VM as initial user ..." ; \
+            if [ $(( ${EUID:-$( id -u )} )) -eq 0 ]; then \
+                eselect java-vm set --if-unset system 1 ; \
+            else \
+                eselect java-vm set --if-unset user 1 ; \
+            fi ; \
+        fi ; \
+    fi
+
+# http://www.gentoo.org/doc/en/prelink-howto.xml
+RUN test -x /usr/sbin/prelink && \
+    /usr/sbin/prelink -av -m -R -f
 
 EXPOSE "${service_ports}"
 
+# linter ignore=EW0001
 WORKDIR "${service_cwd}"
 
 USER "${service_user}:${service_group}"
 
-# This container is anticipated to be inherited rather than run, or run with
-# (a) package atom(s) - but let's (re)emerge bash if executed directly without
-# parameters ...
-#
-ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
-CMD ["${service_cmd}"]
+RUN if [ -x /usr/bin/eselect ]; then \
+        if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
+            echo "Setting Java VM as '${service_user:-root}' ..." ; \
+            if [ $(( ${EUID:-$( id -u )} )) -eq 0 ]; then \
+                eselect java-vm set --if-unset system 1 ; \
+            else \
+                eselect java-vm set --if-unset user 1 ; \
+            fi ; \
+        fi ; \
+    fi
 
-# vi: set syntax=dockerfile expandtab nowrap colorcolumn=80:
+VOLUME ["/srv/${service_name_short}","/var/db/pkg"]
+
+ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
+
+# Must be in shell-form to interpolate ARG/ENV values...
+# linter ignore=EJ0002
+CMD "${service_cmd}"
+
+# vi: set syntax=dockerfile expandtab sw=4 ts=4 nowrap colorcolumn=80:

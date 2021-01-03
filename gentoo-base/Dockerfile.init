@@ -15,6 +15,7 @@ ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAM
 
 # -----------------------------------------------------------------------------
 
+# linter ignore=EF0003
 FROM "${stage3_name:-gentoo-stage3}:latest"
 
 ARG stage3_image
@@ -58,8 +59,10 @@ RUN test -s /etc/timezone && \
     test -e /etc/portage/package.accept_keywords && \
     test -s /etc/portage/profile/package.provided
 
-RUN [ -d /etc/portage/package.use.init ] && \
-    [ ! -e /etc/portage/package.use ] && \
+# We can't use 'RUN [ -d ... ]' because this is interpreted as being
+# exec-form...
+RUN test -d /etc/portage/package.use.init && \
+    test ! -e /etc/portage/package.use && \
     mv /etc/portage/package.use.init /etc/portage/package.use
 
 RUN set -u ; \
@@ -76,7 +79,8 @@ RUN set -u ; \
             -e "s|__PROFILE__|${GENTOO_PROFILE}|" \
             -e "s:__ENVFILTER__:${environment_filter}:" \
         /usr/libexec/entrypoint.sh && \
-    chmod 0755 /usr/libexec/entrypoint.sh 
+    chmod 0755 /usr/libexec/entrypoint.sh && \
+    sh -n /usr/libexec/entrypoint.sh
 
 ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
 CMD ["app-shells/bash"]

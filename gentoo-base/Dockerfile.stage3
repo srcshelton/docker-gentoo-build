@@ -15,6 +15,7 @@ ARG stage3_id=""
 
 # -----------------------------------------------------------------------------
 
+# linter ignore=EF0003
 FROM "${stage3_image}:${stage3_tag}" AS stage3
 
 #RUN test -x /bin/sh
@@ -22,6 +23,7 @@ FROM "${stage3_image}:${stage3_tag}" AS stage3
 
 # -----------------------------------------------------------------------------
 
+# linter ignore=EF0003
 FROM "${env_name}:latest"
 
 ARG env_name
@@ -36,6 +38,9 @@ LABEL stage3_from="${stage3_image}:${stage3_id}"
 
 COPY --from=stage3 / /
 
-RUN [ ! -e /var/db/repos ] || rm -r /var/db/repos
+# We can't use 'RUN [ -d ... ]' because this is interpreted as being
+# exec-form...
+# Double-negative so that 'set -e' doesn't trip over a false result
+RUN test ! -e /var/db/repos || rm -r /var/db/repos
 
 # vi: set syntax=dockerfile expandtab nowrap colorcolumn=80:
