@@ -11,37 +11,145 @@ print() {
 	[ -z "${debug:-}" ] || echo >&2 "${*}"
 }
 
+if [ -z "${service_cmd:-}" ]; then
+	echo >&2 "FATAL: Required 'service_cmd' environment variable not set"
+	exit 1
+fi
+
+if [ -d /usr/libexec/entrypoint.d ]; then
+	bin="$( basename "${service_cmd}" )"
+	if [ -n "${bin:-}" ] && [ -s "/usr/libexec/entrypoint.d/${bin}.pre" ]; then
+		# shellcheck disable=SC1090
+		. "/usr/libexec/entrypoint.d/${bin}.pre"
+	fi
+fi
+
 if [ -s /usr/libexec/environment.sh ]; then
 	print "Sourcing environment ..."
+	# shellcheck disable=SC1091
 	. /usr/libexec/environment.sh
 fi
 
-print "Checking for root aaccess ..."
+print "Checking for root access ..."
 uid=''
+# shellcheck disable=SC2039
 if [ -n "${EUID:-}" ]; then
 	uid="${EUID}"
 else
 	uid="$( id -u )"
+	export EUID="${uid}"
 fi
 
 if [ -n "${uid:-}" ] && [ "${uid}" = '0' ]; then
+	if hostname="$( hostname -s 2>/dev/null )"; then
+		if ! grep -qw -- "${hostname}" /etc/hosts; then
+			print "Adding hostname '${hostname}' to /etc/hosts ..."
+			sed -i "/^[1-9:]/ s/\([[:space:]]\)localhost\([[:space:]]\|$\)/\1localhost ${hostname}\2/g" /etc/hosts
+		fi
+	fi
+	unset hostname
+
 	print "Creating service directories  ..."
 
 	for d in empty log run; do
-		mkdir -pm 755 "/var/${d}/"
+		mkdir -p "/var/${d}/" || continue
+		chmod 0755 "/var/${d}" 2>/dev/null || :
 	done
 
 	if [ -n "${fs_name:-}" ]; then
 		print "Creating '${fs_name}'  directories  ..."
 		for d in log run; do
-			mkdir -pm 755 "/var/${d}/${fs_name}/"
+			mkdir -p "/var/${d}/${fs_name}/" || continue
+			chmod 0755 "/var/${d}/${fs_name}" || :
 		done
 	fi
 fi
 
+# Run eselect for dependent components...
+if [ -x /usr/bin/eselect ]; then
+	if [ -s /usr/share/eselect/modules/python.eselect ]; then
+		if [ $(( EUID )) -eq 0 ]; then
+			print "Setting python implementation ..."
+			mkdir -p /etc/python-exec
+
+			eselect python cleanup
+			eselect python update --if-unset
+			#eselect python list
+			#eselect python --show --python2
+			#eselect python --show --python3
+		fi
+	fi
+	if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then
+		print "Setting Java VM ..."
+		if [ $(( EUID )) -eq 0 ]; then
+			eselect java-vm set --if-unset system 1
+		else
+			eselect java-vm set --if-unset user 1
+		fi
+		#eselect java-vm list
+	fi
+fi
+
+# Prepare man/info, if mounted to this container...
+if [ -x /usr/bin/install-info ]; then
+	echo >&2 "Synchronising info pages ..."
+	s='' f=''
+	find /srv/ -mindepth 1 -maxdepth 1 -type d -print | while read -r s; do
+		#find "${s}"/usr/share/info/ -type f -not -name dir -exec cp {} /usr/share/info/ +
+		find "${s}"/usr/share/info/ -type f | while read -r f; do
+			echo "${f}" | grep -q '/dir$' && continue
+			[ -e "/usr/share/info/$( basename "${f}" )" ] || cp "${f}" /usr/share/info/
+		done
+	done
+	unset s
+	#find /usr/share/info/ -type f -not -name dir -exec install-info --keep-old {} /usr/share/info/dir \;
+	find /usr/share/info/ -type f | while read -r f; do
+		echo "${f}" | grep -q '/dir$' && continue
+		install-info --keep-old "${f}" /usr/share/info/dir
+	done
+fi
+
+if [ "${service_cmd}" = '/usr/bin/man' ] && [ -x /usr/bin/mandb ] && getent passwd man >/dev/null && getent group man >/dev/null; then
+	rc=0
+
+	# Use same perms/settings as the ebuild.
+	cachedir="/var/cache/man"
+	if [ ! -d "${cachedir}" ]; then
+		mkdir -p "${cachedir}"
+		chown man:man "${cachedir}"
+		chmod 0755 "${cachedir}"
+	fi
+
+	echo >&2 "Synchronising man pages ..."
+	s='' f='' d=''
+	find /srv/ -mindepth 1 -maxdepth 1 -type d -print | while read -r s; do
+		find "${s}"/usr/share/man/ -type f | while read -r f; do
+			echo "${f}" | grep -q '/index.db' && continue
+			d="$( basename "$( dirname "${f}" )" )"
+			mkdir -p "/usr/share/man/${d}"
+			[ -e "/usr/share/man/${d}/$( basename "${f}" )" ] || cp "${f}" "/usr/share/man/${d}/"
+		done
+	done
+	unset s
+	
+	echo >&2 "Rebuilding man-db cache ..."
+	nice mandb --no-purge --quiet || rc=${?}
+	print "mandb update returned ${rc}"
+fi
+
 unset uid
 
-set +o xtrace
+if [ -d /usr/libexec/entrypoint.d ]; then
+	rc=0
+	bin="$( basename "${service_cmd}" )"
+	if [ -n "${bin:-}" ] && [ -s /usr/libexec/entrypoint.d/"${bin}" ]; then
+		print "Running entrypoint script /usr/libexec/entrypoint.d/${bin} ..."
+		# shellcheck disable=SC1090
+		. /usr/libexec/entrypoint.d/"${bin}" || rc=${?}
+		print "entrypoint script '${bin}' returned ${rc}"
+	fi
+fi
 
-print "Running service ..."
-exec "${@}"
+# shellcheck disable=SC2016
+print "Running service '${service_cmd}'${*+ with parameters '${*}'} ..."
+exec "${service_cmd}" ${@+"${@}"}

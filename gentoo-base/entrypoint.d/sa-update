@@ -1,0 +1,80 @@
+#!/bin/sh
+
+# They don't make this easy... sa-update exits with return-code 1 if there are
+# no updates available, so actual errors are identified by running first with
+# '--checkonly' and looking for an exit code of greater than three.
+updated=0
+rc=0
+sa-update --checkonly || rc=${?}
+if [ $(( rc )) -ge 4 ]; then
+	echo >&2 "sa-update flagged error - aborting"
+	exit ${rc}
+elif [ $(( rc )) -ge 2 ]; then
+	echo >&2 "sa-update flagged partial success - attemping to update ..."
+	sa-update -v || :
+	updated=1
+elif [ $(( rc )) -eq 1 ]; then
+	if [ -e /.force-update ]; then
+		echo >&2 "sa-update flagged no updates available, but update forced ..."
+		updated=1
+	else
+		echo >&2 "sa-update flagged no updates available, skipping ..."
+	fi
+else # [ $(( rc )) -eq 0 ]; then
+	sa-update -v || exit 1
+	updated=1
+fi
+
+if [ $(( updated )) -eq 1 ]; then
+	echo >&2 ' * Setting environment ...'
+
+	if [ -e /etc/portage/repos.conf ]; then
+		if [ -d /etc/portage/repos.conf ]; then
+			for f in /etc/portage/repos.conf/*; do
+				umount -q "${f}" || :
+			done
+		fi
+		umount -q /etc/portage/repos.conf || :
+		rm -rf /etc/portage/repos.conf || :
+	fi
+	mkdir -p /var/db/repos/gentoo
+
+	# Dockerfile.service needs to inherit from 'gentoo-env' rather than
+	# 'scratch' if we want to inherit this value automagically...
+	export CHOST="${CHOST:-x86_64-pc-linux-gnu}"
+
+	eselect awk set gawk
+	binutils-config 1
+
+	# Taken from /usr/bin/gcc-config, and adapted to sh
+	: "${ROOT:=/}"
+	echo "${ROOT}" | grep -q -- '/$' || ROOT="${ROOT}/"
+	echo "${ROOT}" | grep -q -- '^/' || ROOT="${PWD%/}/${ROOT}"
+	EPREFIX=""
+	echo "${ROOT}" | grep -q -- '^@.*@$' && EPREFIX=""
+	EROOT="${ROOT%/}${EPREFIX}/"
+
+	#if [ ! -w "${EROOT:-/}" ]; then
+		echo >&2 " * Making directory '${EROOT:-/}' writable ..."
+		chmod u+w "${EROOT:-/}"
+		#ls -ld "${EROOT:-/}"
+	#fi
+	gcc-config -f 1
+	# shellcheck disable=SC1091
+	[ -s /etc/profile ] && . /etc/profile
+
+	echo >&2 ' * Compiling SpamAssassin updates ...'
+	sa-compile || exit 1
+fi
+
+if [ -s /etc/GeoIP.conf ]; then
+	echo >&2 "Updating GeoIP data ..."
+	geoipupdate -v || exit 1
+else
+	echo >&2 "WARN: Configuration missing, not running 'geoipupdate'"
+fi
+
+echo >&2 "SpamAssassin Update & Compilation completed successfully"
+exit 0
+
+# vi: set syntax=sh:

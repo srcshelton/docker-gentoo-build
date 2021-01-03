@@ -1,0 +1,37 @@
+#! /bin/sh
+
+set +u
+
+# shellcheck disable=SC1091
+#[ ! -s /lib/rc/sh/functions.sh ] || . /lib/rc/sh/functions.sh
+[ ! -s /lib/gentoo/functions.sh ] || . /lib/gentoo/functions.sh
+
+set -u
+
+regenerateconfig() {
+	rc=0
+
+	if [ -x /var/bind/pri/internal/generate-ptr.sh ]; then
+		(
+			set +e
+
+			cd /var/bind/pri/internal || return 1
+
+			ebegin "Regenerating reverse mappings for internal zones"
+
+			mkdir -p backup
+			/var/bind/pri/internal/generate-ptr.sh # >/dev/null
+			rc=${?}
+
+			mv -- ./*-20????????.zone backup/ 2>/dev/null
+
+			eend ${rc} "Reverse map generation failed: ${rc}"
+		)
+	else
+		ewarn "Not regenerating internal zones"
+	fi
+} # regenerateconfig
+
+regenerateconfig
+
+# vi: set syntax=sh:

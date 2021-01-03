@@ -1,25 +1,136 @@
 #! /bin/sh
+# shellcheck disable=SC2030,SC2031
 
 set -eu
+
+# shellcheck disable=SC2034
+debug=${DEBUG:-}
+trace=${TRACE:-}
 
 DEFAULT_JOBS='__JOBS__'
 DEFAULT_MAXLOAD='__MAXLOAD__'
 
 die() {
-	printf 'FATAL: %s\n' "${*:-Unknown error}"
+	printf >&2 'FATAL: %s\n' "${*:-Unknown error}"
 	exit 1
 } # die
 
 warn() {
-	[ -z "${*:-}" ] && echo || printf 'WARN:  %s\n' "${*}"
+	[ -z "${*:-}" ] && echo || printf >&2 'WARN:  %s\n' "${*}"
 } # warn
 
 print() {
-	[ -z "${*:-}" ] && echo || printf 'DEBUG: %s\n' "${*}"
+	if [ -n "${DEBUG:-}" ]; then
+		#[ -z "${*:-}" ] && echo || printf >&2 'DEBUG: %s\n' "${*}"
+		printf >&2 'DEBUG: %s\n' "${*}"
+	fi
 } # print
+
+format() {
+	# Pad $variable to $padding trailing spaces
+	#
+	variable="${1:-}"
+	padding=${2:-20}
+
+	[ -n "${variable:-}" ] || return 1
+
+	spaces="$( printf "%${padding}s" )"
+	string="%-${padding}s= \"%s\"\\n"
+
+	# shellcheck disable=SC2059
+	printf "${string}" "${variable}" "$(
+		cat - | grep -- "^${variable}=" | cut -d'"' -f 2 | fmt -w $(( ${COLUMNS:-80} - ( padding + 3 ) )) | sed "s/^/   ${spaces}/ ; 1 s/^\s\+//"
+	)"
+} # format
+
+check() {
+	# Check that a given package (with build result code $crc) is actually installed
+	#
+	crc=${1:-} ; shift
+
+	[ -n "${crc:-}" ] || return 1
+
+	if [ "${crc}" -eq 0 ]; then
+		for arg in "${@}"; do
+			case "${arg}" in
+				-*)	continue ;;
+				*)	package="${arg}" ; break ;;
+			esac
+		done
+		package="$( echo "${package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
+		if echo "${package}" | grep -Fq -- '/'; then
+			if ! ls -1d "${ROOT:-}/var/db/pkg/${package%::*}"* >/dev/null 2>&1; then
+				die "emerge indicated success but package '${package%::*}' does not appear to be installed"
+			fi
+		else
+			if ! ls -1d "${ROOT:-}/var/db/pkg"/*/"${package%::*}"* >/dev/null 2>&1; then
+				die "emerge indicated success but package '${package%::*}' does not appear to be installed"
+			fi
+		fi
+	fi
+
+	# shellcheck disable=SC2086
+	return ${crc}
+} # check
+
+checkmissing() {
+	# Check that packages passed in as arguments have been removed
+	#
+	for arg in "${@}"; do
+		case "${arg}" in
+			-*)	continue ;;
+			*)	package="${arg}" ; break ;;
+		esac
+	done
+	package="$( echo "${package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
+	if echo "${package}" | grep -Fq -- '/'; then
+		if ls -1d "${ROOT:-}/var/db/pkg/${package%::*}"* >/dev/null 2>&1; then
+			warn "emerge indicated success but package '${package%::*}' still appears to be installed under root '${ROOT:-/}'"
+			return 1
+		fi
+	else
+		if ls -1d "${ROOT:-}/var/db/pkg"/*/"${package%::*}"* >/dev/null 2>&1; then
+			warn "emerge indicated success but package '${package%::*}' still appears to be installed under root '${ROOT:-/}'"
+			return 1
+		fi
+	fi
+
+	return 0
+} # checkmissing
+
+savefailed() {
+	# Save failed build logs ...
+	# (e.g. /var/tmp/portage/app-misc/mime-types-9/temp/build.log)
+
+	#[ -n "${trace:-}" ] || set -x
+	# shellcheck disable=SC2012 # We can't rely on findutils being present...
+	if [ -n "$( ls -1 "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log 2>/dev/null | head -n 1 )" ]; then
+		mkdir -p "${PORTAGE_LOGDIR}"/failed
+		for file in "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log; do
+			cat="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"
+			pkg="$( echo "${file}" | rev | cut -d'/' -f 3 | rev )"
+			mkdir --parents "${PORTAGE_LOGDIR}/failed/${cat}"
+			mv -v "${file}" "${PORTAGE_LOGDIR}/failed/${cat}/${pkg}.log"
+			rmdir --parents --ignore-fail-on-non-empty "$( dirname "${file}" )" || :
+		done
+	fi
+	#[ -n "${trace:-}" ] || set +x
+} # savefailed
+
+#do_prelink() {
+#	# http://www.gentoo.org/doc/en/prelink-howto.xml
+#	PRELINK_OPTS='-mRf'
+#
+#	[ -x /usr/sbin/prelink ] || return 0
+#
+#	[ -e /etc/prelink.cache] && rm /etc/prelink.cache
+#
+#	/usr/sbin/prelink -av ${PRELINK_OPTS}
+#} # prelink
 
 if [ -n "${DEV_MODE:-}" ]; then
 	cat <<EOF
+
 *******************************************************************************
 *                                                                             *
 * OPERATING IN DEV_MODE                                                       *
@@ -32,13 +143,20 @@ if [ -n "${DEV_MODE:-}" ]; then
 EOF
 fi
 
+[ -n "${trace:-}" ] && set -o xtrace
+
+# shellcheck disable=SC2015,SC1091
 [ -s /usr/libexec/environment.sh ] &&
 	. /usr/libexec/environment.sh ||
 		die "FATAL: gentoo-build:entrypoint.sh Unable to source '/usr/libexec/environment.sh': ${?}"
 
-env-update
-ROOT='/' gcc-config 1
-. /etc/profile
+if command -v env-update >/dev/null 2>&1; then
+	LC_ALL='C' env-update
+fi
+[ -d /etc/env.d/gcc ] && ROOT='/' gcc-config 1
+[ -d /etc/env.d/binutils ] && command -v binutils-config >/dev/null 2>&1 && ROOT='/' binutils-config 1
+# shellcheck disable=SC1091
+[ -f /etc/profile ] && . /etc/profile
 
 if printf '%s' " ${*:-} " | grep -Fq -- ' --verbose-build '; then
 	parallel='--jobs=1 --quiet-build=n'
@@ -67,10 +185,22 @@ if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
 	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-${DEFAULT_MAXLOAD}}"
 fi
 
-TUSE='' pre_remove='' pre_pkgs='' pre_use='' post_pkgs='' post_use='' change_sysroot='0'
+TUSE='' force_python='' pre_remove='' pre_pkgs='' pre_use='' post_pkgs='' post_use='' rebuild='' change_sysroot=0 no_use=0 rc=0
 for arg in "${@}"; do
-        shift
+	#print "Read argument '${arg}'"
+	shift
 	case "${arg}" in
+		--force-python=*)
+			force_python="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			if ! echo "${force_python:-}" | grep -q -- '^python[2-9]_[0-9]$'; then
+				die "Portage python token '${force_python:-}' is not valid"
+			fi
+			continue
+			;;
+		--no-package-use)
+			no_use=1
+			continue
+			;;
 		--pre-remove=*)
 			pre_remove="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
 			continue
@@ -91,8 +221,12 @@ for arg in "${@}"; do
 			post_use="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
 			continue
 			;;
+		--rebuild=*)
+			rebuild="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			continue
+			;;
 		--sysroot)
-			change_sysroot='1'
+			change_sysroot=1
 			continue
 			;;
 		--verbose-build)
@@ -103,10 +237,93 @@ for arg in "${@}"; do
 			continue
 			;;
 		*)
-		        set -- "${@}" "${arg}"
+			set -- "${@}" "${arg}"
 			;;
 	esac
 done
+
+if [ ${no_use} -eq 1 ]; then
+	# My suspicion is that package.use contents are interfering with
+	# environment USE flags...
+	if [ -e /etc/portage/package.use ]; then
+		echo
+		warn "Removing default '/etc/portage/package.use' settings"
+		mv /etc/portage/package.use /etc/portage/package.use.disabled
+	fi
+fi
+
+override='' object='' headers='' header='' file='' dest=''
+find /etc/portage/ -mindepth 1 -maxdepth 1 -name '*.override' -print | while read -r override; do
+	object="$( echo "${override}" | sed 's/\.override$//' )"
+	if [ -e "${object}" ]; then
+		mv "${object}" "${object}.disabled"
+	fi
+	# override can be a file or directory
+	# header can be in current or override directory (if not a file), but must be a file
+	if [ -d "${object}.header" ] || [ -d "${override}.header" ]; then
+		[ -d "${object}.header" ] && warn "Override header directories not supported: '${object}.header' not applied"
+		[ -d "${override}.header" ] && warn "Override header directories not supported: '${override}.header' not applied"
+	fi
+	if [ -d "${override}" ]; then
+		headers="$( find "${override}"/ -mindepth 1 -maxdepth 1 -name '*.header' -print )"
+		if [ -f "${object}.header" ] || [ -f "${override}.header" ] || [ -n "${headers:-}" ]; then
+			mkdir -p "${object}"
+
+			for header in "${object}.header" "${override}.header" ${headers}; do
+				[ -f "${header}" ] || continue
+				find "${override}"/ -mindepth 1 -not -name '*.header' -print | while read -r file; do
+					dest="$( echo "${file}" | sed "s|^${override}|${object}|" )"
+					mkdir -p "$( dirname "${dest}" )"
+
+					if [ -f "${file}" ]; then
+						if [ -f "${dest}" ]; then
+							print "Adding override header '${header}' to existing file '${file}' ('${dest}')"
+							cat "${header}" "${dest}" > "${dest}.tmp"
+							mv "${dest}.tmp" "${dest}"
+						else
+							print "Applying override header '${header}' to file '${file}' ('${dest}')"
+							cat "${header}" "${file}" > "${dest}"
+						fi
+					elif [ -d "${file}" ]; then
+						if ! [ -d "${dest}" ]; then
+							# FIXME Support directories?
+							warn "Not applying override header '${header}' to directory '${file}' ('${dest}')"
+							cp -a "${file}" "${dest}"
+						fi
+					else
+						if ! [ -e "${dest}" ]; then
+							warn "Not applying override header '${header}' to non-regular file '${file}' ('${dest}')"
+							cp -a "${file}" "${dest}"
+						fi
+					fi
+				done
+			done
+		else
+			# Simply copy $override
+			cp -a "${override}" "${object}"
+		fi
+	elif [ -f "${override}" ]; then
+		if [ -f "${object}.header" ] || [ -f "${override}.header" ]; then
+			# shellcheck disable=SC2046
+			cat > "${object}" \
+				$( [ -f "${override}.header" ] && { warn >&2 "Using override '${override}.header' for item '${object}'" ; echo "${override}.header" ; } ) \
+				$( [ -f "${object}.header" ] && { warn >&2 "Using override '${object}.header' for item '${object}'" ; echo "${object}.header" ; } ) \
+				"${override}"
+		else
+			# Simply copy $override
+			cp -a "${override}" "${object}"
+		fi
+	fi
+done
+
+if command -v pypy3 >/dev/null 2>&1; then
+	print "Enabling pypy3 support for portage ..."
+	mkdir -p /etc/python-exec
+	echo 'pypy3' >> /etc/python-exec/emerge.conf
+	print "$( emerge --info | head -n 1 2>&1 )"
+fi
+
+#warn >&2 "Inherited USE-flags: '${USE:-}'"
 
 # post_use should be based on the original USE flags, without --with-use
 # additions...
@@ -117,13 +334,45 @@ if [ -n "${post_use:-}" ]; then
 else
 	post_use="${USE:-}"
 fi
-post_use="${post_use:+${post_use} }${use_essential:+ ${use_essential}}"
-
 if [ -n "${TUSE:-}" ]; then
 	if ! printf '%s' " ${TUSE} " | grep -Fq -- ' -* '; then
 		TUSE="${USE:+${USE} }${TUSE}"
 	fi
-	export USE="${TUSE}${use_essential:+ ${use_essential}}"
+fi
+if [ -n "${use_essential:-}" ]; then
+	if echo " ${use_essential:-} " | grep -Fq -- ' openssl '; then
+		if
+			echo " ${USE:-} " | grep -Fq -- ' libressl ' ||
+			echo " ${TUSE:-} " | grep -Fq -- ' libressl '
+		then
+			use_essential="$(
+				echo "${use_essential}" |
+				sed -r 's/(\s)openssl(\s)/\1libressl\2/g'
+			)"
+		fi
+	fi
+	if ! echo "${post_use:-}" | grep -Fq -- "${use_essential}"; then
+		post_use="${post_use:+${post_use} }${use_essential}"
+	fi
+fi
+if [ -n "${TUSE:-}" ]; then
+	if
+		[ -n "${use_essential:-}" ] &&
+		echo "${TUSE}" | grep -Fq -- "${use_essential}"
+	then
+		USE="${TUSE}"
+	else
+		USE="${TUSE}${use_essential:+ ${use_essential}}"
+	fi
+	export USE
+	unset TUSE
+fi
+if echo " ${USE:-} " | grep -Fq -- ' libressl ';  then
+	USE="$(
+		echo "${USE}" |
+		sed -r 's/(\s)openssl(\s)/\1libressl\2/g'
+	)"
+	echo 'dev-libs/openssl' >> /etc/portage/package.mask
 fi
 
 info="$( LC_ALL='C' emerge --info --verbose )"
@@ -131,17 +380,17 @@ echo
 echo 'Resolved build variables for build stage:'
 echo '----------------------------------------'
 echo
-echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
-echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+#echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
+#echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
 echo "PORTAGE_CONFIGROOT  = $( echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2- )"
 echo
-echo "FEATURES            = $( echo "${info}" | grep -- '^FEATURES=' | cut -d'=' -f 2- )"
-echo "ACCEPT_LICENSE      = $( echo "${info}" | grep -- '^ACCEPT_LICENSE=' | cut -d'=' -f 2- )"
-echo "ACCEPT_KEYWORDS     = $( echo "${info}" | grep -- '^ACCEPT_KEYWORDS=' | cut -d'=' -f 2- )"
-echo "USE                 = \"$( echo "${info}" | grep -- '^USE=' | cut -d'"' -f 2 )\""
+echo "${info}" | format 'FEATURES'
+echo "${info}" | format 'ACCEPT_LICENSE'
+echo "${info}" | format 'ACCEPT_KEYWORDS'
+echo "${info}" | format 'USE'
 echo "MAKEOPTS            = $( echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2- )"
 echo
-echo "EMERGE_DEFAULT_OPTS = $( echo "${info}" | grep -- '^EMERGE_DEFAULT_OPTS=' | cut -d'=' -f 2- )"
+echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 echo
 echo "DISTDIR             = $( echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2- )"
 echo "PKGDIR              = $( echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2- )"
@@ -151,88 +400,133 @@ unset info
 
 package='app-shells/bash'
 opts='--tree'
+# shellcheck disable=SC2015
 printf ' %s ' "${*}" | grep -Fq -- ' --nodeps ' && opts='' || :
 
-if [ -e /.docker-build-started ]; then
-	echo " * Container has previously run, dropping to shell ..."
-	echo
-
-	if [ -z "${1:-}" ]; then
-		print "Would have run default 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y \"${package}\"'${USE:+ with USE='${USE}'}"
-	elif [ -z "${post_pkgs:-}" ]; then
-		print "Would have run 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
-	else
-		print "Would have run 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
-		print "Would have run 'exec emerge ${opts:+${opts} }--jobs=1 --quiet-build=n --buildpkg=y --usepkg=y ${post_pkgs}'${post_use:+ with USE='${post_use}'}"
-	fi
-
-	# FIXME: At this point, we either exit immediately, or get stuck
-	#        reading input but doing nothing until killed from another
-	#        shell... but why?!
-
-	set -o xtrace
-	if [ -x /bin/bash ]; then
-		exec /bin/bash
-	else
-		exec /bin/sh
-	fi
-	set +o xtrace
-else
-	touch /.docker-build-started
-fi
+#if [ -e /.docker-build-started ]; then
+#	echo " * Container has previously run, dropping to shell ..."
+#	echo
+#
+#	if [ -z "${1:-}" ]; then
+#		print "Would have run default 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y \"${package}\"'${USE:+ with USE='${USE}'}"
+#	elif [ -z "${post_pkgs:-}" ]; then
+#		print "Would have run 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
+#	else
+#		print "Would have run 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
+#		print "Would have run 'exec emerge ${opts:+${opts} }--jobs=1 --quiet-build=n --buildpkg=y --usepkg=y ${post_pkgs}'${post_use:+ with USE='${post_use}'}"
+#	fi
+#
+#	# FIXME: At this point, we either exit immediately, or get stuck
+#	#        reading input but doing nothing until killed from another
+#	#        shell... but why?!
+#
+#	set -o xtrace
+#	if [ -x /bin/bash ]; then
+#		exec /bin/bash
+#	else
+#		exec /bin/sh
+#	fi
+#	set +o xtrace
+#else
+#	touch /.docker-build-started
+#fi
 
 if [ -n "${pre_remove:-}" ]; then
-	echo " * Removing specified pre-installation '${pre_remove}' packages ..."
-	echo
 	(
-		export ROOT='/'
-		export LC_ALL='C'
-		emerge \
-				--ignore-default-opts \
-				--color=y \
-				--depclean \
-				--verbose \
-				--verbose-conflicts \
-			${pre_remove}
-		# emerge --depclean exits with code zero even if removal
-		# doesn't succeed :(
-		if \
-			ls -1d "${ROOT}/var/db/pkg/${pre_remove}"* >/dev/null 2>&1 ||
-			ls -1d "${ROOT}/var/db/pkg"/*/"${pre_remove}"* >/dev/null 2>&1 ;
-		then
+		for ROOT in $( echo "${ROOT:-}" '/' | xargs -n 1 | sort | uniq ); do
+			export ROOT="${ROOT:-/}"
+			export LC_ALL='C'
+
+			[ -d "${ROOT}" ] || continue
+
+			echo
+			echo " * Removing specified pre-installation '${pre_remove}' packages from root '${ROOT}'..."
+
+			# shellcheck disable=SC2086
 			emerge \
 					--ignore-default-opts \
 					--color=y \
-					--rage-clean \
-					--verbose=y \
+					--depclean \
+					--verbose=n \
 					--verbose-conflicts \
 				${pre_remove}
-		fi
+			# emerge --depclean exits with code zero even if removal
+			# doesn't succeed :(
+			# shellcheck disable=SC2086
+			checkmissing ${pre_remove} ||
+				emerge \
+						--ignore-default-opts \
+						--color=y \
+						--rage-clean \
+						--verbose=n \
+						--verbose-conflicts \
+					${pre_remove}
+			# shellcheck disable=SC2086
+			checkmissing ${pre_remove} || exit ${?}
+			#emerge --depclean -v
+			for pkg in ${pre_remove}; do
+				rm -vr "${ROOT%/}/var/db/pkg/"*"/${pkg}"* 2>/dev/null ||
+				rm -vr "${ROOT%/}/var/db/pkg/${pkg}"* 2>/dev/null || :
+				if [ -e "${ROOT%/}/var/lib/portage/world" ]; then
+					str="$( echo "${pkg}" | sed 's|/|\\/|g' )"
+					if sed -i "/${str}/ d" "${ROOT%/}/var/lib/portage/world"; then
+						print "Manually removed '${pkg}' from world profile" 
+					else
+						warn "Failed to remove '${pkg}' from world profile (or package already removed)" 
+					fi
+					unset str
+				fi
+			done
+			unset pkg
+		done
 	)
 fi
 
+if [ -n "${force_python:-}" ]; then
+	pre_pkgs="${pre_pkgs:+${pre_pkgs} }dev-lang/python:$( echo "${force_python}" | sed 's/^python// ; s/_/./' )"
+fi
 if [ -n "${pre_pkgs:-}" ]; then
-	echo " * Building specified pre-installation '${pre_pkgs}' packages ..."
 	echo
+	echo " * Building specified pre-installation packages '${pre_pkgs}' ..."
 	(
 		if [ -n "${pre_use:-}" ]; then
 			if ! printf '%s' " ${pre_use} " | grep -Fq -- ' -* '; then
 				pre_use="${USE:+${USE} }${pre_use}"
 			fi
-			export USE="${pre_use}${use_essential:+ ${use_essential}}"
+			if [ -n "${use_essential:-}" ] && echo "${pre_use}" | grep -Fq -- "${use_essential}"; then
+				USE="${pre_use}"
+			else
+				USE="${pre_use} ${use_essential}"
+			fi
+			export USE
 		fi
 		export ROOT='/'
 		export FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
 		export LC_ALL='C'
-		emerge \
+
+		info="$( emerge --info --verbose )"
+		echo
+		echo 'Resolved build variables for pre-installation packages:'
+		echo '------------------------------------------------------'
+		echo
+		echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
+		echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+		echo "${info}" | format 'FEATURES'
+		echo "${info}" | format 'USE'
+		unset info
+
+		export VERY_BRAVE_OR_VERY_DUMB='yes'  # for busybox
+		# shellcheck disable=SC2086
+		if ! emerge \
 				--ignore-default-opts \
 				${parallel} \
+				--binpkg-changed-deps=y \
 				--binpkg-respect-use=y \
 				--buildpkg=y \
 				--color=y \
 				--keep-going=y \
 				--quiet-build=y \
-				--tree \
+				${opts:-} \
 				--usepkg=y \
 				--verbose=y \
 				--verbose-conflicts \
@@ -242,10 +536,21 @@ if [ -n "${pre_pkgs:-}" ]; then
 				#--binpkg-changed-deps=y \
 				#--rebuild-if-new-slot=y \
 				#--rebuilt-binaries=y \
+		then
+			savefailed
+			exit 1
+		fi
 	)
 fi
 
+[ -d /etc/env.d/gcc ] && ROOT='/' gcc-config 1
+[ -d /etc/env.d/binutils ] && command -v binutils-config >/dev/null 2>&1 && ROOT='/' binutils-config 1
+# shellcheck disable=SC1091
+[ -f /etc/profile ] && . /etc/profile
+
+echo
 echo " * Ensuring base packages in '/service/' ROOT are current:"
+echo
 
 # Replace default file with patched version
 if [ -s /etc/bash/bashrc ]; then
@@ -253,13 +558,64 @@ if [ -s /etc/bash/bashrc ]; then
 	cp /etc/bash/bashrc /service/etc/bash/
 fi
 
-# sys-apps/shadow is needed for /sbin/nologin
-# sys-apps/coreutils needed for cat/chmod
-FEATURES="-fail-clean" \
-USE="-* lib-only make-symlinks timezone-tools" \
-ROOT='/service' \
-LC_ALL='C' \
-	emerge \
+(
+	export ROOT='/service'
+	export FEATURES='-fail-clean'
+	export USE="-* lib-only make-symlinks timezone-tools"
+	export LC_ALL='C'
+	export VERY_BRAVE_OR_VERY_DUMB='yes'  # for busybox
+
+	info="$( emerge --info --verbose )"
+	echo
+	echo 'Resolved build variables for service packages:'
+	echo '---------------------------------------------'
+	echo
+	echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
+	echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+	echo "${info}" | format 'FEATURES'
+	echo "${info}" | format 'USE'
+	unset info
+
+	# sys-apps/shadow is needed for /sbin/nologin
+	# sys-apps/coreutils needed for cat/chmod
+	#
+	#service_pkgs='virtual/libc app-shells/bash sys-apps/shadow sys-apps/coreutils'
+	#
+	# ... both now superseded by sys-apps/busybox with USE='make-symlinks'
+	# (although this does require disabling collision-detection on other
+	#  system packages which install the actual, non-bb, binaries)
+	#
+	# If we don't build libarchive support here (without USE='lz4'), then when
+	# the package is updated we hit a dependency issue whereby cmake requires
+	# libarchive requires lz4 requires cmake <sigh>).
+	#
+	# N.B. This block *requires* that package atoms be fully-qualified,
+	#      including category names.
+	#
+	service_pkgs='virtual/libc sys-apps/busybox'
+	if [ -n "${pre_remove:-}" ] && ! echo "${pre_remove}" | grep -Fq -- 'dev-libs/openssl'; then
+		service_pkgs="${service_pkgs} app-arch/libarchive"
+	fi
+
+	service_pkgs="${service_pkgs} dev-lang/python-exec"
+	if [ -n "${force_python:-}" ]; then
+		service_pkgs="${service_pkgs} dev-lang/python:$( echo "${force_python}" | sed 's/^python// ; s/_/./' )"
+	fi
+
+	exclude=''
+	if [ -n "${pre_remove}" ]; then
+		for pkg in ${pre_remove}; do
+			exclude="${exclude:+${exclude} }--exclude ${pkg}"
+		done
+		unset pkg
+	fi
+
+	echo
+	echo " * Packages to install: ${service_pkgs}"
+	echo " * Packages to exclude: ${pre_remove:-}"
+
+	# shellcheck disable=SC2086,SC2046
+	if ! emerge \
 			--ignore-default-opts \
 			${parallel} \
 			--binpkg-changed-deps=y \
@@ -270,30 +626,66 @@ LC_ALL='C' \
 			--rebuild-if-new-slot=y \
 			--quiet-build=y \
 			--update \
-			--tree \
+			${opts:-} \
 			--usepkg=y \
 			--verbose=y \
 			--verbose-conflicts \
 			--with-bdeps=n \
 			--with-bdeps-auto=n \
-		virtual/libc sys-apps/busybox
-		#virtual/libc app-shells/bash sys-apps/shadow sys-apps/coreutils 
+			${exclude:-} \
+		-- ${service_pkgs}
 			#--rebuilt-binaries=y \
+	then
+		savefailed
+		exit 1
+	fi
+)
 
-if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ] && [ "${change_sysroot:-}" = '1' ]; then
-	export SYSROOT="${ROOT}"
+if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
+	if [ ${change_sysroot:-} -eq 1 ]; then
+		export SYSROOT="${ROOT}"
+	fi
+
+	[ -d "${ROOT}"/etc/env.d/gcc ] && gcc-config 1
+	[ -d "${ROOT}"/etc/env.d/binutils ] && command -v binutils-config >/dev/null 2>&1 && binutils-config 1
+	# shellcheck disable=SC1090
+	[ -f "${ROOT}"/etc/profile ] && . "${ROOT}"/etc/profile
+fi
+
+(
+	for ROOT in $( echo '/' "${ROOT:-}" | xargs -n 1 | sort | uniq ); do
+		export ROOT
+		if [ -x "${ROOT%/}"/usr/bin/eselect ]; then
+			if [ -s "${ROOT%/}"/usr/share/eselect/modules/python.eselect ]; then
+				echo "Setting python implementation for installation root '${ROOT}' ..."
+				mkdir -p "${ROOT%/}"/etc/python-exec
+
+				eselect python cleanup
+				eselect python update --if-unset
+				if [ -n "${force_python:-}" ]; then
+					if [ "${force_python#python2}" != "${force_python}" ]; then
+						eselect python set --python2 "$( echo "${force_python}" | tr '_' '.' )"
+					else
+						eselect python set "$( echo "${force_python}" | tr '_' '.' )"
+					fi
+				fi
+				#eselect python list
+				#eselect python --show --python2
+				#eselect python --show --python3
+			fi
+			if [ -s "${ROOT%/}"/usr/share/eselect/modules/java-vm.eselect ]; then
+				echo "Setting Java VM for installation root '${ROOT}' ..."
+				eselect java-vm set system 1
+				[ $(( $( id -u ) )) -eq 0 ] || eselect java-vm set user 1
+			fi
+		fi
+	done
+)
+if [ -n "${force_python:-}" ]; then
+	export PYTHON_COMPAT_OVERRIDE="${force_python}"
 fi
 
 case "${1:-}" in
-	'')
-		echo
-		echo " * Building default '${package}' package ..."
-		echo
-		print "Running default 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y \"${package}\"'"
-
-		# shellcheck disable=SC2086
-		LC_ALL='C' exec emerge ${parallel} ${opts} --buildpkg=y --usepkg=y "${package}"
-		;;
 	sh|/bin/sh)
 		[ -n "${2:-}" ] && shift
 
@@ -304,23 +696,97 @@ case "${1:-}" in
 
 		exec /bin/bash "${@}"
 		;;
+
+	'')
+		echo
+		echo " * Building default '${package}' package ..."
+		echo
+
+		info="$( LC_ALL='C' emerge --info --verbose )"
+		echo
+		echo 'Resolved build variables for default package:'
+		echo '---------------------------------------------'
+		echo
+		echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
+		echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+		echo "${info}" | format 'FEATURES'
+		echo "${info}" | format 'USE'
+		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+		echo "${info}" | format 'PYTHON_TARGETS'
+		echo
+		unset info
+
+		print "Running default 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y \"${package}\"'"
+
+		# shellcheck disable=SC2086
+		LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y "${package}" || rc=${?}
+		;;
 	*)
+		for arg in "${@}"; do
+			case "${arg}" in
+				-*)	continue ;;
+				*)	package="${arg}" ; break ;;
+			esac
+		done
+
 		if [ -z "${post_pkgs:-}" ]; then
 			echo
 			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages ..."
 			echo
 
-			print "Running 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
+			info="$( LC_ALL='C' emerge --info --verbose )"
+			echo
+			echo 'Resolved build variables for requested packages:'
+			echo '-----------------------------------------------'
+			echo
+			echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
+			echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+			echo "${info}" | format 'FEATURES'
+			echo "${info}" | format 'ACCEPT_LICENSE'
+			echo "${info}" | format 'USE'
+			echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+			echo "${info}" | format 'PYTHON_TARGETS'
+			#echo
+			unset info
+
+			# shellcheck disable=SC2016
+			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
 			# shellcheck disable=SC2086
-			LC_ALL='C' exec emerge ${parallel} ${opts} --buildpkg=y --usepkg=y "${@}"
+			LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y "${@}" || rc=${?}
+
+			if [ -n "${rebuild:-}" ]; then
+				# shellcheck disable=SC2016
+				print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n =${rebuild}'${USE:+ with USE='${USE}'}"
+				# shellcheck disable=SC2086
+				LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n =${rebuild} || rc=${?}
+			fi
 		else
 			echo
 			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages ..."
 			echo
 
+			info="$( LC_ALL='C' emerge --info --verbose )"
+			echo
+			echo 'Resolved build variables for requested packages:'
+			echo '-----------------------------------------------'
+			echo
+			echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
+			echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+			echo "${info}" | format 'FEATURES'
+			echo "${info}" | format 'ACCEPT_LICENSE'
+			echo "${info}" | format 'USE'
+			echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+			echo "${info}" | format 'PYTHON_TARGETS'
+			#echo
+			unset info
+
+			# shellcheck disable=SC2016
 			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
 			# shellcheck disable=SC2086
-			LC_ALL='C' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y "${@}"
+			LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y "${@}" || rc=${?}
+
+			savefailed
+			check ${rc} "${@}"
 
 			echo
 			echo " * Building specified post-installation '${post_pkgs}' packages ..."
@@ -328,9 +794,54 @@ case "${1:-}" in
 
 			[ -n "${post_use:-}" ] && export USE="${post_use}"
 
-			print "Running 'exec emerge ${opts:+${opts} }--jobs=1 --quiet-build=n --buildpkg=y --usepkg=y ${post_pkgs}'${USE:+ with USE='${USE}'}"
+			info="$( LC_ALL='C' emerge --info --verbose )"
+			echo
+			echo 'Resolved build variables for post-installation packages:'
+			echo '-------------------------------------------------------'
+			echo
+			echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
+			echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+			echo "${info}" | format 'FEATURES'
+			echo "${info}" | format 'USE'
+			echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+			echo "${info}" | format 'PYTHON_TARGETS'
+			echo
+			unset info
+
+			#print "Running 'emerge ${opts:+${opts} }--jobs=1 --quiet-build=n --buildpkg=y --usepkg=y ${post_pkgs}'${USE:+ with USE='${USE}'}"
+			# shellcheck disable=SC2016
+			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${post_pkgs}'${USE:+ with USE='${USE}'}"
+			#LC_ALL='C' FEATURES='-fail-clean' emerge ${opts} --jobs=1 --quiet-build=n --buildpkg=y --usepkg=y ${post_pkgs} || rc=${?}
 			# shellcheck disable=SC2086
-			LC_ALL='C' exec emerge ${opts} --jobs=1 --quiet-build=n --buildpkg=y --usepkg=y ${post_pkgs}
+			LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y ${post_pkgs} || rc=${?}
+
+			# Should this happen before or after post_pkgs...?
+			if [ -n "${rebuild:-}" ]; then
+				# shellcheck disable=SC2016
+				print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n =${rebuild}'${USE:+ with USE='${USE}'}"
+				# shellcheck disable=SC2086
+				LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n =${rebuild} || rc=${?}
+			fi
 		fi
 		;;
 esac
+
+# We only reach here if you built a package above...
+
+savefailed
+check ${rc} "${package}"
+
+#do_prelink
+
+#ls -1d /var/db/pkg/*/* | cut -d'/' -f 5-6 > "${ROOT:-}"/builddeps.txt
+find /var/db/pkg/ -type d -mindepth 2 -maxdepth 2 -print | sed 's|^.*/var/db/pkg/||' > "${ROOT:-}"/builddeps.txt
+if [ -n "${ROOT:-}" ] && [ "${ROOT:-}" != '/' ]; then
+	#ls -1d "${ROOT}"/var/db/pkg/*/* | rev | cut -d'/' -f 1-3 | rev | cut -d'/' -f 1-2 > "${ROOT}"/servicedeps.txt
+	find "${ROOT}/var/db/pkg/" -type d -mindepth 2 -maxdepth 2 -print | sed 's|^.*/var/db/pkg/||' > "${ROOT:-}"/builddeps.txt
+fi
+
+exit ${rc}
+
+#[ -n "${trace:-}" ] && set +o xtrace
+
+# vi: set syntax=sh sw=4 ts=4:

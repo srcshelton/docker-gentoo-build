@@ -1,0 +1,25 @@
+#!/bin/sh
+
+rc=0
+sa-update --checkonly || rc=${?}
+if [ $(( rc )) -ge 4 ]; then
+	echo >&2 " * sa-update flagged error - aborting"
+	exit ${rc}
+elif [ $(( rc )) -ge 2 ]; then
+	echo >&2 " * sa-update flagged partial success - updates available"
+	echo >&2 "WARN: Please run '/etc/init.d/spamd update'"
+	#exit ${rc}
+elif [ $(( rc )) -eq 1 ]; then
+	echo >&2 " * sa-update flagged no updates available"
+else # [ $(( rc )) -eq 0 ]; then
+	echo >&2 "WARN: Definitions out of date - please run '/etc/init.d/spamd update'"
+	#exit ${rc}
+fi
+
+if command -v cdcc >/dev/null 2>&1; then
+	cdcc info || :
+else
+	echo >&2 "WARN: Not running 'cdcc info'"
+fi
+
+# vi: set syntax=sh:

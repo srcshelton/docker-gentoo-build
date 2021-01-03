@@ -1,7 +1,12 @@
 #! /bin/sh
+# shellcheck disable=SC2030,SC2031
 
 set -eu
-set -o pipefail
+
+# shellcheck disable=SC2034
+debug=${DEBUG:-}
+# shellcheck disable=SC2034
+trace=${TRACE:-}
 
 DEFAULT_JOBS='__JOBS__'
 DEFAULT_MAXLOAD='__MAXLOAD__'
@@ -12,17 +17,66 @@ arch="${ARCH:-amd64}"
 unset -v ARCH
 
 die() {
-	echo -e "FATAL: ${*:-Unknown error}"
+	printf 'FATAL: %s\n' "${*:-Unknown error}"
 	exit 1
 } # die
 
 warn() {
-	[ -z "${*:-}" ] && echo || echo -e "WARN:  ${*}"
-} # die
+	[ -z "${*:-}" ] && echo || printf 'WARN:  %s\n' "${*}"
+} # warn
+
+print() {
+	#if [ -n "${DEBUG:-}" ]; then
+		[ -z "${*:-}" ] && echo || printf >&2 'DEBUG: %s\n' "${*}"
+	#fi
+} # print
+
+format() {
+	variable="${1:-}"
+	padding=${2:-20}
+
+	[ -n "${variable:-}" ] || return 1
+
+	spaces="$( printf "%${padding}s" )"
+	string="%-${padding}s= \"%s\"\\n"
+
+	# shellcheck disable=SC2059
+	printf "${string}" "${variable}" "$(
+		cat - | grep -- "^${variable}=" | cut -d'"' -f 2 | fmt -w $(( ${COLUMNS:-80} - ( padding + 3 ) )) | sed "s/^/   ${spaces}/ ; 1 s/^\s\+//"
+	)"
+} # format
+
+check() {
+	crc=${1:-} ; shift
+
+	[ -n "${crc:-}" ] || return 1
+
+	if [ "${crc}" -eq 0 ]; then
+		for arg in "${@}"; do
+			case "${arg}" in
+				-*)	continue ;;
+				*)	package="${arg}" ; break ;;
+			esac
+		done
+		package="$( echo "${package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
+		if echo "${package}" | grep -Fq -- '/'; then
+			if ! ls -1d "${ROOT:-}/var/db/pkg/${package%::*}"* >/dev/null 2>&1; then
+				die "emerge indicated success but package '${package%::*}' does not appear to be installed"
+			fi
+		else
+			if ! ls -1d "${ROOT:-}/var/db/pkg"/*/"${package%::*}"* >/dev/null 2>&1; then
+				die "emerge indicated success but package '${package%::*}' does not appear to be installed"
+			fi
+		fi
+	fi
+
+	# shellcheck disable=SC2086
+	return ${crc}
+} # check
 
 [ -n "${environment_filter:-}" ] || die "'environment_filter' not inherited from docker environment"
 
-if echo " ${*:-} " | grep -Fq -- ' --verbose-build '; then
+if printf '%s' " ${*:-} " | grep -Fq -- ' --verbose-build '; then
 	parallel='--jobs=1 --quiet-build=n'
 else
 	if [ -n "${JOBS:-}" ]; then
@@ -49,9 +103,11 @@ if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
 	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-${DEFAULT_MAXLOAD}}"
 fi
 
-TUSE='' post_pkgs='' post_use=''
+#TUSE='' post_pkgs='' post_use='' rc=0
+post_pkgs='' post_use='' rc=0
 for arg in "${@}"; do
-        shift
+	#print "Read argument '${arg}'"
+	shift
 	case "${arg}" in
 		--post-pkgs=*)
 			post_pkgs="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
@@ -73,7 +129,7 @@ for arg in "${@}"; do
 			continue
 			;;
 		*)
-		        set -- "${@}" "${arg}"
+			set -- "${@}" "${arg}"
 			;;
 	esac
 done
@@ -88,14 +144,21 @@ if [ -n "${post_use:-}" ]; then
 else
 	post_use="${USE:-}"
 fi
-post_use="${post_use:+${post_use} }${use_essential:+ ${use_essential}}"
+if [ -n "${use_essential:-}" ] && ! echo "${post_use:-}" | grep -Fq -- "${use_essential}"; then
+	post_use="${post_use:+${post_use} }${use_essential}"
+fi
 
 if false; then # Not valid here
 #if [ -n "${TUSE:-}" ]; then
 #	if ! printf '%s' " ${TUSE} " | grep -Fq -- ' -* '; then
 #		TUSE="${USE:+${USE} }${TUSE}"
 #	fi
-#	export USE="${TUSE}${use_essential:+ ${use_essential}}"
+#	if [ -n "${use_essential:-}" ] && echo "${TUSE}" | grep -Fq -- "${use_essential}"; then
+#		USE="${TUSE}"
+#	else
+#		USE="${TUSE}${use_essential:+ ${use_essential}}"
+#	fi
+#	export USE
 #fi
 :
 fi
@@ -108,9 +171,10 @@ fi
 [ -d /etc/portage ] || die "'/etc/portage' is missing or not a directory"
 [ -s /etc/portage/package.use ] || [ -d /etc/portage/package.use ] || die "'/etc/portage/package.use' is missing"
 [ -s /etc/locale.gen ] || warn "'/etc/locale.gen' is missing or empty"
+# shellcheck disable=SC2166
 [ -s "${PKGDIR}"/Packages -a -d "${PKGDIR}"/virtual ] || warn "'${PKGDIR}/Packages' or '${PKGDIR}/virtual' are missing - package cache appears invalid"
 
-info="$( emerge --info --verbose )"
+info="$( LC_ALL='C' emerge --info --verbose )"
 echo
 echo 'Resolved build variables for stage3:'
 echo '------------------------------------'
@@ -119,13 +183,13 @@ echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 
 echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
 echo "PORTAGE_CONFIGROOT  = $( echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2- )"
 echo
-echo "FEATURES            = $( echo "${info}" | grep -- '^FEATURES=' | cut -d'=' -f 2- )"
-echo "ACCEPT_LICENSE      = $( echo "${info}" | grep -- '^ACCEPT_LICENSE=' | cut -d'=' -f 2- )"
-echo "ACCEPT_KEYWORDS     = $( echo "${info}" | grep -- '^ACCEPT_KEYWORDS=' | cut -d'=' -f 2- )"
-echo "USE                 = \"$( cat /usr/libexec/stage3.info | grep -- '^USE=' | cut -d'"' -f 2 )\""
+echo "${info}" | format 'FEATURES'
+echo "${info}" | format 'ACCEPT_LICENSE'
+echo "${info}" | format 'ACCEPT_KEYWORDS'
+format 'USE' </usr/libexec/stage3.info
 echo "MAKEOPTS            = $( echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2- )"
 echo
-echo "EMERGE_DEFAULT_OPTS = $( echo "${info}" | grep -- '^EMERGE_DEFAULT_OPTS=' | cut -d'=' -f 2- )"
+echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 echo
 echo "DISTDIR             = $( echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2- )"
 echo "PKGDIR              = $( echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2- )"
@@ -136,24 +200,28 @@ unset info
 # We should *definitely* have this...
 package='virtual/libc'
 opts='--tree'
+# shellcheck disable=SC2015
 printf ' %s ' "${*}" | grep -Fq -- ' --nodeps ' && opts='' || :
 
-eselect --colour=yes profile list
-eselect --colour=yes profile set "${DEFAULT_PROFILE}" # 2>/dev/null
+LC_ALL='C' eselect --colour=yes profile list
+LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" # 2>/dev/null
 
-emaint --fix binhost
+LC_ALL='C' emaint --fix binhost
 
-emerge --check-news
-eselect --colour=yes news read
+LC_ALL='C' emerge --check-news
+LC_ALL='C' eselect --colour=yes news read
 
 #set -o xtrace
 
+echo
 echo " * Building stage3 'sys-apps/fakeroot' package ..."
 echo
-
 (
-	export USE="$( cat /usr/libexec/stage3.info | grep -- '^USE=' | cut -d'"' -f 2 )"
+	USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+	export USE
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean -fakeroot"
+	export LC_ALL='C'
+	# shellcheck disable=SC2086
 	emerge \
 			--ignore-default-opts \
 			--binpkg-respect-use=y \
@@ -161,13 +229,16 @@ echo
 			--color=y \
 			--keep-going=y \
 			--quiet-build=y \
+			${opts:-} \
 			--usepkg=y \
+			--verbose=y \
+			--verbose-conflicts \
 			--with-bdeps=n \
 			--with-bdeps-auto=n \
 		sys-apps/fakeroot
 )
-eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
-etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+LC_ALL='C' eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
+LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 export FEATURES="${FEATURES:+${FEATURES} }fakeroot"
 
@@ -175,14 +246,20 @@ export FEATURES="${FEATURES:+${FEATURES} }fakeroot"
 # dependencies, and so require prior package installation directly into the
 # stage3 environment...
 #
-for pkg in 'sys-libs/libcap' 'sys-process/audit' 'dev-perl/Locale-gettext' 'dev-libs/libxml2' 'app-editors/vim'; do
+# (For some reason, sys-apps/gentoo-functions::gentoo is very sticky)
+#
+for pkg in 'sys-apps/gentoo-functions::srcshelton' 'sys-libs/libcap' 'sys-process/audit' 'dev-perl/Locale-gettext' 'dev-libs/libxml2' 'app-editors/vim'; do
+	echo
 	echo
 	echo " * Building stage3 '${pkg}' package ..."
 	echo
 
 	(
-		export USE="$( cat /usr/libexec/stage3.info | grep -- '^USE=' | cut -d'"' -f 2 )"
+		USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+		export LC_ALL='C'
+		# shellcheck disable=SC2086
 		emerge \
 				--ignore-default-opts \
 				--binpkg-respect-use=y \
@@ -190,15 +267,19 @@ for pkg in 'sys-libs/libcap' 'sys-process/audit' 'dev-perl/Locale-gettext' 'dev-
 				--color=y \
 				--keep-going=y \
 				--quiet-build=y \
+				${opts:-} \
 				--usepkg=y \
+				--verbose=y \
+				--verbose-conflicts \
 				--with-bdeps=n \
 				--with-bdeps-auto=n \
 			"${pkg}"
 	)
-	eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
-	etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+	LC_ALL='C' eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
+	LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 done
 
+echo
 echo
 echo " * Installing stage3 'sys-kernel/gentoo-sources' kernel source package ..."
 echo
@@ -206,8 +287,11 @@ echo
 # Some packages require prepared kernel sources ...
 #
 (
-	export USE="$( cat /usr/libexec/stage3.info | grep -- '^USE=' | cut -d'"' -f 2 ) symlink"
+	USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 ) symlink"
+	export USE
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+	export LC_ALL='C'
+	# shellcheck disable=SC2086
 	emerge \
 			--ignore-default-opts \
 			--binpkg-respect-use=y \
@@ -215,22 +299,30 @@ echo
 			--color=y \
 			--keep-going=y \
 			--quiet-build=y \
+			${opts:-} \
 			--usepkg=y \
+			--verbose=y \
+			--verbose-conflicts \
 			--with-bdeps=n \
 			--with-bdeps-auto=n \
 		sys-kernel/gentoo-sources
 )
-eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
-etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+LC_ALL='C' eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
+LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 echo
 echo ' * Configuring stage3 kernel sources ...'
 echo
 
-pushd >/dev/null /usr/src/linux
+#pushd >/dev/null /usr/src/linux
+src_cwd="${PWD}"
+cd /usr/src/linux/
 make defconfig prepare
-popd >/dev/null
+#popd >/dev/null
+cd "${src_cwd}"
+unset src_cwd
 
+echo
 echo
 echo ' * Creating build root ...'
 echo
@@ -257,11 +349,16 @@ cp /etc/timezone "${ROOT}"/etc/
 cp /etc/etc-update.conf "${ROOT}"/etc/
 
 path="${PATH}"
-export PATH="${PATH}:${ROOT}${PATH//:/:${ROOT}}"
+#export PATH="${PATH}:${ROOT}${PATH//:/:${ROOT}}"
+PATH="${PATH}:${ROOT}$( echo "${PATH}" | sed "s|:|:${ROOT}|g" )"
+export PATH
 
-env-update
+if command -v env-update >/dev/null 2>&1; then
+	LC_ALL='C' env-update
+fi
+# shellcheck disable=SC1091
 . /etc/profile
-eselect --colour=yes profile set "${DEFAULT_PROFILE}" 2>&1 | grep -v -- 'Warning:' || :
+LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" 2>&1 | grep -v -- 'Warning:' || :
 
 info="$( LC_ALL='C' emerge --info --verbose )"
 echo
@@ -272,13 +369,13 @@ echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 
 echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
 echo "PORTAGE_CONFIGROOT  = $( echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2- )"
 echo
-echo "FEATURES            = $( echo "${info}" | grep -- '^FEATURES=' | cut -d'=' -f 2- )"
-echo "ACCEPT_LICENSE      = $( echo "${info}" | grep -- '^ACCEPT_LICENSE=' | cut -d'=' -f 2- )"
-echo "ACCEPT_KEYWORDS     = $( echo "${info}" | grep -- '^ACCEPT_KEYWORDS=' | cut -d'=' -f 2- )"
-echo "USE                 = \"$( echo "${info}" | grep -- '^USE=' | cut -d'"' -f 2 )\""
+echo "${info}" | format 'FEATURES'
+echo "${info}" | format 'ACCEPT_LICENSE'
+echo "${info}" | format 'ACCEPT_KEYWORDS'
+echo "${info}" | format 'USE'
 echo "MAKEOPTS            = $( echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2- )"
 echo
-echo "EMERGE_DEFAULT_OPTS = $( echo "${info}" | grep -- '^EMERGE_DEFAULT_OPTS=' | cut -d'=' -f 2- )"
+echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 echo
 echo "DISTDIR             = $( echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2- )"
 echo "PKGDIR              = $( echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2- )"
@@ -286,8 +383,9 @@ echo "PORTAGE_LOGDIR      = $( echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut
 echo
 unset info
 
-emerge --check-news
+LC_ALL='C' emerge --check-news
 
+# FIXME: Expose this somewhere?
 features_libeudev=1
 
 # sys-libs/libcap can USE pam, which requires libcap ...
@@ -301,13 +399,15 @@ fi
 
 if [ -n "${pkg_initial:-}" ]; then
 	echo
-	echo ' * Building initial packacges ...'
+	echo ' * Building initial packages ...'
 	echo
 
 	for pkg in ${pkg_initial:-}; do
 		#set -x
+		# shellcheck disable=SC2086
 		FEATURES="${FEATURES:+${FEATURES} }fail-clean" \
 		USE="${pkg_initial_use}${use_essential:+ ${use_essential}}" \
+		LC_ALL='C' \
 			emerge \
 					--ignore-default-opts \
 					${parallel} \
@@ -317,7 +417,7 @@ if [ -n "${pkg_initial:-}" ]; then
 					--color=y \
 					--keep-going=y \
 					--quiet-build=y \
-					--tree \
+					${opts:-} \
 					--usepkg=y \
 					--verbose=y \
 					--verbose-conflict \
@@ -325,7 +425,7 @@ if [ -n "${pkg_initial:-}" ]; then
 					--with-bdeps-auto=n \
 				${pkg} ${pkg_exclude:-} || :
 		set +x
-		etc-update --quiet --preen ; find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+		LC_ALL='C' etc-update --quiet --preen ; find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 		if echo " ${pkg} " | grep -q -- ' app-shells/bash '; then
 			# Ensure we have a valid /bin/sh symlink in our ROOT ...
@@ -345,7 +445,10 @@ echo
 #set -x
 # sys-apps/shadow is needed for /sbin/nologin
 # dev-libs/icu is needed for circular dependencies on icu -> python -> sqlite -> icu
+# libarchive is a frequent dependency, and so quicker to pull-in here
+# shellcheck disable=SC2086
 FEATURES="${FEATURES:+${FEATURES} }fail-clean" \
+LC_ALL='C' \
 	emerge \
 			--ignore-default-opts \
 			${parallel} \
@@ -360,15 +463,15 @@ FEATURES="${FEATURES:+${FEATURES} }fail-clean" \
 			--rebuilt-binaries=y \
 			--quiet-build=y \
 			--root-deps \
-			--tree \
+			${opts:-} \
 			--usepkg=y \
 			--verbose=y \
 			--verbose-conflicts \
 			--with-bdeps=n \
 			--with-bdeps-auto=n \
-		@system sys-apps/shadow dev-libs/icu ${pkg_exclude:-} || :
+		@system sys-apps/shadow dev-libs/icu app-arch/libarchive ${pkg_exclude:-} || :
 set +x
-etc-update --quiet --preen ; find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+LC_ALL='C' etc-update --quiet --preen ; find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 # Ensure we have a valid /bin/sh symlink in our ROOT ...
 if ! [ -x "${ROOT}"/bin/sh ]; then
@@ -379,17 +482,23 @@ fi
 
 # ... and fix the default bash prompt setup w.r.t. 'screen' window names!
 if [ -s /etc/bash/bashrc.patch ]; then
-	if ! type -pf patch >/dev/null; then
+	if ! command -v patch >/dev/null; then
 		echo "WARN: @system build has not installed package 'sys-devel/patch'"
 	else
-		pushd >/dev/null "${ROOT}"/etc/bash/
+		#pushd >/dev/null "${ROOT}"/etc/bash/
+		src_cwd="${PWD}"
+		cd "${ROOT}"/etc/bash/
+
 		if [ -s bashrc ]; then
 			echo ' * Patching /etc/bash/bashrc ...'
-			cat /etc/bash/bashrc.patch | patch -p1 >/dev/null
+			patch -p1 </etc/bash/bashrc.patch >/dev/null
 		else
 			echo "WARN: '${ROOT%/}/etc/bash/bashrc' does not exist or is empty"
 		fi
-		popd >/dev/null
+
+		#popd >/dev/null
+		cd "${src_cwd}"
+		unset src_cwd
 	fi
 fi
 
@@ -400,6 +509,7 @@ echo
 # Save failed build logs ...
 # (e.g. /var/tmp/portage/app-misc/mime-types-9/temp/build.log)
 #
+# shellcheck disable=SC2012
 if [ -n "$( ls -1 "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log 2>/dev/null | head -n 1 )" ]; then
 	mkdir -p "${PORTAGE_LOGDIR}"/failed 
 	for file in "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log; do
@@ -421,15 +531,16 @@ fi
 echo
 echo ' * System deployment complete'
 echo
+echo
 
 # Check for ROOT news ...
-eselect --colour=yes news read new
+LC_ALL='C' eselect --colour=yes news read new
 
 # At this point, we should have a fully-built @system!
 
 export EMERGE_DEFAULT_OPTS="${EMERGE_DEFAULT_OPTS:+${EMERGE_DEFAULT_OPTS} } --with-bdeps=y --with-bdeps-auto=y"
 
-info="$( emerge --info --verbose )"
+info="$( LC_ALL='C' emerge --info --verbose )"
 echo
 echo 'Resolved build variables after init stage:'
 echo '----------------------------------------'
@@ -438,13 +549,13 @@ echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 
 echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
 echo "PORTAGE_CONFIGROOT  = $( echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2- )"
 echo
-echo "FEATURES            = $( echo "${info}" | grep -- '^FEATURES=' | cut -d'=' -f 2- )"
-echo "ACCEPT_LICENSE      = $( echo "${info}" | grep -- '^ACCEPT_LICENSE=' | cut -d'=' -f 2- )"
-echo "ACCEPT_KEYWORDS     = $( echo "${info}" | grep -- '^ACCEPT_KEYWORDS=' | cut -d'=' -f 2- )"
-echo "USE                 = \"$( echo "${info}" | grep -- '^USE=' | cut -d'"' -f 2 )\""
+echo "${info}" | format 'FEATURES'
+echo "${info}" | format 'ACCEPT_LICENSE'
+echo "${info}" | format 'ACCEPT_KEYWORDS'
+echo "${info}" | format 'USE'
 echo "MAKEOPTS            = $( echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2- )"
 echo
-echo "EMERGE_DEFAULT_OPTS = $( echo "${info}" | grep -- '^EMERGE_DEFAULT_OPTS=' | cut -d'=' -f 2- )"
+echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 echo
 echo "DISTDIR             = $( echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2- )"
 echo "PKGDIR              = $( echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2- )"
@@ -459,22 +570,29 @@ unset path
 printf "#FILTER: '%s'\n\n" "${environment_filter}" > "${ROOT}"/usr/libexec/environment.sh
 export -p |
 	grep -- '=' |
-	grep -Ev -- "${environment_filter}" \
+	grep -Ev -- "${environment_filter}" | \
+	sed -r 's/\s+/ /g' | \
+	grep -v '^export [a-z_]' \
 	>> "${ROOT}"/usr/libexec/environment.sh
 test -e "${ROOT}"/usr/libexec/environment.sh || echo "WARN: '${ROOT%/}/usr/libexec/environment.sh' does not exist"
 test -s "${ROOT}"/usr/libexec/environment.sh || echo "WARN: '${ROOT%/}/usr/libexec/environment.sh' is empty"
-cat "${ROOT}"/usr/libexec/environment.sh | grep -- ' ROOT=' && die "Invalid 'ROOT' directive in '${ROOT%/}/usr/libexec/environment.sh'"
-#printf " * Initial propagated environment:\n\n%s\n\n" "$( < "${ROOT}"/usr/libexec/environment.sh )"
+grep -- ' ROOT=' "${ROOT}"/usr/libexec/environment.sh && die "Invalid 'ROOT' directive in '${ROOT%/}/usr/libexec/environment.sh'"
+#printf " * Initial propagated environment:\n\n%s\n\n" "$( <"${ROOT}"/usr/libexec/environment.sh )"
 
 case "${1:-}" in
 	'')
 		echo
 		echo " * Building default '${package}' package ..."
 		echo
-		echo "Running default 'exec emerge ${parallel:+${parallel} }${opts:+${opts} } --usepkg=y \"${package}\"'"
+
+		print "Running default 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y \"${package}\"'"
 
 		# shellcheck disable=SC2086
-		LC_ALL='C' exec emerge ${parallel} ${opts} --usepkg=y "${package}"
+		LC_ALL='C' emerge ${parallel} ${opts} --usepkg=y "${package}" || rc=${?}
+
+		check ${rc} "${package}"
+
+		exit ${rc}
 		;;
 	sh|/bin/sh)
 		[ -n "${2:-}" ] && shift
@@ -492,17 +610,25 @@ case "${1:-}" in
 			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages ..."
 			echo
 
-			print "Running 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${*}'${USE:+ with USE='${USE}'}"
+			# shellcheck disable=SC2016
+			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${*}'${USE:+ with USE='${USE}'}"
 			# shellcheck disable=SC2086
-			LC_ALL='C' exec emerge ${parallel} ${opts} --usepkg=y "${@}"
+			LC_ALL='C' emerge ${parallel} ${opts} --usepkg=y "${@}" || rc=${?}
+
+			check ${rc} "${@}"
+
+			exit ${rc}
 		else
 			echo
 			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages ..."
 			echo
 
+			# shellcheck disable=SC2016
 			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${*}'${USE:+ with USE='${USE}'}"
 			# shellcheck disable=SC2086
-			LC_ALL='C' emerge ${parallel} ${opts} --usepkg=y "${@}"
+			LC_ALL='C' emerge ${parallel} ${opts} --usepkg=y "${@}" || rc=${?}
+
+			check ${rc} "${@}"
 
 			echo
 			echo " * Building specified post-installation '${post_pkgs}' packages ..."
@@ -510,9 +636,26 @@ case "${1:-}" in
 
 			[ -n "${post_use:-}" ] && export USE="${post_use}"
 
-			print "Running 'exec emerge ${opts:+${opts} }--jobs=1 --quiet-build=n --usepkg=y ${post_pkgs}'${USE:+ with USE='${USE}'}"
+			info="$( LC_ALL='C' emerge --info --verbose )"
+			echo
+			echo 'Resolved build variables for post-installation packages:'
+			echo '-------------------------------------------------------'
+			echo
+			#echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
+			#echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+			#echo "${info}" | format 'FEATURES'
+			echo "${info}" | format 'USE'
+			echo
+			unset info
+
+			# shellcheck disable=SC2016
+			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${post_pkgs}'${USE:+ with USE='${USE}'}"
 			# shellcheck disable=SC2086
-			LC_ALL='C' exec emerge ${opts} --jobs=1 --quiet-build=n --usepkg=y ${post_pkgs}
+			LC_ALL='C' emerge ${parallel} ${opts} --usepkg=y ${post_pkgs} || rc=${?}
+
+			check ${rc} "${@}"
+
+			exit ${rc}
 		fi
 		;;
 esac

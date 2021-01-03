@@ -1,0 +1,13 @@
+#! /bin/sh
+
+# shellcheck disable=SC1091
+#[ ! -s /lib/rc/sh/functions.sh ] || . /lib/rc/sh/functions.sh
+[ ! -s /lib/gentoo/functions.sh ] || . /lib/gentoo/functions.sh
+
+if [ -d /var/www/localhost/htdocs/wordpress ]; then
+	einfo "Resetting ownership and permissions on 'wordpress' directory ..."
+	chmod -R ug+rwX /var/www/localhost/htdocs/wordpress
+	chown -R nobody:lighttpd /var/www/localhost/htdocs/wordpress
+fi
+
+# vi: set syntax=sh:
