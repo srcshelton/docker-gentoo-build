@@ -1,15 +1,27 @@
-#! /bin/sh
+#! /usr/bin/env bash
+
+#debug="${DEBUG:-}"
+trace="${TRACE:-}"
 
 set -eu
 
+[ -n "${trace:-}" ] && set -o xtrace
+
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
+build_name=''
+
+# shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
 
 IMAGE="${build_name}:latest"
+# shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh >/dev/null
 
 # Provide a '--name' to prevent the container being removed on exit.
+
+# Useful use-cases:
+#for s in $( podman image ls | grep '^localhost.*service' | cut -d'/' -f 2- | sed 's/\s\+/:/g' | cut -d':' -f 1-2 ); do ./inspect.docker --remove --image "${s}" 'ls -d /var/db/pkg/*/*systemd* /var/db/pkg/*/*udev*'; done
 
 if [ -n "${*:-}" ]; then
 	if echo " ${*} " | grep -Eq -- ' -(h|-help) '; then
@@ -18,7 +30,13 @@ if [ -n "${*:-}" ]; then
 	fi
 fi
 
+if (( EUID )); then
+	die "Please re-run '$( basename "${0}" )' as user 'root'"
+fi
+
 docker_parse() {
+	local arg=''
+
 	for arg in "${@}"; do
 		if [ "${name}" = '<next>' ]; then
 			export name="${arg}"
@@ -28,14 +46,16 @@ docker_parse() {
 
 		elif echo "${arg}" | grep -Eq -- '^-(n|-name)(=[a-z0-9]+([._-]{1,2}[a-z0-9]+)*)?$'; then
 			if echo "${arg}" | grep -Fq -- '=' ; then
-				export name="$( echo "${arg}" | cut -d'=' -f 2- )"
+				name="$( echo "${arg}" | cut -d'=' -f 2- )"
+				export name
 			else
 				name='<next>'
 			fi
 
 		elif echo "${arg}" | grep -Eq -- '^-(i|-image)(=[a-z0-9]+([._-]{1,2}[a-z0-9]+)*)?(:.*)?$'; then
 			if echo "${arg}" | grep -Fq -- '=' ; then
-				export image="$( echo "${arg}" | cut -d'=' -f 2- )"
+				image="$( echo "${arg}" | cut -d'=' -f 2- )"
+				export image
 			else
 				image='<next>'
 			fi
@@ -44,7 +64,8 @@ docker_parse() {
 			rm=1
 
 		else
-			args="${args:+${args} }${arg}"
+			#args="${args:+${args} }${arg}"
+			args+=( "${arg}" )
 		fi
 	done
 	if [ "${name}" = '<next>' ]; then
@@ -57,56 +78,84 @@ docker_parse() {
 	else
 		:
 	fi
-}
+
+	unset arg
+} # docker_parse
 
 docker_run() {
+	local -i runrc=0
+
+	#${arr[@]+"${arr[@]}"}
+	(( 0 == ${#args[@]} )) && args=( 'sh' )
+
+	devlog=''
+	# shellcheck disable=SC2015
+	[ -S /var/run/syslog-ng/log ] && devlog='--mount type=bind,source=/var/run/syslog-ng/log,destination=/dev/log' || :
+
 	# shellcheck disable=SC2086
 	$docker run \
-		${TERM:+--env TERM} \
-		${USE:+--env USE} \
-		${ACCEPT_KEYWORDS:+--env ACCEPT_KEYWORDS} \
-		${FEATURES:=--env FEATURES} \
-		--mount type=bind,source=/var/cache/portage/pkg/amd64/xeon_e56.docker/,destination=/var/cache/portage/pkg/amd64/docker \
-		--mount type=bind,source=/var/cache/portage/dist/,destination=/var/cache/portage/dist \
-		--mount type=bind,source=/var/log/portage/,destination=/var/log/portage \
-		--mount type=bind,source=/var/db/repo/gentoo/,destination=/var/db/repo/gentoo${docker_readonly:+,${docker_readonly}} \
-		--mount type=bind,source=/var/db/repo/srcshelton/,destination=/var/db/repo/srcshelton${docker_readonly:+,${docker_readonly}} \
-		--mount type=bind,source=/var/db/repo/container/,destination=/var/db/repo/container${docker_readonly:+,${docker_readonly}} \
-		--mount type=bind,source=/etc/portage/repos.conf/,destination=/etc/portage/repos.conf${docker_readonly:+,${docker_readonly}} \
-		--cap-add SYS_PTRACE \
-		--interactive \
-		--tty \
-		--entrypoint '/bin/sh' \
-		--name "${name}" \
-		"${image}" \
-			-c ${args:-sh}
+			--entrypoint '/bin/sh' \
+			  ${ACCEPT_KEYWORDS:+--env ACCEPT_KEYWORDS} \
+			  ${FEATURES:=--env FEATURES} \
+			  ${TERM:+--env TERM} \
+			  ${USE:+--env USE} \
+			--interactive \
+			${devlog} \
+			--mount "type=bind,source=/etc/portage/repos.conf/,destination=/etc/portage/repos.conf${docker_readonly:+,${docker_readonly}}" \
+			--mount "type=bind,source=/var/cache/portage/dist/,destination=/var/cache/portage/dist" \
+			--mount "type=bind,source=$( portageq pkgdir )/,destination=/var/cache/portage/pkg/${ARCH:-amd64}/docker" \
+			--mount "type=bind,source=/var/db/repo/container/,destination=/var/db/repo/container${docker_readonly:+,${docker_readonly}}" \
+			--mount "type=bind,source=/var/db/repo/gentoo/,destination=/var/db/repo/gentoo${docker_readonly:+,${docker_readonly}}" \
+			--mount "type=bind,source=/var/db/repo/srcshelton/,destination=/var/db/repo/srcshelton${docker_readonly:+,${docker_readonly}}" \
+			--mount "type=bind,source=/var/log/portage/,destination=/var/log/portage" \
+			  ${DOCKER_EXTRA_MOUNTS:-} \
+			  ${DOCKER_VOLUMES:-} \
+			--name "${name}" \
+			--privileged \
+			--tty \
+		"${image}" -c "${args[@]}" || runrc=${?}
+			#--network slirp4netns \
+			#--mount "type=bind,source=/space/package/,destination=/var/cache/portage/pkg/amd64/docker" \
 
-		#--privileged \
-}
+	return ${runrc}
+} # docker_run
 
-if type -pf podman >/dev/null 2>&1; then
+docker_trap() {
+	trap '' INT
+	podman ${@+"${@}"}
+	trap - INT
+} # docker-trap
+
+if command -v podman >/dev/null 2>&1; then
 	docker='podman'
 	docker_readonly='ro=true'
 	#extra_build_args='--format docker'
 fi
 
+rm=''
+
 docker_setup
-docker_parse "${@:-}"
+docker_parse ${@+"${@}"}
 
 image="${image:-${IMAGE}}"
-name="${name:-${image//:/_}-inspect}"
+# shellcheck disable=SC2001 # POSIX sh compatibility
+name="${name:-$( echo "${image}" | sed 's|[:/]|_|g' )-inspect}"
 
-if [ -n "${rm}" ]; then
-	$docker rm "${name}" 2>/dev/null || :
+if [ -n "${rm:-}" ]; then
+	docker_trap rm --volumes "${name}" 2>/dev/null || :
 fi
+
+rc=0
 
 echo >&2 "Launching container '${name}' from image '${image}' ..."
 
-set -o xtrace
-docker_run
+#set -o xtrace
+docker_run || rc=${?}
 
-if [ -n "${rm}" ]; then
-	$docker rm "${name}"
+if [ -n "${rm:-}" ]; then
+	docker_trap rm --volumes "${name}"
 fi
+
+exit ${rc}
 
 # vi: set syntax=sh:

@@ -1,26 +1,36 @@
-#! /bin/sh
+#! /usr/bin/env bash
 
 set -eu
-
-trace="${TRACE:-}"
+set -o pipefail
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
+build_name=''
+#use_essential=''
+docker='docker'
+docker_readonly=''
+environment_filter=''
+red=''
+blue=''
+reset=''
+
+# shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
 
+services='bitlbee dcc dhcpd dovecot fetchmail imapproxyd irqbalance less lighttpd lynis man mariadb memcached named opendkim opendmarc openntpd php pinfo postfix powertop redis postgrey spamassassin spamassassin-update spampd subversion syslog-ng unifi vim watchdog zxtm'
+all=0
+rebuild=''
+force=''
+
 if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	echo >&2 "Usage: $( basename "${0}" ) <service> [<ports> <user> <group> <command> [directory [fs_name]]]"
+	echo >&2 "Usage: $( basename "${0}" ) <service> [<ports> <user> <group> <command> [directory [fs_name]]] [--rebuild] [--force] [--force-keywords]"
 	echo >&2
 	echo >&2 "Known services:"
-	echo >&2 "  bitlbee"
-	echo >&2 "  imapproxyd"
-	echo >&2 "  irqbalance"
-	echo >&2 "  lynis"
-	echo >&2 "  memcached"
-	echo >&2 "  openntpd"
-	echo >&2 "  redis"
-	echo >&2 "  syslog-ng"
-	echo >&2 "  watchdog"
+	s=''
+	for s in ${services}; do
+		echo >&2 "  ${s}"
+	done
+	unset s
 	echo >&2
 	echo >&2 "  all"
 	echo >&2
@@ -30,28 +40,84 @@ if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 		exit 0
 	fi
 fi
+
+if (( EUID )); then
+	die "Please re-run '$( basename "${0}" )' as user 'root'"
+fi
+
+arg=''
+for arg in "${@}"; do
+	shift
+	case "${arg}" in
+		-a|--all)
+			all=1
+			continue
+			;;
+		-f|--force)
+			force=1
+			continue
+			;;
+		-k|--force-keywords)
+			FORCE_KEYWORDS=1
+			export FORCE_KEYWORDS
+			continue
+			;;
+		-r|--rebuild)
+			rebuild=1
+			continue
+			;;
+		*)
+			set -- "${@}" "${arg}"
+			;;
+	esac
+done
+
 service="${1:-}"
+original_service="${1:-}"
 ports="${2:-0}"
 user="${3:-root}"
 group="${4:-root}"
-cmd="${5:-}"
-cwd="${6:-/}" # Optional
-fs_name="${7:-}" # Optional
+container_cmd="${5:-}"
+container_cwd="${6:-/}" # Optional
+fs_name="${7:-}" # Optional: If set create /var/{run,log}/${fs_name} in container
 
-if [ "${service:-}" = 'all' ]; then
-	rc=0
-	s=''
-	for s in bitlbee imapproxyd irqbalance lynis memcached openntpd redis syslog-ng watchdog; do
-		./$( basename "${0}" ) "${s}"
-		: $(( rc = rc + ${?} ))
-	done
-	exit ${rc}
-fi
+rc=0
 
 IMAGE="${build_name}:latest"
-[ -s common/run.sh ] && . common/run.sh
+# shellcheck disable=SC1091
+[ -s common/run.sh ] && . common/run.sh >/dev/null
 
-$docker image ls | grep -Eq -- "^(localhost/)?${IMAGE%:*}" || { echo >&2 "docker image '${IMAGE%:*}' not found" ; exit 1 ; }
+if [ -n "${all:-}" ] && [ $(( all )) -eq 1 ]; then
+	if ! [ "${service:-}" = 'all' ]; then
+		c=0 s='' f=''
+		for s in ${services}; do
+			echo >&2
+			echo >&2 " ${red}*${reset} Examining service '${s}' [${rc}/${c}] ..."
+			echo >&2
+
+			: $(( c = c + 1 ))
+			./"$( basename "${0}" )" "${s}" ${rebuild:+--rebuild} ${force:+--force} ${FORCE_KEYWORDS:+--force-keywords} || {
+				: $(( rc = rc + ${?} ))
+				f="${f:+${f} }${s}"
+			}
+			sleep 0.1 2>/dev/null || sleep 1
+		done
+		if [ $(( rc )) -gt 0 ]; then
+			warn "${rc} out of ${c} services failed to build:"
+			warn "Failed service builds: ${f}"
+		fi
+		# shellcheck disable=SC2086
+		exit ${rc}
+	fi
+fi
+
+#[ -n "${trace:-}" ] && set -o xtrace
+
+images="$( $docker image ls ${IMAGE%:*} 2>&1 )"
+if ! echo "${images}" | grep -Eq -- "^(localhost/)?${IMAGE%:*}"; then
+	die "svc stage: docker image '${IMAGE%:*}' not found"
+fi
+unset images
 
 docker_setup
 
@@ -59,33 +125,107 @@ case "${service:-}" in
 	bitlbee)
 		service='>=net-im/bitlbee-3.6-r1'
 		;;
+	dcc)
+		service='mail-filter/dcc'
+		;;
+	dhcp|dhcpd)
+		service='net-misc/dhcp'
+		;;
+	dovecot)
+		service='net-mail/dovecot'
+		;;
+	fetchmail)
+		service='net-mail/fetchmail'
+		;;
 	imapproxy|imapproxyd)
 		service='>=net-mail/imapproxy-1.2.8_p14843-r1::srcshelton'
 		;;
 	irqbalance)
 		service='sys-apps/irqbalance'
 		;;
+	less)
+		# Launcher loads running services' /usr/share/doc volumes
+		service='sys-apps/less'
+		;;
+	lighttp|lighttpd)
+		service='www-servers/lighttpd'
+		;;
 	lynis)
 		service='app-forensics/lynis'
+		;;
+	man|man-db)
+		# Launcher loads running services' /usr/share/man volumes
+		service='sys-apps/man-db'
 		;;
 	memcache|memcached)
 		service='net-misc/memcached'
 		;;
+	mysql|mysqld|mariadb)
+		service='dev-db/mariadb'
+		;;
+	named|bind)
+		#service='>=net-dns/bind-9.14.12::container'
+		service='>=net-dns/bind-9.16.6'
+		;;
 	ntpd|openntpd)
 		service='net-misc/openntpd::container'
+		;;
+	opendkim)
+		service='>=mail-filter/opendkim-2.10.3-r3'
+		;;
+	opendmarc)
+		service='mail-filter/opendmarc'
+		;;
+	php)
+		service='dev-lang/php'
+		;;
+	pinfo|info)
+		# Launcher loads running services' /usr/share/info volumes
+		service='app-text/pinfo'
+		;;
+	postfix)
+		service='mail-mta/postfix'
+		;;
+	postgrey|postgray)
+		#service='mail-filter/postgrey::container'  # 1.36-r1 and prior didn't use account packages
+		service='mail-filter/postgrey'
+		;;
+	powertop)
+		service='sys-power/powertop'
 		;;
 	redis)
 		service='dev-db/redis'
 		;;
+	spamassassin|spamd)
+		service='>=mail-filter/spamassassin-3.4.4-r1'
+		;;
+	spamassassin-update|sa-update)
+		service='>=mail-filter/spamassassin-3.4.4-r1'
+		;;
+	spampd)
+		service='mail-filter/spampd'
+		;;
+	svn|svnserve|subversion)
+		service='dev-vcs/subversion'
+		;;
 	syslog-ng)
 		service='app-admin/syslog-ng'
+		;;
+	unifi|unifi-controller|unifi-controller-bin)
+		service='net-misc/unifi-controller-bin'
+		;;
+	vim|vi)
+		# Launcher loads running services' /usr/share/doc volumes
+		service='app-editors/vim'
 		;;
 	watchdog)
 		service='sys-apps/watchdog'
 		;;
+	zxtm)
+		service='net-misc/zxtm-init-scripts'
+		;;
 	'')
-		echo >&2 "FATAL: No service name or description provided"
-		exit 1
+		die "No service name or description provided"
 		;;
 esac
 
@@ -93,175 +233,685 @@ package=''
 package_name=''
 package_version=''
 repo=''
-container=''
-docker_resolve "${service%::*}"
-export container="${package/\//.}"
-export package_name="${package_name/\//.}"
+container_name=''
+docker_resolve "${service%::*}" 'buildsvc'
+# shellcheck disable=SC2001 # POSIX sh compatibility
+container_name="$( echo "${package}" | sed 's|/|.|' )"
+# shellcheck disable=SC2001 # POSIX sh compatibility
+package_name="$( echo "${package_name}" | sed 's|/|.|' )"
+[ "${package_name:-}" = 'net-misc.zxtm-init-scripts' ] && package_name='net-misc.zxtm'
+if [ "${package_name:-}" = 'mail-filter.spamassassin' ]; then
+	if [ "${original_service}" = 'spamassassin-update' ] || [  "${original_service}" = 'sa-update' ]; then
+		package_name='mail-filter.spamassassin-update'
+	fi
+fi
+export container_name package_name
 echo "${service}" | grep -Fq -- '::' && repo="${service#*::}"
 
-if [ -z "${package_name:-}" ]; then
-	echo >&2 "FATAL: Cannot extract package name from service name '${service}' (${package})"
-	exit 1
-fi
-if [ -z "${package_version:-}" ]; then
-	echo >&2 "FATAL: Cannot extract package version from service name '${service}' (${package})"
-	exit 1
+if [ "${container_name}" = 'podman' ]; then
+	die "Suspicious container name '${container_name}'"
+else
+	print "Using container name '${container_name}'"
 fi
 
-pre_remove='' pre_pkgs='' pre_use='' with_use='' post_pkgs='' post_use='' python_target=''
+if [ -z "${package_name:-}" ]; then
+	die "Cannot extract package name from service name '${service}' (${package})"
+fi
+if [ -z "${package_version:-}" ]; then
+	die "Cannot extract package version from service name '${service}' (${package})"
+fi
+
+if [ $(( ${force:-0} )) -eq 0 ]; then
+	images="$( $docker image ls "service.${package_name}:${package_version}" 2>&1 )"
+	if echo "${images:-}" | grep -q -- "service.${package_name}\s\+${package_version}\s"; then
+		warn "Docker image 'service.${package_name}:${package_version}' already exists - remove or use --force to rebuild"
+		exit 0
+	else
+		echo "Creating new 'service.${package_name}:${package_version}' image ..."
+	fi
+	unset images
+else
+	warn "Forcing creation of new 'service.${package_name}:${package_version}' image ..."
+fi
+
+# from common/vars.sh:
+#use_essential="asm ipv6 ithreads mdev openssl ssl threads tls-heartbeat zlib"
+
+force_python=''
+pre_remove='' pre_pkgs='' pre_use=''
+with_use='' extra_pkgs=''
+post_pkgs='' post_use=''
+python_target='' etcdir=''
+
 # There's probably a better way of doing this, but for now let's assume that
 # the python configuration for the root system and the python confguration for
 # the container build environment is the same (... which is reasonable, unless
 # overridden, as they share a common portage tree and therefore base set of
 # python defaults).
 python_target="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
-case "${package_name}" in
-	*bitlbee*)
-		# debug +gnutls ipv6 libevent libressl msn nss oscar otr +plugins purple selinux test twitter xinetd +xmpp
-		with_use="-* ${use_essential:+${use_essential} }libevent plugins twitter xmpp"
+print "Building for python version '${python_target}'"
 
-		ports='6667'
+php_targets="$( for t in $( portageq envvar PHP_TARGETS ); do echo "php_targets_${t}"; done | sort -V | tail -n 1 )"
+print "Building for PHP versions '${php_targets}'"
+
+case "${package_name}" in
+	*bind*)
+		echo "Setting build variables for package 'bind' ..."
+		pre_pkgs='sys-apps/help2man sys-devel/gcc acct-user/named acct-group/named'
+		extra_pkgs='app-shells/bash dev-lang/perl sys-apps/coreutils'
+
+		ports='53/tcp 53/udp 953/tcp 8053/tcp'
+		container_cmd='/usr/sbin/named'
+		etcdir='bind'
+		;;
+	*bitlbee*)
+		echo "Setting build variables for package 'bitlbee' ..."
+
+		ports='6667/tcp'
 		user='bitlbee'
 		group='bitlbee'
-		cmd='/usr/sbin/bitlbee'
-		cwd='/var/lib/bitlbee'
+		container_cmd='/usr/sbin/bitlbee'
+		container_cwd='/var/lib/bitlbee'
+		etcdir='bitlbee'
+		;;
+	*dcc*)
+		echo "Setting build variables for package 'dcc' ..."
+		extra_pkgs='sys-apps/findutils'
+
+		ports='6276/udp 6276/tcp 6277/udp 6277/tcp'
+		container_cmd='/etc/init.d/dcc'
+		etcdir='dcc'
+		;;
+	*dhcp*)
+		echo "Setting build variables for package 'bitlbee' ..."
+
+		ports='67/udp 68/udp 647/tcp 7911/tcp'
+		#user='dhcp'
+		#group='dhcp'
+		container_cmd='/usr/sbin/dhcpd'
+		etcdir='dhcp'
+		;;
+	*dovecot*)
+		echo "Setting build variables for package 'dovecot' ..."
+		pre_pkgs='sys-apps/help2man sys-devel/gcc'
+		extra_pkgs='app-shells/bash mail-mta/msmtp'
+
+		ports='143/tcp 993/tcp 24242/tcp'
+		container_cmd='/usr/sbin/dovecot'
+		etcdir='dovecot'
+		;;
+	*fetchmail*)
+		echo "Setting build variables for packages 'fetchmail', 'procmail', and 'postfix' ..."
+		pre_pkgs='sys-apps/help2man sys-devel/gcc'
+		extra_pkgs='app-shells/bash mail-filter/procmail net-mail/dovecot dev-lang/perl'
+
+		container_cmd='/usr/bin/fetchmail'
 		;;
 	*imapproxy*)
-		# kerberos ssl +tcpd
-		with_use="-* ${use_essential:+${use_essential} }ssl tcpd"
+		echo "Setting build variables for package 'imapproxy' ..."
 
-		ports='8143'
-		cmd='/usr/sbin/imapproxyd'
+		#ports='143/tcp'
+		ports='8143/tcp'
+		container_cmd='/usr/sbin/imapproxyd'
 		;;
 	*irqbalance*)
-		# caps +numa selinux systemd tui
-		with_use="-* ${use_essential:+${use_essential} }caps tui unicode"
+		echo "Setting build variables for package 'irqbalance' ..."
+		pre_pkgs='sys-apps/help2man'
 
-		cmd='/usr/sbin/irqbalance'
+		container_cmd='/usr/sbin/irqbalance'
+		;;
+	*less*)
+		echo "Setting build variables for package 'less' ..."
+		extra_pkgs='app-text/lesspipe'
+
+		container_cmd='/usr/bin/less'
+		;;
+	*lighttpd*)
+		echo "Setting build variables for package 'lighttpd' ..."
+		pre_pkgs='app-admin/gamin dev-lang/php media-gfx/imagemagick sys-apps/help2man virtual/fam'
+		extra_pkgs='
+			app-admin/gamin
+			app-shells/bash
+			dev-lang/perl
+			dev-perl/CGI
+			dev-perl/IO-Socket-INET6
+			dev-perl/IO-Socket-SSL
+			dev-php/pecl-imagick
+			mail-filter/dcc
+			media-gfx/imagemagick
+			sys-apps/findutils
+		'
+
+		#ports='80/tcp 443/tcp'
+		ports='7080/tcp 7443/tcp'
+		container_cmd='/usr/sbin/lighttpd'
+		etcdir='lighttpd'
 		;;
 	*lynis*)
-		with_use="-* ${use_essential:-}"
+		echo "Setting build variables for package 'lynis' ..."
 
-		cmd='/usr/sbin/lynis'
+		container_cmd='/usr/sbin/lynis'
 		;;
-	*memcache*)
-		# debug sasl seccomp selinux slabs-reassign systemd test
-		with_use="-* ${use_essential:+${use_essential} }seccomp python_single_target_${python_target} python_targets_${python_target}"
+	*man-db*)
+		echo "Setting build variables for package 'man-db' ..."
+		pre_pkgs='sys-apps/help2man sys-apps/man-pages sys-apps/man-pages-posix sys-devel/gcc'
 
-		cmd='/usr/bin/memcached'
+		container_cmd='/usr/bin/man'
+		;;
+	*mariadb*)
+		echo "Setting build variables for package 'mariadb' ..."
+		pre_pkgs='sys-apps/help2man sys-devel/gcc'
+		# To run ebuild 'pkg_config' function within container ...
+		extra_pkgs="app-shells/bash dev-db/mysqltuner"
+
+		ports='3306/tcp 4444/tcp 4567/tcp 4568/tcp' # 4444, 4567-8 for Galera SST
+		user='mysql'
+		group='mysql'
+		container_cmd='/usr/sbin/mysqld'
+		container_cwd='/var/lib/mysql'
+		etcdir='mysql'
+		;;
+	*memcached*)
+		echo "Setting build variables for package 'memcached' ..."
+
+		container_cmd='/usr/bin/memcached'
+		;;
+	*opendkim*)
+		echo "Setting build variables for package 'opendkim' ..."
+		pre_pkgs='sys-apps/help2man'
+		extra_pkgs='acct-group/mail'
+
+		ports='8891/tcp'
+		#user='opendkim'
+		#group='opendkim'
+		container_cmd='/usr/sbin/opendkim'
+		#container_cmd='/usr/sbin/opendkim-reportstats'
+		etcdir='opendkim'
+		;;
+	*opendmarc*)
+		echo "Setting build variables for package 'opendmarc' ..."
+		pre_pkgs='sys-devel/gcc'
+		extra_pkgs='mail-mta/msmtp'
+
+		ports='8893/tcp'
+		#user='milter'
+		#group='milter'
+		container_cmd='/usr/sbin/opendmarc'
+		#container_cmd='/usr/sbin/opendmarc-reportstats'
+		etcdir='opendmarc'
 		;;
 	*openntpd*)
-		# -libressl (-selinux) -systemd
-		CURL_SSL="libressl"
-		pre_remove='dev-libs/openssl'
-		pre_use="-* ${use_essential:+${use_essential} }libressl openssl ssl python_single_target_${python_target} python_targets_${python_target}"
-		pre_pkgs="dev-libs/libressl @system @world"
-		with_use="-* ${use_essential:-} libressl"
+		echo "Setting build variables for package 'openntpd' ..."
+		#pre_remove='app-arch/libarchive dev-libs/openssl dev-python/pypy dev-python/pypy3 dev-python/pypy3-exe net-misc/wget'
+		pre_remove='app-arch/libarchive dev-libs/openssl' # net-misc/wget'
+		pre_use='-openssl libressl'
+		force_python="${python_target}"
+		pre_pkgs="dev-lang/python dev-libs/libressl dev-util/pkgconf sys-devel/gcc virtual/pkgconfig @system @world"
+		with_use='-openssl libressl'
 
 		ports='123/udp'
 		#user='openntpd'
 		#group='openntpd'
-		cmd='/usr/sbin/ntpd'
-		cwd='/var/empty'
+		container_cmd='/usr/sbin/ntpd'
+		container_cwd='/var/empty'
 		fs_name='openntpd'
 		;;
-	*redis*)
-		# +jemalloc luajit systemd tcmalloc test
-		echo "Setting build variables for package 'redis' ..."
-		pre_use='-lib-only nls'
-		pre_pkgs='sys-apps/help2man sys-devel/gcc'
-		with_use="-* ${use_essential:+${use_essential} }jemalloc luajit"
-		post_use="-* ${use_essential:+${use_essential} }lib-only"
-		post_pkgs='sys-devel/gcc --nodeps'
+	*php*)
+		LIB='lib64'
+		PHP_SLOT='php7.4'
+		echo "Setting build variables for package 'php' ..."
+		# eselect-php-0.9.6+ required for ROOT support
+		pre_pkgs='dev-php/PEAR-PEAR media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6'
+		# TODO: There has to be a better way... ?
+		#extra_pkgs="acct-group/lighttpd dev-db/mysql-connector-c dev-php/pecl-imagick >=dev-php/pecl-memcache-4 media-gfx/imagemagick $(
+		#	roundcube_flags='change-password enigma exif managesieve mysql plugins ssl spell zxcvbn'
+		#	php_flags='bzip2 cli ctype url fileinfo filter fpm gd hash iconv intl json pdo phar posix readline session sockets unicode xml zip zlib'
+		#	webapp_config_flags='lighttpd'
+		#	nettle_flags='gmp'
+		#	libcap_flags='pam'
+		#	zx_utils_flags='static-libs'
+		#	libpcre2_flags='jit'
+		#	USE="-* curl_ssl_openssl python_targets_${python_target}" \
+		#		"${libpcre2_flags}" \
+		#		"${zx_utils_flags}" \
+		#		"${libcap_flags}" \
+		#		"${nettle_flags}" \
+		#		"${webapp_config_flags}" \
+		#		"${php_flags}" \
+		#		"${roundcube_flags}" \
+		#	emerge -ep roundcube |
+		#		cut -d']' -f 2- |
+		#		awk '{ print $1 }' |
+		#		grep '^dev-php' |
+		#		sed 's/::.*$// ; s/^/>=/'
+		#)"
+		extra_pkgs='
+			>=dev-php/pecl-memcache-4
+			acct-group/lighttpd
+			acct-user/lighttpd
+			dev-db/mysql-connector-c
+			dev-php/Endroid-QrCode
+			dev-php/Masterminds-HTML5
+			dev-php/pear
+			dev-php/PEAR-Archive_Tar
+			dev-php/PEAR-Auth_SASL
+			dev-php/PEAR-Console_CommandLine
+			dev-php/PEAR-Console_Getopt
+			dev-php/PEAR-Crypt_GPG
+			dev-php/PEAR-Exception
+			dev-php/PEAR-Mail_Mime
+			dev-php/PEAR-Mail_mimeDecode
+			dev-php/PEAR-Net_IDNA2
+			dev-php/PEAR-Net_Sieve
+			dev-php/PEAR-Net_SMTP
+			dev-php/PEAR-Net_Socket
+			dev-php/PEAR-PEAR
+			dev-php/PEAR-Structures_Graph
+			dev-php/PEAR-XML_Util
+			dev-php/pecl-imagick
+			dev-php/pecl-redis
+			dev-php/ZxcvbnPhp
+			media-gfx/imagemagick
+			net-misc/curl
+			sys-apps/file
+		'
+			#dev-util/strace
 
-		ports='6379 26379'
+		container_cmd="/usr/${LIB}/${PHP_SLOT}/bin/php-fpm"
+		etcdir='php'
+		;;
+	*pinfo*)
+		echo "Setting build variables for package 'pinfo' ..."
+		pre_pkgs='sys-apps/help2man'
+		extra_pkgs='sys-apps/texinfo'
+
+		container_cmd='/usr/bin/pinfo'
+		;;
+	*postfix*)
+		echo "Setting build variables for package 'postfix' ..."
+		# mail-filter/maildrop's BDEPEND/DEPEND isn't working :(
+		pre_pkgs='sys-apps/help2man acct-user/postfix dev-libs/libpcre net-dns/libidn net-libs/courier-unicode sys-devel/automake sys-devel/gcc sys-devel/libtool'
+		extra_pkgs='dev-libs/cyrus-sasl'
+		post_pkgs='app-shells/bash mail-filter/maildrop mail-filter/procmail net-mail/dovecot sys-apps/shadow'  # dovecot for lda
+			# ... shadow as postfix user isn't getting its groups
+
+		container_cmd='/usr/sbin/postfix'
+		etcdir='postfix sasl2'
+		;;
+	*postgrey*)
+		echo "Setting build variables for package 'postgrey' ..."
+		pre_pkgs='acct-user/postfix acct-user/postgrey acct-group/postgrey'
+
+		container_cmd='/usr/sbin/postgrey'
+		# Not a typo!
+		etcdir='postfix'
+		;;
+	*powertop*)
+		echo "Setting build variables for package 'powertop' ..."
+		pre_pkgs='sys-devel/gcc'
+		extra_pkgs='x11-apps/xset'
+
+		container_cmd='/usr/sbin/powertop'
+		# Container requires '--privileged' to operate, data in /var/cache/powertop/
+		;;
+	*redis*)
+		echo "Setting build variables for package 'redis' ..."
+		pre_pkgs='sys-apps/help2man sys-devel/gcc'
+
+		ports='6379/tcp 26379/tcp'
 		user='redis'
 		group='redis'
-		cmd='/usr/sbin/redis-server'
-		cwd='/var/lib/redis'
+		container_cmd='/usr/sbin/redis-server'
+		container_cwd='/var/lib/redis'
+		;;
+	*spamassassin*)
+		pre_pkgs='sys-apps/help2man acct-user/spamd acct-group/spamd'
+		if [ "${original_service}" = 'spamassassin-update' ] || [ "${original_service}" = 'sa-update' ]; then
+			echo "Setting build variables for package 'spamassassin-update' ..."
+			# 'srcshelton' repo relocates gawk to /bin/
+			impl='::srcshelton'
+			extra_pkgs="
+				>=dev-perl/Crypt-OpenSSL-DSA-0.150.0
+				>=dev-perl/Crypt-OpenSSL-EC-1.10.0
+				>=dev-perl/Crypt-OpenSSL-ECDSA-0.60.0
+				>=dev-perl/Crypt-OpenSSL-Random-0.100.0
+				>=dev-perl/Digest-GOST-0.60.0
+				app-admin/eselect
+				app-crypt/gnupg
+				app-eselect/eselect-awk${impl:+${impl}}
+				dev-lang/python-exec
+				dev-perl/GeoIP2
+				net-misc/geoipupdate
+				sys-apps/baselayout
+				sys-apps/busybox
+				sys-apps/coreutils
+				sys-apps/findutils
+				sys-apps/gawk${impl:+${impl}}
+				sys-apps/gentoo-functions
+				sys-apps/portage
+				sys-apps/sed
+				sys-devel/binutils
+				sys-devel/binutils-config
+				sys-devel/gcc
+				sys-devel/gcc-config
+				sys-devel/make
+				sys-kernel/linux-headers
+			"
+
+			container_cmd='/usr/bin/sa-update'
+		else
+			echo "Setting build variables for package 'spamassassin' ..."
+			extra_pkgs='
+				>=dev-perl/Crypt-OpenSSL-DSA-0.150.0
+				>=dev-perl/Crypt-OpenSSL-EC-1.10.0
+				>=dev-perl/Crypt-OpenSSL-ECDSA-0.60.0
+				>=dev-perl/Crypt-OpenSSL-Random-0.100.0
+				>=dev-perl/Digest-GOST-0.60.0
+				dev-perl/GeoIP2
+				mail-filter/dcc
+				sys-apps/findutils
+				sys-devel/gcc
+			'
+
+			ports='783/tcp 6276/udp 6276/tcp 6277/udp 6277/tcp'
+			# Somehow, this container is being built with user='spampd'??!?
+			user='root'
+			group='root'
+			container_cmd='/usr/sbin/spamd'
+		fi
+		etcdir='mail/spamassassin'
+		;;
+	*spampd*)
+		# 'eval: failed to locate the triplets.txt file' is normal, the file was removed but
+		# the eval wasn't :o
+		#
+		echo "Setting build variables for package 'spampd' ..."
+		pre_pkgs='sys-apps/help2man acct-user/mail acct-group/mail acct-user/spamd acct-group/spamd'
+		extra_pkgs='
+			>=dev-perl/Crypt-OpenSSL-DSA-0.150.0
+			>=dev-perl/Crypt-OpenSSL-EC-1.10.0
+			>=dev-perl/Crypt-OpenSSL-ECDSA-0.60.0
+			>=dev-perl/Crypt-OpenSSL-Random-0.100.0
+			>=dev-perl/Digest-GOST-0.60.0
+			>=mail-filter/spamassassin-3.4.4-r1
+			dev-perl/Crypt-OpenSSL-RSA
+			dev-perl/DBD-mysql
+			dev-perl/Geo-IP
+			dev-perl/GeoIP2
+			dev-perl/IP-Country
+			dev-perl/NetAddr-IP
+			mail-filter/dcc
+			mail-filter/razor
+			sys-apps/baselayout
+			sys-apps/findutils
+			sys-devel/gcc
+			virtual/perl-DB_File
+		'
+
+		ports='6276/udp 6276/tcp 6277/udp 6277/tcp'  # razor/dcc
+		container_cmd='/usr/sbin/spampd.pl'
+		;;
+	*subversion*)
+		echo "Setting build variables for package 'svnserve' ..."
+		pre_pkgs='sys-apps/help2man acct-user/svn acct-group/svnusers'
+		force_python="${python_target}"
+		extra_pkgs='dev-lang/python'
+		with_use='xml'
+
+		ports='3690/tcp'
+		user='svn'
+		group='svnusers'
+		container_cmd='/usr/bin/svnserve'
+		container_cwd='/'
 		;;
 	*syslog-ng*)
-		# caps ipv6 json python smtp spoof-source tcpd -amqp -dbi -geoip -geoip2 -http -kafka -libressl -mongodb -pacct -redis -snmp -systemd
-		# json pulls in json-c which has a run-time dependency on cmake
-		with_use="-* ${use_essential:+${use_essential} }caps smtp spoof-source tcpd python_single_target_${python_target} python_targets_${python_target}"
+		echo "Setting build variables for package 'syslog-ng' ..."
+		pre_pkgs='sys-apps/help2man'
 
 		ports='514/udp'
-		cmd='/usr/sbin/syslog-ng'
-		cwd='/var/lib/syslog-ng'
+		container_cmd='/usr/sbin/syslog-ng'
+		container_cwd='/var/lib/syslog-ng'
+		etcdir='syslog-ng'
+		;;
+	*unifi*)
+		echo "Setting build variales for package 'unifi-controller-bin' ..."
+		pre_use='headless-awt'
+		force_python='python2_7'
+		pre_pkgs='dev-java/openjdk-bin:8 dev-lang/python:2.7 sys-devel/gcc'
+		# If we try to build 'openjdk:8' in ${extra_pkgs} then it now complains
+		# that there is no available Java 8 VM available, even though we have
+		# openjdk-bin:8 available in the build container with ROOT=/
+		# TODO: Consider post-install and post-remove hooks to allow openjdk:8
+		#       to be build with ROOT != / and then openjdk-bin:8 removed...
+		#extra_pkgs='<dev-db/mongodb-4.2 dev-java/openjdk:8 dev-lang/python:2.7 app-admin/eselect app-eselect/eselect-python'
+		extra_pkgs='<dev-db/mongodb-4.2 dev-java/openjdk-bin:8 dev-lang/python:2.7 app-admin/eselect app-eselect/eselect-python'
+		with_use="python_targets_${force_python}"
+
+		ports='3478/udp 5514/udp 8080/tcp 8443/tcp 8880/tcp 8843/tcp 6789/tcp 27117/tcp 10001/udp 1900/udp 5656-5699/udp'
+		user='unifi'
+		group='unifi'
+		# As of 5.5.24, logs are written to 'logs/server.log' below the
+		# directory from which the class is invoked - so we need to chdir to
+		# the installation directory in order for this to work as anticipated.
+		container_cwd="/opt/unifi-controller-${package_version}"
+		# ace.jar needs to be run within a JVM...
+		container_cmd='/usr/bin/java'
+		;;
+	*vim*)
+		echo "Setting build variables for package 'vim' ..."
+		extra_pkgs='app-vim/dhcpd-syntax app-vim/eselect-syntax app-vim/gentoo-syntax app-vim/help-extra-syntax app-vim/info app-vim/json app-vim/nginx-syntax app-vim/ntp-syntax vim-spell-en'
+
+		container_cmd='/usr/bin/vim'
+		etcdir='vim'
 		;;
 	*watchdog*)
-		# nfs
-		with_use="-* ${use_essential:+${use_essential} }nfs"
+		echo "Setting build variables for package 'watchdog' ..."
 
-		cmd='/usr/sbin/watchdog'
+		container_cmd='/usr/sbin/watchdog'
+		;;
+	*zxtm*)
+		ZEUSHOME='/opt/zeus'
+		echo "Setting build variables for package 'zxtm' ..."
+		pre_pkgs='sys-apps/help2man sys-devel/gcc'
+		extra_pkgs='app-eselect/eselect-iptables app-shells/bash net-firewall/iptables sys-apps/iproute2 sys-process/procps'
+
+		container_cmd='/opt/zeus/runzeus.sh'
+		container_cwd="${ZEUSHOME}"
 		;;
 esac
 #echo >&2 "DEBUG: Additional USE flags are '${with_use:-<none>}'"
 
-if [ -z "${cmd:-}" ]; then
-	echo >&2 "FATAL: No container command provided"
-	exit 1
+case " ${pre_pkgs} " in
+	*' dev-util/pkgconf '*)
+		pre_use="${pre_use:+${pre_use} }pkg-config"
+		;;
+esac
+case " ${pre_pkgs} " in
+	*' dev-util/pkgconfig '*)
+		pre_use="${pre_use:+${pre_use} }internal-glib"
+		;;
+esac
+case " ${pre_pkgs} " in
+	*' sys-apps/help2man '*)
+		pre_use="${pre_use:+${pre_use} }nls"
+		;;
+esac
+case " ${pre_pkgs} " in
+	*' sys-devel/gcc '*)
+		pre_use="-lib-only${pre_use:+ ${pre_use}}"
+		post_use="lib-only${post_use:+ ${post_use}}"
+		post_pkgs="${post_pkgs:+${post_pkgs} }sys-devel/gcc --nodeps --buildpkg=y --usepkg=y"
+		;;
+esac
+
+pkg=''
+case " ${pre_pkgs} " in
+	*' acct-user/'*|*' acct-group/'*)
+		for pkg in ${pre_pkgs}; do
+			case "${pkg}" in
+				acct-user/*|acct-group/*)
+					post_pkgs="${pkg}${post_pkgs:+ ${post_pkgs}}"
+					;;
+			esac
+		done
+		;;
+esac
+unset pkg
+
+pre_pkgs="${pre_pkgs:+${pre_pkgs} }net-misc/ethertypes sys-apps/baselayout sys-devel/prelink"
+
+case " ${extra_pkgs:-} " in
+	*' app-shells/bash '*|*' sys-apps/shadow '*)
+		extra_pkgs="${extra_pkgs} sys-libs/readline"
+		;;
+esac
+extra_pkgs="${extra_pkgs:+${extra_pkgs} }sys-devel/prelink"
+
+[ -z "${post_use:-}" ] && [ -n "${with_use:-}" ] && post_use="${with_use} lib-only"
+
+if [ -z "${container_cmd:-}" ]; then
+	die "No container command provided"
+elif [ "${container_cmd}" = 'podman' ]; then
+	die "Invalid container command '${container_cmd}'"
 fi
 
-[ -n "${trace:-}" ] && set -o xtrace
+#[ -n "${trace:-}" ] && set -o xtrace
 
-if [ "$( $docker image ls "buildsvc-${package_name}:${package_version}" | wc -l )" != '2' ]; then
-	echo >&2 " ${blue}*${reset} Building ${package_name}:${package_version} root image ..."
+if [ -n "${etcdir:-}" ]; then
+	for dir in ${etcdir}; do
+		mkdir -p /etc/${dir}
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/${dir}/,destination=/service/etc/${dir}"
+		if [ "${dir}" = 'mail/spamassassin' ]; then
+			mkdir -p /var/lib/spamassassin /usr/share/spamassassin
+			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/var/lib/spamassassin/,destination=/service/var/lib/spamassassin"
+			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/usr/share/spamassassin/,destination=/service/usr/share/spamassassin"
+		fi
+	done
+fi
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/default/,destination=/etc/default"
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/logrotate.d/,destination=/etc/logrotate.d"
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/ssl/,destination=/etc/ssl"
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.unmask,destination=/etc/portage/package.unmask${docker_readonly:+,${docker_readonly}}"
+if [ -s "gentoo-base/etc/portage/package.use.svc/${package_name#*.}" ]; then
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.use.svc/package.use.header,destination=/etc/portage/package.use.override/package.use.header${docker_readonly:+,${docker_readonly}}"
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.use.svc/${package_name#*.},destination=/etc/portage/package.use.override/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
+else
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.use.svc/package.use.header,destination=/etc/portage/package.use.override/package.use${docker_readonly:+,${docker_readonly}}"
+fi
+export DOCKER_EXTRA_MOUNTS
+
+images="$( $docker image ls "buildsvc-${package_name}:${package_version}" 2>&1 )"
+if echo "${images:-}" | grep -q -- "buildsvc-${package_name}\s\+${package_version}\s"; then
+	echo >&2
+	echo >&2 " ${blue}*${reset} Re-using existing '${package_name}:${package_version}' root image ..."
+else
+	echo >&2
+	echo >&2 " ${blue}*${reset} Building '${package_name}:${package_version}' root image ..."
+	echo >&2
+
+	trap '' INT
+	$docker stop "buildsvc-${container_name}" 2>/dev/null || :
+	$docker rm --volumes "buildsvc-${container_name}" 2>/dev/null || :
+	trap - INT
+
+	build_use=''
+	if [ "${original_service}" != 'spamassassin-update' ] && [ "${original_service}" != 'sa-update' ]; then
+		build_use="${USE:+${USE} }lib-only"
+	fi
 
 	# shadow needed for /sbin/nologin; coreutils needed for chmod
-	USE="${USE:+${USE} }lib-only" \
+	# shellcheck disable=SC2086
+	USE="${build_use:-}" \
 	ROOT="/service" \
-	name="buildsvc-${container}" \
+	name="buildsvc-${container_name}" \
 	image="${IMAGE}" \
 	docker_run \
 			${pre_remove:+--pre-remove="${pre_remove}"} \
+			${force_python:+--force-python="${force_python}"} \
 			${pre_pkgs:+--pre-pkgs="${pre_pkgs}"} \
 			${pre_use:+--pre-use="${pre_use}"} \
 			${with_use:+--with-use="${with_use}"} \
 			${post_pkgs:+--post-pkgs="${post_pkgs}"} \
 			${post_use:+--post-use="${post_use}"} \
+			${rebuild:+--rebuild="${package}"} \
+			--no-package-use \
 			--usepkg=y \
 			--with-bdeps=n \
 			--with-bdeps-auto=n \
-			"=${package}${repo:+::${repo}}" \
-		2>&1 | tee log/"docker.buildsvc-${container}.log"
-	echo " -> ${?}"
+		"=${package}${repo:+::${repo}}" ${extra_pkgs:-} \
+	2>&1 | tee log/"docker.buildsvc-${container_name}.log"
+	#DOCKER_VARS="--env CURL_SSL=${ssl_opt}" \
+	rc=${?}
+	echo " -> ${rc}"
 
+	[ "${rc}" = '0' ] || exit 1
+
+	# podman is fragile :(
+	trap '' INT
 	$docker commit \
-			"buildsvc-${container}" \
+			"buildsvc-${container_name}" \
 			"buildsvc-${package_name}:${package_version}" \
-		2>&1 | tee -a log/"docker.buildsvc-${container}.log"
-	echo " -> ${?}"
+		2>&1 | tee -a log/"docker.buildsvc-${container_name}.log"
+	rc=${?}
+	trap - INT
+	echo " -> ${rc}"
+
+	[ "${rc}" = '0' ] || exit 1
 fi
+unset images
 
-$docker rm "buildsvc-${container}" 2>&1 | tee -a log/"docker.buildsvc-${container}.log"
+trap '' INT
+$docker rm --volumes "buildsvc-${container_name}" 2>/dev/null || :
+trap - INT
 
-pushd >/dev/null gentoo-base || exit 1
+cd gentoo-base || die "chdir() to 'gentoo-base' failed: ${?}"
 
-echo >&2 " ${blue}*${reset} Building ${package_name}:${package_version} service image ..."
+case "${package_name}" in
+	*zxtm*)
+		file='Dockerfile.zxtm.service'
+		zxtm_service_version="$( curl -s https://registry.hub.docker.com/v1/repositories/pulsesecure/vtm/tags | jq -r .[].name | grep -v 'latest' | sort -V | tail -n 1 )"
+		;;
+	*)
+		file='Dockerfile.service'
+		;;
+esac
 
+echo >&2
+echo >&2 " ${blue}*${reset} Building ${package_name}:${package_version} (${container_cmd}) service image ..."
+echo >&2
+
+# shellcheck disable=SC2001 # POSIX sh compatibility
 $docker build \
-		--compress \
-		--file 'Dockerfile.service' \
-		--build-arg SET_TERM="${TERM}" \
 		--build-arg environment_filter="${environment_filter}" \
 		--build-arg image_name="buildsvc-${package_name}" \
-		--build-arg service_name="${package_name/./\/}" \
-		--build-arg service_version="${package_version}" \
+		--build-arg service_cmd="${container_cmd}" \
+		  ${container_cwd:+--build-arg service_cwd="${container_cwd}"} \
+		  ${fs_name:+--build-arg service_fs_name="${fs_name}"} \
+		--build-arg service_group="${group}" \
+		--build-arg service_name="$( echo "${package_name}" | sed 's|\.|/|' )" \
+		--build-arg service_name_short="$( echo "${package_name}" | sed 's|\.|/|' | cut -d'/' -f 2- )" \
 		--build-arg service_ports="${ports}" \
 		--build-arg service_user="${user}" \
-		--build-arg service_group="${group}" \
-		--build-arg service_cmd="${cmd}" \
-		${cwd:+--build-arg service_cwd="${cwd}"} \
-		${fs_name:+--build-arg service_fs_name="${fs_name}"} \
+		--build-arg service_version="${package_version}" \
+		  ${zxtm_service_version:+--build-arg zxtm_service_version="${zxtm_service_version}"} \
+		--build-arg SET_TERM="${TERM}" \
+		  ${ZEUSHOME:+--build-arg ZEUSHOME="${ZEUSHOME}"} \
+		--compress \
+		--file "${file}" \
 		--tag "service.${package_name}:${package_version}" \
-		. \
-	2>&1 | tee ../log/"docker.service.${container}.log"
-echo " -> ${?}"
-popd >/dev/null
+	.  2>&1 | tee ../log/"docker.service.${container_name}.log"
+		#--network slirp4netns \
+rc=${?}
+echo " -> ${rc}"
 
-$docker image rm "buildsvc-${package_name}:${package_version}" 2>&1 | tee -a log/"docker.buildsvc-${container}.log"
+if [ $(( ${rc:-1} )) -eq 0 ]; then
+	trap '' INT
+	$docker image rm "buildsvc-${package_name}:${package_version}" 2>/dev/null || :
+	trap - INT
+fi
 
-set +o xtrace
+#set +o xtrace
 
-exit 0
+exit ${rc} 

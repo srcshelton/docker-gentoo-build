@@ -1,0 +1,52 @@
+#! /usr/bin/env bash
+
+set -eu
+
+cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+
+# shellcheck disable=SC1091
+[ ! -s common/vars.sh ] || . common/vars.sh
+
+export IMAGE="none"
+# shellcheck disable=SC1091
+[ -s common/run.sh ] && . common/run.sh >/dev/null
+
+if (( EUID )); then
+	die "Please re-run '$( basename "${0}" )' as user 'root'"
+fi
+
+DOCKER_EXTRA_MOUNTS="
+	--mount type=bind,source=/usr/share/man/,destination=/srv/host/usr/share/man${docker_readonly:+,${docker_readonly:-}}
+"
+if [ -s '/etc/man_db.conf' ]; then
+	DOCKER_VOLUMES="
+		--volume /etc/man_db.conf:/etc/man_db.conf:ro
+	"
+fi
+#DOCKER_VOLUMES="${DOCKER_VOLUMES:+${DOCKER_VOLUMES}}
+#	--volume ${PWD}/gentoo-base/entrypoint.sh.service:/usr/libexec/entrypoint.sh:ro
+#"
+
+# Gather exported data from other created containers ...
+id=''
+for id in $( podman ps -a --filter 'name=^openrc-' --format '{{.ID}}' ) $( podman ps -a --filter 'name=^web-' --format '{{.ID}}' ); do
+	DOCKER_VOLUMES="${DOCKER_VOLUMES:+${DOCKER_VOLUMES} }--volumes-from ${id}:ro"
+done
+unset id
+
+export DOCKER_EXTRA_MOUNTS DOCKER_VOLUMES
+
+export DOCKER_VARS="--env LINES=${LINES} --env COLUMNS=${COLUMNS} --env TERM=${TERM}"
+
+export DOCKER_INTERACTIVE=1
+export NO_BUILD_MOUNTS='no_build_mounts' # ... any value will do
+#export DOCKER_ENTRYPOINT='/bin/sh'
+docker_resolve 'sys-apps/man-db' 'run' >/dev/null
+image="$( docker_image_exists )"
+export image
+
+#set -o xtrace
+
+docker_run ${@+"${@}"}
+
+# vi: set syntax=sh:

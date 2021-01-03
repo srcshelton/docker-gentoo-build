@@ -1,0 +1,75 @@
+#! /usr/bin/env bash
+
+set -eu
+
+cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+
+# shellcheck disable=SC1091
+[ ! -s common/vars.sh ] || . common/vars.sh
+
+export IMAGE="none"
+# shellcheck disable=SC1091
+[ -s common/run.sh ] && . common/run.sh >/dev/null
+
+if (( EUID )); then
+	die "Please re-run '$( basename "${0}" )' as user 'root'"
+fi
+
+DOCKER_EXTRA_MOUNTS="
+	--mount type=bind,source=/usr/share/info/,destination=/srv/host/usr/share/info${docker_readonly:+,${docker_readonly:-}}
+"
+f=''
+for f in /etc/pinforc /etc/pinfo/pinforc /etc/pinfo/pinfo.rc; do
+	[ -s "${f}" ] && break
+done
+if [ -s "${f}" ]; then
+	DOCKER_VOLUMES="
+		--volume ${f}:/etc/pinforc:ro
+	"
+fi
+unset f
+#DOCKER_VOLUMES="${DOCKER_VOLUMES:+${DOCKER_VOLUMES}}
+#	--volume ${PWD}/gentoo-base/entrypoint.sh.service:/usr/libexec/entrypoint.sh:ro
+#"
+
+# Gather exported data from other created containers ...
+id=''
+for id in $( podman ps -a --filter 'name=^openrc-' --format '{{.ID}}' ) $( podman ps -a --filter 'name=^web-' --format '{{.ID}}' ); do
+	DOCKER_VOLUMES="${DOCKER_VOLUMES:+${DOCKER_VOLUMES} }--volumes-from ${id}:ro"
+done
+unset id
+
+export DOCKER_EXTRA_MOUNTS DOCKER_VOLUMES
+
+#DOCKER_SCRIPT="$( cat <<-EOF
+#	set -eux ;
+#	echo "Detected terminal size: \$( stty size )" ;
+#	export TERM LINES COLUMNS ;
+#	echo "Setting terminal to \${COLUMNS}x\${LINES}..." ;
+#	stty cols "\${COLUMNS}" rows "\${LINES}" ;
+#	echo "Detected terminal size: \$( stty size )" ;
+#	echo "args: \${@}"
+#	exec /usr/bin/pinfo "\${@}"
+#EOF
+#)"
+#nl="$( printf '\n' )"
+#DOCKER_SCRIPT="$( echo "${DOCKER_SCRIPT}" | tr "${nl}" ' ' )"
+#unset nl
+export DOCKER_VARS="--env LINES=${LINES} --env COLUMNS=${COLUMNS} --env TERM=${TERM}"
+
+export DOCKER_INTERACTIVE=1
+export NO_BUILD_MOUNTS='no_build_mounts' # ... any value will do
+#export DOCKER_ENTRYPOINT='/bin/sh'
+docker_resolve 'app-text/pinfo' 'run' >/dev/null
+image="$( docker_image_exists )"
+export image
+
+if [ -n "${*:-}" ]; then
+	docker_run ${@+"${@}"}
+	#docker_run -c "${DOCKER_SCRIPT}" ${@+"${@}"}
+else
+	docker_run 'dir'
+	#docker_run -c "${DOCKER_SCRIPT}" 'dir'
+fi
+
+# vi: set syntax=sh:

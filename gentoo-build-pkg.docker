@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /usr/bin/env bash
 
 set -eu
 
@@ -8,27 +8,45 @@ trace=${TRACE:-}
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
+build_name=''
+docker_readonly=''
+
+# shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
 
 IMAGE="${build_name}:latest"
+export IMAGE
+
+# shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh
 
 if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	echo >&2 "Usage: $( basename "${0}" ) [category/package_name [portage_atom...]]"
+	echo >&2 "Usage: $( basename "${0}" ) [category/package_name [portage_atom...]] [--rebuild=<portage_atom>] [--force-keywords]"
 	exit 0
+fi
+
+if (( EUID )); then
+	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi
 
 # Extract 'entrypoint' argument - all others can be handled by the entrypoint
 # script within the container itself...
 for arg in "${@}"; do
-        shift
+	shift
 	case "${arg}" in
+		-k|--force-keywords)
+			FORCE_KEYWORDS=1
+			export FORCE_KEYWORDS
+			continue
+			;;
 		--entrypoint=*)
 			DOCKER_ENTRYPOINT="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			export DOCKER_ENTRYPOINT
 			continue
 			;;
 		--cmd=*)
 			DOCKER_CMD="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			export DOCKER_CMD
 			continue
 			;;
 		*)
@@ -37,20 +55,39 @@ for arg in "${@}"; do
 	esac
 done
 
-export DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+,${docker_readonly}}"
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/python_targets,destination=/etc/portage/package.use/python_targets${docker_readonly:+,${docker_readonly}}"
+#DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/usr/src/linux/.config,destination=/usr/src/linux/.config${docker_readonly:+,${docker_readonly}}"
+#DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/usr/src/build-5.9.x/,destination=/usr/src/build-5.9.x/${docker_readonly:+,${docker_readonly}}"
+export DOCKER_EXTRA_MOUNTS
+#KBUILD_OUTPUT="/usr/src/build-5.9.x"
+#export KBUILD_OUTPUT
 
-echo >&2 "NOTE:  Adding 'libarchive' dependency fix ..."
-if echo "${*}" | grep -q -- 'app-arch/libarchive'; then
-	pkg="$( echo " ${*} " | sed -r 's|^.*\s([^[:space:]]*app-arch/libarchive[^[:space:]]*)\s.*$|\1|' )"
-else
-	pkg='app-arch/libarchive'
+if [ -n "${USE:-}" ]; then
+	# Without passing USE flags in this way, they appear to be getting lost (when /etc/portage/package.use exists?)
+	set -- "${@}" --with-use="${USE}"
 fi
-set -- "${@}" --pre-pkgs='app-arch/libarchive' --pre-use='-lz4'
-unset pkg
+
+#echo >&2 "NOTE:  Adding circular-dependency fixes ..."
+#if echo "${*}" | grep -q -- 'app-arch/libarchive'; then
+#	pkg="${pkg:+${pkg} }$( echo " ${*} " | sed -r 's|^.*\s([^[:space:]]*app-arch/libarchive[^[:space:]]*)\s.*$|\1|' )"
+#else
+#	pkg="${pkg:+${pkg} }app-arch/libarchive"
+#fi
+##if echo "${*}" | grep -q -- 'dev-util/pkgconfig'; then
+##	pkg="${pkg:+${pkg} }$( echo " ${*} " | sed -r 's|^.*\s([^[:space:]]*dev-util/pkgconfig[^[:space:]]*)\s.*$|\1|' )"
+##else
+##	pkg="${pkg:+${pkg} }dev-util/pkgconfig"
+##fi
+#set -- "${@}" --pre-pkgs="${pkg}" --pre-use='-lz4 internal-glib'
+#unset pkg
+#set -- "${@}" --pre-use='-lz4 internal-glib'
 
 # Provide a '--name' to prevent the container being removed on exit.
 # Invoke with '--usepkg=n' to rebuild existing packages...
 
-docker_build "${@:-}"
+docker_build ${@+"${@}"}
 
 # vi: set syntax=sh:
