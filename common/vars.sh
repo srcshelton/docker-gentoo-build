@@ -71,9 +71,18 @@ export MAXLOAD="${load}.00"
 unset load jobs
 
 # Are we using docker or podman?
-docker='docker'
-#extra_build_args=''
-docker_readonly='readonly'
+if ! command -v podman >/dev/null 2>&1; then
+	docker='docker'
+
+	#extra_build_args=''
+	docker_readonly='readonly'
+else
+	docker='podman'
+
+	#extra_build_args='--format docker'
+	# From release 2.0.0, podman should accept docker 'readonly' attributes
+	docker_readonly='ro=true'
+fi
 
 # Optional override to specify alternative build temporary directory
 #export TMPDIR=/var/tmp

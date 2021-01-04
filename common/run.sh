@@ -613,12 +613,18 @@ if ! echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	fi
 fi
 
-if command -v podman >/dev/null 2>&1; then
+# Are we using docker or podman?
+if ! command -v podman >/dev/null 2>&1; then
+	docker='docker'
+
+	#extra_build_args=''
+	docker_readonly='readonly'
+else
 	docker='podman'
 
+	#extra_build_args='--format docker'
 	# From release 2.0.0, podman should accept docker 'readonly' attributes
 	docker_readonly='ro=true'
-	#extra_build_args='--format docker'
 fi
 
 # vi: set syntax=sh:
