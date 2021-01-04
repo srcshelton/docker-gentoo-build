@@ -1,3 +1,10 @@
+# See https://github.com/srcshelton/docker-gentoo-web
+/gentoo-web
+
+# Don't archive logs
 /log/*
 
-**/.*.swp
+# Exclude vim swapfiles
+**/.*.sw[a-p]
+
+# vi: set syntax=cfg:
