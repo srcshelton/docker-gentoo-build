@@ -58,6 +58,36 @@ docker_setup
 #pushd >/dev/null gentoo-base
 cd gentoo-base || die "chdir() to 'gentoo-base' failed; ${?}"
 
+case "$( uname -m )" in
+	aarch64)
+		docker_arch='arm64'
+		arch='arm64'
+		profile='17.0'
+		chost='aarch64-pc-linux-gnu'
+		;;
+	arm7l)
+		docker_arch='amd/v7'
+		arch='arm'
+		profile='17.0/armv7a'
+		chost='armv7a-hardfloat-linux-gnueabihf'
+		;;
+	armv6l)
+		docker_arch='amd/v6'
+		arch='arm'
+		profile='17.0/armv6j'
+		chost='armv6j-hardfloat-linux-gnueabihf'
+		;;
+	x86_64)
+		docker_arch='amd64'
+		arch='amd64'
+		profile='17.1/no-multilib'
+		chost='x86_64-pc-linux-gnu'
+		;;
+	*)
+		die "Unknown architecture '$( uname -m )'"
+		;;
+esac
+
 sum="$( sha1sum entrypoint.sh )"
 sum="$( echo "${sum}" | cut -d' ' -f 1 )"
 env_id="$( $docker image ls --format='{{.ID}}' "${env_name}:latest" 2>/dev/null )" || :
@@ -79,12 +109,19 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 
 	# shellcheck disable=SC2086
 	$docker build \
+			--arch "${docker_arch}" \
+			--build-arg ARCH="${arch:-}" \
+			--build-arg PROFILE_PATH="${profile:-}" \
+			--build-arg CHOST="${chost:-}" \
+			--build-arg JOBS="${JOBS:-}" \
+			--build-arg MAXLOAD="${MAXLOAD:-}" \
 			--build-arg SET_TERM="${TERM:-}" \
 			--build-arg SET_USE_ESSENTIAL="${use_essential:-}" \
 			--compress \
 			--file 'Dockerfile.env' \
 			--no-cache \
 			--tag "${env_name}:latest" \
+			--rm \
 		. 2>&1 | tee ../log/"docker.${env_name}.log"
 			#--network slirp4netns \
 	echo " -> ${?}"
@@ -118,6 +155,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 
 	# shellcheck disable=SC2086
 	$docker build \
+			--arch "${docker_arch}" \
 			--build-arg env_id="${env_id}" \
 			--build-arg stage3_id="${stage3_id}" \
 			--build-arg stage3_image="${stage3_image}" \
@@ -195,6 +233,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 
 	# shellcheck disable=SC2086
 	$docker build \
+			--arch "${docker_arch}" \
 			--build-arg entrypoint_sum="${sum}" \
 			--build-arg environment_filter="${environment_filter}" \
 			--build-arg stage3_id="${stage3_id}" \
@@ -332,6 +371,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 
 	# shellcheck disable=SC2086
 	$docker build \
+			--arch "${docker_arch}" \
 			--build-arg env_id="${env_id}" \
 			--build-arg environment_filter="${environment_filter}" \
 			--compress \

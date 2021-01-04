@@ -6,7 +6,8 @@
 ARG env_name="gentoo-env"
 ARG env_id=""
 
-ARG stage3_image="gentoo/stage3-amd64"
+# gentoo/stage3 supports 386, amd64, arm-v5, arm-v6, arm-v7, arm64, ppc64le, s390x
+ARG stage3_image="gentoo/stage3"
 ARG stage3_tag="latest"
 ARG stage3_id=""
 
