@@ -448,6 +448,7 @@ echo
 # libarchive is a frequent dependency, and so quicker to pull-in here
 # shellcheck disable=SC2086
 FEATURES="${FEATURES:+${FEATURES} }fail-clean" \
+USE="${pkg_initial_use}${use_essential:+ ${use_essential}}" \
 LC_ALL='C' \
 	emerge \
 			--ignore-default-opts \
