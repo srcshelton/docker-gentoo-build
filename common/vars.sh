@@ -1,6 +1,13 @@
 #! /bin/sh
 #shellcheck disable=SC2034
 
+# Since we're now using 'podman info' to determine the graphRoot directory, we
+# need to be root simply to setup the environment appropriately :(
+if (( EUID )); then
+	echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
+	exit 1
+fi
+
 # Set docker image names...
 #
 env_name="gentoo-env"
