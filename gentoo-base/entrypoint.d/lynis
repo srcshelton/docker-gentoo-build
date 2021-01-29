@@ -1,0 +1,8 @@
+#! /bin/sh
+
+[ -e /etc/mtab ] || ln -s /proc/self/mounts /etc/mtab
+[ -d /home ] || mkdir -m 0755 /home 
+
+eselect awk update ifunset
+
+# vi: set syntax=sh:

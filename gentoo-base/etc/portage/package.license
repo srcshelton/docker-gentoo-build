@@ -182,6 +182,17 @@ container/zxtm				 Pulse
 mail-client/roundcube			 PHP-2.02 PHP-3
 dev-php/Masterminds-HTML5		 HTML5-PHP
 
+# required by mail-client/mailx
+# required by virtual/mta
+# required by mail-mta/nullmailer
+# required by net-libs/gnutls
+# required by sys-devel/autogen
+# required by dev-scheme/guile
+dev-libs/boehm-gc			 boehm-gc
+# required by dev-libs/boehm-gc
+dev-libs/libatomic_ops			 boehm-gc
+
+
 # List current licences:
 #
 # cat /var/db/pkg/*/*/LICENSE | xargs -n 1 | grep -Ev '^(\(|\|\||\))$' | sort | uniq -c | sort -rn

@@ -17,7 +17,7 @@ reset=''
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
 
-services='bitlbee dcc dhcpd dovecot fetchmail imapproxyd irqbalance less lighttpd lynis man mariadb memcached named opendkim opendmarc openntpd php pinfo postfix powertop redis postgrey spamassassin spamassassin-update spampd subversion syslog-ng unifi vim watchdog zxtm'
+services='bitlbee cpative-portal dcc dhcpd dovecot fetchmail imapproxyd irqbalance less lighttpd lynis man mariadb memcached named opendkim opendmarc openntpd php pinfo postfix powertop redis postgrey spamassassin spamassassin-update spampd subversion syslog-ng unifi vim watchdog zxtm'
 all=0
 rebuild=''
 force=''
@@ -49,7 +49,7 @@ arg=''
 for arg in "${@}"; do
 	shift
 	case "${arg}" in
-		-a|--all)
+		-a|--all|all)
 			all=1
 			continue
 			;;
@@ -123,110 +123,81 @@ docker_setup
 
 case "${service:-}" in
 	bitlbee)
-		service='>=net-im/bitlbee-3.6-r1'
-		;;
+		service='>=net-im/bitlbee-3.6-r1' ;;
+	captive-portal)
+		# This ebuild lives in a private repo unless/until refactored at some
+		# future date to remote internal network, email, and user references...
+		service='www-servers/captive-portal' ;;
 	dcc)
-		service='mail-filter/dcc'
-		;;
+		service='mail-filter/dcc' ;;
 	dhcp|dhcpd)
-		service='net-misc/dhcp'
-		;;
+		service='net-misc/dhcp' ;;
 	dovecot)
-		service='net-mail/dovecot'
-		;;
+		service='net-mail/dovecot' ;;
 	fetchmail)
-		service='net-mail/fetchmail'
-		;;
+		service='net-mail/fetchmail' ;;
 	imapproxy|imapproxyd)
-		service='>=net-mail/imapproxy-1.2.8_p14843-r1::srcshelton'
-		;;
+		service='>=net-mail/imapproxy-1.2.8_p14843-r1::srcshelton' ;;
 	irqbalance)
-		service='sys-apps/irqbalance'
-		;;
+		service='sys-apps/irqbalance' ;;
 	less)
 		# Launcher loads running services' /usr/share/doc volumes
-		service='sys-apps/less'
-		;;
+		service='sys-apps/less' ;;
 	lighttp|lighttpd)
-		service='www-servers/lighttpd'
-		;;
+		service='www-servers/lighttpd' ;;
 	lynis)
-		service='app-forensics/lynis'
-		;;
+		service='app-forensics/lynis' ;;
 	man|man-db)
 		# Launcher loads running services' /usr/share/man volumes
-		service='sys-apps/man-db'
-		;;
+		service='sys-apps/man-db' ;;
 	memcache|memcached)
-		service='net-misc/memcached'
-		;;
+		service='net-misc/memcached' ;;
 	mysql|mysqld|mariadb)
-		service='dev-db/mariadb'
-		;;
+		service='dev-db/mariadb' ;;
 	named|bind)
 		#service='>=net-dns/bind-9.14.12::container'
-		service='>=net-dns/bind-9.16.6'
-		;;
+		service='>=net-dns/bind-9.16.6' ;;
 	ntpd|openntpd)
-		service='net-misc/openntpd::container'
-		;;
+		service='net-misc/openntpd::container' ;;
 	opendkim)
-		service='>=mail-filter/opendkim-2.10.3-r3'
-		;;
+		service='>=mail-filter/opendkim-2.10.3-r3' ;;
 	opendmarc)
-		service='mail-filter/opendmarc'
-		;;
+		service='mail-filter/opendmarc' ;;
 	php)
-		service='dev-lang/php'
-		;;
+		service='dev-lang/php' ;;
 	pinfo|info)
 		# Launcher loads running services' /usr/share/info volumes
-		service='app-text/pinfo'
-		;;
+		service='app-text/pinfo' ;;
 	postfix)
-		service='mail-mta/postfix'
-		;;
+		service='mail-mta/postfix' ;;
 	postgrey|postgray)
 		#service='mail-filter/postgrey::container'  # 1.36-r1 and prior didn't use account packages
-		service='mail-filter/postgrey'
-		;;
+		service='mail-filter/postgrey' ;;
 	powertop)
-		service='sys-power/powertop'
-		;;
+		service='sys-power/powertop' ;;
 	redis)
-		service='dev-db/redis'
-		;;
+		service='dev-db/redis' ;;
 	spamassassin|spamd)
-		service='>=mail-filter/spamassassin-3.4.4-r1'
-		;;
+		service='>=mail-filter/spamassassin-3.4.4-r1' ;;
 	spamassassin-update|sa-update)
-		service='>=mail-filter/spamassassin-3.4.4-r1'
-		;;
+		service='>=mail-filter/spamassassin-3.4.4-r1' ;;
 	spampd)
-		service='mail-filter/spampd'
-		;;
+		service='mail-filter/spampd' ;;
 	svn|svnserve|subversion)
-		service='dev-vcs/subversion'
-		;;
+		service='dev-vcs/subversion' ;;
 	syslog-ng)
-		service='app-admin/syslog-ng'
-		;;
+		service='app-admin/syslog-ng' ;;
 	unifi|unifi-controller|unifi-controller-bin)
-		service='net-misc/unifi-controller-bin'
-		;;
+		service='net-misc/unifi-controller-bin' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
-		service='app-editors/vim'
-		;;
+		service='app-editors/vim' ;;
 	watchdog)
-		service='sys-apps/watchdog'
-		;;
+		service='sys-apps/watchdog' ;;
 	zxtm)
-		service='net-misc/zxtm-init-scripts'
-		;;
+		service='net-misc/zxtm-init-scripts' ;;
 	'')
-		die "No service name or description provided"
-		;;
+		die "No service name or description provided" ;;
 esac
 
 package=''
@@ -314,6 +285,16 @@ case "${package_name}" in
 		container_cwd='/var/lib/bitlbee'
 		etcdir='bitlbee'
 		;;
+	*captive-portal*)
+		echo "Setting build variables for private package 'captive-portal' ..."
+
+		ports='8088/tcp'
+		#user='root'
+		#group='root'
+		container_cmd='/usr/local/sbin/shttpd.pl'
+		container_cwd='/var/lib/shttpd'
+		etcdir='iptables.d'
+		;;
 	*dcc*)
 		echo "Setting build variables for package 'dcc' ..."
 		extra_pkgs='sys-apps/findutils'
@@ -389,6 +370,7 @@ case "${package_name}" in
 		;;
 	*lynis*)
 		echo "Setting build variables for package 'lynis' ..."
+		extra_pkgs='app-admin/eselect app-eselect/eselect-awk net-misc/openssh sys-apps/coreutils sys-apps/findutils sys-apps/gawk'
 
 		container_cmd='/usr/sbin/lynis'
 		;;
