@@ -19,7 +19,7 @@ declare IMAGE="${build_name}:latest"
 [ -s common/run.sh ] && . common/run.sh
 
 if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	echo >&2 "Usage: $( basename "${0}" ) [--config-from=<file> [--force]] [--no-keep-build|--keep-build[=<dir>]] [--no-patch|--patch=<url>[,<url]] [--menuconfig] [--package=<atom>] [--clang]"
+	echo >&2 "Usage: $( basename "${0}" ) [--config-from=<file> [--force]] [--no-keep-build|--keep-build[=<dir>]] [--no-patch|--patch=<url>[,<url]] [--menuconfig|--nconfig] [--package=<atom>] [--clang]"
 	echo >&2
 	echo >&2 "Options:"
 	echo >&2 "        --config-from Use specified file as kernel base configuration"
@@ -30,7 +30,8 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	echo >&2 "        --force       Overwrite build-cache configuration with specified file"
 	echo >&2 "        --keep-build  Cache the kernel build artefacts for re-use"
 	echo >&2 "                      (optionally in the specified directory)"
-	echo >&2 "        --menuconfig  Interactively reconfigure the kernel"
+	echo >&2 "        --menuconfig  Interactively reconfigure the kernel via ncurses"
+	echo >&2 "        --nconfig     Interactively reconfigure the kernel via nconfig"
 	echo >&2 "        --package     Specify kernel package to build"
 	echo >&2 "                      (default: sys-kernel/gentoo-sources)"
 	echo >&2 "        --clang       Compile kernel with llvm"
@@ -44,10 +45,15 @@ declare compiler='gcc'
 declare config=''
 declare force=0
 declare menuconfig=''
+declare nconfig=''
 declare version=''
 declare patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/enable_additional_cpu_optimizations_for_gcc_v9.1%2B_kernel_v5.8%2B.patch'
 if echo " ${*:-} " | grep -q -- ' --menuconfig '; then
 	menuconfig=1
+fi
+if echo " ${*:-} " | grep -q -- ' --nconfig '; then
+	menuconfig=0
+	nconfig=1
 fi
 if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 	compiler='clang'
@@ -67,7 +73,7 @@ else
 	if echo " ${*:-} " | grep -q -- ' --force '; then
 		echo >&2 "WARN:  '--force' is not a valid option without '--config-from'"
 	fi
-	if [ "${menuconfig}" = '1' ] && ! echo " ${*:-} " | grep -q -- ' --keep-build'; then
+	if [ "${menuconfig}" = '1' -o "${nconfig}" = '1' ] && ! echo " ${*:-} " | grep -q -- ' --keep-build'; then
 		echo >&2 "WARN:  Changes made to configuration will not be saved externally"
 	fi
 fi
@@ -349,7 +355,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		done ;
 	fi ;
 	mkdir -p ../build ;
-	time make ${kernel_make_opts[@]} ${deforoldconfig} prepare ${menuconfig:+menuconfig} vmlinux modules bzImage modules_install ;
+	time make ${kernel_make_opts[@]} ${deforoldconfig} prepare ${menuconfig:+menuconfig} ${nconfig:+nconfig} vmlinux modules bzImage modules_install ;
 	make ${kernel_make_opts[@]} -C tools/bootconfig ;
 	cp ../build/.config /boot/config-${package_version}-gentoo ;
 	cp ../build/System.map /boot/System.map-${package_version}-gentoo ;
