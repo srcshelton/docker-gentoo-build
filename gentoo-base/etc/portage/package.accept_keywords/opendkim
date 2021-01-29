@@ -1,0 +1,5 @@
+
+# Guards dependency-heavy doc-generation packages behind 'man' USE-flag...
+=dev-db/opendbx-1.4.6-r3				~amd64
+
+# vi: set syntax=gentoo-package-keywords:

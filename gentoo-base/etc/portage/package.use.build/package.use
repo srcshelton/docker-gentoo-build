@@ -190,10 +190,10 @@ sys-apps/memtest86			 serial
 sys-apps/memtest86+			 serial
 #sys-apps/microcode-data		 initramfs monolithic split-ucode
 sys-apps/module-init-tools		 no-old-linux
-sys-apps/openrc				 compat newnet
+sys-apps/openrc				 compat  # newnet
 sys-apps/pciutils			-zlib dns
 sys-apps/portage			-rsync-verify
-sys-apps/smartmontools			 update_drivedb
+sys-apps/smartmontools			 update_drivedb update-drivedb
 sys-apps/usbutils			 experimental
 sys-apps/util-linux			 tty-helpers
 sys-auth/opie				-server

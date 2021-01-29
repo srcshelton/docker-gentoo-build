@@ -15,7 +15,10 @@ dev-lang/perl				-perl-cleaner
 # +client ipv6 kernel_linux ldap libressl selinux +server ssl systemd vim-syntax
 net-misc/dhcp				-* client ipv6 ssl vim-syntax
 
+# apidoc build doc gentoo-dev +ipc +native-extensions +rsync-verify selinux test xattr
+#sys-apps/portage			-rsync-verify native-extensions
+
 # -lib-only
-#sys-devel/gcc				 lib-only
+#sys-devel/gcc				-* nptl lib-only
 
 # vi: set nowrap syntax=gentoo-package-use:

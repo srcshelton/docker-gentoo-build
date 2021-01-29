@@ -19,6 +19,7 @@ dev-util/pkgconf			 pkg-config
 sys-apps/busybox			 mdev static
 sys-apps/help2man			-nls
 sys-apps/kmod				 tools
+#sys-apps/shadow			-pam
 sys-auth/pambase			-passwdqc pwquality
 sys-libs/ncurses			 unicode
 
