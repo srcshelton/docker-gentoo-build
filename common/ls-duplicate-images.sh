@@ -1,7 +1,22 @@
 #! /bin/sh
 
+if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
+	echo "Usage: $( basename "${0}" ) [--all]"
+	exit 0
+fi
+
+if [ $(( $( id -u ) )) -ne 0 ]; then
+        echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
+        exit 1
+fi
+
+all='localhost'
+if echo " ${*:-} " | grep -Fq -- ' --all '; then
+	all=''
+fi
+
 output="$(
-	podman image ls									|
+	podman image ls ${all:-}							|
 		cut -d' ' -f 1								|
 		grep -v '<none>'							|
 		sort									|
@@ -21,3 +36,5 @@ output="$(
 echo "${output}" | tail -n 1
 
 echo "${output}" | head -n -1
+
+# vi: set sw=8 ts=8:
