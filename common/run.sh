@@ -3,6 +3,31 @@
 # This script now requires 'bash' rather than simply 'sh' in order to gain
 # array-handling capability...
 
+# Tiny
+#: ${PODMAN_MEMORY_RESERVATION:=256m}
+#: ${PODMAN_MEMORY_LIMIT:=512m}
+#: ${PODMAN_SWAP_LIMIT:=1g}
+# Small
+#: ${PODMAN_MEMORY_RESERVATION:=512m}
+#: ${PODMAN_MEMORY_LIMIT:=1g}
+#: ${PODMAN_SWAP_LIMIT:=2g}
+# Medium
+#: ${PODMAN_MEMORY_RESERVATION:=1g}
+#: ${PODMAN_MEMORY_LIMIT:=2g}
+#: ${PODMAN_SWAP_LIMIT:=4g}
+# Large
+#: ${PODMAN_MEMORY_RESERVATION:=2g}
+#: ${PODMAN_MEMORY_LIMIT:=4g}
+#: ${PODMAN_SWAP_LIMIT:=8g}
+# Extra-Large
+#: ${PODMAN_MEMORY_RESERVATION:=4g}
+#: ${PODMAN_MEMORY_LIMIT:=8g}
+#: ${PODMAN_SWAP_LIMIT:=16g}
+# XXL
+: ${PODMAN_MEMORY_RESERVATION:=8g}
+: ${PODMAN_MEMORY_LIMIT:=16g}
+: ${PODMAN_SWAP_LIMIT:=24g}
+
 # shellcheck disable=SC2034
 debug=${DEBUG:-}
 trace=${TRACE:-}
@@ -439,6 +464,9 @@ docker_run() {
 		  ${TRACE:+--env TRACE}
 		  ${USE:+--env "USE=${USE}"}
 		  ${DOCKER_VARS:-}
+		  ${PODMAN_MEMORY_RESERVATION:+--memory-reservation ${PODMAN_MEMORY_RESERVATION}}
+		  ${PODMAN_MEMORY_LIMIT:+--memory ${PODMAN_MEMORY_LIMIT}}
+		  ${PODMAN_SWAP_LIMIT:+--memory-swap ${PODMAN_SWAP_LIMIT}}
 		  ${DOCKER_INTERACTIVE:+--interactive --tty}
 		  ${DOCKER_PRIVILEGED:+--privileged}
 		  ${DOCKER_EXTRA_MOUNTS:-}
@@ -450,8 +478,8 @@ docker_run() {
 		local -a mirrormountpointsro=()
 		local -A mountpoints=()
 		local -A mountpointsro=()
-		local cwd='' mp='' src=''
 		local -i skipped=0
+		local mp='' src=''  # cwd=''
 
 		# shellcheck disable=SC2046,SC2207
 		mirrormountpointsro=(
@@ -470,9 +498,8 @@ docker_run() {
 		)
 		mountpoints["$( portageq pkgdir )"]="/var/cache/portage/pkg/${ARCH:-amd64}/docker"
 
-		cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
-		print "Volume/mount base directory is '${cwd}'"
-
+		#cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
+		#print "Volume/mount base directory is '${cwd}'"
 		#mountpointsro["${cwd}/gentoo-base/etc/portage/package.accept_keywords"]='/etc/portage/package.accept_keywords'
 		#mountpointsro["${cwd}/gentoo-base/etc/portage/package.license"]='/etc/portage/package.license'
 		#mountpointsro["${cwd}/gentoo-base/etc/portage/package.use.build"]='/etc/portage/package.use'
@@ -627,4 +654,4 @@ else
 	docker_readonly='ro=true'
 fi
 
-# vi: set syntax=sh:
+# vi: set syntax=sh nowrap:

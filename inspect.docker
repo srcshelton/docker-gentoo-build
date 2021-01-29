@@ -1,5 +1,26 @@
 #! /usr/bin/env bash
 
+# Tiny
+#: ${PODMAN_MEMORY_RESERVATION:=256m}
+#: ${PODMAN_MEMORY_LIMIT:=512m}
+#: ${PODMAN_SWAP_LIMIT:=1g}
+# Small
+#: ${PODMAN_MEMORY_RESERVATION:=512m}
+#: ${PODMAN_MEMORY_LIMIT:=1g}
+#: ${PODMAN_SWAP_LIMIT:=2g}
+# Medium
+#: ${PODMAN_MEMORY_RESERVATION:=1g}
+#: ${PODMAN_MEMORY_LIMIT:=2g}
+#: ${PODMAN_SWAP_LIMIT:=4g}
+# Large
+: ${PODMAN_MEMORY_RESERVATION:=2g}
+: ${PODMAN_MEMORY_LIMIT:=4g}
+: ${PODMAN_SWAP_LIMIT:=8g}
+# Extra-Large
+#: ${PODMAN_MEMORY_RESERVATION:=4g}
+#: ${PODMAN_MEMORY_LIMIT:=8g}
+#: ${PODMAN_SWAP_LIMIT:=16g}
+
 #debug="${DEBUG:-}"
 trace="${TRACE:-}"
 
@@ -83,38 +104,122 @@ docker_parse() {
 } # docker_parse
 
 docker_run() {
+	local -a mirrormountpoints=()
+	local -a mirrormountpointsro=()
+	local -a runargs=()
+	local -A mountpoints=()
+	local -A mountpointsro=()
+	local -i skipped=0
 	local -i runrc=0
+	local mp='' src=''  # cwd=''
 
 	#${arr[@]+"${arr[@]}"}
 	(( 0 == ${#args[@]} )) && args=( 'sh' )
 
-	devlog=''
-	# shellcheck disable=SC2015
-	[ -S /var/run/syslog-ng/log ] && devlog='--mount type=bind,source=/var/run/syslog-ng/log,destination=/dev/log' || :
+	runargs=(
+		--init
+		--name "${name}"
+		--privileged
+		#--network slirp4netns
+		# Some code such as podman's go code tries to fetch packages from
+		# IPv6-addressable hosts...
+		--network host
+		--pids-limit 1024
+		  ${rm:+--rm}
+		--ulimit nofile=1024:1024
+	)
+	# shellcheck disable=SC2206
+	runargs+=(
+		--entrypoint '/bin/sh'
+		  ${ACCEPT_KEYWORDS:+--env ACCEPT_KEYWORDS}
+		  ${FEATURES:=--env FEATURES}
+		  ${TERM:+--env TERM}
+		  ${USE:+--env USE}
+		--interactive
+		  ${PODMAN_MEMORY_RESERVATION:+--memory-reservation ${PODMAN_MEMORY_RESERVATION}}
+		  ${PODMAN_MEMORY_LIMIT:+--memory ${PODMAN_MEMORY_LIMIT}}
+		  ${PODMAN_SWAP_LIMIT:+--memory-swap ${PODMAN_SWAP_LIMIT}}
+		--tty
+	)
+
+	# shellcheck disable=SC2046,SC2207
+	mirrormountpointsro=(
+		/etc/portage/repos.conf
+		$( portageq get_repo_path "${EROOT:-/}" $( portageq get_repos "${EROOT:-/}" ) )
+		#/usr/src  # Breaks gentoo-kernel-build package
+		#/var/db/repo/container
+		#/var/db/repo/gentoo
+		#/var/db/repo/srcshelton
+		#/var/db/repo/compat
+	)
+	mirrormountpoints=(
+		#/var/cache/portage/dist
+		"$( portageq distdir )"
+		/var/log/portage
+	)
+	mountpoints["$( portageq pkgdir )"]="/var/cache/portage/pkg/${ARCH:-amd64}/docker"
+	[ -S /var/run/syslog-ng/log ] && mountpoints['/var/run/syslog-ng/log']='/dev/log'
+
+	cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
+	print "Volume/mount base directory is '${cwd}'"
+	mountpointsro["${cwd}/gentoo-base/etc/portage/package.accept_keywords"]='/etc/portage/package.accept_keywords'
+	mountpointsro["${cwd}/gentoo-base/etc/portage/package.license"]='/etc/portage/package.license'
+	mountpointsro["${cwd}/gentoo-base/etc/portage/package.use.build"]='/etc/portage/package.use'
+
+	for mp in ${mirrormountpointsro[@]+"${mirrormountpointsro[@]}"}; do
+		[ -n "${mp:-}" ] || continue
+		src="$( readlink -e "${mp}" )"
+		if [ -z "${src:-}" ]; then
+			warn "Skipping mountpoint '${mp}'"
+			: $(( skipped = skipped + 1 ))
+			continue
+		fi
+		runargs+=( --mount "type=bind,source=${mp},destination=${mp}${docker_readonly:+,${docker_readonly}}" )
+	done
+	for mp in ${mirrormountpoints[@]+"${mirrormountpoints[@]}"}; do
+		[ -n "${mp:-}" ] || continue
+		src="$( readlink -e "${mp}" )"
+		if [ -z "${src:-}" ]; then
+			warn "Skipping mountpoint '${mp}'"
+			: $(( skipped = skipped + 1 ))
+			continue
+		fi
+		runargs+=( --mount "type=bind,source=${mp},destination=${mp}" )
+	done
+	for mp in ${mountpointsro[@]+"${!mountpointsro[@]}"}; do
+		[ -n "${mp:-}" ] || continue
+		src="$( readlink -e "${mp}" )"
+		if [ -z "${src:-}" ]; then
+			warn "Skipping mountpoint '${mp}' -> '${mountpointsro[${mp}]}'"
+			: $(( skipped = skipped + 1 ))
+			continue
+		fi
+		runargs+=( --mount "type=bind,source=${src},destination=${mountpointsro[${mp}]}${docker_readonly:+,${docker_readonly}}" )
+	done
+	for mp in ${mountpoints[@]+"${!mountpoints[@]}"}; do
+		[ -n "${mp:-}" ] || continue
+		src="$( readlink -e "${mp}" )"
+		if [ -z "${src:-}" ]; then
+			warn "Skipping mountpoint '${mp}' -> '${mountpoints[${mp}]}'"
+			: $(( skipped = skipped + 1 ))
+			continue
+		fi
+		runargs+=( --mount "type=bind,source=${src},destination=${mountpoints[${mp}]}" )
+	done
+
+	if [ $(( skipped )) -eq 1 ]; then
+		warn "${skipped} mount-points not connected to container"
+		sleep 5
+	fi
+
+	unset src mp
 
 	# shellcheck disable=SC2086
 	$docker run \
-			--entrypoint '/bin/sh' \
-			  ${ACCEPT_KEYWORDS:+--env ACCEPT_KEYWORDS} \
-			  ${FEATURES:=--env FEATURES} \
-			  ${TERM:+--env TERM} \
-			  ${USE:+--env USE} \
-			--interactive \
-			${devlog} \
-			--mount "type=bind,source=/etc/portage/repos.conf/,destination=/etc/portage/repos.conf${docker_readonly:+,${docker_readonly}}" \
-			--mount "type=bind,source=/var/cache/portage/dist/,destination=/var/cache/portage/dist" \
-			--mount "type=bind,source=$( portageq pkgdir )/,destination=/var/cache/portage/pkg/${ARCH:-amd64}/docker" \
-			--mount "type=bind,source=/var/db/repo/container/,destination=/var/db/repo/container${docker_readonly:+,${docker_readonly}}" \
-			--mount "type=bind,source=/var/db/repo/gentoo/,destination=/var/db/repo/gentoo${docker_readonly:+,${docker_readonly}}" \
-			--mount "type=bind,source=/var/db/repo/srcshelton/,destination=/var/db/repo/srcshelton${docker_readonly:+,${docker_readonly}}" \
-			--mount "type=bind,source=/var/log/portage/,destination=/var/log/portage" \
-			  ${DOCKER_EXTRA_MOUNTS:-} \
-			  ${DOCKER_VOLUMES:-} \
-			--name "${name}" \
-			--privileged \
-			--tty \
+			"${runargs[@]}" \
+			${DOCKER_EXTRA_MOUNTS:-} \
+			${DOCKER_VOLUMES:-} \
 		"${image}" -c "${args[@]}" || runrc=${?}
-			#--network slirp4netns \
 
 	return ${runrc}
 } # docker_run
@@ -151,9 +256,9 @@ echo >&2 "Launching container '${name}' from image '${image}' ..."
 #set -o xtrace
 docker_run || rc=${?}
 
-if [ -n "${rm:-}" ]; then
-	docker_trap rm --volumes "${name}"
-fi
+#if [ -n "${rm:-}" ]; then
+#	docker_trap rm --volumes "${name}"
+#fi
 
 exit ${rc}
 
