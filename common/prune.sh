@@ -14,7 +14,7 @@ fi
 trap '' INT
 
 # Remove images with generated temporary names...
-$docker ps -a | tr -cd '[:print:]\n' | rev | cut -d' ' -f 1 | rev | grep '^[a-z]_[a-z]$' | xargs -r $docker rm --volumes
+$docker ps -a | tr -cd '[:print:]\n' | rev | cut -d' ' -f 1 | rev | grep '^[a-z]\+_[a-z]\+$' | xargs -r $docker rm --volumes
 
 # Remove images classed as 'dangling'...
 $docker image ls --filter 'dangling=true' | tail -n +2 | awk '{ print $3 }' | xargs -r $docker image rm || :
