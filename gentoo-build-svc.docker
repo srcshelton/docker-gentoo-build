@@ -17,7 +17,7 @@ reset=''
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
 
-services='bitlbee cpative-portal dcc dhcpd dovecot fetchmail imapproxyd irqbalance less lighttpd lynis man mariadb memcached named opendkim opendmarc openntpd php pinfo postfix powertop redis postgrey spamassassin spamassassin-update spampd subversion syslog-ng unifi vim watchdog zxtm'
+services='bitlbee captive-portal dcc dhcpd dovecot fetchmail fwupd imapproxyd irqbalance less lighttpd lynis man mariadb memcached named opendkim opendmarc openntpd php pinfo postfix powertop redis postgrey spamassassin spamassassin-update spampd subversion syslog-ng unifi vim watchdog zxtm'
 all=0
 rebuild=''
 force=''
@@ -111,7 +111,7 @@ if [ -n "${all:-}" ] && [ $(( all )) -eq 1 ]; then
 	fi
 fi
 
-#[ -n "${trace:-}" ] && set -o xtrace
+[ -n "${trace:-}" ] && set -o xtrace
 
 images="$( $docker image ls ${IMAGE%:*} 2>&1 )"
 if ! echo "${images}" | grep -Eq -- "^(localhost/)?${IMAGE%:*}"; then
@@ -136,6 +136,8 @@ case "${service:-}" in
 		service='net-mail/dovecot' ;;
 	fetchmail)
 		service='net-mail/fetchmail' ;;
+	fwupd)
+		service='sys-apps/fwupd' ;;
 	imapproxy|imapproxyd)
 		service='>=net-mail/imapproxy-1.2.8_p14843-r1::srcshelton' ;;
 	irqbalance)
@@ -158,7 +160,7 @@ case "${service:-}" in
 		#service='>=net-dns/bind-9.14.12::container'
 		service='>=net-dns/bind-9.16.6' ;;
 	ntpd|openntpd)
-		service='net-misc/openntpd::container' ;;
+		service='>=net-misc/openntpd-6.8_p1::container' ;;
 	opendkim)
 		service='>=mail-filter/opendkim-2.10.3-r3' ;;
 	opendmarc)
@@ -235,7 +237,7 @@ fi
 if [ $(( ${force:-0} )) -eq 0 ]; then
 	images="$( $docker image ls "service.${package_name}:${package_version}" 2>&1 )"
 	if echo "${images:-}" | grep -q -- "service.${package_name}\s\+${package_version}\s"; then
-		warn "Docker image 'service.${package_name}:${package_version}' already exists - remove or use --force to rebuild"
+		error "Docker image 'service.${package_name}:${package_version}' already exists - remove or use --force to rebuild"
 		exit 0
 	else
 		echo "Creating new 'service.${package_name}:${package_version}' image ..."
@@ -251,7 +253,7 @@ fi
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
 with_use='' extra_pkgs=''
-post_pkgs='' post_use=''
+post_pkgs='' post_use='' post_remove=''
 python_target='' etcdir=''
 
 # There's probably a better way of doing this, but for now let's assume that
@@ -327,6 +329,12 @@ case "${package_name}" in
 		extra_pkgs='app-shells/bash mail-filter/procmail net-mail/dovecot dev-lang/perl'
 
 		container_cmd='/usr/bin/fetchmail'
+		;;
+	*fwupd*)
+		echo "Setting build variables for package 'fwupd' ..."
+		pre_remove='sys-libs/libeudev'
+
+		container_cmd='/usr/bin/fwupdtool'
 		;;
 	*imapproxy*)
 		echo "Setting build variables for package 'imapproxy' ..."
@@ -424,18 +432,21 @@ case "${package_name}" in
 		;;
 	*openntpd*)
 		echo "Setting build variables for package 'openntpd' ..."
+		# LibreSSL is now deprecated, so we don't need to jump through these hoops...
 		#pre_remove='app-arch/libarchive dev-libs/openssl dev-python/pypy dev-python/pypy3 dev-python/pypy3-exe net-misc/wget'
-		pre_remove='app-arch/libarchive dev-libs/openssl' # net-misc/wget'
-		pre_use='-openssl libressl'
-		force_python="${python_target}"
-		pre_pkgs="dev-lang/python dev-libs/libressl dev-util/pkgconf sys-devel/gcc virtual/pkgconfig @system @world"
-		with_use='-openssl libressl'
+		#pre_remove='app-arch/libarchive dev-libs/openssl' # net-misc/wget'
+		#pre_use='-openssl libressl'
+		#force_python="${python_target}"
+		#pre_pkgs="dev-lang/python dev-libs/libressl dev-util/pkgconf sys-devel/gcc virtual/pkgconfig @system @world"
+		#with_use='-openssl libressl'
+		extra_pkgs='app-misc/ca-certificates'
 
 		ports='123/udp'
 		#user='openntpd'
 		#group='openntpd'
 		container_cmd='/usr/sbin/ntpd'
 		container_cwd='/var/empty'
+		etcdir='openntpd'
 		fs_name='openntpd'
 		;;
 	*php*)
@@ -657,16 +668,53 @@ case "${package_name}" in
 		;;
 	*unifi*)
 		echo "Setting build variales for package 'unifi-controller-bin' ..."
+		CFLAGS="${CFLAGS:+${CFLAGS} }-w"  # mongodb is *really* noisy...
+		#EMERGE_OPTS='--single --swap'  # Merge packages one at a time, for debug purposes
+		ECLASS_OVERRIDE='unifi'
 		pre_use='headless-awt'
 		force_python='python2_7'
-		pre_pkgs='dev-java/openjdk-bin:8 dev-lang/python:2.7 sys-devel/gcc'
+		#pre_pkgs='dev-java/openjdk-bin:8 dev-lang/python:2.7 sys-devel/gcc'
+		pre_pkgs='sys-devel/gcc'
+		#extra_pkgs='
+		#	  sys-devel/gcc
+		#	 =app-misc/pax-utils-1.2.4
+		#	 =sys-apps/file-5.37-r1
+		#	 =sys-apps/util-linux-2.33.2
+		#	 =sys-apps/portage-2.3.89-r1
+		#	 =dev-util/boost-build-1.72.0
+		#		  app-admin/eselect
+		#		  app-eselect/eselect-python
+		#	  dev-lang/python:2.7
+		#		 =dev-python/setuptools-46.4.0-r3
+		#		 =dev-java/java-config-2.2.0-r4
+		#	  dev-java/openjdk-bin:8
+		#		  acct-group/mongodb
+		#		  acct-user/mongodb
+		#		>=app-arch/snappy-1.1.3
+		#		>=dev-cpp/yaml-cpp-0.5.3
+		#		>=dev-libs/boost-1.60
+		#		>=dev-libs/libpcre-8.41
+		#		  dev-libs/snowball-stemmer
+		#		  net-libs/libpcap
+		#		  net-misc/curl
+		#		>=sys-libs/zlib-1.2.11
+		#		>=dev-libs/openssl-1.0.1g:0
+		#		>=dev-util/scons-2.5.0
+		#		  dev-python/cheetah
+		#		  dev-python/pyyaml
+		#		  dev-python/typing
+		#		  sys-libs/ncurses:0
+		#		  sys-libs/readline:0
+		#	      dev-python/regex
+		#	 <dev-db/mongodb-4.2'
 		# If we try to build 'openjdk:8' in ${extra_pkgs} then it now complains
 		# that there is no available Java 8 VM available, even though we have
 		# openjdk-bin:8 available in the build container with ROOT=/
 		# TODO: Consider post-install and post-remove hooks to allow openjdk:8
 		#       to be build with ROOT != / and then openjdk-bin:8 removed...
 		#extra_pkgs='<dev-db/mongodb-4.2 dev-java/openjdk:8 dev-lang/python:2.7 app-admin/eselect app-eselect/eselect-python'
-		extra_pkgs='<dev-db/mongodb-4.2 dev-java/openjdk-bin:8 dev-lang/python:2.7 app-admin/eselect app-eselect/eselect-python'
+		extra_pkgs='<dev-db/mongodb-4.2 dev-java/openjdk-bin:8 dev-lang/python:2.7' # app-admin/eselect app-eselect/eselect-python'
+		#post_remove='dev-java/openjdk-bin:8'
 		with_use="python_targets_${force_python}"
 
 		ports='3478/udp 5514/udp 8080/tcp 8443/tcp 8880/tcp 8843/tcp 6789/tcp 27117/tcp 10001/udp 1900/udp 5656-5699/udp'
@@ -703,6 +751,11 @@ case "${package_name}" in
 esac
 #echo >&2 "DEBUG: Additional USE flags are '${with_use:-<none>}'"
 
+pre_use="$( echo "${pre_use}" | tr $'\n' ' ' | tr -s $'[\t ]' ' ' | sed 's/^ // ; s/ $//' )"
+pre_pkgs="$( echo "${pre_pkgs}" | tr $'\n' ' ' | tr -s $'[\t ]' ' ' | sed 's/^ // ; s/ $//' )"
+extra_pkgs="$( echo "${extra_pkgs}" | tr $'\n' ' ' | tr -s $'[\t ]' ' ' | sed 's/^ // ; s/ $//' )"
+post_use="$( echo "${post_use}" | tr $'\n' ' ' | tr -s $'[\t ]' ' ' | sed 's/^ // ; s/ $//' )"
+post_pkgs="$( echo "${post_pkgs}" | tr $'\n' ' ' | tr -s $'[\t ]' ' ' | sed 's/^ // ; s/ $//' )"
 case " ${pre_pkgs} " in
 	*' dev-util/pkgconf '*)
 		pre_use="${pre_use:+${pre_use} }pkg-config"
@@ -757,8 +810,6 @@ elif [ "${container_cmd}" = 'podman' ]; then
 	die "Invalid container command '${container_cmd}'"
 fi
 
-#[ -n "${trace:-}" ] && set -o xtrace
-
 if [ -n "${etcdir:-}" ]; then
 	for dir in ${etcdir}; do
 		mkdir -p /etc/${dir}
@@ -773,15 +824,58 @@ fi
 DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/default/,destination=/etc/default"
 DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/logrotate.d/,destination=/etc/logrotate.d"
 DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/ssl/,destination=/etc/ssl"
-DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
-DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
-DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.unmask,destination=/etc/portage/package.unmask${docker_readonly:+,${docker_readonly}}"
+
+# package.accept_keywords
+if [ -e "gentoo-base/etc/portage/package.accept_keywords" ]; then
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
+else
+	note "No 'package.accept_keywords' override found in '${PWD}/gentoo-base/etc/portage/'"
+fi
+
+# package.license
+if [ -e "gentoo-base/etc/portage/package.license" ]; then
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
+else
+	note "No 'package.license' override found in '${PWD}/gentoo-base/etc/portage/'"
+fi
+
+# FIXME: test -s is returning '0' when called on a directory?!
+#
+# package.unmask.svc
+if [ -s "gentoo-base/etc/portage/package.unmask.svc/${package_name#*.}" ] && ! [ -d "gentoo-base/etc/portage/package.unmask.svc/${package_name#*.}" ]; then
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.unmask.svc/${package_name#*.},destination=/etc/portage/package.unmask/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
+elif [ -s "gentoo-base/etc/portage/package.unmask.svc/package.unmask" ] && ! [ -d "gentoo-base/etc/portage/package.unmask.svc/package.unmask" ]; then
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.unmask.svc/package.unmask,destination=/etc/portage/package.unmask/package.unmask${docker_readonly:+,${docker_readonly}}"
+elif [ -s "gentoo-base/etc/portage/package.unmask.svc" ] && ! [ -d "gentoo-base/etc/portage/package.unmask.svc" ]; then
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.unmask.svc,destination=/etc/portage/package.unmask/package.unmask${docker_readonly:+,${docker_readonly}}"
+else
+	note "No 'package.unmask' override found in '${PWD}/gentoo-base/etc/portage/'"
+fi
+
+# package.mask.svc
+if [ -s "gentoo-base/etc/portage/package.mask.svc/${package_name#*.}" ] && ! [ -d "gentoo-base/etc/portage/package.mask.svc/${package_name#*.}" ]; then
+	print "Mounting file '${PWD}/gentoo-base/etc/portage/package.mask.svc/${package_name#*.}' to '/etc/portage/package.mask/${package_name#*.}' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.mask.svc/${package_name#*.},destination=/etc/portage/package.mask/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
+elif [ -s "gentoo-base/etc/portage/package.mask.svc/package.mask" ] && ! [ -d "gentoo-base/etc/portage/package.mask.svc/package.mask" ]; then
+	print "Mounting file '${PWD}/gentoo-base/etc/portage/package.mask.svc/package.mask' to '/etc/portage/package.mask/package.mask' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.mask.svc/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
+elif [ -s "gentoo-base/etc/portage/package.mask.svc" ] && ! [ -d "gentoo-base/etc/portage/package.mask.svc" ]; then
+	print "Mounting file '${PWD}/gentoo-base/etc/portage/package.mask.svc' to '/etc/portage/package.mask/package.mask' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.mask.svc,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
+else
+	note "No 'package.mask' override found in '${PWD}/gentoo-base/etc/portage/'"
+fi
+
+# package.use.svc
 if [ -s "gentoo-base/etc/portage/package.use.svc/${package_name#*.}" ]; then
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.use.svc/package.use.header,destination=/etc/portage/package.use.override/package.use.header${docker_readonly:+,${docker_readonly}}"
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.use.svc/${package_name#*.},destination=/etc/portage/package.use.override/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
-else
+elif [ -e "gentoo-base/etc/portage/package.use.svc/package.use.header" ]; then
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.use.svc/package.use.header,destination=/etc/portage/package.use.override/package.use${docker_readonly:+,${docker_readonly}}"
+else
+	note "No 'package.use' override found in '${PWD}/gentoo-base/etc/portage/'"
 fi
+
 export DOCKER_EXTRA_MOUNTS
 
 images="$( $docker image ls "buildsvc-${package_name}:${package_version}" 2>&1 )"
@@ -817,7 +911,8 @@ else
 			${with_use:+--with-use="${with_use}"} \
 			${post_pkgs:+--post-pkgs="${post_pkgs}"} \
 			${post_use:+--post-use="${post_use}"} \
-			${rebuild:+--rebuild="${package}"} \
+			${rebuild:+--rebuild="=${package}"} \
+			${post_remove:+--post-remove="${post_remove}"} \
 			--no-package-use \
 			--usepkg=y \
 			--with-bdeps=n \
