@@ -101,4 +101,4 @@ unset path
 mkdir -p "${tmp:=/var/lib/containers/storage/tmp}"
 export TMPDIR="${tmp}"
 
-# vi: set nowrap:
+# vi: set nowrap sw=4 ts=4:
