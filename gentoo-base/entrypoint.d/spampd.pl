@@ -32,4 +32,6 @@ fi
 echo >&2 "Remote data refreshed, writing PID file ..."
 echo '0' > /var/run/spampd.pid
 
+exit 0
+
 # vi: set syntax=sh:

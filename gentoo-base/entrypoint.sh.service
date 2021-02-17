@@ -144,9 +144,16 @@ if [ -d /usr/libexec/entrypoint.d ]; then
 	bin="$( basename "${service_cmd}" )"
 	if [ -n "${bin:-}" ] && [ -s /usr/libexec/entrypoint.d/"${bin}" ]; then
 		print "Running entrypoint script /usr/libexec/entrypoint.d/${bin} ..."
-		# shellcheck disable=SC1090
-		. /usr/libexec/entrypoint.d/"${bin}" || rc=${?}
+		(
+			# shellcheck disable=SC1090
+			. /usr/libexec/entrypoint.d/"${bin}"
+		) || rc=${?}
 		print "entrypoint script '${bin}' returned ${rc}"
+		case ${rc} in
+			0)		: ;;
+			131)	exit 0 ;;
+			*)		exit ${rc} ;;
+		esac
 	fi
 fi
 

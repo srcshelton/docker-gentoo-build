@@ -22,4 +22,6 @@ else
 	echo >&2 "WARN: Not running 'cdcc info'"
 fi
 
+exit 0
+
 # vi: set syntax=sh:

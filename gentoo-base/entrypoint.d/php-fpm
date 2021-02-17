@@ -10,4 +10,6 @@ if [ -d /var/www/localhost/htdocs/wordpress ]; then
 	chown -R nobody:lighttpd /var/www/localhost/htdocs/wordpress
 fi
 
+exit 0
+
 # vi: set syntax=sh:

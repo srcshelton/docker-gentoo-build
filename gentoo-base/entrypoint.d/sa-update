@@ -75,6 +75,6 @@ else
 fi
 
 echo >&2 "SpamAssassin Update & Compilation completed successfully"
-exit 0
+exit 131
 
 # vi: set syntax=sh:
