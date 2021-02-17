@@ -125,7 +125,6 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 	# shellcheck disable=SC2086
 	$docker build \
 			--override-arch "${docker_arch}" \
-			--arch "${docker_arch}" \
 			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg PROFILE_PATH="${profile:-}" \
@@ -181,7 +180,6 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	# shellcheck disable=SC2086
 	$docker build \
 			--override-arch "${docker_arch}" \
-			--arch "${docker_arch}" \
 			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg env_id="${env_id}" \
@@ -269,7 +267,6 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 	# shellcheck disable=SC2086
 	$docker build \
 			--override-arch "${docker_arch}" \
-			--arch "${docker_arch}" \
 			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg entrypoint_sum="${sum}" \
@@ -419,7 +416,6 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	# shellcheck disable=SC2086
 	$docker build \
 			--override-arch "${docker_arch}" \
-			--arch "${docker_arch}" \
 			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg env_id="${env_id}" \
