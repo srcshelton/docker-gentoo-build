@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /usr/bin/env bash
 
 # This script now requires 'bash' rather than simply 'sh' in order to gain
 # array-handling capability...
@@ -278,7 +278,7 @@ docker_resolve() {
 		die "'versionsort' not found - please install package 'app-portage/eix'"
 	fi
 
-	info "Resolving name '${dr_package}' ..."
+	print "Resolving name '${dr_package}' ..."
 
 	[ -n "${trace:-}" ] && set -o xtrace
 	# Bah - 'sort -V' *doesn't* version-sort correctly when faced with
@@ -291,6 +291,22 @@ docker_resolve() {
 	if [ "${FORCE_KEYWORDS:-}" = '1' ]; then
 		dr_pattern='-'
 	fi
+	# Ensure that ebuilds keyworded for building are checked when confirming
+	# the package to build...
+	if [[ -d /etc/portage/package.accept_keywords ]]; then
+		if [[ -e "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords" ]]; then
+			TMP_KEYWORDS="$( mktemp -p /etc/portage/package.accept_keywords/ "$( basename "${0}" ).XXXXXXXX" )"
+			if ! [[ -e "${TMP_KEYWORDS:-}" ]]; then
+				unset TMP_KEYWORDS
+			else
+				if [[ -d "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords" ]]; then
+					cat "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords"/* > "${TMP_KEYWORDS}"
+				elif [[ -s "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords" ]]; then
+					cat "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords" > "${TMP_KEYWORDS}"
+				fi
+			fi
+		fi
+	fi
 	dr_package="$(
 		equery --no-pipe --no-color list --portage-tree --overlay-tree "${dr_package}" |
 		grep -- '^\[' |
@@ -301,6 +317,10 @@ docker_resolve() {
 		xargs -r versionsort |
 		tail -n 1
 	)" || :
+	if [[ -n "${TMP_KEYWORDS:-}" ]] && [[ -e "${TMP_KEYWORDS}" ]]; then
+		rm "${TMP_KEYWORDS}"
+		unset TMP_KEYWORDS
+	fi
 	if [ -z "${dr_name:-}" ] || [ -z "${dr_package:-}" ]; then
 		warn "Failed to match portage atom to package name '${1:-${package}}'"
 		return 1
@@ -458,6 +478,8 @@ docker_run() {
 		  ${DEBUG:+--env DEBUG}
 		  # FIXME: DEV_MODE currently hard-codes entrypoint.sh.build ...
 		  ${DEV_MODE:+--env DEV_MODE --volume "${PWD%/}/gentoo-base/entrypoint.sh.build:/usr/libexec/entrypoint.sh:ro"}
+		  ${ECLASS_OVERRIDE:+--env "ECLASS_OVERRIDE=${ECLASS_OVERRIDE}"}
+		  ${EMERGE_OPTS:+--env "EMERGE_OPTS=${EMERGE_OPTS}"}
 		  ${FEATURES:+--env FEATURES}
 		  ${ROOT:+--env ROOT --env SYSROOT --env PORTAGE_CONFIGROOT}
 		  ${TERM:+--env TERM}
@@ -483,7 +505,8 @@ docker_run() {
 
 		# shellcheck disable=SC2046,SC2207
 		mirrormountpointsro=(
-			/etc/portage/repos.conf
+			# We need write access to be able to update eclasses...
+			#/etc/portage/repos.conf
 			$( portageq get_repo_path "${EROOT:-/}" $( portageq get_repos "${EROOT:-/}" ) )
 			#/usr/src  # Breaks gentoo-kernel-build package
 			#/var/db/repo/container
@@ -497,6 +520,7 @@ docker_run() {
 			/var/log/portage
 		)
 		mountpoints["$( portageq pkgdir )"]="/var/cache/portage/pkg/${ARCH:-amd64}/docker"
+		mountpoints['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
 
 		#cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
 		#print "Volume/mount base directory is '${cwd}'"
