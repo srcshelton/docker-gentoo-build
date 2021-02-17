@@ -1,0 +1,55 @@
+
+#sys-apps/fwupd				 agent amt dell gtk-doc elogind flashrom minimal introspection +man nvme policykit redfish synaptics systemd test thunderbolt tpm uefi
+sys-apps/fwupd				 amt dell flashrom minimal uefi
+
+#sys-auth/polkit			 #elogind examples gtk +introspection jit kde nls pam selinux systemd test
+sys-auth/polkit				 elogind
+
+# required by sys-apps/fwupd-1.5.5
+dev-libs/libjcat			 gpg pkcs7
+dev-python/pygobject			 cairo
+x11-libs/pango				 introspection
+
+# required by dev-python/pygobject-3.36.1-r1
+# required by dev-libs/gobject-introspection-1.64.1-r1
+dev-lang/python				 xml
+
+# required by x11-libs/pango-1.42.4-r2[introspection]
+# required by dev-libs/gobject-introspection-1.64.1-r1
+# required by x11-misc/shared-mime-info-2.0-r2
+# required by dev-util/itstool-2.0.6-r1
+dev-libs/libxml2			 python
+
+# required by dev-python/pygobject-3.36.1-r1[cairo]
+# required by dev-python/pycairo-1.20.0[-test]
+x11-libs/cairo				 glib svg
+
+# required by x11-libs/pango-1.42.4-r2
+media-libs/harfbuzz			 glib truetype
+
+# required by x11-libs/pango-1.42.4-r2
+# required by x11-libs/cairo-1.16.0-r4
+media-libs/freetype			 png
+
+# required by sys-fs/udisks-2.9.1
+sys-libs/libblockdev			 cryptsetup
+
+# required by dev-libs/libjcat-0.1.4[pkcs7]   
+# required by net-libs/gnutls-3.6.15
+dev-libs/nettle				 gmp
+
+# required by dev-libs/libgusb-0.3.5
+virtual/libusb				 udev
+
+# required by dev-libs/libgusb-0.3.5
+# required by virtual/libusb-1-r2
+dev-libs/libusb				 udev
+
+# required by sys-fs/udisks-2.9.1
+# required by sys-auth/polkit-0.118
+# required by dev-lang/spidermonkey-78.6.0
+# required by virtual/rust-1.47.0
+# required by dev-lang/rust-1.47.0-r2
+net-misc/curl				 http2
+
+# vi: set nowrap syntax=gentoo-package-use:
