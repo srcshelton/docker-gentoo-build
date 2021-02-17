@@ -136,11 +136,17 @@ docker_run() {
 		  ${TERM:+--env TERM}
 		  ${USE:+--env USE}
 		--interactive
-		  ${PODMAN_MEMORY_RESERVATION:+--memory-reservation ${PODMAN_MEMORY_RESERVATION}}
-		  ${PODMAN_MEMORY_LIMIT:+--memory ${PODMAN_MEMORY_LIMIT}}
-		  ${PODMAN_SWAP_LIMIT:+--memory-swap ${PODMAN_SWAP_LIMIT}}
 		--tty
 	)
+	if [[ -r /proc/cgroups ]] && grep -q -- '^memory.*1$' /proc/cgroups &&
+		[[ -n "${PODMAN_MEMORY_RESERVATION:-}" || -n "${PODMAN_MEMORY_LIMIT}" || -n "${PODMAN_SWAP_LIMIT}" ]]
+	then
+		runargs+=(
+			${PODMAN_MEMORY_RESERVATION:+--memory-reservation ${PODMAN_MEMORY_RESERVATION}}
+			${PODMAN_MEMORY_LIMIT:+--memory ${PODMAN_MEMORY_LIMIT}}
+			${PODMAN_SWAP_LIMIT:+--memory-swap ${PODMAN_SWAP_LIMIT}}
+		)
+	fi
 
 	# shellcheck disable=SC2046,SC2207
 	mirrormountpointsro=(
@@ -157,7 +163,8 @@ docker_run() {
 		"$( portageq distdir )"
 		/var/log/portage
 	)
-	mountpoints["$( portageq pkgdir )"]="/var/cache/portage/pkg/${ARCH:-amd64}/docker"
+	print "Using architecture '${arch:-${ARCH}}' ..."
+	mountpoints["$( portageq pkgdir )"]="/var/cache/portage/pkg/${arch:-${ARCH}}/docker"
 	[ -S /var/run/syslog-ng/log ] && mountpoints['/var/run/syslog-ng/log']='/dev/log'
 
 	cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"

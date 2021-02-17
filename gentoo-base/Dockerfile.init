@@ -18,6 +18,8 @@ ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAM
 # linter ignore=EF0003
 FROM "${stage3_name:-gentoo-stage3}:latest"
 
+ARG ARCH
+
 ARG stage3_image
 ARG stage3_id
 ARG entrypoint_sum
@@ -45,7 +47,8 @@ ENV TERM="${SET_TERM}"
 
 # Perform initial setup ...
 #
-RUN set -u ; \
+RUN echo >&2 "Creating initial image from '${stage3_image}' for '${ARCH}' ..." ; \
+    set -u ; \
     mkdir -p "${PKGDIR}" "${DISTDIR}" "${PORTAGE_LOGDIR}" "${PORTAGE_TMPDIR}" \
         "${RPMDIR}" && \
     rm -r /etc/portage && \
@@ -57,7 +60,29 @@ COPY etc/ /etc/
 #
 RUN test -s /etc/timezone && \
     test -e /etc/portage/package.accept_keywords && \
-    test -s /etc/portage/profile/package.provided
+    test -s /etc/portage/profile/package.provided && \
+    if [ -n "${ARCH:-}" ]; then \
+        echo >&2 "INFO:  Looking for '${ARCH}' architecture-specific" \
+            "keywords ..." ; \
+        if [ -s "/etc/portage/package.accept_keywords.${ARCH}" ]; then \
+            echo >&2 "NOTE:  Found architecture-specific keywords file" \
+                "'/etc/portage/package.accept_keywords.${ARCH}' ..." ; \
+            if [ -d /etc/portage/package.accept_keywords ] ; then \
+                mv -v \
+                    "/etc/portage/package.accept_keywords.${ARCH}" \
+                    "/etc/portage/package.accept_keywords/${ARCH}" ; \
+            else \
+                cat "/etc/portage/package.accept_keywords.${ARCH}" >> \
+                    /etc/portage/package.accept_keywords ; \
+            fi ; \
+        fi ; \
+    fi ; \
+    find /etc/portage/ \
+        -mindepth 1 \
+        -maxdepth 1 \
+        -type f \
+        -name 'package.accept_keywords.*' \
+        -exec rm -v {} +
 
 # We can't use 'RUN [ -d ... ]' because this is interpreted as being
 # exec-form...
@@ -85,4 +110,4 @@ RUN set -u ; \
 ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
 CMD ["app-shells/bash"]
 
-# vi: set syntax=dockerfile expandtab nowrap colorcolumn=80:
+# vi: set syntax=dockerfile colorcolumn=80 expandtab nowrap shiftwidth=4 tabstop=4:

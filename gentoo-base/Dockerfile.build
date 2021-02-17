@@ -69,45 +69,6 @@ LABEL Description="Gentoo base @system image"
 LABEL envrionment_from="${env_name}:${env_id}"
 
 
-# Set resources usage limits ...
-#
-#ARG JOBS="4"
-#ARG MAXLOAD="5.00"
-
-
-# Set core architectural settings ...
-#
-#ARG ARCH="amd64"
-#ARG PKGHOST="docker"
-#ARG PKGCACHE="/var/cache/portage/pkg"
-#ARG FEATURES_COMMON="							\
-#         binpkg-logs binpkg-multi-instance buildpkg			\
-#        -collision-protect cgroup clean-logs compress-build-logs	\
-#         compressdebug							\
-#         ebuild-locks							\
-#         fixlafiles							\
-#         multilib-strict						\
-#         news								\
-#        -protect-owned parallel-fetch parallel-install preserve-libs	\
-#         qa-unresolved-soname-deps					\
-#         sfperms split-elog split-log splitdebug strict		\
-#         unknown-features-filter unknown-features-warn unmerge-orphans	\
-#         userfetch userpriv usersync					\
-#         xattr								\
-#         ipc-sandbox mount-sandbox network-sandbox pid-sandbox sandbox	\
-#         usersandbox							\
-#    "
-#ARG EMERGE_COMMON_OPTS="--autounmask-write=y --backtrack=100 --binpkg-changed-deps=y --binpkg-respect-use=y --buildpkg=y --color=y --deep --keep-going=y --rebuild-if-new-slot=y --tree --verbose=y --verbose-conflicts"
-
-# Reset variables for future builds ...
-#
-#ENV FEATURES="${FEATURES_COMMON} fakeroot"
-#ENV EMERGE_DEFAULT_OPTS="${EMERGE_COMMON_OPTS} --with-bdeps=y --with-bdeps-auto=y"
-#ENV PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
-#ENV DISTDIR="/var/cache/portage/dist"
-#ENV PORTAGE_LOGDIR="/var/log/portage"
-
-
 # Further clean-up to minimise image size ...
 #
 # We can't use 'RUN [ -d ... ]' because this is interpreted as being

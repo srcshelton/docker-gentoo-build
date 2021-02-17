@@ -68,7 +68,6 @@ app-editors/vim-core			 vim
 app-vim/eselect-syntax			 vim
 app-vim/gentoo-syntax			 vim
 
-
 # clang:
 #
 
@@ -79,6 +78,10 @@ sys-devel/clang-runtime			 metapackage
 sys-libs/compiler-rt			 Apache-2.0-with-LLVM-exceptions
 sys-libs/compiler-rt-sanitizers		 Apache-2.0-with-LLVM-exceptions
 sys-devel/llvm-common			 Apache-2.0-with-LLVM-exceptions UoI-NCSA
+
+
+# required by dev-python/setuptools
+dev-python/certifi			 MPL-2.0
 
 # required by service sys-libs/glibc-2.32-r6[gd]
 media-libs/gd				 HPND IJG gd

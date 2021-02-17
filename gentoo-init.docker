@@ -4,6 +4,9 @@ set -eu
 set -o pipefail
 
 trace="${TRACE:-}"
+debug="${DEBUG:-}"
+# With 'debug' enabled, set 'DEBUG_EXTRA_ARGS' to pass additional arguments
+# to 'podman build'...
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
@@ -34,6 +37,16 @@ IMAGE="${base_name}:latest"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh
 
+if
+	[ -z "${env_name:-}" ] ||
+	[ -z "${init_name:-}" ] ||
+	[ -z "${stage3_name:-}" ] ||
+	[ -z "${base_name:-}" ] ||
+	[ -z "${build_name:-}" ]
+then
+	die "Image names not correctly set in '${pwd}/common/vars.sh'"
+fi
+
 if [ -n "${*:-}" ]; then
 	if echo " ${*} " | grep -Eq -- ' -(h|-help) '; then
 		echo >&2 "Usage: $( basename "${0}" ) [--env] [--stage3] [--init] [[--force] --base] [[--force] --build]"
@@ -58,35 +71,37 @@ docker_setup
 #pushd >/dev/null gentoo-base
 cd gentoo-base || die "chdir() to 'gentoo-base' failed; ${?}"
 
-case "$( uname -m )" in
-	aarch64)
-		docker_arch='arm64'
-		arch='arm64'
-		profile='17.0'
-		chost='aarch64-pc-linux-gnu'
-		;;
-	arm7l)
-		docker_arch='amd/v7'
-		arch='arm'
-		profile='17.0/armv7a'
-		chost='armv7a-hardfloat-linux-gnueabihf'
-		;;
-	armv6l)
-		docker_arch='amd/v6'
-		arch='arm'
-		profile='17.0/armv6j'
-		chost='armv6j-hardfloat-linux-gnueabihf'
-		;;
-	x86_64)
-		docker_arch='amd64'
-		arch='amd64'
-		profile='17.1/no-multilib'
-		chost='x86_64-pc-linux-gnu'
-		;;
-	*)
-		die "Unknown architecture '$( uname -m )'"
-		;;
-esac
+# Moved to common/run.sh...
+#
+#case "$( uname -m )" in
+#	aarch64)
+#		docker_arch='arm64'
+#		arch='arm64'
+#		profile='17.0'
+#		chost='aarch64-pc-linux-gnu'
+#		;;
+#	arm7l)
+#		docker_arch='amd/v7'
+#		arch='arm'
+#		profile='17.0/armv7a'
+#		chost='armv7a-hardfloat-linux-gnueabihf'
+#		;;
+#	armv6l)
+#		docker_arch='amd/v6'
+#		arch='arm'
+#		profile='17.0/armv6j'
+#		chost='armv6j-hardfloat-linux-gnueabihf'
+#		;;
+#	x86_64)
+#		docker_arch='amd64'
+#		arch='amd64'
+#		profile='17.1/no-multilib'
+#		chost='x86_64-pc-linux-gnu'
+#		;;
+#	*)
+#		die "Unknown architecture '$( uname -m )'"
+#		;;
+#esac
 
 sum="$( sha1sum entrypoint.sh )"
 sum="$( echo "${sum}" | cut -d' ' -f 1 )"
@@ -109,8 +124,10 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 
 	# shellcheck disable=SC2086
 	$docker build \
+			--override-arch "${docker_arch}" \
 			--arch "${docker_arch}" \
-			--build-arg ARCH="${arch:-}" \
+			--platform "linux/${docker_arch}" \
+			--build-arg ARCH="${arch}" \
 			--build-arg PROFILE_PATH="${profile:-}" \
 			--build-arg CHOST="${chost:-}" \
 			--build-arg JOBS="${JOBS:-}" \
@@ -119,6 +136,8 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 			--build-arg SET_USE_ESSENTIAL="${use_essential:-}" \
 			--compress \
 			--file 'Dockerfile.env' \
+			${debug:+--loglevel 3 ${DEBUG_EXTRA_ARGS:-}} \
+			--network none \
 			--no-cache \
 			--tag "${env_name}:latest" \
 			--rm \
@@ -128,14 +147,21 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 
 	[ "${*:-}" = '--env' ] && exit 0
 
+	env_id="$( $docker image ls --format='{{.ID}}' "${env_name}:latest" 2>/dev/null )"
+
 	echo
 	echo " ${blue}*${reset} Stage 'env' complete, next is 'stage3' ..."
 	echo
 fi
 
-env_id="$( $docker image ls --format='{{.ID}}' "${env_name}:latest" )"
+stage3_image="$( grep -- '^ARG stage3_image=' Dockerfile.stage3 )"
+stage3_image="$( echo "${stage3_image}" | cut -d'"' -f 2 )"
 
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
+	if [ -z "${env_id:-}" ]; then
+		die "Environment stage not found - please run '$( basename "${0}" ) --env'"
+	fi
+
 	echo
 	echo " ${blue}*${reset} Creating image '${stage3_name}:latest' ..."
 	echo
@@ -143,7 +169,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	# We have to 'pull' manually, or else this stage fails ...
 	stage3_image="$( grep -- '^ARG stage3_image=' Dockerfile.stage3 | cut -d'"' -f 2 )"
 	trap '' INT
-	$docker pull -q "${stage3_image}:latest"
+	$docker image pull --override-arch "${docker_arch}" -q "${stage3_image}:latest"
 	trap - INT
 	stage3_id="$( $docker image ls --format='{{.ID}}' "${stage3_image}:latest" 2>/dev/null )" || :
 
@@ -154,12 +180,17 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 
 	# shellcheck disable=SC2086
 	$docker build \
+			--override-arch "${docker_arch}" \
 			--arch "${docker_arch}" \
+			--platform "linux/${docker_arch}" \
+			--build-arg ARCH="${arch}" \
 			--build-arg env_id="${env_id}" \
 			--build-arg stage3_id="${stage3_id}" \
 			--build-arg stage3_image="${stage3_image}" \
 			--compress \
 			--file 'Dockerfile.stage3' \
+			${debug:+--loglevel 3 ${DEBUG_EXTRA_ARGS:-}} \
+			--network none \
 			--no-cache \
 			--tag "${stage3_name}:latest" \
 		. 2>&1 | tee -a ../log/"docker.${env_name}.log"
@@ -167,6 +198,8 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	echo " -> ${?}"
 
 	[ "${*:-}" = '--stage3' ] && exit 0
+
+	stage3_id="$( $docker image ls --format='{{.ID}}' "${stage3_image}:latest" 2>/dev/null )"
 
 	echo
 	echo " ${blue}*${reset} Stage 'stage3' complete, next is 'init' ..."
@@ -186,9 +219,9 @@ if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
 	#
 	# Update: Less of an issue now that pipefail has been dropped :)
 	#
-	images="$( $docker image ls "${init_name}" )"
+	images="$( $docker image ls "${init_name}" 2>/dev/null )"
 	if echo "${images}" | grep -Eq -- "^(localhost/)?${init_name}"; then
-		imagesum="$( $docker inspect --format='{{.Config.Labels.entrypoint_sum}}' "${init_name}:latest" )" || :
+		imagesum="$( $docker image inspect --format='{{.Config.Labels.entrypoint_sum}}' "${init_name}:latest" 2>/dev/null )" || :
 		if [ "${imagesum:-}" != "${sum}" ]; then
 			if echo " ${*} " | grep -Fq -- ' --force '; then
 				echo >&2
@@ -206,18 +239,22 @@ if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
 fi
 
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
+	if [ -z "${stage3_id:-}" ]; then
+		die "Gentoo stage 3 not found - please execute '$( basename "${0}" ) --stage3'"
+	fi
+
 	echo
 	echo " ${blue}*${reset} Creating image '${init_name}:latest' ..."
 	echo
 
-	images="$( $docker image ls "${stage3_name}" )"
+	images="$( $docker image ls "${stage3_name}" 2>/dev/null )"
 	if echo "${images}" | grep -Eq -- "^(localhost/)?${stage3_name}"; then
-		stage3_env_id="$( $docker inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" )" || :
+		stage3_env_id="$( $docker image inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" 2>/dev/null )" || :
 		stage3_env_id="$( echo "${stage3_env_id}" | cut -d':' -f 2- )"
 		if [ "${env_id}" != "${stage3_env_id:-}" ]; then
 			echo >&2 "${bold}WARN${reset}:  ${red}The current 'environment' image differs from that used to build the 'stage3' image about to be linked to this stage${reset}"
 		fi
-		stage3_src_id="$( $docker inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" )" || :
+		stage3_src_id="$( $docker image inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" 2>/dev/null )" || :
 		stage3_src_id="$( echo "${stage3_src_id}" | cut -d':' -f 2- )"
 		if [ "${stage3_id}" != "${stage3_src_id:-}" ]; then
 			echo >&2 "${bold}WARN${reset}:  ${red}The upstream 'stage3' image differs from that used to build the 'stage3' image about to be linked to this stage${reset}"
@@ -231,13 +268,18 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 
 	# shellcheck disable=SC2086
 	$docker build \
+			--override-arch "${docker_arch}" \
 			--arch "${docker_arch}" \
+			--platform "linux/${docker_arch}" \
+			--build-arg ARCH="${arch}" \
 			--build-arg entrypoint_sum="${sum}" \
 			--build-arg environment_filter="${environment_filter}" \
 			--build-arg stage3_id="${stage3_id}" \
 			--build-arg stage3_image="${stage3_image}" \
 			--compress \
 			--file 'Dockerfile.init' \
+			${debug:+--loglevel 3 ${DEBUG_EXTRA_ARGS:-}} \
+			--network none \
 			--no-cache \
 			--tag "${init_name}:latest" \
 		. 2>&1 | tee ../log/"docker.${init_name}.log"
@@ -253,23 +295,24 @@ fi
 # snapshot the result to create a base image ...
 #
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
-	images="$( $docker image ls "${init_name}" )"
+	images="$( $docker image ls "${init_name}" 2>/dev/null )"
 	if ! echo "${images}" | grep -Eq -- "^(localhost/)?${init_name}"; then
-		die "base stage: docker image '${init_name}' not found"
+		#die "base stage: docker image '${init_name}' not found"
+		die "Initial stage not found - please execute '$( basename "${0}" ) --init'"
 	fi
 
 	echo
 	echo " ${blue}*${reset} Deploying container '${base_name}' from image '${init_name}:latest' ..."
 	echo
 
-	images="$( $docker image ls "${stage3_name}" )"
+	images="$( $docker image ls "${stage3_name}" 2>/dev/null )"
 	if echo "${images}" | grep -Eq -- "^(localhost/)?${stage3_name}"; then
-		stage3_env_id="$( $docker inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" )" || :
+		stage3_env_id="$( $docker image inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" 2>/dev/null )" || :
 		stage3_env_id="$( echo "${stage3_env_id}" | cut -d':' -f 2- )"
 		if [ "${env_id}" != "${stage3_env_id:-}" ]; then
 			echo >&2 "${bold}WARN${reset}:  ${red}The current 'environment' image differs from that used to build the 'stage3' image inherited by this stage${reset}"
 		fi
-		stage3_src_id="$( $docker inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" )" || :
+		stage3_src_id="$( $docker image inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" 2>/dev/null )" || :
 		stage3_src_id="$( echo "${stage3_src_id}" | cut -d':' -f 2- )"
 		if [ "${stage3_id}" != "${stage3_src_id:-}" ]; then
 			echo >&2 "${bold}WARN${reset}:  ${red}The upstream 'stage3' image differs from that used to build the 'stage3' image inherited by this stage${reset}"
@@ -278,8 +321,10 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 
 	# Handle leftover container from previous run ...
 	trap '' INT
-	$docker stop "${base_name}" 2>&1 | tee -a ../log/"docker.${base_name}.log" || :
-	$docker rm --volumes "${base_name}" 2>&1 | tee -a ../log/"docker.${base_name}.log" || :
+	if $docker ps -a | grep -q -- "${base_name}$"; then
+		$docker stop "${base_name}" 2>&1 | tee -a ../log/"docker.${base_name}.log" || :
+		$docker rm --volumes "${base_name}" 2>&1 | tee -a ../log/"docker.${base_name}.log" || :
+	fi
 	trap - INT
 
 	# NAME:    base
@@ -328,23 +373,24 @@ fi
 # Ensure that @system is correctly installed to ROOT=/ and snapshot result as
 # build image.
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
-	images="$( $docker image ls "${base_name}" )"
+	images="$( $docker image ls "${base_name}" 2>/dev/null )"
 	if ! echo "${images}" | grep -Eq -- "^(localhost/)?${base_name}"; then
-		die "build stage: docker image '${base_name}' not found"
+		#die "build stage: docker image '${base_name}' not found"
+		die "Base stage not found - please execute '$( basename "${0}" ) --base'"
 	fi
 
 	echo
 	echo " ${blue}*${reset} Deploying container '${build_name}' ..."
 	echo
 
-	images="$( $docker image ls "${stage3_name}" )"
+	images="$( $docker image ls "${stage3_name}" 2>/dev/null )"
 	if echo "${images}" | grep -Eq -- "^(localhost/)?${stage3_name}";  then
-		stage3_env_id="$( $docker inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" )" || :
+		stage3_env_id="$( $docker image inspect --format='{{.Config.Labels.envrionment_from}}' "${stage3_name}:latest" 2>/dev/null )" || :
 		stage3_env_id="$( echo "${stage3_env_id}" | cut -d':' -f 2- )"
 		if [ "${env_id}" != "${stage3_env_id:-}" ]; then
 			echo >&2 "${bold}WARN${reset}:  ${red}The current 'environment' image differs from that used to build the 'stage3' image inherited by this stage${reset}"
 		fi
-		stage3_src_id="$( $docker inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" )" || :
+		stage3_src_id="$( $docker image inspect --format='{{.Config.Labels.stage3_from}}' "${stage3_name}:latest" 2>/dev/null )" || :
 		stage3_src_id="$( echo "${stage3_src_id}" | cut -d':' -f 2- )"
 		if [ "${stage3_id}" != "${stage3_src_id:-}" ]; then
 			echo >&2 "${bold}WARN${reset}:  ${red}The upstream 'stage3' image differs from that used to build the 'stage3' image inherited by this stage${reset}"
@@ -372,11 +418,16 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 
 	# shellcheck disable=SC2086
 	$docker build \
+			--override-arch "${docker_arch}" \
 			--arch "${docker_arch}" \
+			--platform "linux/${docker_arch}" \
+			--build-arg ARCH="${arch}" \
 			--build-arg env_id="${env_id}" \
 			--build-arg environment_filter="${environment_filter}" \
 			--compress \
 			--file 'Dockerfile.build' \
+			${debug:+--loglevel 3 ${DEBUG_EXTRA_ARGS:-}} \
+			--network none \
 			--no-cache \
 			--tag "${build_name}-root:latest" \
 		. 2>&1 | tee ../log/"docker.${build_name}.log"

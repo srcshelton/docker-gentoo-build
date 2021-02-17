@@ -164,18 +164,51 @@ print() {
 # Mostly no longer needed, with Dockerfile.env ...
 #
 docker_setup() {
-#	export ARCH='amd64'
-#	export PKGHOST='docker'
-#	export PKGCACHE='/var/cache/portage/pkg'
-#	export PKGDIR="${PKGCACHE}/${ARCH}/${PKGHOST}" # /var/cache/portage/pkg/amd64/docker
-#
-#	export DISTDIR="/var/cache/portage/dist"
-#	export PORT_LOGDIR="/var/log/portage"
-#
-#	export REPOS="/var/db/repo"
+	# The following definitions have been moved to Dockerfile.env:
+	#
+	#export ARCH='amd64'
+	#export PKGHOST='docker'
+	#export PKGCACHE='/var/cache/portage/pkg'
+	#export PKGDIR="${PKGCACHE}/${ARCH}/${PKGHOST}" # /var/cache/portage/pkg/amd64/docker
+	#
+	#export DISTDIR="/var/cache/portage/dist"
+	#export PORT_LOGDIR="/var/log/portage"
+	#
+	#export REPOS="/var/db/repo"
 
 	export -a args=() extra=()
 	export package='' package_version='' package_name='' repo='' name='' container_name='' image="${IMAGE:-gentoo-build:latest}"
+
+	case "$( uname -m )" in
+		aarch64)
+			docker_arch='arm64'
+			arch='arm64'
+			profile='17.0'
+			#chost='aarch64-pc-linux-gnu'
+			chost='aarch64-unknown-linux-gnu'
+			;;
+		arm7l)
+			docker_arch='amd/v7'
+			arch='arm'
+			profile='17.0/armv7a'
+			chost='armv7a-hardfloat-linux-gnueabihf'
+			;;
+		armv6l)
+			docker_arch='amd/v6'
+			arch='arm'
+			profile='17.0/armv6j'
+			chost='armv6j-hardfloat-linux-gnueabihf'
+			;;
+		x86_64)
+			docker_arch='amd64'
+			arch='amd64'
+			profile='17.1/no-multilib'
+			chost='x86_64-pc-linux-gnu'
+			;;
+		*)
+			die "Unknown architecture '$( uname -m )'"
+			;;
+	esac
 
 	return 0
 } # docker_setup
@@ -466,6 +499,7 @@ docker_run() {
 	runargs+=(
 		  ${DOCKER_DEVICES:-}
 		  ${DOCKER_ENTRYPOINT:+--entrypoint ${DOCKER_ENTRYPOINT}}
+		--env "ARCH=${arch:-${ARCH}}"
 		  ${ACCEPT_KEYWORDS:+--env ACCEPT_KEYWORDS}
 		  ${ACCEPT_LICENSE:+--env ACCEPT_LICENSE}
 		  #${KBUILD_OUTPUT:+--env KBUILD_OUTPUT}
@@ -486,15 +520,21 @@ docker_run() {
 		  ${TRACE:+--env TRACE}
 		  ${USE:+--env "USE=${USE}"}
 		  ${DOCKER_VARS:-}
-		  ${PODMAN_MEMORY_RESERVATION:+--memory-reservation ${PODMAN_MEMORY_RESERVATION}}
-		  ${PODMAN_MEMORY_LIMIT:+--memory ${PODMAN_MEMORY_LIMIT}}
-		  ${PODMAN_SWAP_LIMIT:+--memory-swap ${PODMAN_SWAP_LIMIT}}
 		  ${DOCKER_INTERACTIVE:+--interactive --tty}
 		  ${DOCKER_PRIVILEGED:+--privileged}
 		  ${DOCKER_EXTRA_MOUNTS:-}
 		  ${DOCKER_VOLUMES:-}
 		  ${DOCKER_HOSTNAME:+--hostname ${DOCKER_HOSTNAME}}
 	)
+	if [[ -r /proc/cgroups ]] && grep -q -- '^memory.*1$' /proc/cgroups &&
+		[[ -n "${PODMAN_MEMORY_RESERVATION:-}" || -n "${PODMAN_MEMORY_LIMIT}" || -n "${PODMAN_SWAP_LIMIT}" ]]
+	then
+		runargs+=(
+			${PODMAN_MEMORY_RESERVATION:+--memory-reservation ${PODMAN_MEMORY_RESERVATION}}
+			${PODMAN_MEMORY_LIMIT:+--memory ${PODMAN_MEMORY_LIMIT}}
+			${PODMAN_SWAP_LIMIT:+--memory-swap ${PODMAN_SWAP_LIMIT}}
+		)
+	fi
 	if [ -z "${NO_BUILD_MOUNTS:-}" ]; then
 		local -a mirrormountpoints=()
 		local -a mirrormountpointsro=()
@@ -524,7 +564,8 @@ docker_run() {
 		local PKGCACHE="${PKGCACHE:=/var/cache/portage/pkg}"
 		local PKGHOST="${PKGHOST:=docker}"
 		local PKGDIR="${PKGDIR:=$( portageq pkgdir )}"
-		mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-amd64}/docker"
+		print "Using architecture '${arch:-${ARCH}}' ..."
+		mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${arch:-${ARCH}}/docker"
 		mountpoints['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
 
 		#cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"

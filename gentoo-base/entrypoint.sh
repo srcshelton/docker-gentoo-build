@@ -13,7 +13,8 @@ DEFAULT_MAXLOAD='__MAXLOAD__'
 DEFAULT_PROFILE='__PROFILE__'
 environment_filter='__ENVFILTER__'
 
-arch="${ARCH:-amd64}"
+#arch="${ARCH:-amd64}"
+arch="${ARCH}"
 unset -v ARCH
 
 die() {
@@ -203,6 +204,11 @@ echo "PORTAGE_LOGDIR      = $( echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut
 echo
 unset info
 
+# Report stage3 tool versions (because some are masked from the arm64 stage3!)
+/lib*/libc.so.6
+gcc --version
+ld --version
+
 # We should *definitely* have this...
 package='virtual/libc'
 opts='--tree'
@@ -218,6 +224,37 @@ LC_ALL='C' emerge --check-news
 LC_ALL='C' eselect --colour=yes news read
 
 #set -o xtrace
+
+# As-of sys-libs/zlib-1.2.11-r3, zlib builds without error but then the portage
+# merge process aborts with 'unable to read SONAME from libz.so' in src_install
+#
+# To try to work around this, snapshot the current stage3 version...
+#quickpkg --include-config y --include-unmodified-config y sys-libs/zlib
+
+echo
+echo " * Building stage3 'sys-apps/gentoo-functions' package ..."
+echo
+(
+	USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+	export USE
+	export FEATURES="${FEATURES:+${FEATURES} }fail-clean -fakeroot"
+	export LC_ALL='C'
+	# shellcheck disable=SC2086
+	emerge \
+			--ignore-default-opts \
+			--binpkg-respect-use=y \
+			--buildpkg=n \
+			--color=y \
+			--keep-going=y \
+			--quiet-build=y \
+			${opts:-} \
+			--usepkg=y \
+			--verbose=y \
+			--verbose-conflicts \
+			--with-bdeps=n \
+			--with-bdeps-auto=n \
+		sys-apps/gentoo-functions
+)
 
 echo
 echo " * Building stage3 'sys-apps/fakeroot' package ..."
@@ -247,6 +284,40 @@ LC_ALL='C' eselect --colour=yes news read new | grep -Fv -- 'No news is good new
 LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 export FEATURES="${FEATURES:+${FEATURES} }fakeroot"
+
+#if [[ "$( uname -m )" == 'aarch64' ]]; then
+#	echo
+#	echo
+#	echo " * Building stage3 compilers suite ..."
+#	echo
+#
+#	for pkg in 'sys-devel/gcc' 'sys-devel/binutils' 'sys-devel/glibc'; do
+#		(
+#			USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+#			export USE
+#			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+#			export LC_ALL='C'
+#			# shellcheck disable=SC2086
+#			emerge \
+#					--ignore-default-opts \
+#					--binpkg-respect-use=y \
+#					--buildpkg=n \
+#					--color=y \
+#					--keep-going=y \
+#					--quiet-build=y \
+#					${opts:-} \
+#					--update \
+#					--usepkg=y \
+#					--verbose=y \
+#					--verbose-conflicts \
+#					--with-bdeps=n \
+#					--with-bdeps-auto=n \
+#				"${pkg}"
+#		)
+#		LC_ALL='C' eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
+#		LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+#	done
+#fi
 
 # Certain @system packages incorrectly fail to find ROOT-installed
 # dependencies, and so require prior package installation directly into the
@@ -367,6 +438,7 @@ for file in /etc/profile "${ROOT}"/etc/profile; do
 	[ -s "${file}" ] && . "${file}"
 done
 unset file
+echo "Setting profile for architeceture '${ARCH}'..."
 LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" 2>&1 | grep -v -- 'Warning:' || :
 
 info="$( LC_ALL='C' emerge --info --verbose )"
