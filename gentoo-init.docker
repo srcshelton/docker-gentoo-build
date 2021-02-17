@@ -141,8 +141,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	echo
 
 	# We have to 'pull' manually, or else this stage fails ...
-	stage3_image="$( grep -- '^ARG stage3_image=' Dockerfile.stage3 )"
-	stage3_image="$( echo "${stage3_image}" | cut -d'"' -f 2 )"
+	stage3_image="$( grep -- '^ARG stage3_image=' Dockerfile.stage3 | cut -d'"' -f 2 )"
 	trap '' INT
 	$docker pull -q "${stage3_image}:latest"
 	trap - INT
@@ -174,8 +173,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	echo
 fi
 
-stage3_image="$( grep -- '^ARG stage3_image=' Dockerfile.stage3 )"
-stage3_image="$( echo "${stage3_image}" | cut -d'"' -f 2 )"
+stage3_image="$( grep -- '^ARG stage3_image=' Dockerfile.stage3 | cut -d'"' -f 2 )"
 stage3_id="$( $docker image ls --format='{{.ID}}' "${stage3_image}:latest" )"
 
 # Create initial image from Gentoo stage3 ...
@@ -293,7 +291,8 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 	# symlinks being installed, but the actual libraries missing?!
 	#
 	(
-		post='dev-util/pkgconf sys-libs/glibc sys-apps/portage'
+		# Add '@preserved-rebuild' for potential outdated stage3 base-images...
+		post='dev-util/pkgconf sys-libs/glibc @preserved-rebuild sys-apps/portage'
 		portageq get_repos / | grep -q -- 'srcshelton' &&
 			post+=' sys-apps/gentoo-functions::srcshelton'
 		# shellcheck disable=SC2030
@@ -301,8 +300,10 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 		# shellcheck disable=SC2030
 		export image="${init_name}:latest"
 		docker_run \
-				--usepkg=y \
 				--post-pkgs="${post}" \
+				--usepkg=y \
+				--with-bdeps-auto=n \
+				--with-bdeps=n \
 			virtual/libc 2>&1 |
 		tee ../log/"docker.${base_name}.log"
 	)
