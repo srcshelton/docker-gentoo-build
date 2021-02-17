@@ -5,5 +5,6 @@
 dev-perl/DBD-mysql			 mariadb mysql
 #mail-filter/spampd			 html systemd
 #mail-filter/spamassassin		 berkdb cron ipv6 ldap libressl mysql postgres qmail sqlite (ssl) test
-mail-filter/spamassassin		 cron mysql sqlite
+#mail-filter/spamassassin		+berkdb cron dkim geoip ipv6 largenet ldap libressl mysql office pacct postgres qmail razor +sa-update spf sqlite ssl systemd test unicode
+mail-filter/spamassassin		 berkdb cron dkim geoip ipv6 largenet mysql pacct razor spd sqlite unicode
 # vi: set nowrap syntax=gentoo-package-use:

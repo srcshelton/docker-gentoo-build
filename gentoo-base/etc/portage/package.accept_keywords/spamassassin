@@ -1,4 +1,6 @@
 
+~container/spamassassin-3.4.4::container		~amd64
+
 ~mail-filter/spamassassin-3.4.4				~amd64
 
 #~dev-perl/Crypt-OpenSSL-EC-1.310.0			~amd64

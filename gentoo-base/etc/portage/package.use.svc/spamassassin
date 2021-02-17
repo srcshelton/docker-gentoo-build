@@ -3,8 +3,11 @@
 
 #dev-perl/DBD-mysql			-mariadb +mysql test +(ssl)
 dev-perl/DBD-mysql			 mariadb mysql
+#dev-perl/Net-DNS-SEC			+dsa +ecdsa gost +private-key test
+dev-perl/Net-DNS-SEC			dsa ecdsa private-key
 #mail-filter/spamassassin		 berkdb cron ipv6 ldap libressl mysql postgres qmail sqlite (ssl) test
-mail-filter/spamassassin		 cron mysql sqlite
+#mail-filter/spamassassin		+berkdb cron dkim geoip ipv6 largenet ldap libressl mysql office pacct postgres qmail razor +sa-update spf sqlite ssl systemd test unicode
+mail-filter/spamassassin		 berkdb cron dkim geoip ipv6 largenet mysql pacct razor spd sqlite unicode
 sys-apps/busybox			-make-symlinks
 
 # vi: set nowrap syntax=gentoo-package-use:
