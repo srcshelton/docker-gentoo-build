@@ -1,0 +1,15 @@
+#! /bin/sh
+
+# openntpd has a '--with-cacert' option, which appears to define a preprocessor
+# variable which is then never referenced, and the openntpd code makes a call
+# which restores libretls' libressl compatibility to look for a CA file in
+# /etc/ssl/cert.pem - so we need to make sure this file is available...
+
+set -e
+
+ln -s certs/ca-certificates.crt /etc/ssl/cert.pem
+test -s /etc/ssl/cert.pem
+
+exit 0
+
+# vi: set syntax=sh:
