@@ -77,6 +77,7 @@ dev-java/oracle-jdk-bin			-X -javafx headless-awt jce
 dev-java/sun-jdk			 jce
 dev-lang/php				-ldap-sasl -readline bcmath calendar cgi ctype curlwrappers exif flatfile fpm hash iconv imap inifile intl ldap-sasl mhash mysqlnd pcntl pdo posix session simplexml soap sockets sqlite2 sqlite3 sysvipc tidy tokenizer truetype wddx xmlreader xmlrpc xmlwriter xslt zip
 dev-lang/python				-berkdb -gdbm xml
+dev-lang/python-exec			 native-symlinks
 dev-libs/cyrus-sasl			-berkdb srp
 dev-libs/geoip				 city perl-geoipupdate
 dev-libs/glib				-mime
