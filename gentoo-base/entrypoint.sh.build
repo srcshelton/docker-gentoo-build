@@ -212,7 +212,7 @@ fi
 [ -d /etc/env.d/gcc ] && ROOT='/' gcc-config 1
 [ -d /etc/env.d/binutils ] && command -v binutils-config >/dev/null 2>&1 && ROOT='/' binutils-config 1
 # shellcheck disable=SC1091
-[ -f /etc/profile ] && . /etc/profile
+[ -s /etc/profile ] && . /etc/profile
 
 if printf '%s' " ${*:-} " | grep -Fq -- ' --verbose-build '; then
 	parallel='--jobs=1 --quiet-build=n'
@@ -643,7 +643,7 @@ fi
 [ -d /etc/env.d/gcc ] && ROOT='/' gcc-config 1
 [ -d /etc/env.d/binutils ] && command -v binutils-config >/dev/null 2>&1 && ROOT='/' binutils-config 1
 # shellcheck disable=SC1091
-[ -f /etc/profile ] && . /etc/profile
+[ -s /etc/profile ] && . /etc/profile
 
 echo
 echo " * Ensuring base packages in '/service/' ROOT are current:"
@@ -746,7 +746,7 @@ if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
 	[ -d "${ROOT}"/etc/env.d/gcc ] && gcc-config 1
 	[ -d "${ROOT}"/etc/env.d/binutils ] && command -v binutils-config >/dev/null 2>&1 && binutils-config 1
 	# shellcheck disable=SC1090
-	[ -f "${ROOT}"/etc/profile ] && . "${ROOT}"/etc/profile
+	[ -s "${ROOT}"/etc/profile ] && . "${ROOT}"/etc/profile
 fi
 
 (

@@ -519,7 +519,12 @@ docker_run() {
 			"$( portageq distdir )"
 			/var/log/portage
 		)
-		mountpoints["$( portageq pkgdir )"]="/var/cache/portage/pkg/${ARCH:-amd64}/docker"
+
+		#ENV PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
+		local PKGCACHE="${PKGCACHE:=/var/cache/portage/pkg}"
+		local PKGHOST="${PKGHOST:=docker}"
+		local PKGDIR="${PKGDIR:=$( portageq pkgdir )}"
+		mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-amd64}/docker"
 		mountpoints['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
 
 		#cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
@@ -530,7 +535,7 @@ docker_run() {
 
 		for mp in ${mirrormountpointsro[@]+"${mirrormountpointsro[@]}"}; do
 			[ -n "${mp:-}" ] || continue
-			src="$( readlink -e "${mp}" )"
+			src="$( readlink -e "${mp}" )" || die "readlink() on '${mp}' failed: ${?}"
 			if [ -z "${src:-}" ]; then
 				warn "Skipping mountpoint '${mp}'"
 				: $(( skipped = skipped + 1 ))
@@ -540,7 +545,7 @@ docker_run() {
 		done
 		for mp in ${mirrormountpoints[@]+"${mirrormountpoints[@]}"}; do
 			[ -n "${mp:-}" ] || continue
-			src="$( readlink -e "${mp}" )"
+			src="$( readlink -e "${mp}" )" || die "readlink() on '${mp}' failed: ${?}"
 			if [ -z "${src:-}" ]; then
 				warn "Skipping mountpoint '${mp}'"
 				: $(( skipped = skipped + 1 ))
@@ -550,7 +555,7 @@ docker_run() {
 		done
 		for mp in ${mountpointsro[@]+"${!mountpointsro[@]}"}; do
 			[ -n "${mp:-}" ] || continue
-			src="$( readlink -e "${mp}" )"
+			src="$( readlink -e "${mp}" )" || die "readlink() on '${mp}' failed: ${?}"
 			if [ -z "${src:-}" ]; then
 				warn "Skipping mountpoint '${mp}' -> '${mountpointsro[${mp}]}'"
 				: $(( skipped = skipped + 1 ))
@@ -560,7 +565,7 @@ docker_run() {
 		done
 		for mp in ${mountpoints[@]+"${!mountpoints[@]}"}; do
 			[ -n "${mp:-}" ] || continue
-			src="$( readlink -e "${mp}" )"
+			src="$( readlink -e "${mp}" )" || die "readlink() on '${mp}' failed (do you need to set 'PKGDIR'?): ${?}"
 			if [ -z "${src:-}" ]; then
 				warn "Skipping mountpoint '${mp}' -> '${mountpoints[${mp}]}'"
 				: $(( skipped = skipped + 1 ))

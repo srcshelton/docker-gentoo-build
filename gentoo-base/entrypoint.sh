@@ -183,7 +183,7 @@ fi
 info="$( LC_ALL='C' emerge --info --verbose )"
 echo
 echo 'Resolved build variables for stage3:'
-echo '------------------------------------'
+echo '-----------------------------------'
 echo
 echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
 echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
@@ -254,7 +254,7 @@ export FEATURES="${FEATURES:+${FEATURES} }fakeroot"
 #
 # (For some reason, sys-apps/gentoo-functions::gentoo is very sticky)
 #
-for pkg in 'sys-apps/gentoo-functions::srcshelton' 'sys-libs/libcap' 'sys-process/audit' 'dev-perl/Locale-gettext' 'dev-libs/libxml2' 'app-editors/vim'; do
+for pkg in 'sys-apps/gentoo-functions::srcshelton' 'sys-libs/libcap' 'sys-process/audit' 'dev-perl/libintl-perl' 'dev-perl/Locale-gettext' 'dev-libs/libxml2' 'app-editors/vim'; do
 	echo
 	echo
 	echo " * Building stage3 '${pkg}' package ..."
@@ -362,8 +362,11 @@ export PATH
 if command -v env-update >/dev/null 2>&1; then
 	LC_ALL='C' env-update
 fi
-# shellcheck disable=SC1091
-. /etc/profile
+for file in /etc/profile "${ROOT}"/etc/profile; do
+	# shellcheck disable=SC1091
+	[ -s "${file}" ] && . "${file}"
+done
+unset file
 LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" 2>&1 | grep -v -- 'Warning:' || :
 
 info="$( LC_ALL='C' emerge --info --verbose )"

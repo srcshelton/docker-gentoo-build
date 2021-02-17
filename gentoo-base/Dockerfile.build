@@ -162,7 +162,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             exit 1 ; \
         } ; \
     gcc-config 1 2>/dev/null ; \
-    . /etc/profile ; \
+    test -s /etc/profile && . /etc/profile ; \
     if [ -n "${JOBS:-}" ] && [ $(( JOBS )) -gt 1 ]; then \
         locale-gen -k -u ${JOBS:+-j ${JOBS}} ; \
     else \
