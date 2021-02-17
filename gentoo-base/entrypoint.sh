@@ -134,6 +134,12 @@ for arg in "${@}"; do
 	esac
 done
 
+if [ -e /etc/portage/repos.conf.host ]; then
+	echo
+	warn "Mirroring initial host repos.conf to container ..."
+	cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf || die "Can't copy host repos.conf: ${?}"
+fi
+
 # post_use should be based on the original USE flags, without --with-use
 # additions...
 # (... even though we're not using those here!)
@@ -388,6 +394,12 @@ LC_ALL='C' emerge --check-news
 # FIXME: Expose this somewhere?
 features_libeudev=1
 
+# Do we need to rebuild the root packages as well?
+#
+# This can be required if the upstream stage image is significantly old
+# compared to the current portage tree...
+#extra_root='/'
+
 # sys-libs/libcap can USE pam, which requires libcap ...
 pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash dev-perl/Locale-gettext app-editors/vim'
 pkg_initial_use='-nls -pam -perl -python'
@@ -403,28 +415,34 @@ if [ -n "${pkg_initial:-}" ]; then
 	echo
 
 	for pkg in ${pkg_initial:-}; do
-		#set -x
-		# shellcheck disable=SC2086
-		FEATURES="${FEATURES:+${FEATURES} }fail-clean" \
-		USE="${pkg_initial_use}${use_essential:+ ${use_essential}}" \
-		LC_ALL='C' \
-			emerge \
-					--ignore-default-opts \
-					${parallel} \
-					--binpkg-changed-deps=n \
-					--binpkg-respect-use=y \
-					--buildpkg=n \
-					--color=y \
-					--keep-going=y \
-					--quiet-build=y \
-					${opts:-} \
-					--usepkg=y \
-					--verbose=y \
-					--verbose-conflict \
-					--with-bdeps=n \
-					--with-bdeps-auto=n \
-				${pkg} ${pkg_exclude:-} || :
-		set +x
+		(
+			#set -x
+			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+			export USE="${pkg_initial_use}${use_essential:+ ${use_essential}}"
+			export LC_ALL='C'
+			for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+				export ROOT
+				export SYSROOT="${ROOT}"
+				export PORTAGE_CONFIGROOT="${SYSROOT}"
+				# shellcheck disable=SC2086
+				emerge \
+						--ignore-default-opts \
+						${parallel} \
+						--binpkg-changed-deps=n \
+						--binpkg-respect-use=y \
+						--buildpkg=n \
+						--color=y \
+						--keep-going=y \
+						--quiet-build=y \
+						${opts:-} \
+						--usepkg=y \
+						--verbose=y \
+						--verbose-conflict \
+						--with-bdeps=n \
+						--with-bdeps-auto=n \
+					${pkg} ${pkg_exclude:-} || :
+			done
+		)
 		LC_ALL='C' etc-update --quiet --preen ; find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 		if echo " ${pkg} " | grep -q -- ' app-shells/bash '; then
@@ -442,36 +460,42 @@ echo
 echo ' * Building @system packages ...'
 echo
 
-#set -x
-# sys-apps/shadow is needed for /sbin/nologin
-# dev-libs/icu is needed for circular dependencies on icu -> python -> sqlite -> icu
-# libarchive is a frequent dependency, and so quicker to pull-in here
-# shellcheck disable=SC2086
-FEATURES="${FEATURES:+${FEATURES} }fail-clean" \
-USE="${pkg_initial_use}${use_essential:+ ${use_essential}}" \
-LC_ALL='C' \
-	emerge \
-			--ignore-default-opts \
-			${parallel} \
-			--binpkg-changed-deps=y \
-			--binpkg-respect-use=y \
-			--buildpkg=y \
-			--color=y \
-			--deep \
-			--emptytree \
-			--keep-going=y \
-			--rebuild-if-new-slot=y \
-			--rebuilt-binaries=y \
-			--quiet-build=y \
-			--root-deps \
-			${opts:-} \
-			--usepkg=y \
-			--verbose=y \
-			--verbose-conflicts \
-			--with-bdeps=n \
-			--with-bdeps-auto=n \
-		@system sys-apps/shadow dev-libs/icu app-arch/libarchive ${pkg_exclude:-} || :
-set +x
+(
+	#set -x
+	# sys-apps/shadow is needed for /sbin/nologin
+	# dev-libs/icu is needed for circular dependencies on icu -> python -> sqlite -> icu
+	# libarchive is a frequent dependency, and so quicker to pull-in here
+	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+	export USE="${pkg_initial_use}${use_essential:+ ${use_essential}}"
+	export LC_ALL='C'
+	for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+		export ROOT
+		export SYSROOT="${ROOT}"
+		export PORTAGE_CONFIGROOT="${SYSROOT}"
+		# shellcheck disable=SC2086
+		emerge \
+				--ignore-default-opts \
+				${parallel} \
+				--binpkg-changed-deps=y \
+				--binpkg-respect-use=y \
+				--buildpkg=y \
+				--color=y \
+				--deep \
+				--emptytree \
+				--keep-going=y \
+				--rebuild-if-new-slot=y \
+				--rebuilt-binaries=y \
+				--quiet-build=y \
+				--root-deps \
+				${opts:-} \
+				--usepkg=y \
+				--verbose=y \
+				--verbose-conflicts \
+				--with-bdeps=n \
+				--with-bdeps-auto=n \
+			@system sys-apps/shadow dev-libs/icu app-arch/libarchive ${pkg_exclude:-} || :
+	done
+)
 LC_ALL='C' etc-update --quiet --preen ; find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 # Ensure we have a valid /bin/sh symlink in our ROOT ...
@@ -484,7 +508,7 @@ fi
 # ... and fix the default bash prompt setup w.r.t. 'screen' window names!
 if [ -s /etc/bash/bashrc.patch ]; then
 	if ! command -v patch >/dev/null; then
-		echo "WARN: @system build has not installed package 'sys-devel/patch'"
+		warn "@system build has not installed package 'sys-devel/patch'"
 	else
 		#pushd >/dev/null "${ROOT}"/etc/bash/
 		src_cwd="${PWD}"
@@ -494,7 +518,7 @@ if [ -s /etc/bash/bashrc.patch ]; then
 			echo ' * Patching /etc/bash/bashrc ...'
 			patch -p1 </etc/bash/bashrc.patch >/dev/null
 		else
-			echo "WARN: '${ROOT%/}/etc/bash/bashrc' does not exist or is empty"
+			warn "'${ROOT%/}/etc/bash/bashrc' does not exist or is empty"
 		fi
 
 		#popd >/dev/null
@@ -544,7 +568,7 @@ export EMERGE_DEFAULT_OPTS="${EMERGE_DEFAULT_OPTS:+${EMERGE_DEFAULT_OPTS} } --wi
 info="$( LC_ALL='C' emerge --info --verbose )"
 echo
 echo 'Resolved build variables after init stage:'
-echo '----------------------------------------'
+echo '-----------------------------------------'
 echo
 echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
 echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
@@ -575,8 +599,8 @@ export -p |
 	sed -r 's/\s+/ /g' | \
 	grep -v '^export [a-z_]' \
 	>> "${ROOT}"/usr/libexec/environment.sh
-test -e "${ROOT}"/usr/libexec/environment.sh || echo "WARN: '${ROOT%/}/usr/libexec/environment.sh' does not exist"
-test -s "${ROOT}"/usr/libexec/environment.sh || echo "WARN: '${ROOT%/}/usr/libexec/environment.sh' is empty"
+test -e "${ROOT}"/usr/libexec/environment.sh || warn "'${ROOT%/}/usr/libexec/environment.sh' does not exist"
+test -s "${ROOT}"/usr/libexec/environment.sh || warn "'${ROOT%/}/usr/libexec/environment.sh' is empty"
 grep -- ' ROOT=' "${ROOT}"/usr/libexec/environment.sh && die "Invalid 'ROOT' directive in '${ROOT%/}/usr/libexec/environment.sh'"
 #printf " * Initial propagated environment:\n\n%s\n\n" "$( <"${ROOT}"/usr/libexec/environment.sh )"
 
@@ -588,8 +612,20 @@ case "${1:-}" in
 
 		print "Running default 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y \"${package}\"'"
 
-		# shellcheck disable=SC2086
-		LC_ALL='C' emerge ${parallel} ${opts} --usepkg=y "${package}" || rc=${?}
+		(
+			export LC_ALL='C'
+			for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+				export ROOT
+				export SYSROOT="${ROOT}"
+				export PORTAGE_CONFIGROOT="${SYSROOT}"
+				# shellcheck disable=SC2086
+				emerge ${parallel} ${opts} --usepkg=y "${package}" || rc=${?}
+				if [ $(( rc )) -ne 0 ]; then
+					break
+				fi
+			done
+			exit ${rc}
+		) || rc=${?}
 
 		check ${rc} "${package}"
 
@@ -613,8 +649,20 @@ case "${1:-}" in
 
 			# shellcheck disable=SC2016
 			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${*}'${USE:+ with USE='${USE}'}"
-			# shellcheck disable=SC2086
-			LC_ALL='C' emerge ${parallel} ${opts} --usepkg=y "${@}" || rc=${?}
+			(
+				export LC_ALL='C'
+				for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+					export ROOT
+					export SYSROOT="${ROOT}"
+					export PORTAGE_CONFIGROOT="${SYSROOT}"
+					# shellcheck disable=SC2086
+					emerge ${parallel} ${opts} --usepkg=y "${@}" || rc=${?}
+					if [ $(( rc )) -ne 0 ]; then
+						break
+					fi
+				done
+				exit ${rc}
+			) || rc=${?}
 
 			check ${rc} "${@}"
 
@@ -626,8 +674,20 @@ case "${1:-}" in
 
 			# shellcheck disable=SC2016
 			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${*}'${USE:+ with USE='${USE}'}"
-			# shellcheck disable=SC2086
-			LC_ALL='C' emerge ${parallel} ${opts} --usepkg=y "${@}" || rc=${?}
+			(
+				export LC_ALL='C'
+				for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+					export ROOT
+					export SYSROOT="${ROOT}"
+					export PORTAGE_CONFIGROOT="${SYSROOT}"
+					# shellcheck disable=SC2086
+					emerge ${parallel} ${opts} --usepkg=y "${@}" || rc=${?}
+					if [ $(( rc )) -ne 0 ]; then
+						break
+					fi
+				done
+				exit ${rc}
+			) || rc=${?}
 
 			check ${rc} "${@}"
 
@@ -649,10 +709,67 @@ case "${1:-}" in
 			echo
 			unset info
 
-			# shellcheck disable=SC2016
-			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${post_pkgs}'${USE:+ with USE='${USE}'}"
-			# shellcheck disable=SC2086
-			LC_ALL='C' emerge ${parallel} ${opts} --usepkg=y ${post_pkgs} || rc=${?}
+			if [ -n "${EMERGE_OPTS:-}" ] && echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-post)? '; then
+				flags=''
+				for arg in "${@}" ${post_pkgs}; do
+					case "${arg}" in
+						-*)
+							flags="${flags:+${flags} }${arg}"
+							;;
+					esac
+				done
+				first=''
+				for arg in ${post_pkgs}; do
+					case "${arg}" in
+						-*)	continue ;;
+						*)
+							#if [ -z "${first:-}" ]; then
+							#	first="${arg}"
+							#	if echo " ${EMERGE_OPTS} " | grep -Eq -- ' --swap(-post)? '; then
+							#		continue
+							#	fi
+							#fi
+							echo
+							echo " * Building single post-package '${arg}' from '${post_pkgs}' ..."
+							echo
+							# shellcheck disable=SC2016
+							print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${arg}'${USE:+ with USE='${USE}'}"
+							(
+								export LC_ALL='C'
+								export FEATURES='-fail-clean'
+								for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+									export ROOT
+									export SYSROOT="${ROOT}"
+									export PORTAGE_CONFIGROOT="${SYSROOT}"
+									# shellcheck disable=SC2086
+									emerge ${parallel} ${opts} --usepkg=y ${flags:-} ${arg} || rc=${?}
+									if [ $(( rc )) -ne 0 ]; then
+										break
+									fi
+								done
+								exit ${rc}
+							) || rc=${?}
+							;;
+					esac
+				done
+			else
+				# shellcheck disable=SC2016
+				print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${post_pkgs}'${USE:+ with USE='${USE}'}"
+				(
+					export LC_ALL='C'
+					for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+						export ROOT
+						export SYSROOT="${ROOT}"
+						export PORTAGE_CONFIGROOT="${SYSROOT}"
+						# shellcheck disable=SC2086
+						emerge ${parallel} ${opts} --usepkg=y ${post_pkgs} || rc=${?}
+						if [ $(( rc )) -ne 0 ]; then
+							break
+						fi
+					done
+					exit ${rc}
+				) || rc=${?}
+			fi
 
 			check ${rc} "${@}"
 
