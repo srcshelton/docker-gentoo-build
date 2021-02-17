@@ -126,7 +126,6 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 	$docker build \
 			--override-arch "${docker_arch}" \
 			--arch "${docker_arch}" \
-			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg PROFILE_PATH="${profile:-}" \
 			--build-arg CHOST="${chost:-}" \
@@ -169,7 +168,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	# We have to 'pull' manually, or else this stage fails ...
 	stage3_image="$( grep -- '^ARG stage3_image=' Dockerfile.stage3 | cut -d'"' -f 2 )"
 	trap '' INT
-	$docker image pull --override-arch "${docker_arch}" -q "${stage3_image}:latest"
+	$docker image pull --arch "${docker_arch}" -q "${stage3_image}:latest"
 	trap - INT
 	stage3_id="$( $docker image ls --format='{{.ID}}' "${stage3_image}:latest" 2>/dev/null )" || :
 
@@ -182,7 +181,6 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	$docker build \
 			--override-arch "${docker_arch}" \
 			--arch "${docker_arch}" \
-			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg env_id="${env_id}" \
 			--build-arg stage3_id="${stage3_id}" \
@@ -270,7 +268,6 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 	$docker build \
 			--override-arch "${docker_arch}" \
 			--arch "${docker_arch}" \
-			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg entrypoint_sum="${sum}" \
 			--build-arg environment_filter="${environment_filter}" \
@@ -420,7 +417,6 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	$docker build \
 			--override-arch "${docker_arch}" \
 			--arch "${docker_arch}" \
-			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg env_id="${env_id}" \
 			--build-arg environment_filter="${environment_filter}" \
