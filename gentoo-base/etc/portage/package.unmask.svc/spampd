@@ -9,11 +9,4 @@
 # this works up to at least python39...
 >mail-filter/pyzor-1.0.0-r1
 
-# Alexys Jacob <ultrabug@gentoo.org> (2020-11-09)
-# Mask dev-db/mongodb versions which do not support python3 so we
-# can move forward in cleaning python2 from tree. Bug #708954.
-# We keep the ebuilds available since some of those versions are still
-# supported by upstream. See: https://jira.mongodb.org/browse/SERVER-52687
-dev-db/mongodb::srcshelton
-=dev-python/typing-3.7.4.3
-=dev-python/cheetah-2.4.4-r1
+# vi: set syntax=gentoo-package-mask:

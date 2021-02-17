@@ -1,0 +1,11 @@
+
+# Alexys Jacob <ultrabug@gentoo.org> (2020-11-09)
+# Mask dev-db/mongodb versions which do not support python3 so we
+# can move forward in cleaning python2 from tree. Bug #708954.
+# We keep the ebuilds available since some of those versions are still
+# supported by upstream. See: https://jira.mongodb.org/browse/SERVER-52687
+dev-db/mongodb::unifi
+dev-python/typing::unifi
+dev-python/cheetah::unifi
+
+# vi: set syntax=gentoo-package-mask:

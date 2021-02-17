@@ -1,0 +1,24 @@
+
+# The meson build system isn't compatible with python2_7
+dev-util/meson
+
+# Mask builds beyond what we've pinned...
+>app-misc/pax-utils-1.2.4
+>dev-db/mongodb-4.0.22
+>dev-java/java-config-2.2.0-r4
+>dev-libs/boost-1.72.0-r1
+>dev-python/certifi-10001
+>dev-python/cheetah-2.4.4-r1
+>dev-python/markdown-3.1.1-r1
+>dev-python/pyyaml-5.3.1
+>dev-python/regex-2020.4.4
+>dev-python/setuptools-46.4.0-r3
+>dev-python/typing-3.7.4.3
+>dev-util/boost-build-1.72.0
+>dev-util/cmake-3.9.6
+>dev-util/scons-3.1.2
+>sys-apps/file-5.37-r1
+>sys-apps/portage-2.3.89-r1
+>sys-apps/util-linux-2.33.2
+
+# vi: set colorcolumn=80 syntax=gentoo-package-mask:
