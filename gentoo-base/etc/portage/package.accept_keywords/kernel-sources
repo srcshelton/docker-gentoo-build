@@ -1,6 +1,5 @@
 
-# Current stable package is gentoo-sources-5.4.80-r1
-#~sys-kernel/gentoo-sources-5.9.16			~amd64
-~sys-kernel/gentoo-sources-5.10.10			~amd64
+# Current stable package is gentoo-sources-5.4.97
+~sys-kernel/gentoo-sources-5.10.16			~amd64
 
 # vi: set syntax=gentoo-package-keywords:

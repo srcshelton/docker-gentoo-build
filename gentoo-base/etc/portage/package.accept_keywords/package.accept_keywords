@@ -3,6 +3,7 @@
 ~app-arch/upx-3.96					~amd64
 ~app-benchmarks/bootchart2-0.14.8			~amd64
 ~app-forensics/lynis-3.0.1				~amd64
+~app-misc/linux-logo-6.0				~amd64
 ~dev-perl/Net-MAC-Vendor-1.265				~amd64
 ~dev-perl/Net-Subnet-1.30.0				~amd64
 ~dev-util/dropwatch-1.4_p20150706			~amd64
