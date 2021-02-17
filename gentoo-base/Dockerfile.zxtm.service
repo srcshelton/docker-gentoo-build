@@ -21,7 +21,7 @@ ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAM
 #ARG smtp_smarthost="smtp"
 #ARG smtp_domain="rufus.miltonroad.net"
 
-ARG zxtm_image_name="pulsesecure/vtm"
+ARG zxtm_image_name="docker.io/pulsesecure/vtm"
 ARG zxtm_service_version="20.1"
 ARG ZEUSHOME="/opt/zeus"
 

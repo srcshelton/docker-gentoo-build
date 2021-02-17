@@ -7,7 +7,9 @@ ARG env_name="gentoo-env"
 ARG env_id=""
 
 # gentoo/stage3 supports 386, amd64, arm-v5, arm-v6, arm-v7, arm64, ppc64le, s390x
-ARG stage3_image="gentoo/stage3"
+ARG stage3_image="docker.io/gentoo/stage3"
+# ... however, it's not currently being updated, whereas this image is!
+#ARG stage3_image="docker.io/ksmanis/stage3"
 ARG stage3_tag="latest"
 ARG stage3_id=""
 
