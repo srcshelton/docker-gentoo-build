@@ -17,7 +17,7 @@ reset=''
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
 
-services='bitlbee captive-portal dcc dhcpd dovecot fetchmail fwupd imapproxyd irqbalance less lighttpd lynis man mariadb memcached named opendkim opendmarc openntpd php pinfo postfix powertop redis postgrey spamassassin spamassassin-update spampd subversion syslog-ng unifi vim watchdog zxtm'
+services='bitlbee captive-portal dcc dhcpd dovecot fetchmail fwupd imapproxyd irqbalance less lighttpd lynis man mariadb memcached metalog named opendkim opendmarc openntpd php pinfo postfix powertop redis postgrey spamassassin spamassassin-update spampd subversion syslog-ng unifi vim watchdog zxtm'
 all=0
 rebuild=''
 force=''
@@ -154,6 +154,8 @@ case "${service:-}" in
 		service='sys-apps/man-db' ;;
 	memcache|memcached)
 		service='net-misc/memcached' ;;
+	metalog)
+		service='app-admin/metalog::container' ;;
 	mysql|mysqld|mariadb)
 		service='dev-db/mariadb' ;;
 	named|bind)
@@ -405,6 +407,13 @@ case "${package_name}" in
 		echo "Setting build variables for package 'memcached' ..."
 
 		container_cmd='/usr/bin/memcached'
+		;;
+	*metalog*)
+		echo "Setting build variables for package 'metalog' ..."
+
+		ports='514/udp'
+		container_cmd='/usr/sbin/metalog'
+		etcdir='metalog'
 		;;
 	*opendkim*)
 		echo "Setting build variables for package 'opendkim' ..."
@@ -810,6 +819,9 @@ elif [ "${container_cmd}" = 'podman' ]; then
 	die "Invalid container command '${container_cmd}'"
 fi
 
+#[ -n "${trace:-}" ] && set -o xtrace
+
+DOCKER_EXTRA_MOUNTS=''
 if [ -n "${etcdir:-}" ]; then
 	for dir in ${etcdir}; do
 		mkdir -p /etc/${dir}
