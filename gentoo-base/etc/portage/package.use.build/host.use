@@ -21,4 +21,10 @@ net-misc/dhcp				-* client ipv6 ssl vim-syntax
 # -lib-only
 #sys-devel/gcc				-* nptl lib-only
 
+# Avoid udev/eudev dependencies when using busybox mdev
+sys-apps/busybox			 mdev
+net-misc/dhcpcd				-udev
+sys-apps/hwids				-udev
+sys-fs/dosfstools			-udev
+
 # vi: set nowrap syntax=gentoo-package-use:

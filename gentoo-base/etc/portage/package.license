@@ -80,6 +80,13 @@ sys-libs/compiler-rt			 Apache-2.0-with-LLVM-exceptions
 sys-libs/compiler-rt-sanitizers		 Apache-2.0-with-LLVM-exceptions
 sys-devel/llvm-common			 Apache-2.0-with-LLVM-exceptions UoI-NCSA
 
+# required by service sys-libs/glibc-2.32-r6[gd]
+media-libs/gd				 HPND IJG gd
+
+# required by media-libs/harfbuzz-2.7.2
+media-libs/harfbuzz			 Old-MIT icu
+dev-libs/gobject-introspection-common	 HPND
+
 
 # Service packages:
 #
