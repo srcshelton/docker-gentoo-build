@@ -187,19 +187,25 @@ docker_setup() {
 			#chost='aarch64-pc-linux-gnu'
 			chost='aarch64-unknown-linux-gnu'
 			;;
-		arm7l)
-			docker_arch='amd/v7'
-			arch='arm'
-			profile='17.0/armv7a'
-			chost='armv7a-hardfloat-linux-gnueabihf'
-			;;
 		armv6l)
 			docker_arch='amd/v6'
 			arch='arm'
 			profile='17.0/armv6j'
 			chost='armv6j-hardfloat-linux-gnueabihf'
 			;;
-		x86_64)
+		arm7l)
+			docker_arch='amd/v7'
+			arch='arm'
+			profile='17.0/armv7a'
+			chost='armv7a-hardfloat-linux-gnueabihf'
+			;;
+		i386|i686)  # Untested!
+			docker_arch='i386'
+			arch='x86'
+			profile='17.0'
+			chost='i686-pc-linux-gnu'
+			;;
+		x86_64|amd64)
 			docker_arch='amd64'
 			arch='amd64'
 			profile='17.1/no-multilib'

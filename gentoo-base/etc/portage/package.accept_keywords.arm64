@@ -3,6 +3,6 @@
 # '**' = Make package available regardless of keywords
 
 ~sys-apps/fakeroot-1.24					 ~arm64
-~sys-process/audit-2.8.5-r2				 ~arm64
+~sys-process/audit-2.8.5				 ~arm64
 
 # vi: set syntax=gentoo-package-keywords:
