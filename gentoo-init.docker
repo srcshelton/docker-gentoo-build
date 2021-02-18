@@ -71,38 +71,6 @@ docker_setup
 #pushd >/dev/null gentoo-base
 cd gentoo-base || die "chdir() to 'gentoo-base' failed; ${?}"
 
-# Moved to common/run.sh...
-#
-#case "$( uname -m )" in
-#	aarch64)
-#		docker_arch='arm64'
-#		arch='arm64'
-#		profile='17.0'
-#		chost='aarch64-pc-linux-gnu'
-#		;;
-#	arm7l)
-#		docker_arch='amd/v7'
-#		arch='arm'
-#		profile='17.0/armv7a'
-#		chost='armv7a-hardfloat-linux-gnueabihf'
-#		;;
-#	armv6l)
-#		docker_arch='amd/v6'
-#		arch='arm'
-#		profile='17.0/armv6j'
-#		chost='armv6j-hardfloat-linux-gnueabihf'
-#		;;
-#	x86_64)
-#		docker_arch='amd64'
-#		arch='amd64'
-#		profile='17.1/no-multilib'
-#		chost='x86_64-pc-linux-gnu'
-#		;;
-#	*)
-#		die "Unknown architecture '$( uname -m )'"
-#		;;
-#esac
-
 sum="$( sha1sum entrypoint.sh )"
 sum="$( echo "${sum}" | cut -d' ' -f 1 )"
 env_id="$( $docker image ls --format='{{.ID}}' "${env_name}:latest" 2>/dev/null )" || :
@@ -167,10 +135,27 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 
 	# We have to 'pull' manually, or else this stage fails ...
 	stage3_image="$( grep -- '^ARG stage3_image=' Dockerfile.stage3 | cut -d'"' -f 2 )"
+	stage3_tag='latest'
+	case "${docker_arch}" in
+		'amd64')
+			stage3_tag="${docker_arch}-nomultilib" ;;
+		'arm64')
+			stage3_tag="${docker_arch}" ;;
+		'arm/v7')
+			stage3_tag='armv7a_hardfp' ;;
+		'arm/v6')
+			stage3_tag='armv6j_hardfp' ;;
+		'i386')
+			stage3_tag='x86' ;;
+	esac
 	trap '' INT
-	$docker image pull --arch "${docker_arch}" -q "${stage3_image}:latest"
+	if [ "${stage3_tag}" = 'latest' ]; then
+		$docker image pull --arch "${docker_arch}" "${stage3_image}:${stage3_tag}"
+	else
+		$docker image pull "${stage3_image}:${stage3_tag}"
+	fi
 	trap - INT
-	stage3_id="$( $docker image ls --format='{{.ID}}' "${stage3_image}:latest" 2>/dev/null )" || :
+	stage3_id="$( $docker image ls --format='{{.ID}}' "${stage3_image}:${stage3_tag}" 2>/dev/null )" || :
 
 	# NAME:    stage3
 	# LABELS:  envrionment_from stage3_from
@@ -185,6 +170,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 			--build-arg env_id="${env_id}" \
 			--build-arg stage3_id="${stage3_id}" \
 			--build-arg stage3_image="${stage3_image}" \
+			--build-arg stage3_tag="${stage3_tag}" \
 			--compress \
 			--file 'Dockerfile.stage3' \
 			${debug:+--loglevel 3 ${DEBUG_EXTRA_ARGS:-}} \
