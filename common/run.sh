@@ -197,9 +197,15 @@ docker_setup() {
 			;;
 		arm7l)
 			docker_arch='amd/v7'
-			arch='arm'
+			arch='arm/v7'
 			profile='17.0/armv7a'
 			chost='armv7a-hardfloat-linux-gnueabihf'
+			;;
+		armv6l)
+			docker_arch='amd/v6'
+			arch='arm/v6'
+			profile='17.0/armv6j'
+			chost='armv6j-hardfloat-linux-gnueabihf'
 			;;
 		i386|i686)  # Untested!
 			docker_arch='i386'
