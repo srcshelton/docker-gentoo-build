@@ -151,7 +151,14 @@ export container_name
 
 build_version="$( echo "${package_version:-}" | cut -d'.' -f 1-2 )"
 if [ -z "${build_dir:-}" ]; then
-	build_dir="/usr/src/build-${build_version}.x"
+	case "${compiler}" in
+		gcc)
+			build_dir="/usr/src/build-${build_version}.x"
+			;;
+		*)
+			build_dir="/usr/src/${compiler}-${build_version}.x"
+			;;
+	esac
 fi
 if [ "${build:-}" = '1' ]; then
 	echo >&2 "INFO:  Using build directory '${build_dir}' ..."
