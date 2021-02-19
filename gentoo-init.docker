@@ -76,6 +76,12 @@ if (( EUID )); then
 	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi
 
+if ! $docker --version >/dev/null 2>&1; then
+	die "'$docker' failed to execute: ${?}"
+elif ! $docker build --help | grep -Fq -- '--platform'; then
+	die "'$docker build' lacks '--platform' support (try podman-3.x or later)"
+fi
+
 docker_setup
 
 cd gentoo-base || die "chdir() to 'gentoo-base' failed; ${?}"
@@ -196,7 +202,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 	# shellcheck disable=SC2086
 	$docker build \
 			--override-arch "${docker_arch}" \
-			--arch "${docker_arch}" \
+			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg PROFILE_PATH="${profile:-}" \
 			--build-arg CHOST="${chost:-}" \
@@ -243,14 +249,38 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	echo
 
 	# We have to 'pull' manually, or else this stage fails ...
+	rc=0
 	trap '' INT
 	if [ "${stage3_tag}" = 'latest' ]; then
-		$docker image pull "${stage3_image}:${stage3_tag}" \
-			--arch "${docker_arch}"
+		if
+			$docker image pull --help |
+			grep -Fq -- '--platform'
+		then
+			$docker image pull "${stage3_image}:latest" \
+				--platform "linux/${docker_arch}"
+		elif
+			$docker image pull --help |
+			grep -Fq -- '--override-arch'
+		then
+			$docker image pull "${stage3_image}:latest" \
+				--override-arch "${docker_arch}"
+		elif
+			$docker image pull --help |
+			grep -Fq -- '--arch'
+		then
+			$docker image pull "${stage3_image}:latest" \
+				--arch "${docker_arch}"
+		else
+			die "Could not determine method to retrieve" \
+				"non-native architecture with" \
+				"'$docker image pull'"
+		fi
 	else
-		$docker image pull "${stage3_image}:${stage3_tag}"
+		$docker image pull "${stage3_image}:${stage3_tag}" || rc=${?}
 	fi
 	trap - INT
+	[ $(( rc )) -eq 0 ] ||
+		die "'$docker image pull' failed to retrieve image '${stage3_image}:latest' for architecture '${docker_arch}'"
 	stage3_id="$(
 		$docker image ls \
 				--format='{{.ID}}' \
@@ -265,7 +295,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	# shellcheck disable=SC2086
 	$docker build \
 			--override-arch "${docker_arch}" \
-			--arch "${docker_arch}" \
+			--platform "linux/${docker_arch}" \
 			--build-arg env_id="${env_id}" \
 			--build-arg env_name="${env_name}" \
 			--build-arg stage3_id="${stage3_id}" \
@@ -359,7 +389,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 	# shellcheck disable=SC2086
 	$docker build \
 			--override-arch "${docker_arch}" \
-			--arch "${docker_arch}" \
+			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg entrypoint_sum="${sum}" \
 			--build-arg environment_filter="${environment_filter}" \
@@ -497,7 +527,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	# shellcheck disable=SC2086
 	$docker build \
 			--override-arch "${docker_arch}" \
-			--arch "${docker_arch}" \
+			--platform "linux/${docker_arch}" \
 			--build-arg env_id="${env_id}" \
 			--build-arg environment_filter="${environment_filter}" \
 			--compress \
