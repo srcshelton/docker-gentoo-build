@@ -179,6 +179,8 @@ docker_setup() {
 	export -a args=() extra=()
 	export package='' package_version='' package_name='' repo='' name='' container_name='' image="${IMAGE:-gentoo-build:latest}"
 
+	# If we export these to show external usage, things become fragile...
+	# shellcheck disable=SC2034
 	case "$( uname -m )" in
 		aarch64)
 			docker_arch='arm64'
@@ -215,7 +217,7 @@ docker_setup() {
 			die "Unknown architecture '$( uname -m )'"
 			;;
 	esac
-	export docker_arch arch profile chost
+	#export docker_arch arch profile chost
 
 	return 0
 } # docker_setup
