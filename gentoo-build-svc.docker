@@ -679,7 +679,10 @@ case "${package_name}" in
 		echo "Setting build variales for package 'unifi-controller-bin' ..."
 		CFLAGS="${CFLAGS:+${CFLAGS} }-w"  # mongodb is *really* noisy...
 		#EMERGE_OPTS='--single --swap'  # Merge packages one at a time, for debug purposes
-		ECLASS_OVERRIDE='unifi'
+
+		# shellcheck disable=SC2034
+		ECLASS_OVERRIDE='unifi'  # consumed in common/run.sh
+
 		pre_use='headless-awt'
 		force_python='python2_7'
 		#pre_pkgs='dev-java/openjdk-bin:8 dev-lang/python:2.7 sys-devel/gcc'
@@ -760,11 +763,11 @@ case "${package_name}" in
 esac
 #echo >&2 "DEBUG: Additional USE flags are '${with_use:-<none>}'"
 
-pre_use="$( echo "${pre_use}" | tr $'\n' ' ' | tr -s $'[\t ]' ' ' | sed 's/^ // ; s/ $//' )"
-pre_pkgs="$( echo "${pre_pkgs}" | tr $'\n' ' ' | tr -s $'[\t ]' ' ' | sed 's/^ // ; s/ $//' )"
-extra_pkgs="$( echo "${extra_pkgs}" | tr $'\n' ' ' | tr -s $'[\t ]' ' ' | sed 's/^ // ; s/ $//' )"
-post_use="$( echo "${post_use}" | tr $'\n' ' ' | tr -s $'[\t ]' ' ' | sed 's/^ // ; s/ $//' )"
-post_pkgs="$( echo "${post_pkgs}" | tr $'\n' ' ' | tr -s $'[\t ]' ' ' | sed 's/^ // ; s/ $//' )"
+pre_use="$( echo "${pre_use}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
+pre_pkgs="$( echo "${pre_pkgs}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
+extra_pkgs="$( echo "${extra_pkgs}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
+post_use="$( echo "${post_use}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
+post_pkgs="$( echo "${post_pkgs}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
 case " ${pre_pkgs} " in
 	*' dev-util/pkgconf '*)
 		pre_use="${pre_use:+${pre_use} }pkg-config"

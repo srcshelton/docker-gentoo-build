@@ -4,29 +4,29 @@
 # array-handling capability...
 
 # Tiny
-#: ${PODMAN_MEMORY_RESERVATION:=256m}
-#: ${PODMAN_MEMORY_LIMIT:=512m}
-#: ${PODMAN_SWAP_LIMIT:=1g}
-# Small
-#: ${PODMAN_MEMORY_RESERVATION:=512m}
-#: ${PODMAN_MEMORY_LIMIT:=1g}
-#: ${PODMAN_SWAP_LIMIT:=2g}
-# Medium
-#: ${PODMAN_MEMORY_RESERVATION:=1g}
-#: ${PODMAN_MEMORY_LIMIT:=2g}
-#: ${PODMAN_SWAP_LIMIT:=4g}
-# Large
-#: ${PODMAN_MEMORY_RESERVATION:=2g}
-#: ${PODMAN_MEMORY_LIMIT:=4g}
-#: ${PODMAN_SWAP_LIMIT:=8g}
-# Extra-Large
-#: ${PODMAN_MEMORY_RESERVATION:=4g}
-#: ${PODMAN_MEMORY_LIMIT:=8g}
-#: ${PODMAN_SWAP_LIMIT:=16g}
-# XXL
-: ${PODMAN_MEMORY_RESERVATION:=8g}
-: ${PODMAN_MEMORY_LIMIT:=16g}
-: ${PODMAN_SWAP_LIMIT:=24g}
+#: "${PODMAN_MEMORY_RESERVATION:=256m}"
+#: "${PODMAN_MEMORY_LIMIT:=512m}"
+#: "${PODMAN_SWAP_LIMIT:=1g}"
+# Small"
+#: "${PODMAN_MEMORY_RESERVATION:=512m}"
+#: "${PODMAN_MEMORY_LIMIT:=1g}"
+#: "${PODMAN_SWAP_LIMIT:=2g}"
+# Medium"
+#: "${PODMAN_MEMORY_RESERVATION:=1g}"
+#: "${PODMAN_MEMORY_LIMIT:=2g}"
+#: "${PODMAN_SWAP_LIMIT:=4g}"
+# Large"
+#: "${PODMAN_MEMORY_RESERVATION:=2g}"
+#: "${PODMAN_MEMORY_LIMIT:=4g}"
+#: "${PODMAN_SWAP_LIMIT:=8g}"
+# Extra-Large"
+#: "${PODMAN_MEMORY_RESERVATION:=4g}"
+#: "${PODMAN_MEMORY_LIMIT:=8g}"
+#: "${PODMAN_SWAP_LIMIT:=16g}"
+# XXL"
+: "${PODMAN_MEMORY_RESERVATION:=8g}"
+: "${PODMAN_MEMORY_LIMIT:=16g}"
+: "${PODMAN_SWAP_LIMIT:=24g}"
 
 # shellcheck disable=SC2034
 debug=${DEBUG:-}
@@ -215,6 +215,7 @@ docker_setup() {
 			die "Unknown architecture '$( uname -m )'"
 			;;
 	esac
+	export docker_arch arch profile chost
 
 	return 0
 } # docker_setup

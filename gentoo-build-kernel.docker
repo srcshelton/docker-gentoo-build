@@ -73,7 +73,11 @@ else
 	if echo " ${*:-} " | grep -q -- ' --force '; then
 		echo >&2 "WARN:  '--force' is not a valid option without '--config-from'"
 	fi
-	if [ "${menuconfig}" = '1' -o "${nconfig}" = '1' ] && ! echo " ${*:-} " | grep -q -- ' --keep-build'; then
+	# Use bash syntax to avoid shellcheck SC2166
+	if
+		[[ "${menuconfig}" == '1' || "${nconfig}" == '1' ]] &&
+		! echo " ${*:-} " | grep -q -- ' --keep-build'
+	then
 		echo >&2 "WARN:  Changes made to configuration will not be saved externally"
 	fi
 fi

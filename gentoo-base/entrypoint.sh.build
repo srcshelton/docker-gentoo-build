@@ -531,11 +531,11 @@ if [ -n "${ECLASS_OVERRIDE:-}" ]; then
 				else
 					echo "Setting eclass override '${ECLASS_OVERRIDE}' in repos.conf for installation root '${ROOT}' ..."
 					if [ -f "${ROOT%/}/etc/portage/repos.conf" ]; then
-						printf '\neclass-overrides = %s\n' ${ECLASS_OVERRIDE} \
+						printf '\neclass-overrides = %s\n' "${ECLASS_OVERRIDE}" \
 							>> "${ROOT%/}/etc/portage/repos.conf" ||
 						die "Failed to update '${ROOT%/}/etc/portage/repos.conf': ${?}"
 					elif [ -f "${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf" ]; then
-						printf '\neclass-overrides = %s\n' ${ECLASS_OVERRIDE} \
+						printf '\neclass-overrides = %s\n' "${ECLASS_OVERRIDE}" \
 							>> "${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf" ||
 						die "Failed to update '${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf': ${?}"
 					else

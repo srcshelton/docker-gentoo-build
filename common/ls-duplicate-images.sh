@@ -16,7 +16,7 @@ if echo " ${*:-} " | grep -Fq -- ' --all '; then
 fi
 
 output="$(
-	podman image ls ${all:-}							|
+	eval "podman image ls${all:+ ${all}}"						|
 		cut -d' ' -f 1								|
 		grep -v '<none>'							|
 		sort									|

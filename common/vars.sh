@@ -3,7 +3,7 @@
 
 # Since we're now using 'podman info' to determine the graphRoot directory, we
 # need to be root simply to setup the environment appropriately :(
-if (( EUID )); then
+if [ $(( $( id -u ) )) -ne 0 ]; then
 	echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
 	exit 1
 fi
@@ -97,11 +97,7 @@ fi
 
 # Optional override to specify alternative build temporary directory
 #export TMPDIR=/var/tmp
-path=''
-$docker info | grep 'graphRoot:' | cut -d':' -f 2- | while read -r path; do
-	tmp="${path}"
-done
-unset path
+tmp="$( $docker info | grep 'graphRoot:' | cut -d':' -f 2- | awk '{ print $1 }' )/tmp"
 mkdir -p "${tmp:=/var/lib/containers/storage/tmp}"
 export TMPDIR="${tmp}"
 

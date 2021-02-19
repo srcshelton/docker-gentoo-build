@@ -205,7 +205,11 @@ echo
 unset info
 
 # Report stage3 tool versions (because some are masked from the arm64 stage3!)
-/lib*/libc.so.6
+file=''
+for file in /lib*/libc.so.6; do
+	"${file}"
+done
+unset file
 gcc --version
 ld --version
 
@@ -433,8 +437,9 @@ export PATH
 if command -v env-update >/dev/null 2>&1; then
 	LC_ALL='C' env-update
 fi
+file=''
 for file in /etc/profile "${ROOT}"/etc/profile; do
-	# shellcheck disable=SC1091
+	# shellcheck disable=SC1090,SC1091
 	[ -s "${file}" ] && . "${file}"
 done
 unset file
@@ -612,12 +617,14 @@ echo
 # shellcheck disable=SC2012
 if [ -n "$( ls -1 "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log 2>/dev/null | head -n 1 )" ]; then
 	mkdir -p "${PORTAGE_LOGDIR}"/failed 
+	file=''
 	for file in "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log; do
             cat="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"
             pkg="$( echo "${file}" | rev | cut -d'/' -f 3 | rev )"
             mkdir -p "${PORTAGE_LOGDIR}/failed/${cat}"
             mv "${file}" "${PORTAGE_LOGDIR}/failed/${cat}/${pkg}.log"
 	done
+	unset file
 fi
 
 # Cleanup any failed bulids/temporary files ...
@@ -793,7 +800,7 @@ case "${1:-}" in
 							;;
 					esac
 				done
-				first=''
+				#first=''
 				for arg in ${post_pkgs}; do
 					case "${arg}" in
 						-*)	continue ;;
