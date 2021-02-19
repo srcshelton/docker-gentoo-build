@@ -2,6 +2,11 @@
 # stage3:
 #    This is the *only way* to persist variables across docker stages, without
 #    having to write files within containers :(
+#
+#    We're embedding the image IDs of parent containers into their dependents,
+#    but in this case the only thing that can change through this image is the
+#    upstream 'env' or 'stage3' contents - so we'll store their IDs rather than
+#    the ID of this container.
 
 ARG env_name="gentoo-env"
 ARG env_id=""
