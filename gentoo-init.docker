@@ -408,6 +408,8 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 	echo
 	echo " ${blue}*${reset} Stage 'init' complete, next is 'base' ..."
 	echo
+else
+	checkids "${stage3_name}"
 fi
 
 # Launch initial image and run entrypoint script to install root @system, then
@@ -482,6 +484,8 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 	echo
 	echo " ${blue}*${reset} Stage 'base' complete, next is 'build' ..."
 	echo
+else
+	checkids "${init_name}"
 fi
 
 # Ensure that @system is correctly installed to ROOT=/ and snapshot result as
@@ -593,6 +597,8 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	echo
 	echo " ${blue}*${reset} Stage 'build' complete - all done"
 	echo
+else
+	checkids "${base_name}"
 fi
 
 set +o xtrace
