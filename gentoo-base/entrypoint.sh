@@ -616,7 +616,7 @@ echo
 #
 # shellcheck disable=SC2012
 if [ -n "$( ls -1 "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log 2>/dev/null | head -n 1 )" ]; then
-	mkdir -p "${PORTAGE_LOGDIR}"/failed 
+	mkdir -p "${PORTAGE_LOGDIR}"/failed
 	file=''
 	for file in "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log; do
             cat="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"

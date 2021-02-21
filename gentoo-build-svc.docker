@@ -22,18 +22,33 @@ all=0
 rebuild=''
 force=''
 
+service="${1:-}"
+original_service="${1:-}"
+ports="${2:-0}"
+user="${3:-root}"
+group="${4:-root}"
+container_cmd="${5:-}"
+container_cwd="${6:-/}" # Optional
+fs_name="${7:-}" # Optional: If set create /var/{run,log}/${fs_name} in container
+
+rc=0
+
+IMAGE="${build_name}:latest"
+# shellcheck disable=SC1091
+[ -s common/run.sh ] && . common/run.sh >/dev/null
+
 if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	echo >&2 "Usage: $( basename "${0}" ) <service> [<ports> <user> <group> <command> [directory [fs_name]]] [--rebuild] [--force] [--force-keywords]"
-	echo >&2
-	echo >&2 "Known services:"
+	output >&2 "Usage: $( basename "${0}" ) <service> [<ports> <user> <group> <command> [directory [fs_name]]] [--rebuild] [--force] [--force-keywords]"
+	output >&2
+	output >&2 "Known services:"
 	s=''
 	for s in ${services}; do
-		echo >&2 "  ${s}"
+		output >&2 "  ${s}"
 	done
 	unset s
-	echo >&2
-	echo >&2 "  all"
-	echo >&2
+	output >&2
+	output >&2 "  all"
+	output >&2
 	if [ -z "${*:-}" ]; then
 		exit 1
 	else
@@ -72,28 +87,13 @@ for arg in "${@}"; do
 	esac
 done
 
-service="${1:-}"
-original_service="${1:-}"
-ports="${2:-0}"
-user="${3:-root}"
-group="${4:-root}"
-container_cmd="${5:-}"
-container_cwd="${6:-/}" # Optional
-fs_name="${7:-}" # Optional: If set create /var/{run,log}/${fs_name} in container
-
-rc=0
-
-IMAGE="${build_name}:latest"
-# shellcheck disable=SC1091
-[ -s common/run.sh ] && . common/run.sh >/dev/null
-
 if [ -n "${all:-}" ] && [ $(( all )) -eq 1 ]; then
 	if ! [ "${service:-}" = 'all' ]; then
 		c=0 s='' f=''
 		for s in ${services}; do
-			echo >&2
-			echo >&2 " ${red}*${reset} Examining service '${s}' [${rc}/${c}] ..."
-			echo >&2
+			output >&2
+			output >&2 " ${red}*${reset} Examining service '${s}' [${rc}/${c}] ..."
+			output >&2
 
 			: $(( c = c + 1 ))
 			./"$( basename "${0}" )" "${s}" ${rebuild:+--rebuild} ${force:+--force} ${FORCE_KEYWORDS:+--force-keywords} || {
@@ -242,7 +242,7 @@ if [ $(( ${force:-0} )) -eq 0 ]; then
 		error "Docker image 'service.${package_name}:${package_version}' already exists - remove or use --force to rebuild"
 		exit 0
 	else
-		echo "Creating new 'service.${package_name}:${package_version}' image ..."
+		output "Creating new 'service.${package_name}:${package_version}' image ..."
 	fi
 	unset images
 else
@@ -271,7 +271,7 @@ print "Building for PHP versions '${php_targets}'"
 
 case "${package_name}" in
 	*bind*)
-		echo "Setting build variables for package 'bind' ..."
+		output "Setting build variables for package 'bind' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc acct-user/named acct-group/named'
 		extra_pkgs='app-shells/bash dev-lang/perl sys-apps/coreutils'
 
@@ -280,7 +280,7 @@ case "${package_name}" in
 		etcdir='bind'
 		;;
 	*bitlbee*)
-		echo "Setting build variables for package 'bitlbee' ..."
+		output "Setting build variables for package 'bitlbee' ..."
 
 		ports='6667/tcp'
 		user='bitlbee'
@@ -290,7 +290,7 @@ case "${package_name}" in
 		etcdir='bitlbee'
 		;;
 	*captive-portal*)
-		echo "Setting build variables for private package 'captive-portal' ..."
+		output "Setting build variables for private package 'captive-portal' ..."
 
 		ports='8088/tcp'
 		#user='root'
@@ -300,7 +300,7 @@ case "${package_name}" in
 		etcdir='iptables.d'
 		;;
 	*dcc*)
-		echo "Setting build variables for package 'dcc' ..."
+		output "Setting build variables for package 'dcc' ..."
 		extra_pkgs='sys-apps/findutils'
 
 		ports='6276/udp 6276/tcp 6277/udp 6277/tcp'
@@ -308,7 +308,7 @@ case "${package_name}" in
 		etcdir='dcc'
 		;;
 	*dhcp*)
-		echo "Setting build variables for package 'bitlbee' ..."
+		output "Setting build variables for package 'bitlbee' ..."
 
 		ports='67/udp 68/udp 647/tcp 7911/tcp'
 		#user='dhcp'
@@ -317,7 +317,7 @@ case "${package_name}" in
 		etcdir='dhcp'
 		;;
 	*dovecot*)
-		echo "Setting build variables for package 'dovecot' ..."
+		output "Setting build variables for package 'dovecot' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc'
 		extra_pkgs='app-shells/bash mail-mta/msmtp'
 
@@ -326,39 +326,39 @@ case "${package_name}" in
 		etcdir='dovecot'
 		;;
 	*fetchmail*)
-		echo "Setting build variables for packages 'fetchmail', 'procmail', and 'postfix' ..."
+		output "Setting build variables for packages 'fetchmail', 'procmail', and 'postfix' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc'
 		extra_pkgs='app-shells/bash mail-filter/procmail net-mail/dovecot dev-lang/perl'
 
 		container_cmd='/usr/bin/fetchmail'
 		;;
 	*fwupd*)
-		echo "Setting build variables for package 'fwupd' ..."
+		output "Setting build variables for package 'fwupd' ..."
 		pre_remove='sys-libs/libeudev'
 
 		container_cmd='/usr/bin/fwupdtool'
 		;;
 	*imapproxy*)
-		echo "Setting build variables for package 'imapproxy' ..."
+		output "Setting build variables for package 'imapproxy' ..."
 
 		#ports='143/tcp'
 		ports='8143/tcp'
 		container_cmd='/usr/sbin/imapproxyd'
 		;;
 	*irqbalance*)
-		echo "Setting build variables for package 'irqbalance' ..."
+		output "Setting build variables for package 'irqbalance' ..."
 		pre_pkgs='sys-apps/help2man'
 
 		container_cmd='/usr/sbin/irqbalance'
 		;;
 	*less*)
-		echo "Setting build variables for package 'less' ..."
+		output "Setting build variables for package 'less' ..."
 		extra_pkgs='app-text/lesspipe'
 
 		container_cmd='/usr/bin/less'
 		;;
 	*lighttpd*)
-		echo "Setting build variables for package 'lighttpd' ..."
+		output "Setting build variables for package 'lighttpd' ..."
 		pre_pkgs='app-admin/gamin dev-lang/php media-gfx/imagemagick sys-apps/help2man virtual/fam'
 		extra_pkgs='
 			app-admin/gamin
@@ -379,19 +379,19 @@ case "${package_name}" in
 		etcdir='lighttpd'
 		;;
 	*lynis*)
-		echo "Setting build variables for package 'lynis' ..."
+		output "Setting build variables for package 'lynis' ..."
 		extra_pkgs='app-admin/eselect app-eselect/eselect-awk net-misc/openssh sys-apps/coreutils sys-apps/findutils sys-apps/gawk'
 
 		container_cmd='/usr/sbin/lynis'
 		;;
 	*man-db*)
-		echo "Setting build variables for package 'man-db' ..."
+		output "Setting build variables for package 'man-db' ..."
 		pre_pkgs='sys-apps/help2man sys-apps/man-pages sys-apps/man-pages-posix sys-devel/gcc'
 
 		container_cmd='/usr/bin/man'
 		;;
 	*mariadb*)
-		echo "Setting build variables for package 'mariadb' ..."
+		output "Setting build variables for package 'mariadb' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc'
 		# To run ebuild 'pkg_config' function within container ...
 		extra_pkgs="app-shells/bash dev-db/mysqltuner"
@@ -404,19 +404,19 @@ case "${package_name}" in
 		etcdir='mysql'
 		;;
 	*memcached*)
-		echo "Setting build variables for package 'memcached' ..."
+		output "Setting build variables for package 'memcached' ..."
 
 		container_cmd='/usr/bin/memcached'
 		;;
 	*metalog*)
-		echo "Setting build variables for package 'metalog' ..."
+		output "Setting build variables for package 'metalog' ..."
 
 		ports='514/udp'
 		container_cmd='/usr/sbin/metalog'
 		etcdir='metalog'
 		;;
 	*opendkim*)
-		echo "Setting build variables for package 'opendkim' ..."
+		output "Setting build variables for package 'opendkim' ..."
 		pre_pkgs='sys-apps/help2man'
 		extra_pkgs='acct-group/mail'
 
@@ -428,7 +428,7 @@ case "${package_name}" in
 		etcdir='opendkim'
 		;;
 	*opendmarc*)
-		echo "Setting build variables for package 'opendmarc' ..."
+		output "Setting build variables for package 'opendmarc' ..."
 		pre_pkgs='sys-devel/gcc'
 		extra_pkgs='mail-mta/msmtp'
 
@@ -440,7 +440,7 @@ case "${package_name}" in
 		etcdir='opendmarc'
 		;;
 	*openntpd*)
-		echo "Setting build variables for package 'openntpd' ..."
+		output "Setting build variables for package 'openntpd' ..."
 		# LibreSSL is now deprecated, so we don't need to jump through these hoops...
 		#pre_remove='app-arch/libarchive dev-libs/openssl dev-python/pypy dev-python/pypy3 dev-python/pypy3-exe net-misc/wget'
 		#pre_remove='app-arch/libarchive dev-libs/openssl' # net-misc/wget'
@@ -461,7 +461,7 @@ case "${package_name}" in
 	*php*)
 		LIB='lib64'
 		PHP_SLOT='php7.4'
-		echo "Setting build variables for package 'php' ..."
+		output "Setting build variables for package 'php' ..."
 		# eselect-php-0.9.6+ required for ROOT support
 		pre_pkgs='dev-php/PEAR-PEAR media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6'
 		# TODO: There has to be a better way... ?
@@ -523,14 +523,14 @@ case "${package_name}" in
 		etcdir='php'
 		;;
 	*pinfo*)
-		echo "Setting build variables for package 'pinfo' ..."
+		output "Setting build variables for package 'pinfo' ..."
 		pre_pkgs='sys-apps/help2man'
 		extra_pkgs='sys-apps/texinfo'
 
 		container_cmd='/usr/bin/pinfo'
 		;;
 	*postfix*)
-		echo "Setting build variables for package 'postfix' ..."
+		output "Setting build variables for package 'postfix' ..."
 		# mail-filter/maildrop's BDEPEND/DEPEND isn't working :(
 		pre_pkgs='sys-apps/help2man acct-user/postfix dev-libs/libpcre net-dns/libidn net-libs/courier-unicode sys-devel/automake sys-devel/gcc sys-devel/libtool'
 		extra_pkgs='dev-libs/cyrus-sasl'
@@ -541,7 +541,7 @@ case "${package_name}" in
 		etcdir='postfix sasl2'
 		;;
 	*postgrey*)
-		echo "Setting build variables for package 'postgrey' ..."
+		output "Setting build variables for package 'postgrey' ..."
 		pre_pkgs='acct-user/postfix acct-user/postgrey acct-group/postgrey'
 
 		container_cmd='/usr/sbin/postgrey'
@@ -549,7 +549,7 @@ case "${package_name}" in
 		etcdir='postfix'
 		;;
 	*powertop*)
-		echo "Setting build variables for package 'powertop' ..."
+		output "Setting build variables for package 'powertop' ..."
 		pre_pkgs='sys-devel/gcc'
 		extra_pkgs='x11-apps/xset'
 
@@ -557,7 +557,7 @@ case "${package_name}" in
 		# Container requires '--privileged' to operate, data in /var/cache/powertop/
 		;;
 	*redis*)
-		echo "Setting build variables for package 'redis' ..."
+		output "Setting build variables for package 'redis' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc'
 
 		ports='6379/tcp 26379/tcp'
@@ -569,7 +569,7 @@ case "${package_name}" in
 	*spamassassin*)
 		pre_pkgs='sys-apps/help2man acct-user/spamd acct-group/spamd'
 		if [ "${original_service}" = 'spamassassin-update' ] || [ "${original_service}" = 'sa-update' ]; then
-			echo "Setting build variables for package 'spamassassin-update' ..."
+			output "Setting build variables for package 'spamassassin-update' ..."
 			# 'srcshelton' repo relocates gawk to /bin/
 			impl='::srcshelton'
 			extra_pkgs="
@@ -602,7 +602,7 @@ case "${package_name}" in
 
 			container_cmd='/usr/bin/sa-update'
 		else
-			echo "Setting build variables for package 'spamassassin' ..."
+			output "Setting build variables for package 'spamassassin' ..."
 			extra_pkgs='
 				>=dev-perl/Crypt-OpenSSL-DSA-0.150.0
 				>=dev-perl/Crypt-OpenSSL-EC-1.10.0
@@ -627,7 +627,7 @@ case "${package_name}" in
 		# 'eval: failed to locate the triplets.txt file' is normal, the file was removed but
 		# the eval wasn't :o
 		#
-		echo "Setting build variables for package 'spampd' ..."
+		output "Setting build variables for package 'spampd' ..."
 		pre_pkgs='sys-apps/help2man acct-user/mail acct-group/mail acct-user/spamd acct-group/spamd'
 		extra_pkgs='
 			>=dev-perl/Crypt-OpenSSL-DSA-0.150.0
@@ -654,7 +654,7 @@ case "${package_name}" in
 		container_cmd='/usr/sbin/spampd.pl'
 		;;
 	*subversion*)
-		echo "Setting build variables for package 'svnserve' ..."
+		output "Setting build variables for package 'svnserve' ..."
 		pre_pkgs='sys-apps/help2man acct-user/svn acct-group/svnusers'
 		force_python="${python_target}"
 		extra_pkgs='dev-lang/python'
@@ -667,7 +667,7 @@ case "${package_name}" in
 		container_cwd='/'
 		;;
 	*syslog-ng*)
-		echo "Setting build variables for package 'syslog-ng' ..."
+		output "Setting build variables for package 'syslog-ng' ..."
 		pre_pkgs='sys-apps/help2man'
 
 		ports='514/udp'
@@ -676,7 +676,7 @@ case "${package_name}" in
 		etcdir='syslog-ng'
 		;;
 	*unifi*)
-		echo "Setting build variales for package 'unifi-controller-bin' ..."
+		output "Setting build variales for package 'unifi-controller-bin' ..."
 		CFLAGS="${CFLAGS:+${CFLAGS} }-w"  # mongodb is *really* noisy...
 		#EMERGE_OPTS='--single --swap'  # Merge packages one at a time, for debug purposes
 
@@ -740,20 +740,20 @@ case "${package_name}" in
 		container_cmd='/usr/bin/java'
 		;;
 	*vim*)
-		echo "Setting build variables for package 'vim' ..."
+		output "Setting build variables for package 'vim' ..."
 		extra_pkgs='app-vim/dhcpd-syntax app-vim/eselect-syntax app-vim/gentoo-syntax app-vim/help-extra-syntax app-vim/info app-vim/json app-vim/nginx-syntax app-vim/ntp-syntax vim-spell-en'
 
 		container_cmd='/usr/bin/vim'
 		etcdir='vim'
 		;;
 	*watchdog*)
-		echo "Setting build variables for package 'watchdog' ..."
+		output "Setting build variables for package 'watchdog' ..."
 
 		container_cmd='/usr/sbin/watchdog'
 		;;
 	*zxtm*)
 		ZEUSHOME='/opt/zeus'
-		echo "Setting build variables for package 'zxtm' ..."
+		output "Setting build variables for package 'zxtm' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc'
 		extra_pkgs='app-eselect/eselect-iptables app-shells/bash net-firewall/iptables sys-apps/iproute2 sys-process/procps'
 
@@ -761,7 +761,7 @@ case "${package_name}" in
 		container_cwd="${ZEUSHOME}"
 		;;
 esac
-#echo >&2 "DEBUG: Additional USE flags are '${with_use:-<none>}'"
+#print "Additional USE flags are '${with_use:-<none>}'"
 
 pre_use="$( echo "${pre_use}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
 pre_pkgs="$( echo "${pre_pkgs}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
@@ -895,12 +895,12 @@ export DOCKER_EXTRA_MOUNTS
 
 images="$( $docker image ls "buildsvc-${package_name}:${package_version}" 2>&1 )"
 if echo "${images:-}" | grep -q -- "buildsvc-${package_name}\s\+${package_version}\s"; then
-	echo >&2
-	echo >&2 " ${blue}*${reset} Re-using existing '${package_name}:${package_version}' root image ..."
+	output >&2
+	output >&2 " ${blue}*${reset} Re-using existing '${package_name}:${package_version}' root image ..."
 else
-	echo >&2
-	echo >&2 " ${blue}*${reset} Building '${package_name}:${package_version}' root image ..."
-	echo >&2
+	output >&2
+	output >&2 " ${blue}*${reset} Building '${package_name}:${package_version}' root image ..."
+	output >&2
 
 	trap '' INT
 	$docker stop "buildsvc-${container_name}" 2>/dev/null || :
@@ -936,7 +936,7 @@ else
 	2>&1 | tee log/"docker.buildsvc-${container_name}.log"
 	#DOCKER_VARS="--env CURL_SSL=${ssl_opt}" \
 	rc=${?}
-	echo " -> ${rc}"
+	output " -> ${rc}"
 
 	[ "${rc}" = '0' ] || exit 1
 
@@ -948,7 +948,7 @@ else
 		2>&1 | tee -a log/"docker.buildsvc-${container_name}.log"
 	rc=${?}
 	trap - INT
-	echo " -> ${rc}"
+	output " -> ${rc}"
 
 	[ "${rc}" = '0' ] || exit 1
 fi
@@ -970,9 +970,9 @@ case "${package_name}" in
 		;;
 esac
 
-echo >&2
-echo >&2 " ${blue}*${reset} Building ${package_name}:${package_version} (${container_cmd}) service image ..."
-echo >&2
+output >&2
+output >&2 " ${blue}*${reset} Building ${package_name}:${package_version} (${container_cmd}) service image ..."
+output >&2
 
 # shellcheck disable=SC2001 # POSIX sh compatibility
 $docker build \
@@ -996,7 +996,7 @@ $docker build \
 	.  2>&1 | tee ../log/"docker.service.${container_name}.log"
 		#--network slirp4netns \
 rc=${?}
-echo " -> ${rc}"
+output " -> ${rc}"
 
 if [ $(( ${rc:-1} )) -eq 0 ]; then
 	trap '' INT
@@ -1006,4 +1006,4 @@ fi
 
 #set +o xtrace
 
-exit ${rc} 
+exit ${rc}

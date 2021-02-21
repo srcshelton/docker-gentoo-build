@@ -15,7 +15,7 @@ if echo " ${*:-} " | grep -Fq -- ' --all '; then
 	all=''
 fi
 
-output="$(
+images="$(
 	eval "podman image ls${all:+ ${all}}"						|
 		cut -d' ' -f 1								|
 		grep -v '<none>'							|
@@ -33,8 +33,8 @@ output="$(
 		sed -r 's/IMAGE_ID/IMAGE ID/ ; s/([0-9]+)_([^_]+)_ago/\1 \2 ago/'
 )"
 
-echo "${output}" | tail -n 1
+echo "${images}" | tail -n 1
 
-echo "${output}" | head -n -1
+echo "${images}" | head -n -1
 
 # vi: set sw=8 ts=8:

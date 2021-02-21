@@ -116,9 +116,9 @@ pkg_remove() {
 				if [ -e "${ROOT%/}/var/lib/portage/world" ]; then
 					str="$( echo "${pkg}" | sed 's|/|\\/|g' )"
 					if sed -i "/${str}/ d" "${ROOT%/}/var/lib/portage/world"; then
-						print "Manually removed '${pkg}' from world profile" 
+						print "Manually removed '${pkg}' from world profile"
 					else
-						warn "Failed to remove '${pkg}' from world profile (or package already removed)" 
+						warn "Failed to remove '${pkg}' from world profile (or package already removed)"
 					fi
 					unset str
 				fi

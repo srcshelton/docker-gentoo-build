@@ -46,7 +46,7 @@ IMAGE="${build_name}:latest"
 
 if [ -n "${*:-}" ]; then
 	if echo " ${*} " | grep -Eq -- ' -(h|-help) '; then
-		echo >&2 "Usage: $( basename "${0}" ) --image=<image> [--name=<name>] [--remove] [commands]"
+		output >&2 "Usage: $( basename "${0}" ) --image=<image> [--name=<name>] [--remove] [commands]"
 		exit 0
 	fi
 fi
@@ -258,7 +258,7 @@ fi
 
 rc=0
 
-echo >&2 "Launching container '${name}' from image '${image}' ..."
+output >&2 "Launching container '${name}' from image '${image}' ..."
 
 #set -o xtrace
 docker_run || rc=${?}

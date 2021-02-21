@@ -55,7 +55,7 @@ fi
 
 if [ -n "${*:-}" ]; then
 	if echo " ${*} " | grep -Eq -- ' -(h|-help) '; then
-		echo >&2 "Usage: $( basename "${0}" ) [--env] [--stage3] [--init]" \
+		output >&2 "Usage: $( basename "${0}" ) [--env] [--stage3] [--init]" \
 			"[[--force] --base] [[--force] --build]"
 		exit 0
 	elif
@@ -125,7 +125,7 @@ checkids() {
 
 		# Does our current 'gentoo-env' ID match that encoded in our stage3?
 		if [ "${env_id}" != "${stage3_env_id:-}" ]; then
-			echo >&2 "${bold:-}WARN${reset:-}:  ${red:-}" \
+			output >&2 "${bold:-}WARN${reset:-}:  ${red:-}" \
 				"The current 'environment' image (${env_id}) differs from" \
 				"that used to build the '${name}' image (${stage3_env_id:-})" \
 				"${relation} this stage${reset:-}"
@@ -141,7 +141,7 @@ checkids() {
 
 			# Does our upstream stage3 ID match that encoded in our stage3?
 			if [ "${stage3_id}" != "${stage3_src_id:-}" ]; then
-				echo >&2 "${bold:-}WARN${reset:-}:  ${red:-}" \
+				output >&2 "${bold:-}WARN${reset:-}:  ${red:-}" \
 					"The upstream 'stage3' image (${stage3_id}) differs from" \
 					"that used to build the '${name}' image" \
 					"(${stage3_src_id:-}) ${relation} this stage${reset}"
@@ -190,18 +190,17 @@ local_stage3_id="$(
 # Create empty stage with shared environment variables ...
 #
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
-	echo
-	echo " ${blue}*${reset} Creating image 'localhost/${env_name}:latest' ..."
-	echo
+	output
+	output " ${blue}*${reset} Creating image 'localhost/${env_name}:latest' ..."
+	output
 
 	# NAME:    env
-	# LABELS:  
-	# USES:    
+	# LABELS:
+	# USES:
 	# USED_BY: stage3 build
 
 	# shellcheck disable=SC2086
 	$docker build \
-			--override-arch "${docker_arch}" \
 			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg PROFILE_PATH="${profile:-}" \
@@ -218,7 +217,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 			--tag "${env_name}:latest" \
 			--rm \
 		. 2>&1 | tee ../log/"docker.${env_name}.log"
-	echo " -> ${?}"
+	output " -> ${?}"
 
 	[ "${*:-}" = '--env' ] && exit 0
 
@@ -227,9 +226,9 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 		"localhost/${env_name}:latest" 2>/dev/null
 	)"
 
-	echo
-	echo " ${blue}*${reset} Stage 'env' complete, next is 'stage3' ..."
-	echo
+	output
+	output " ${blue}*${reset} Stage 'env' complete, next is 'stage3' ..."
+	output
 fi
 
 stage3_image="$(
@@ -243,10 +242,10 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 			"'$( basename "${0}" ) --env'"
 	fi
 
-	echo
-	echo " ${blue}*${reset} Creating image" \
+	output
+	output " ${blue}*${reset} Creating image" \
 		"'localhost/${stage3_name}:latest' ..."
-	echo
+	output
 
 	# We have to 'pull' manually, or else this stage fails ...
 	rc=0
@@ -294,7 +293,6 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 
 	# shellcheck disable=SC2086
 	$docker build \
-			--override-arch "${docker_arch}" \
 			--platform "linux/${docker_arch}" \
 			--build-arg env_id="${env_id}" \
 			--build-arg env_name="${env_name}" \
@@ -308,7 +306,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 			--no-cache \
 			--tag "${stage3_name}:latest" \
 		. 2>&1 | tee -a ../log/"docker.${stage3_name}.log"
-	echo " -> ${?}"
+	output " -> ${?}"
 
 	[ "${*:-}" = '--stage3' ] && exit 0
 
@@ -318,9 +316,9 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 			"localhost/${stage3_name}:latest" 2>/dev/null
 	)"
 
-	echo
-	echo " ${blue}*${reset} Stage 'stage3' complete, next is 'init' ..."
-	echo
+	output
+	output " ${blue}*${reset} Stage 'stage3' complete, next is 'init' ..."
+	output
 else
 	stage3_id="$(
 		$docker image ls \
@@ -346,14 +344,14 @@ if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
 		)" || :
 		if [ "${imagesum:-}" != "${sum}" ]; then
 			if echo " ${*} " | grep -Fq -- ' --force '; then
-				echo >&2
-				echo >&2 "${bold}WARN${reset}:  ${red}entrypoint.sh sum from" \
+				output >&2
+				output >&2 "${bold}WARN${reset}:  ${red}entrypoint.sh sum from" \
 					"'${init_name}:latest' image (${imagesum:-<unknown>})" \
 					"does not match file on disk (${sum}) - forcing" \
 					"continuation with existing embedded script ...${reset}"
 			else
-				echo >&2
-				echo >&2 "${bold}WARN${reset}:  ${red}entrypoint.sh sum from" \
+				output >&2
+				output >&2 "${bold}WARN${reset}:  ${red}entrypoint.sh sum from" \
 					"'${init_name}:latest' image (${imagesum:-<unknown>})" \
 					"does not match file on disk (${sum}) - rebuilding" \
 					"initial image ...${reset}"
@@ -361,7 +359,7 @@ if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
 			fi
 		fi
 	else
-		echo >&2 "docker image '${init_name}' not found - rebuilding initial" \
+		output >&2 "docker image '${init_name}' not found - rebuilding initial" \
 			"image ..."
 		set --
 	fi
@@ -375,9 +373,9 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 			) --stage3'"
 	fi
 
-	echo
-	echo " ${blue}*${reset} Creating image 'localhost/${init_name}:latest' ..."
-	echo
+	output
+	output " ${blue}*${reset} Creating image 'localhost/${init_name}:latest' ..."
+	output
 
 	checkids "${stage3_name}"
 
@@ -388,7 +386,6 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 
 	# shellcheck disable=SC2086
 	$docker build \
-			--override-arch "${docker_arch}" \
 			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg entrypoint_sum="${sum}" \
@@ -403,11 +400,11 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 			--tag "${init_name}:latest" \
 		. 2>&1 | tee ../log/"docker.${init_name}.log"
 			#--network slirp4netns \
-	echo " -> ${?}"
+	output " -> ${?}"
 
-	echo
-	echo " ${blue}*${reset} Stage 'init' complete, next is 'base' ..."
-	echo
+	output
+	output " ${blue}*${reset} Stage 'init' complete, next is 'base' ..."
+	output
 else
 	checkids "${stage3_name}"
 fi
@@ -423,10 +420,10 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 		) --init'"
 	fi
 
-	echo
-	echo " ${blue}*${reset} Deploying container '${base_name}' from image" \
+	output
+	output " ${blue}*${reset} Deploying container '${base_name}' from image" \
 		"'${init_name}:latest' ..."
-	echo
+	output
 
 	checkids "${init_name}"
 
@@ -457,6 +454,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 		export name="${base_name}"
 		# shellcheck disable=SC2030
 		export image="${init_name}:latest"
+		export DOCKER_VARS="--env ARCH=${arch:-${ARCH}}"
 		docker_run \
 				--post-pkgs="${post}" \
 				--usepkg=y \
@@ -465,12 +463,12 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 			virtual/libc 2>&1 |
 		tee ../log/"docker.${base_name}.log"
 	)
-	echo " -> ${?}"
+	output " -> ${?}"
 
-	echo
-	echo " ${blue}*${reset} Saving container '${base_name}' as image" \
+	output
+	output " ${blue}*${reset} Saving container '${base_name}' as image" \
 		"'${base_name}:latest' ..."
-	echo
+	output
 
 	# shellcheck disable=SC2086
 	trap '' INT
@@ -479,11 +477,11 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 	$docker rm --volumes "${base_name}" 2>&1 |
 		tee -a ../log/"docker.${base_name}.log"
 	trap - INT
-	echo " -> ${?}"
+	output " -> ${?}"
 
-	echo
-	echo " ${blue}*${reset} Stage 'base' complete, next is 'build' ..."
-	echo
+	output
+	output " ${blue}*${reset} Stage 'base' complete, next is 'build' ..."
+	output
 else
 	checkids "${init_name}"
 fi
@@ -498,9 +496,9 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 		) --base'"
 	fi
 
-	echo
-	echo " ${blue}*${reset} Deploying container '${build_name}' ..."
-	echo
+	output
+	output " ${blue}*${reset} Deploying container '${build_name}' ..."
+	output
 
 	checkids "${base_name}"
 
@@ -530,7 +528,6 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 
 	# shellcheck disable=SC2086
 	$docker build \
-			--override-arch "${docker_arch}" \
 			--platform "linux/${docker_arch}" \
 			--build-arg env_id="${env_id}" \
 			--build-arg environment_filter="${environment_filter}" \
@@ -575,12 +572,12 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 			${use_pypy:+sys-apps/portage ${use_pypy:-}} 2>&1 |
 		tee -a ../log/"docker.${build_name}.log"
 	)
-	echo " -> ${?}"
+	output " -> ${?}"
 
-	echo
-	echo " ${blue}*${reset} Saving container '${build_name}' as image" \
+	output
+	output " ${blue}*${reset} Saving container '${build_name}' as image" \
 		"'${build_name}:latest' ..."
-	echo
+	output
 	trap '' INT
 	# shellcheck disable=SC2086
 	$docker commit "${build_name}" "${build_name}:latest" 2>&1 |
@@ -591,12 +588,12 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	# shellcheck disable=SC2086
 	$docker image rm "${build_name}-root:latest" 2>&1 |
 		tee -a ../log/"docker.${build_name}.log"
-	echo " -> ${?}"
+	output " -> ${?}"
 	trap - INT
 
-	echo
-	echo " ${blue}*${reset} Stage 'build' complete - all done"
-	echo
+	output
+	output " ${blue}*${reset} Stage 'build' complete - all done"
+	output
 else
 	checkids "${base_name}"
 fi

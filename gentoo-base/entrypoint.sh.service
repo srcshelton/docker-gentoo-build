@@ -131,7 +131,7 @@ if [ "${service_cmd}" = '/usr/bin/man' ] && [ -x /usr/bin/mandb ] && getent pass
 		done
 	done
 	unset s
-	
+
 	echo >&2 "Rebuilding man-db cache ..."
 	nice mandb --no-purge --quiet || rc=${?}
 	print "mandb update returned ${rc}"

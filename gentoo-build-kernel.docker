@@ -1,5 +1,8 @@
 #! /usr/bin/env bash
 
+#debug="${DEBUG:-}"
+#trace="${TRACE:-}"
+
 set -u
 set -o pipefail
 
@@ -19,24 +22,24 @@ declare IMAGE="${build_name}:latest"
 [ -s common/run.sh ] && . common/run.sh
 
 if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	echo >&2 "Usage: $( basename "${0}" ) [--config-from=<file> [--force]] [--no-keep-build|--keep-build[=<dir>]] [--no-patch|--patch=<url>[,<url]] [--menuconfig|--nconfig] [--package=<atom>] [--clang]"
-	echo >&2
-	echo >&2 "Options:"
-	echo >&2 "        --config-from Use specified file as kernel base configuration"
-	echo >&2 "                      (specify config.gz or /proc/config.gz to auto-extract the"
-	echo >&2 "                       active kernel configuration)"
-	echo >&2 "                      N.B. To save the resultant configuration, use the"
-	echo >&2 "                           '--keep-build' option to save the build output"
-	echo >&2 "        --force       Overwrite build-cache configuration with specified file"
-	echo >&2 "        --keep-build  Cache the kernel build artefacts for re-use"
-	echo >&2 "                      (optionally in the specified directory)"
-	echo >&2 "        --menuconfig  Interactively reconfigure the kernel via ncurses"
-	echo >&2 "        --nconfig     Interactively reconfigure the kernel via nconfig"
-	echo >&2 "        --package     Specify kernel package to build"
-	echo >&2 "                      (default: sys-kernel/gentoo-sources)"
-	echo >&2 "        --clang       Compile kernel with llvm"
-	echo >&2 "        --patch <url> Apply patch (-p1) from specified URL"
-	echo >&2
+	output >&2 "Usage: $( basename "${0}" ) [--config-from=<file> [--force]] [--no-keep-build|--keep-build[=<dir>]] [--no-patch|--patch=<url>[,<url]] [--menuconfig|--nconfig] [--package=<atom>] [--clang]"
+	output >&2
+	output >&2 "Options:"
+	output >&2 "        --config-from Use specified file as kernel base configuration"
+	output >&2 "                      (specify config.gz or /proc/config.gz to auto-extract the"
+	output >&2 "                       active kernel configuration)"
+	output >&2 "                      N.B. To save the resultant configuration, use the"
+	output >&2 "                           '--keep-build' option to save the build output"
+	output >&2 "        --force       Overwrite build-cache configuration with specified file"
+	output >&2 "        --keep-build  Cache the kernel build artefacts for re-use"
+	output >&2 "                      (optionally in the specified directory)"
+	output >&2 "        --menuconfig  Interactively reconfigure the kernel via ncurses"
+	output >&2 "        --nconfig     Interactively reconfigure the kernel via nconfig"
+	output >&2 "        --package     Specify kernel package to build"
+	output >&2 "                      (default: sys-kernel/gentoo-sources)"
+	output >&2 "        --clang       Compile kernel with llvm"
+	output >&2 "        --patch <url> Apply patch (-p1) from specified URL"
+	output >&2
 	exit 0
 fi
 declare build=1
@@ -49,11 +52,12 @@ declare nconfig=''
 declare version=''
 declare patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/enable_additional_cpu_optimizations_for_gcc_v9.1%2B_kernel_v5.8%2B.patch'
 if echo " ${*:-} " | grep -q -- ' --menuconfig '; then
-	menuconfig=1
+	menuconfig='menuconfig'  # Just has to be set...
+	nconfig=''
 fi
 if echo " ${*:-} " | grep -q -- ' --nconfig '; then
-	menuconfig=0
-	nconfig=1
+	menuconfig=''
+	nconfig='nconfig'  # Just has to be set...
 fi
 if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 	compiler='clang'
@@ -64,21 +68,21 @@ if echo " ${*:-} " | grep -Eq -- ' --config(-from)?[= ]'; then
 	elif echo " ${*:-} " | grep -Eq -- ' --config(-from)? [^ -][^ ]* '; then
 		config="$( echo " ${*} " | grep -Eo -- '--config(-from)? [^ ]+ ' | cut -d' ' -f 2- | sed 's/ $//' )"
 	else
-		echo "WARN:  Invalid config option '$( echo " ${*:-} " | grep -Eo -- '--config[^ ]*[= ][^ ]+ ' | sed 's/ $//' )'"
+		warn "Invalid config option '$( echo " ${*:-} " | grep -Eo -- '--config[^ ]*[= ][^ ]+ ' | sed 's/ $//' )'"
 	fi
 	if echo " ${*:-} " | grep -q -- ' --force '; then
 		force=1
 	fi
 else
 	if echo " ${*:-} " | grep -q -- ' --force '; then
-		echo >&2 "WARN:  '--force' is not a valid option without '--config-from'"
+		warn "'--force' is not a valid option without '--config-from'"
 	fi
 	# Use bash syntax to avoid shellcheck SC2166
 	if
 		[[ "${menuconfig}" == '1' || "${nconfig}" == '1' ]] &&
 		! echo " ${*:-} " | grep -q -- ' --keep-build'
 	then
-		echo >&2 "WARN:  Changes made to configuration will not be saved externally"
+		warn "Changes made to configuration will not be saved externally"
 	fi
 fi
 if echo " ${*:-} " | grep -q -- ' --keep-build'; then
@@ -91,7 +95,7 @@ if echo " ${*:-} " | grep -q -- ' --keep-build'; then
 	elif echo " ${*:-} " | grep -q -- ' --keep-build '; then
 		build=1
 	else
-		echo "WARN:  Invalid build option '$( echo " ${*:-} " | grep -o -- '--keep-build[^ ]\+ ' | sed 's/ $//' )'"
+		warn "Invalid build option '$( echo " ${*:-} " | grep -o -- '--keep-build[^ ]\+ ' | sed 's/ $//' )'"
 	fi
 elif echo " ${*:-} " | grep -q -- ' --no-keep-build'; then
 	build_dir=''
@@ -103,7 +107,7 @@ if echo " ${*:-} " | grep -q -- ' --package'; then
 	elif echo " ${*:-} " | grep -q -- ' --package [^ -][^ ]* '; then
 		version="$( echo " ${*} " | grep -o -- '--package [^ ]\+ ' | cut -d' ' -f 2- | sed 's/ $//' )"
 	else
-		echo "WARN:  Invalid package option '$( echo " ${*:-} " | grep -o -- ' --package[^ ]\+ ' | sed 's/ $//' )'"
+		warn "Invalid package option '$( echo " ${*:-} " | grep -o -- ' --package[^ ]\+ ' | sed 's/ $//' )'"
 	fi
 fi
 if echo " ${*:-} " | grep -q -- ' --patch'; then
@@ -112,7 +116,7 @@ if echo " ${*:-} " | grep -q -- ' --patch'; then
 	elif echo " ${*:-} " | grep -q -- ' --patch [^ -][^ ]* '; then
 		patch="$( echo " ${*} " | grep -o -- '--patch [^ ]\+ ' | cut -d' ' -f 2- | sed 's/ $// ; s/,/ /g' )"
 	else
-		echo "WARN:  Invalid patch option '$( echo " ${*:-} " | grep -o -- ' --patch[^ ]\+ ' | sed 's/ $//' )'"
+		warn "Invalid patch option '$( echo " ${*:-} " | grep -o -- ' --patch[^ ]\+ ' | sed 's/ $//' )'"
 	fi
 elif echo " ${*:-} " | grep -q -- ' --no-patch'; then
 	patch=''
@@ -125,15 +129,15 @@ fi
 $docker image ls "${IMAGE%:*}" | grep -Eq -- "^(localhost/)?${IMAGE%:*}" || die "docker image '${IMAGE%:*}' not found"
 
 if mount | grep ' on /boot ' | grep -Eq '(\(ro,|,ro,|,ro\))'; then
-	echo >&2
-	echo >&2 '*****'
-	echo >&2 '*'
-	echo >&2 '* WARNING: Your /boot partition is mounted read-only'
-	echo >&2 '*'
-	echo >&2 '*          Please remount read/write and retry'
-	echo >&2 '*'
-	echo >&2 '*****'
-	echo >&2
+	output >&2
+	output >&2 '*****'
+	output >&2 '*'
+	output >&2 '* WARNING: Your /boot partition is mounted read-only'
+	output >&2 '*'
+	output >&2 '*          Please remount read/write and retry'
+	output >&2 '*'
+	output >&2 '*****'
+	output >&2
 	sleep 5
 fi
 
@@ -161,7 +165,7 @@ if [ -z "${build_dir:-}" ]; then
 	esac
 fi
 if [ "${build:-}" = '1' ]; then
-	echo >&2 "INFO:  Using build directory '${build_dir}' ..."
+	info >&2 "Using build directory '${build_dir}' ..."
 	mkdir -p "${build_dir}" || die "mkdir() on '${build_dir}' failed: ${?}"
 fi
 
@@ -184,7 +188,7 @@ if [ -n "${config:-}" ]; then
 			if [ -e "${TMPDIR:-/tmp}/config" ]; then
 				die "'${TMPDIR:-/tmp}/config' already exists"
 			fi
-			echo >&2 "NOTE:  Extracting /proc/config.gz to '${TMPDIR:-/tmp}' ..."
+			note >&2 "Extracting /proc/config.gz to '${TMPDIR:-/tmp}' ..."
 			zcat /proc/config.gz > "${TMPDIR:-/tmp}/config"
 			config="${TMPDIR:-/tmp}/config"
 		fi
@@ -202,8 +206,8 @@ if [ -n "${config:-}" ]; then
 		die "Cannot write to kernel configuration file '${config}'"
 	fi
 	if ! [ "${build:-}" = '1' ]; then
-		#echo >&2 "INFO:  Using '${config}' as kernel configuration - changes WILL BE saved to this file..."
-		echo >&2 "INFO:  Using '${config}' as kernel configuration"
+		#info >&2 "Using '${config}' as kernel configuration - changes WILL BE saved to this file..."
+		info >&2 "Using '${config}' as kernel configuration"
 	fi
 fi
 
@@ -274,12 +278,12 @@ if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:$
 				sys-firmware/intel-microcode \
 				sys-kernel/linux-firmware \
 			2>&1 | tee log/"docker.${container_name}-${compiler}.log"
-		echo " -> ${?}"
+		output " -> ${?}"
 
 		trap '' INT
 		$docker commit "${container_name}-${compiler}" "${container_name%-${package_version}}.${compiler}:${package_version}" 2>&1 | tee -a log/"docker.${container_name}.log"
 		$docker rm --volumes "${container_name}-${compiler}" 2>&1 | tee -a log/"docker.${container_name}-${compiler}.log"
-		echo " -> ${?}"
+		output " -> ${?}"
 		trap - INT
 	)
 fi
@@ -338,7 +342,7 @@ kernel_make_opts+=(
 )
 DOCKER_SCRIPT="$( cat <<-EOF
 	set -eu ;
-	[ -e /usr/src/linux ] || { 
+	[ -e /usr/src/linux ] || {
 		echo >&2 "FATAL: '/usr/src/linux' does not exist in container" ;
 		exit 1 ;
 	} ;
@@ -366,7 +370,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	make mrproper ;
 	if [ -n "${patch}" ]; then
 		for p in ${patch}; do
-			wget "\${p}" -O patch.diff && cat patch.diff | patch -p1 && rm patch.diff ;
+			wget "\${p}" -qO patch.diff && cat patch.diff | patch -p1 && rm patch.diff ;
 		done ;
 	fi ;
 	mkdir -p ../build ;
@@ -398,6 +402,6 @@ image="${container_name%-${package_version}}.${compiler}:${package_version}" \
 		2>&1 | tee -a log/"docker.${container_name}-${compiler}.log"
 rc=${?}
 #set +x
-echo " -> ${rc}"
+output " -> ${rc}"
 
 exit ${rc}

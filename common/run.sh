@@ -32,31 +32,59 @@
 debug=${DEBUG:-}
 trace=${TRACE:-}
 
+output() {
+	if [ -z "${*:-}" ]; then
+		echo
+	else
+		echo -e "${*:-}"
+	fi
+} # output
+
 die() {
-	printf >&2 'FATAL: %s\n' "${*:-Unknown error}"
+	output >&2 "FATAL: ${*:-Unknown error}"
 	exit 1
 } # die
 
 error() {
-	[ -z "${*:-}" ] && echo || printf >&2 'ERROR: %s\n' "${*}"
+	if [ -z "${*:-}" ]; then
+		output >&2
+	else
+		output >&2 "ERROR: ${*}"
+	fi
 	return 1
 } # error
 
 warn() {
-	[ -z "${*:-}" ] && echo || printf >&2 'WARN:  %s\n' "${*}"
+	if [ -z "${*:-}" ]; then
+		output >&2
+	else
+		output >&2 "WARN:  ${*}"
+	fi
 } # warn
 
 note() {
-	[ -z "${*:-}" ] && echo || printf >&2 'NOTE:  %s\n' "${*}"
+	if [ -z "${*:-}" ]; then
+		output >&2
+	else
+		output >&2 "NOTE:  ${*}"
+	fi
 } # note
 
 info() {
-	[ -z "${*:-}" ] && echo || printf 'INFO:  %s\n' "${*}"
+	if [ -z "${*:-}" ]; then
+		output
+	else
+		output "INFO:  ${*}"
+	fi
 } # info
 
 print() {
 	if [ -n "${DEBUG:-}" ]; then
-		[ -z "${*:-}" ] && echo || printf >&2 'DEBUG: %s\n' "${*}"
+		if [ -z "${*:-}" ]; then
+			output >&2
+		else
+			output >&2 "DEBUG: ${*}"
+		fi
 		return 0
 	# Unhelpful with 'set -e' ...
 	#else
@@ -201,12 +229,6 @@ docker_setup() {
 			profile='17.0/armv7a'
 			chost='armv7a-hardfloat-linux-gnueabihf'
 			;;
-		armv6l)
-			docker_arch='amd/v6'
-			arch='arm/v6'
-			profile='17.0/armv6j'
-			chost='armv6j-hardfloat-linux-gnueabihf'
-			;;
 		i386|i686)  # Untested!
 			docker_arch='i386'
 			arch='x86'
@@ -241,7 +263,7 @@ docker_parse() {
 	else
 		for dp_arg in "${@}"; do
 			if echo "${dp_arg}" | grep -Eq -- '^-(h|-help)$'; then
-				echo >&2 "Usage: $( basename "${0}" ) [--name <container name>] [--image <source image>] <package> [emerge_args]"
+				output >&2 "Usage: $( basename "${0}" ) [--name <container name>] [--image <source image>] <package> [emerge_args]"
 				exit 0
 
 			elif [ "${name}" = '<next>' ]; then
@@ -408,11 +430,11 @@ docker_image_exists() {
 	fi
 
 	if ! $docker image ls "${image}" | grep -Eq -- "^(localhost/)?([^.]+\.)?${image}"; then
-		echo >&2 "docker image '${image}' not found"
+		error "docker image '${image}' not found"
 		return 1
 
 	elif ! $docker image ls "${image}:${version}" | grep -Eq -- "^(localhost/)?([^.]+\.)?${image}"; then
-		echo >&2 "docker image '${image}' found, but not version '${version}'"
+		erro "docker image '${image}' found, but not version '${version}'"
 		return 1
 	fi
 
@@ -514,7 +536,6 @@ docker_run() {
 	runargs+=(
 		  ${DOCKER_DEVICES:-}
 		  ${DOCKER_ENTRYPOINT:+--entrypoint ${DOCKER_ENTRYPOINT}}
-		--env "ARCH=${arch:-${ARCH}}"
 		  ${ACCEPT_KEYWORDS:+--env ACCEPT_KEYWORDS}
 		  ${ACCEPT_LICENSE:+--env ACCEPT_LICENSE}
 		  #${KBUILD_OUTPUT:+--env KBUILD_OUTPUT}
@@ -640,7 +661,7 @@ docker_run() {
 
 	(
 		[ -n "${DOCKER_CMD:-}" ] && set -- "${DOCKER_CMD}"
-		echo >&2 "Starting build container with command '$docker run ${runargs[*]} ${image:-${IMAGE:-gentoo-build:latest}} ${*}'"
+		print "Starting build container with command '$docker run ${runargs[*]} ${image:-${IMAGE:-gentoo-build:latest}} ${*}'"
 		$docker run \
 				"${runargs[@]}" \
 			"${image:-${IMAGE:-gentoo-build:latest}}" ${@+"${@}"}
@@ -673,7 +694,7 @@ docker_build_pkg() {
 	[ -n "${USE:-}" ] && info "USE override: '${USE}'"
 
 	# shellcheck disable=SC2016
-	echo "Building package '${package}' ${extra[*]+plus additional packages '${extra[*]}' }into container '${name:-${container_name}}' ..."
+	info "Building package '${package}' ${extra[*]+plus additional packages '${extra[*]}' }into container '${name:-${container_name}}' ..."
 
 	# shellcheck disable=SC2086
 	docker_run "=${package}${repo:+::${repo}}" ${extra[@]+"${extra[@]}"} ${args[@]+"${args[@]}"}
