@@ -448,7 +448,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 	(
 		# Add '@preserved-rebuild' for potential outdated stage3 base-images...
 		post='dev-util/pkgconf sys-libs/glibc @preserved-rebuild sys-apps/portage'
-		portageq get_repos / | grep -q -- 'srcshelton' &&
+		portageq get_repos / | grep -Fq -- 'srcshelton' &&
 			post+=' sys-apps/gentoo-functions::srcshelton'
 		# shellcheck disable=SC2030
 		export name="${base_name}"

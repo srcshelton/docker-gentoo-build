@@ -5,6 +5,7 @@ set -eu
 
 # shellcheck disable=SC2034
 debug=${DEBUG:-}
+# shellcheck disable=SC2034
 trace=${TRACE:-}
 
 DEFAULT_JOBS='__JOBS__'
@@ -21,8 +22,11 @@ warn() {
 
 print() {
 	if [ -n "${DEBUG:-}" ]; then
-		#[ -z "${*:-}" ] && echo || printf >&2 'DEBUG: %s\n' "${*}"
-		printf >&2 'DEBUG: %s\n' "${*}"
+		if [ -z "${*:-}" ]; then
+			echo >&2
+		else
+			printf >&2 'DEBUG: %s\n' "${*}"
+		fi
 	fi
 } # print
 
@@ -983,7 +987,7 @@ case "${1:-}" in
 		;;
 esac
 
-# We only reach here if you built a package above...
+# We only reach here if we built a package above...
 
 savefailed
 check ${rc} "${package}"
