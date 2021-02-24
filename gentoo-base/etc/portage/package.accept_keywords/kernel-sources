@@ -1,5 +1,6 @@
 
 # Current stable package is gentoo-sources-5.4.97
-~sys-kernel/gentoo-sources-5.11.0			~amd64
+#~sys-kernel/gentoo-sources-5.11.0			~amd64  # fails to build with clang-11.0.0
+~sys-kernel/gentoo-sources-5.10.17			~amd64
 
 # vi: set syntax=gentoo-package-keywords:
