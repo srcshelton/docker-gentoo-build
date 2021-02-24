@@ -6,7 +6,8 @@ set +u
 #[ ! -s /lib/rc/sh/functions.sh ] || . /lib/rc/sh/functions.sh
 [ ! -s /lib/gentoo/functions.sh ] || . /lib/gentoo/functions.sh
 
-set -u
+# OpenRC isn't ready for this... :(
+#set -u
 
 regenerateconfig() {
 	rc=0
