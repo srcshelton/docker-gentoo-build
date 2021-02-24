@@ -8,6 +8,8 @@
 #    upstream 'env' or 'stage3' contents - so we'll store their IDs rather than
 #    the ID of this container.
 
+ARG ARCH
+
 ARG env_name="gentoo-env"
 ARG env_id=""
 
@@ -26,7 +28,17 @@ ARG stage3_id=""
 # linter ignore=EF0003
 FROM "${stage3_image}:${stage3_tag}" AS stage3
 
-#RUN test -x /bin/sh
+ARG ARCH
+
+# Save initial environment ...
+RUN echo "USE=\"$( \
+        cat /var/db/pkg/*/*/USE | \
+        xargs -n 1 echo | \
+        sort | \
+        uniq | \
+        grep -Ev "${ARCH:-amd64}|elibc_glibc|kernel_linux|userland_GNU|python_single_target_python|python_targets_python" | \
+        xargs echo -n \
+    )\"" >/usr/libexec/stage3.info 2>/dev/null
 
 
 # -----------------------------------------------------------------------------
@@ -51,4 +63,4 @@ COPY --from=stage3 / /
 # Double-negative so that 'set -e' doesn't trip over a false result
 RUN test ! -e /var/db/repos || rm -r /var/db/repos
 
-# vi: set syntax=dockerfile expandtab nowrap colorcolumn=80:
+# vi: set syntax=dockerfile colorcolumn=80 expandtab nowrap shiftwidth=4 tabstop=4:

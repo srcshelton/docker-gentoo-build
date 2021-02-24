@@ -250,7 +250,7 @@ else
 fi
 
 # from common/vars.sh:
-#use_essential="asm ipv6 ithreads mdev openssl ssl threads tls-heartbeat zlib"
+#use_essential="asm ipv6 ithreads mdev nptl openssl ssl threads tls-heartbeat zlib ${use_cpu_flags}"
 
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''

@@ -72,7 +72,7 @@ if [ -n "${use_cpu_flags:-}" ]; then
 		sed "s/^/cpu_flags_${use_cpu_arch:-x86}_/ ; s/ / cpu_flags_${use_cpu_arch:-x86}_/g"
 	)"
 fi
-use_essential="asm ipv6 ithreads mdev openssl ssl threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
+use_essential="asm ipv6 ithreads mdev nptl openssl ssl threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
 
 case "$( uname -m )" in
 	x86_64|i686)

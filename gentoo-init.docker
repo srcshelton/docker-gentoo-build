@@ -294,6 +294,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	# shellcheck disable=SC2086
 	$docker build \
 			--platform "linux/${docker_arch}" \
+			--build-arg ARCH="${arch}" \
 			--build-arg env_id="${env_id}" \
 			--build-arg env_name="${env_name}" \
 			--build-arg stage3_id="${stage3_id}" \

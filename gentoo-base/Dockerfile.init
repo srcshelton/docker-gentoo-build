@@ -5,6 +5,8 @@
 #    This image *does not* import a package repo, as this can be more
 #    efficiently mounted when the resulting image is run.
 
+ARG ARCH
+
 ARG stage3_image="docker.io/gentoo/stage3"
 ARG stage3_name="gentoo-stage3"
 ARG stage3_id=""
@@ -36,7 +38,7 @@ LABEL entrypoint_sum="${entrypoint_sum}"
 
 
 # Save initial environment ...
-RUN emerge --info --verbose >/usr/libexec/stage3.info 2>/dev/null
+#RUN emerge --info --verbose >/usr/libexec/stage3.info 2>/dev/null
 
 
 # Try to get nice colours ...
