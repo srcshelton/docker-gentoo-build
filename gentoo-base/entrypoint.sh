@@ -18,21 +18,27 @@ arch="${ARCH}"
 unset -v ARCH
 
 die() {
-	printf 'FATAL: %s\n' "${*:-Unknown error}"
+	printf >&2 'FATAL: %s\n' "${*:-Unknown error}"
 	exit 1
 } # die
 
 warn() {
-	[ -z "${*:-}" ] && echo || printf 'WARN:  %s\n' "${*}"
+	[ -z "${*:-}" ] && echo || printf >&2 'WARN:  %s\n' "${*}"
 } # warn
 
 print() {
-	#if [ -n "${DEBUG:-}" ]; then
-		[ -z "${*:-}" ] && echo || printf >&2 'DEBUG: %s\n' "${*}"
-	#fi
+	if [ -n "${DEBUG:-}" ]; then
+		if [ -z "${*:-}" ]; then
+			echo >&2
+		else
+			printf >&2 'DEBUG: %s\n' "${*}"
+		fi
+	fi
 } # print
 
 format() {
+	# Pad $variable to $padding trailing spaces
+	#
 	variable="${1:-}"
 	padding=${2:-20}
 
@@ -48,11 +54,14 @@ format() {
 } # format
 
 check() {
+	# Check that a given package (with build result code $crc) is actually installed
+	#
 	crc=${1:-} ; shift
 
 	[ -n "${crc:-}" ] || return 1
 
 	if [ "${crc}" -eq 0 ]; then
+		# Process first package of list only...
 		for arg in "${@}"; do
 			case "${arg}" in
 				-*)	continue ;;
@@ -104,28 +113,23 @@ if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
 	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-${DEFAULT_MAXLOAD}}"
 fi
 
-#TUSE='' post_pkgs='' post_use='' rc=0
 post_pkgs='' post_use='' rc=0
 for arg in "${@}"; do
 	#print "Read argument '${arg}'"
 	shift
 	case "${arg}" in
 		--post-pkgs=*)
-			post_pkgs="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			post_pkgs="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
 			continue
 			;;
 		--post-use=*)
-			post_use="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			post_use="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
 			continue
 			;;
 		--verbose-build)
 			continue
 			;;
 		--with-use=*)
-			if false; then # Not valid here
-			#TUSE="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
-			:
-			fi
 			warn "Option '--with-use' is not valid during initial build stage"
 			continue
 			;;
@@ -137,9 +141,22 @@ done
 
 if [ -e /etc/portage/repos.conf.host ]; then
 	echo
-	warn "Mirroring initial host repos.conf to container ..."
+	warn "Mirroring host repos.conf to container ..."
+	if [ -e /etc/portage/repos.conf ]; then
+		if [ -d /etc/portage/repos.conf ]; then
+			for f in /etc/portage/repos.conf/*; do
+				umount -q "${f}" || :
+			done
+		fi
+		umount -q /etc/portage/repos.conf || :
+		rm -rf /etc/portage/repos.conf || :
+
+		[ -e /etc/portage/repos.conf ] && mv /etc/portage/repos.conf /etc/portage/repos.conf.disabled
+	fi
 	cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf || die "Can't copy host repos.conf: ${?}"
 fi
+
+#warn >&2 "Inherited USE-flags: '${USE:-}'"
 
 # post_use should be based on the original USE flags, without --with-use
 # additions...
@@ -153,21 +170,6 @@ else
 fi
 if [ -n "${use_essential:-}" ] && ! echo "${post_use:-}" | grep -Fq -- "${use_essential}"; then
 	post_use="${post_use:+${post_use} }${use_essential}"
-fi
-
-if false; then # Not valid here
-#if [ -n "${TUSE:-}" ]; then
-#	if ! printf '%s' " ${TUSE} " | grep -Fq -- ' -* '; then
-#		TUSE="${USE:+${USE} }${TUSE}"
-#	fi
-#	if [ -n "${use_essential:-}" ] && echo "${TUSE}" | grep -Fq -- "${use_essential}"; then
-#		USE="${TUSE}"
-#	else
-#		USE="${TUSE}${use_essential:+ ${use_essential}}"
-#	fi
-#	export USE
-#fi
-:
 fi
 
 # At the point we're executed, we expect to be in a stage3 with appropriate
@@ -235,30 +237,32 @@ LC_ALL='C' eselect --colour=yes news read
 # To try to work around this, snapshot the current stage3 version...
 #quickpkg --include-config y --include-unmodified-config y sys-libs/zlib
 
-echo
-echo " * Building stage3 'sys-apps/gentoo-functions' package ..."
-echo
-(
-	USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
-	export USE
-	export FEATURES="${FEATURES:+${FEATURES} }fail-clean -fakeroot"
-	export LC_ALL='C'
-	# shellcheck disable=SC2086
-	emerge \
-			--ignore-default-opts \
-			--binpkg-respect-use=y \
-			--buildpkg=n \
-			--color=y \
-			--keep-going=y \
-			--quiet-build=y \
-			${opts:-} \
-			--usepkg=y \
-			--verbose=y \
-			--verbose-conflicts \
-			--with-bdeps=n \
-			--with-bdeps-auto=n \
-		sys-apps/gentoo-functions
-)
+if portageq get_repos / | grep -Fq -- 'srcshelton'; then
+	echo
+	echo " * Building stage3 linted 'sys-apps/gentoo-functions' package ..."
+	echo
+	(
+		USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+		export USE
+		export FEATURES="${FEATURES:+${FEATURES} }fail-clean -fakeroot"
+		export LC_ALL='C'
+		# shellcheck disable=SC2086
+		emerge \
+				--ignore-default-opts \
+				--binpkg-respect-use=y \
+				--buildpkg=n \
+				--color=y \
+				--keep-going=y \
+				--quiet-build=y \
+				${opts:-} \
+				--usepkg=y \
+				--verbose-conflicts \
+				--verbose=y \
+				--with-bdeps-auto=n \
+				--with-bdeps=n \
+			'sys-apps/gentoo-functions::srcshelton'
+	)
+fi
 
 echo
 echo " * Building stage3 'sys-apps/fakeroot' package ..."
@@ -278,50 +282,168 @@ echo
 			--quiet-build=y \
 			${opts:-} \
 			--usepkg=y \
-			--verbose=y \
 			--verbose-conflicts \
-			--with-bdeps=n \
+			--verbose=y \
 			--with-bdeps-auto=n \
+			--with-bdeps=n \
 		sys-apps/fakeroot
 )
-LC_ALL='C' eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
-LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
-
 export FEATURES="${FEATURES:+${FEATURES} }fakeroot"
 
-#if [[ "$( uname -m )" == 'aarch64' ]]; then
-#	echo
-#	echo
-#	echo " * Building stage3 compilers suite ..."
-#	echo
-#
-#	for pkg in 'sys-devel/gcc' 'sys-devel/binutils' 'sys-devel/glibc'; do
-#		(
-#			USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
-#			export USE
-#			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
-#			export LC_ALL='C'
-#			# shellcheck disable=SC2086
-#			emerge \
-#					--ignore-default-opts \
-#					--binpkg-respect-use=y \
-#					--buildpkg=n \
-#					--color=y \
-#					--keep-going=y \
-#					--quiet-build=y \
-#					${opts:-} \
-#					--update \
-#					--usepkg=y \
-#					--verbose=y \
-#					--verbose-conflicts \
-#					--with-bdeps=n \
-#					--with-bdeps-auto=n \
-#				"${pkg}"
-#		)
-#		LC_ALL='C' eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
-#		LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
-#	done
-#fi
+if ! [ -d "/usr/${CHOST}" ]; then
+	echo
+	echo " * CHOST change detected - ensuring stage3 is up to date ..."
+	echo
+
+	# This process may be fragile if there are updates available for installed
+	# stage3 packages...
+	(
+		# Rebuilding with all active USE flags pulls in additional flags (and
+		# packages) which weren't previously set :(
+		#
+		# The intent, however, is to rebuild as closely to the original stage3
+		# state as possible.
+		USE="livecd nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"  # for busybox
+		export USE
+		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+		export LC_ALL='C'
+		# shellcheck disable=SC2086
+		emerge \
+				--ignore-default-opts \
+				--binpkg-respect-use=y \
+				--buildpkg=n \
+				--color=y \
+				--keep-going=y \
+				--quiet-build=y \
+				${opts:-} \
+				--update \
+				--usepkg=y \
+				--verbose-conflicts \
+				--verbose=y \
+				--with-bdeps-auto=n \
+				--with-bdeps=n \
+			'@system' '@world'
+	)
+	LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+
+	echo
+	echo " * CHOST change detected - building stage3 compilers suite ..."
+	echo
+
+	oldchost="$( find /usr -mindepth 1 -maxdepth 1 -type d -name '*-*-*' -exec basename {} \; | head -n 1 )"
+	for pkg in 'sys-devel/binutils' 'sys-devel/gcc' 'sys-libs/glibc'; do
+		(
+			USE="nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"  # for busybox
+			export USE
+			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+			export LC_ALL='C'
+			# shellcheck disable=SC2086
+			emerge \
+					--ignore-default-opts \
+					--binpkg-respect-use=y \
+					--buildpkg=n \
+					--color=y \
+					--keep-going=y \
+					--quiet-build=y \
+					${opts:-} \
+					--usepkg=y \
+					--verbose=y \
+					--verbose-conflicts \
+					--with-bdeps=n \
+					--with-bdeps-auto=n \
+				"${pkg}"
+		)
+		LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+		case "${pkg}" in
+			*binutils*)
+				binutils-config -l 2>/dev/null || :
+				binutils-config 1 2>/dev/null || :
+				;;
+			*gcc*)
+				gcc-config -l 2>/dev/null || :
+				gcc-config 1 2>/dev/null || :
+				;;
+		esac
+		# shellcheck disable=SC1091
+		[ -s /etc/profile ] && { . /etc/profile || : ; }
+	done
+	grep -l "${oldchost}" /etc/env.d/0*gcc* /etc/env.d/0*binutils* | xargs -r rm
+	find /etc/env.d/ -name "\\*${oldchost}\\*" -delete
+	rm -f /etc/env.d/*"${oldchost}"*
+	env-update || :
+	# shellcheck disable=SC1091
+	[ -s /etc/profile ] && . /etc/profile
+	echo
+	echo " * Switched from CHOST '${oldchost}' to '${CHOST}'":
+	echo
+	ls -lAR /etc/env.d/
+	grep -HR --colour '^.*$' /etc/env.d/
+	binutils-config -l
+	gcc-config -l
+
+	# shellcheck disable=SC2041
+	for pkg in 'dev-libs/libgpg-error' 'sys-devel/libtool'; do
+		(
+			USE="nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"  # for busybox
+			export USE
+			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+			export LC_ALL='C'
+			# shellcheck disable=SC2086
+			emerge \
+					--ignore-default-opts \
+					--binpkg-respect-use=y \
+					--buildpkg=n \
+					--color=y \
+					--keep-going=y \
+					--quiet-build=y \
+					${opts:-} \
+					--usepkg=y \
+					--verbose=y \
+					--verbose-conflicts \
+					--with-bdeps=n \
+					--with-bdeps-auto=n \
+				"${pkg}"
+		)
+		LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+	done
+	[ -x /usr/sbin/fix_libtool_files.sh ] && /usr/sbin/fix_libtool_files.sh "$( gcc -dumpversion )" --oldarch "${oldchost}"
+
+	(
+		USE="nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"  # for busybox
+		export USE
+		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+		export LC_ALL='C'
+		# shellcheck disable=SC2012,SC2086,SC2046
+		emerge \
+				--ignore-default-opts \
+				--binpkg-respect-use=y \
+				--buildpkg=n \
+				--color=y \
+				--keep-going=y \
+				--oneshot \
+				--quiet-build=y \
+				${opts:-} \
+				--usepkg=y \
+				--verbose=y \
+				--verbose-conflicts \
+				--with-bdeps=n \
+				--with-bdeps-auto=n \
+			$(
+				for object in "/usr/bin/${oldchost}-"* "/usr/include/${oldchost}" /usr/lib/llvm/*/bin/"${oldchost}"-* ;do
+					if [ -e "${object}" ]; then
+						printf '%s ' "${object}"
+					fi
+				done
+			)dev-libs/libgpg-error dev-lang/perl "=$(
+				ls /var/db/pkg/dev-lang/python-3* -1d |
+				cut -d'/' -f 5-6 |
+				sort -V |
+				head -n 1
+			)" '@preserved-rebuild'
+	)
+	LC_ALL='C' eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
+	LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+fi
 
 # Certain @system packages incorrectly fail to find ROOT-installed
 # dependencies, and so require prior package installation directly into the
@@ -329,7 +451,7 @@ export FEATURES="${FEATURES:+${FEATURES} }fakeroot"
 #
 # (For some reason, sys-apps/gentoo-functions::gentoo is very sticky)
 #
-for pkg in 'sys-apps/gentoo-functions::srcshelton' 'sys-libs/libcap' 'sys-process/audit' 'dev-perl/libintl-perl' 'dev-perl/Locale-gettext' 'dev-libs/libxml2' 'app-editors/vim'; do
+for pkg in 'sys-libs/libcap' 'sys-process/audit' 'dev-perl/libintl-perl' 'dev-perl/Locale-gettext' 'dev-libs/libxml2' 'app-editors/vim'; do
 	echo
 	echo
 	echo " * Building stage3 '${pkg}' package ..."
@@ -388,8 +510,6 @@ echo
 			--with-bdeps-auto=n \
 		sys-kernel/gentoo-sources
 )
-LC_ALL='C' eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
-LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 echo
 echo ' * Configuring stage3 kernel sources ...'
@@ -619,10 +739,10 @@ if [ -n "$( ls -1 "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log 2>/dev/null | h
 	mkdir -p "${PORTAGE_LOGDIR}"/failed
 	file=''
 	for file in "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log; do
-            cat="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"
-            pkg="$( echo "${file}" | rev | cut -d'/' -f 3 | rev )"
-            mkdir -p "${PORTAGE_LOGDIR}/failed/${cat}"
-            mv "${file}" "${PORTAGE_LOGDIR}/failed/${cat}/${pkg}.log"
+		cat="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"
+		pkg="$( echo "${file}" | rev | cut -d'/' -f 3 | rev )"
+		mkdir -p "${PORTAGE_LOGDIR}/failed/${cat}"
+		mv "${file}" "${PORTAGE_LOGDIR}/failed/${cat}/${pkg}.log"
 	done
 	unset file
 fi
@@ -724,8 +844,8 @@ case "${1:-}" in
 		exec /bin/bash "${@}"
 		;;
 	*)
+		echo
 		if [ -z "${post_pkgs:-}" ]; then
-			echo
 			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages ..."
 			echo
 
@@ -750,8 +870,7 @@ case "${1:-}" in
 
 			exit ${rc}
 		else
-			echo
-			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages ..."
+			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages (with post-package list) ..."
 			echo
 
 			# shellcheck disable=SC2016
@@ -859,3 +978,7 @@ case "${1:-}" in
 		fi
 		;;
 esac
+
+#[ -n "${trace:-}" ] && set +o xtrace
+
+# vi: set syntax=sh sw=4 ts=4:
