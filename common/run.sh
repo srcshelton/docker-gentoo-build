@@ -207,15 +207,31 @@ docker_setup() {
 	export -a args=() extra=()
 	export package='' package_version='' package_name='' repo='' name='' container_name='' image="${IMAGE:-gentoo-build:latest}"
 
-	# If we export these to show external usage, things become fragile...
+	# 'docker_arch' is the 'ARCH' component of Docker's 'platform' string, and
+	# is used to ensure that the correct image is pulled when multi-arch images
+	# are employed.
+	#
+	# 'arch' is the default system architecutre, as featured in the Gentoo
+	# ACCEPT_KEYWORDS declarations - for all permissible values, see
+	# the values of the portage 'USE_EXPAND_VALUES_ARCH' variable currently:
+	#
+	# alpha amd64 amd64-fbsd amd64-linux arm arm64 arm64-macos hppa ia64 m68k
+	# mips ppc ppc64 ppc64-linux ppc-macos riscv s390 sparc sparc64-solaris
+	# sparc-solaris x64-cygwin x64-macos x64-solaris x64-winnt x86 x86-fbsd
+	# x86-linux x86-solaris x86-winnt
+	#
+	# If ARCH is set, this will be used as an override in preference to the
+	# values defained below:
+	#
+
 	# shellcheck disable=SC2034
 	case "$( uname -m )" in
 		aarch64)
 			docker_arch='arm64'
 			arch='arm64'
 			profile='17.0'
-			#chost='aarch64-pc-linux-gnu'
-			chost='aarch64-unknown-linux-gnu'
+			#chost='aarch64-unknown-linux-gnu'  # default
+			chost='aarch64-pc-linux-gnu'
 			;;
 		armv6l)
 			docker_arch='amd/v6'
@@ -225,7 +241,7 @@ docker_setup() {
 			;;
 		arm7l)
 			docker_arch='amd/v7'
-			arch='arm/v7'
+			arch='arm'
 			profile='17.0/armv7a'
 			chost='armv7a-hardfloat-linux-gnueabihf'
 			;;
@@ -245,7 +261,6 @@ docker_setup() {
 			die "Unknown architecture '$( uname -m )'"
 			;;
 	esac
-	#export docker_arch arch profile chost
 
 	return 0
 } # docker_setup
@@ -369,6 +384,8 @@ docker_resolve() {
 			if ! [[ -e "${TMP_KEYWORDS:-}" ]]; then
 				unset TMP_KEYWORDS
 			else
+				# shellcheck disable=SC2064
+				trap "test -e '${TMP_KEYWORDS:-}' && rm -f '${TMP_KEYWORDS:-}'" SIGHUP SIGINT SIGQUIT
 				if [[ -d "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords" ]]; then
 					cat "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords"/* > "${TMP_KEYWORDS}"
 				elif [[ -s "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords" ]]; then
@@ -389,6 +406,7 @@ docker_resolve() {
 	)" || :
 	if [[ -n "${TMP_KEYWORDS:-}" ]] && [[ -e "${TMP_KEYWORDS}" ]]; then
 		rm "${TMP_KEYWORDS}"
+		trap - SIGHUP SIGINT SIGQUIT
 		unset TMP_KEYWORDS
 	fi
 	if [ -z "${dr_name:-}" ] || [ -z "${dr_package:-}" ]; then
@@ -596,12 +614,18 @@ docker_run() {
 			/var/log/portage
 		)
 
+		if [ -z "${arch:-}" ]; then
+			docker_setup
+		fi
+
 		#ENV PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
 		local PKGCACHE="${PKGCACHE:=/var/cache/portage/pkg}"
 		local PKGHOST="${PKGHOST:=docker}"
 		local PKGDIR="${PKGDIR:=$( portageq pkgdir )}"
-		print "Using architecture '${arch:-${ARCH}}' ..."
-		mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${arch:-${ARCH}}/docker"
+
+		# Allow use of 'ARCH' variable as an override...
+		print "Using architecture '${ARCH:-${arch}}' ..."
+		mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-${arch}}/docker"
 		mountpoints['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
 
 		#cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"

@@ -163,8 +163,8 @@ docker_run() {
 		"$( portageq distdir )"
 		/var/log/portage
 	)
-	print "Using architecture '${arch:-${ARCH}}' ..."
-	mountpoints["$( portageq pkgdir )"]="/var/cache/portage/pkg/${arch:-${ARCH}}/docker"
+	print "Using architecture '${ARCH:-${arch}}' ..."
+	mountpoints["$( portageq pkgdir )"]="/var/cache/portage/pkg/${ARCH:-${arch}}/docker"
 	[ -S /var/run/syslog-ng/log ] && mountpoints['/var/run/syslog-ng/log']='/dev/log'
 
 	cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"

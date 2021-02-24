@@ -25,33 +25,52 @@ environment_filter='^(declare -x|export) (COLUMNS|EDITOR|GENTOO_PROFILE|HOME|HOS
 #  dev-lang/perl:		berkdb gdbm ithreads -debug -doc -perl-cleaner
 #  dev-libs/openssl:	asm tls-heartbeat zlib
 #  sys-apps/busybox:	mdev
-# (General:				openssl ssl threads)
+# (General:				ipv6 openssl ssl threads)
 #
 if command -v cpuid2cpuflags >/dev/null 2>&1; then
 	#cpuid2cpuflags | cut -d':' -f 2- | sed 's/ / cpu_flags_x86_/g'
-	use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- | sed 's/ / cpu_flags_x86_/g' )"
+	#use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- | sed 's/ / cpu_flags_x86_/g' )"
+	use_cpu_arch="$( uname -m | cut -c 1-3 | sed 's/aar/arm/' )"
+	use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- )"
 else
 	description="$( grep -E '(model name|Raspberry)' /proc/cpuinfo | sort | tail -n 1 )"
 	case "${description}" in
 		*': Intel(R) Atom(TM) CPU '*' 330 '*' @ '*)
-			use_cpu_flags="cpu_flags_x86_mmx cpu_flags_x86_mmxext cpu_flags_x86_sse cpu_flags_x86_sse2 cpu_flags_x86_sse3 cpu_flags_x86_ssse3" ;;
+			use_cpu_arch='x86'
+			use_cpu_flags="mmx mmxext sse sse2 sse3 ssse3" ;;
 		*': Intel(R) Core(TM) i3-21'*' CPU @ '*)
-			use_cpu_flags="cpu_flags_x86_avx cpu_flags_x86_mmx cpu_flags_x86_mmxext cpu_flags_x86_pclmul cpu_flags_x86_popcnt cpu_flags_x86_sse cpu_flags_x86_sse2 cpu_flags_x86_sse3 cpu_flags_x86_sse4_1 cpu_flags_x86_sse4_2 cpu_flags_x86_ssse3" ;;
+			use_cpu_arch='x86'
+			use_cpu_flags="avx mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3" ;;
 		*': Intel(R) Xeon(R) CPU E3-'*' v5 @ '*)
-			use_cpu_flags="cpu_flags_x86_aes cpu_flags_x86_avx cpu_flags_x86_avx2 cpu_flags_x86_f16c cpu_flags_x86_fma3 cpu_flags_x86_mmx cpu_flags_x86_mmxext cpu_flags_x86_pclmul cpu_flags_x86_popcnt cpu_flags_x86_rdrand cpu_flags_x86_sse cpu_flags_x86_sse2 cpu_flags_x86_sse3 cpu_flags_x86_sse4_1 cpu_flags_x86_sse4_2 cpu_flags_x86_ssse3" ;;
+			use_cpu_arch='x86'
+			use_cpu_flags="aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sse sse2 sse3 sse4_1 sse4_2 ssse3" ;;
+
 		*': AMD G-T40E '*)
-			use_cpu_flags="cpu_flags_x86_mmx cpu_flags_x86_mmxext cpu_flags_x86_popcnt cpu_flags_x86_sse cpu_flags_x86_sse2 cpu_flags_x86_sse3 cpu_flags_x86_sse4a cpu_flags_x86_ssse3" ;;
+			use_cpu_arch='x86'
+			use_cpu_flags="mmx mmxext popcnt sse sse2 sse3 sse4a ssse3" ;;
 		*': AMD GX-412TC '*)
-			use_cpu_flags="cpu_flags_x86_aes cpu_flags_x86_avx cpu_flags_x86_f16c cpu_flags_x86_mmx cpu_flags_x86_mmxext cpu_flags_x86_pclmul cpu_flags_x86_popcnt cpu_flags_x86_sse cpu_flags_x86_sse2 cpu_flags_x86_sse3 cpu_flags_x86_sse4_1 cpu_flags_x86_sse4_2 cpu_flags_x86_sse4a cpu_flags_x86_ssse3" ;;
+			use_cpu_arch='x86'
+			use_cpu_flags="aes avx f16c mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3" ;;
+
 		*': Raspberry Pi 2 '*)
-			use_cpu_flags="cpu_flags_arm_edsp cpu_flags_arm_neon cpu_flags_arm_thumb cpu_flags_arm_vfp cpu_flags_arm_vfpv3 cpu_flags_arm_vfpv4 cpu_flags_arm_vfp-d32 cpu_flags_arm_v4 cpu_flags_arm_v5 cpu_flags_arm_v6 cpu_flags_arm_v7 cpu_flags_arm_thumb2" ;;
+			use_cpu_arch='arm'
+			use_cpu_flags="edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 v4 v5 v6 v7 thumb2" ;;
 		*': Raspberry Pi 3 '*)
-			use_cpu_flags="cpu_flags_arm_edsp cpu_flags_arm_neon cpu_flags_arm_thumb cpu_flags_arm_vfp cpu_flags_arm_vfpv3 cpu_flags_arm_vfpv4 cpu_flags_arm_vfp-d32 cpu_flags_arm_crc32 cpu_flags_arm_v4 cpu_flags_arm_v5 cpu_flags_arm_v6 cpu_flags_arm_v7 cpu_flags_arm_thumb2" ;;
+			use_cpu_arch='arm'
+			use_cpu_flags="edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2" ;;
 		*': Raspberry Pi 4 '*)
-			use_cpu_flags="cpu_flags_arm_edsp cpu_flags_arm_neon cpu_flags_arm_thumb cpu_flags_arm_vfp cpu_flags_arm_vfpv3 cpu_flags_arm_vfpv4 cpu_flags_arm_vfp-d32 cpu_flags_arm_crc32 cpu_flags_arm_v4 cpu_flags_arm_v5 cpu_flags_arm_v6 cpu_flags_arm_v7 cpu_flags_arm_thumb2" ;;
+			use_cpu_arch='arm'
+			use_cpu_flags="edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2" ;;
+
 		*)
 			echo >&2 "Unknown CPU '$( echo "${description}" | cut -d':' -f 2- | sed 's/^\s*// ; s/\s*$//' )' - not enabling model-specific CPU flags" ;;
 	esac
+fi
+if [ -n "${use_cpu_flags:-}" ]; then
+	use_cpu_flags="$(
+		echo "${use_cpu_flags}" |
+		sed "s/^/cpu_flags_${use_cpu_arch:-x86}_/ ; s/ / cpu_flags_${use_cpu_arch:-x86}_/g"
+	)"
 fi
 use_essential="asm ipv6 ithreads mdev openssl ssl threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
 
