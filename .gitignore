@@ -7,4 +7,14 @@
 # Exclude vim swapfiles
 **/.*.sw[a-p]
 
+# Make host-specific changes to this file as necessary...
+#
+gentoo-base/etc/portage/package.use.build/package.use.local
+#
+# ... and then execute
+#
+#  git update-index --skip-worktree gentoo-base/etc/portage/package.use.build/package.use.local
+#
+# ... in order to cause git to ignore further changes.
+
 # vi: set syntax=cfg:

@@ -1,0 +1,23 @@
+
+# Local per-host settings - make host-specific changes here and uncomment the
+# entry in the top-level .gitignore...
+
+# See profiles/desc/l10n.desc
+*/*					 L10N: en_GB en
+
+# See profiles/desc/video_cards.desc
+*/*					 VIDEO_CARDS: dummy fbdev vesa
+
+# See profiles/desc/llvm_targets.desc
+#
+# As-of llvm-11.0.0:
+#   AArch64 AMDGPU ARM AVR BPF Hexagon Lanai Mips MSP430 NVPTX PowerPC RISCV
+#   Sparc SystemZ WebAssembly X86 XCore (ARC) (VE)
+*/*					 LLVM_TARGETS: -* BPF X86
+#*/*					 LLVM_TARGETS: -* BPF AArch64
+#*/*					 LLVM_TARGETS: -* BPF ARM
+
+# See profiles/desc/grub_platforms.desc
+sys-boot/grub				 GRUB_PLATFORMS: efi-64 pc
+
+# vi: set nowrap syntax=gentoo-package-use:

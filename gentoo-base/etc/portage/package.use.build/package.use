@@ -1,13 +1,7 @@
 
-*/*					 CPU_FLAGS_X86: aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3
-*/*					 L10N: en_GB en
-*/*					 VIDEO_CARDS: vesa matrox
-*/*					 LLVM_TARGETS: -* BPF X86
-#sys-boot/grub				 GRUB_PLATFORMS: efi-64 multiboot pc
-sys-boot/grub				 GRUB_PLATFORMS: efi-64
-
 # General USE flags:
-*/*					-apache2 -awt acpi adns aio ao audit
+#*/*					 asm ipv6 ithreads mdev openssl ssl threads tls-heartbeat zlib  # from 'use_essential'
+*/*					-apache2 -awt acpi adns aio ao asm audit
 */*					 bash-completion bzip2
 */*					-cairo -cdb -common-lisp -cups caps chroot curl cxx
 */*					-dbi
@@ -23,7 +17,7 @@ sys-boot/grub				 GRUB_PLATFORMS: efi-64
 */*					-openmp odbc
 */*					-pango -policykit pcre perl php python
 */*					 readline rpc
-*/*					-samba -sasl -slang -smartcard -snmp -source -startup-notification sctp
+*/*					-samba -sasl -slang -smartcard -source -startup-notification sctp
 */*					 seccomp server slp smtp snmp spell sql sqlite ssl syslog
 */*					-test tcmalloc threads
 */*					-udev -usb unicode unwind urandom uuid
@@ -48,7 +42,7 @@ app-admin/hddtemp			 network-cron
 app-admin/syslog-ng			-snmp spoof-source
 app-admin/sysstat			 lm-sensors
 app-admin/ulogd				 nfacct pcap
-app-arch/libarchive			 acl bzip2 e2fsprogs expat iconv lzma lzo nettle threads xattr zlib zstd
+app-arch/libarchive			 acl e2fsprogs iconv nettle
 #app-arch/unzip				 natspec
 app-benchmarks/bootchart		 acct
 app-benchmarks/bootchart2		-X
@@ -62,7 +56,6 @@ app-emulation/podman			-fuse -rootless
 app-eselect/eselect-php			 fpm
 app-misc/screen				 multiuser
 app-portage/eix				 tools
-app-portage/portage-utils		 python
 <app-shells/bash-4.3			 bashlogger mem-scramble plugins
 app-text/dictd				 judy
 app-text/enchant			-aspell
@@ -75,8 +68,8 @@ dev-java/gjdoc				 xmldoclet
 dev-java/icedtea			-*
 dev-java/oracle-jdk-bin			-X -javafx headless-awt jce
 dev-java/sun-jdk			 jce
-dev-lang/php				-ldap-sasl -readline bcmath calendar cgi ctype curlwrappers exif flatfile fpm hash iconv imap inifile intl ldap-sasl mhash mysqlnd pcntl pdo posix session simplexml soap sockets sqlite2 sqlite3 sysvipc tidy tokenizer truetype wddx xmlreader xmlrpc xmlwriter xslt zip
-dev-lang/python				-berkdb -gdbm xml
+dev-lang/php				-ldap-sasl -readline bcmath calendar cgi ctype curlwrappers exif flatfile fpm hash iconv imap inifile intl mhash mysqlnd pcntl pdo posix session simplexml soap sockets sqlite2 sqlite3 sysvipc tidy tokenizer truetype wddx xmlreader xmlrpc xmlwriter xslt zip
+dev-lang/python				-berkdb -gdbm
 dev-lang/python-exec			 native-symlinks
 dev-libs/cyrus-sasl			-berkdb srp
 dev-libs/geoip				 city perl-geoipupdate
@@ -102,7 +95,6 @@ dev-scheme/guile			 discouraged elisp networking
 dev-util/cmake				-server
 dev-util/pkgconf			 pkg-config
 dev-vcs/subversion			 ctypes-python
-#gnome-base/librsvg			 tools
 gnome-base/librsvg			-vala
 #mail-mta/msmtp				-ssl  # Requires gnutls
 mail-client/alpine			 passfile smime
@@ -111,7 +103,6 @@ mail-client/pine			 largeterminal passfile
 mail-client/roundcube			 enigma
 mail-filter/dcc				 cgi
 mail-filter/libmilter			 poll
-#mail-filter/opendkim			 opendbx poll unbound
 mail-filter/opendkim			-curl -memcached -opendbx libevent poll unbound
 mail-filter/opendmarc			 spf
 mail-filter/spamassassin		 cron
@@ -131,13 +122,13 @@ media-sound/squeezecenter		 alac
 media-video/ffmpeg			-X small
 net-analyzer/fping			 suid
 net-analyzer/munin			 cgi dhcpd http
-net-analyzer/nagios-plugins		-radius -samba nagios-dns nagios-ntp nagios-ping nagios-ssh smart ssh sudo  # radius plugin confilcts with radiusclient-ng
+net-analyzer/nagios-plugins		-radius nagios-dns nagios-ntp nagios-ping nagios-ssh smart ssh sudo  # radius plugin confilcts with radiusclient-ng
 net-analyzer/netdata			 fping nfacct
 net-analyzer/net-snmp			-perl -python diskio elf mfd-rewrites netlink pci smux
 net-analyzer/nmap			 ncat ndiff nmap-update nping
 net-analyzer/rrdtool			 rrdcgi
 net-analyzer/symon			 symux
-net-analyzer/tcpdump			-samba suid
+net-analyzer/tcpdump			 suid
 net-analyzer/wireshark			-adns -gtk2 -qt -qt4 -qt5 -ssl ares gcrypt libxml2 randpkt randpktdump smi snappy tfshark  # exclude SSL to remove final consumer of gnutls
 net-analyzer/zabbix			-odbc -postgres -sqlite agent frontend libxml2 openipmi ssh
 net-dialup/freeradius			 pcap udpfromto
@@ -154,7 +145,6 @@ net-ftp/lftp				 openssl
 net-im/bitlbee				 libevent twitter
 net-libs/gnutls				 dane tls-heartbeat tools  # Requires net-dns/unbound
 #net-libs/ldns				-python dane  # Requires dev-lang/swig, but only as a DEPEND
-net-libs/libesmtp			 ssl threads
 net-libs/libpcap			-netlink libnl
 net-libs/miniupnpc			-python
 net-mail/dovecot			 cydir dbox managesieve imapc lucene mdbox sdbox sieve solr  # suid
@@ -168,7 +158,6 @@ net-misc/ntp				-snmp openntpd
 net-misc/openntpd			 libressl
 net-misc/openssh			-X509 hpn ldns skey
 net-misc/rsync				 system-zlib
-#net-misc/scponly			 gftp logging passwd quota rsync scp sftp subversion unison wildcards winscp
 net-misc/scponly			-sftp logging passwd quota scp wildcards
 net-nds/openldap			-slp overlays pbkdf2 sha2
 net-p2p/bitcoind			 bitcoin_policy_cpfp bitcoin_policy_cltv bitcoin_policy_dcmp bitcoin_policy_rbf bitcoin_policy_spamfilter knots ljr logrotate upnp
@@ -183,13 +172,11 @@ sys-apps/help2man			-nls  # Requires dev-perl/Locale-gettext, but then can't fin
 sys-apps/hwids				 usb
 sys-apps/ipmitool			 openipmi
 sys-apps/irqbalance			-numa
-sys-apps/kmod				 lzma zlib
 sys-apps/lm-sensors			-sensord
 sys-apps/man				-nls
 sys-apps/man-db				-berkdb -nls
 sys-apps/memtest86			 serial
 sys-apps/memtest86+			 serial
-#sys-apps/microcode-data		 initramfs monolithic split-ucode
 sys-apps/module-init-tools		 no-old-linux
 sys-apps/openrc				 compat  # newnet
 sys-apps/pciutils			-zlib dns
@@ -201,7 +188,7 @@ sys-auth/opie				-server
 sys-auth/pam_mobile_otp			 manager
 sys-auth/pambase			-passwdqc pwquality
 sys-block/parted			 device-mapper
-sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
+sys-boot/grub				-fonts -mount -sdl -themes device-mapper
 sys-cluster/galera			 garbd
 sys-devel/clang				 system-cxx-headers
 sys-devel/gcc				 go mudflap
@@ -216,7 +203,7 @@ sys-fs/lvm2				-lvm1 -static -static-libs -thin
 sys-fs/udev				-extras action_modeswitch edd hwdb keymap
 sys-libs/glibc				-gd nptlonly nscd
 #sys-libs/libcap-ng			-python  # Requires dev-lang/swig, but only as a DEPEND
-sys-libs/ncurses			 trace unicode
+sys-libs/ncurses			 trace
 sys-libs/pam				-berkdb
 sys-libs/timezone-data			 leaps_timezone right_timezone
 sys-power/powertop			-X
@@ -227,11 +214,9 @@ sys-process/procps			 modern-top
 www-apps/horde-imp			-crypt
 www-apps/mediawiki			 imagemagick
 www-apps/opennab			 test demo
-#www-client/links			-tiff javascript
 www-client/links			-deprecated
-www-client/elinks			-javascript -mouse -samba bittorrent finger gopher
+www-client/elinks			-javascript -mouse bittorrent finger gopher
 www-servers/lighttpd			-memcached fastcgi libev memcache uploadprogress webdav
->=www-servers/lighttpd-1.4.53		-kerberos
 www-misc/monitorix			 hddtemp postfix
 x11-libs/cairo				-X cleartype lcdfilter
 
@@ -249,13 +234,5 @@ sys-kernel/gentoo-sources		 symlink experimental
 # required by sys-libs/libunwind-1.5.0[zlib]
 # required by dev-util/strace-5.8
 >=sys-libs/zlib-1.2.11-r2		 static-libs
-
-# device-mapper support in docker is now deprecated...
-#
-# required by app-emulation/docker-18.09.6[device-mapper]
-#>=sys-fs/lvm2-2.02.183			 thin
-
-# requires Java AWT/JNI components
->=media-libs/libjpeg-turbo-2.0.3	-java
 
 # vi: set nowrap syntax=gentoo-package-use:
