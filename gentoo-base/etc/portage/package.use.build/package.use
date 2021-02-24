@@ -91,7 +91,7 @@ dev-libs/libpcre2			-readline
 dev-libs/libsecp256k1			 endomorphism  # ecdh experimental
 dev-libs/libxml2			 test
 dev-libs/oniguruma			 combination-explosion-check crnl-as-line-terminator
-dev-libs/openssl			-sslv3 rfc3779
+dev-libs/openssl			-sslv3 rfc3779 tls-heartbeat
 dev-perl/File-HomeDir			-xdg
 dev-perl/GD				 animgif test
 dev-perl/Spreadsheet-ParseExcel		 test
@@ -152,7 +152,7 @@ net-fs/nfs-utils			 junction nfsdcld nfsidmap nfsv41
 net-fs/samba				-avahi async automount ldb libclamav oav quota quotas smbsharemodes smbtav2 swat winbind
 net-ftp/lftp				 openssl
 net-im/bitlbee				 libevent twitter
-net-libs/gnutls				 dane tools  # Requires net-dns/unbound
+net-libs/gnutls				 dane tls-heartbeat tools  # Requires net-dns/unbound
 #net-libs/ldns				-python dane  # Requires dev-lang/swig, but only as a DEPEND
 net-libs/libesmtp			 ssl threads
 net-libs/libpcap			-netlink libnl
