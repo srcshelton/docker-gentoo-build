@@ -378,7 +378,9 @@ docker_resolve() {
 	fi
 	# Ensure that ebuilds keyworded for building are checked when confirming
 	# the package to build...
-	if [[ -d /etc/portage/package.accept_keywords ]]; then
+	if ! [[ -d /etc/portage/package.accept_keywords ]]; then
+		die "'/etc/portage/package.accept_keywords' must be a directory not a file"
+	else
 		if [[ -e "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords" ]]; then
 			TMP_KEYWORDS="$( mktemp -p /etc/portage/package.accept_keywords/ "$( basename "${0}" ).XXXXXXXX" )"
 			if ! [[ -e "${TMP_KEYWORDS:-}" ]]; then
