@@ -42,7 +42,7 @@ echo "Starting to prune ${docker} ${desc} ..."
 
 declare -i total=0 run=0 rc=0
 while true; do
-	(( run = $( eval "$docker ${cmd}" | grep -cv '^Deleted ' ) )) || rc=${?}
+	(( run = $( eval "$docker ${cmd}" 2>/dev/null | grep -cv '^Deleted ' ) )) || rc=${?}
 
 	if (( rc )); then
 		echo >&2 "${docker} ended: ${rc}"
