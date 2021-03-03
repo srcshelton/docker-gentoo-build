@@ -355,7 +355,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		ln -s ../../bin/awk /usr/bin/ ;
 	fi ;
 	hostname >/dev/null || exit 1 ;
-        if ! grep -Fq -- 'lzma' /var/db/pkg/sys-apps/kmod-*/USE; then
+	if ! grep -Fq -- 'lzma' /var/db/pkg/sys-apps/kmod-*/USE; then
 		echo >&2 "FATAL: kmod lacks 'lzma' capability" ;
 		exit 1 ;
 	elif ! grep -Fq -- 'zlib' /var/db/pkg/sys-apps/kmod-*/USE; then
@@ -368,14 +368,34 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	set -x ;
 	cd /usr/src/linux ;
 	make mrproper ;
+	set +x ;
 	if [ -n "${patch}" ]; then
 		for p in ${patch}; do
-			wget "\${p}" -qO patch.diff && cat patch.diff | patch -p1 && rm patch.diff ;
+			if wget "\${p}" -qO patch.diff && cat patch.diff | patch -p1 --dry-run --force --quiet; then
+				cat patch.diff | patch -p1 ;
+			else
+				echo >&2 "WARN:  patch '\${p}' failed to download or apply" ;
+			fi ;
+			rm patch.diff ;
 		done ;
 	fi ;
+	set -x ;
 	mkdir -p ../build ;
 	time make ${kernel_make_opts[@]} ${deforoldconfig} prepare ${menuconfig:+menuconfig} ${nconfig:+nconfig} vmlinux modules bzImage modules_install ;
-	make ${kernel_make_opts[@]} -C tools/bootconfig ;
+	set +x ;
+	if [ -s /boot/boot.config -o -s /proc/bootconfig ] && [ -e /boot/initramfs.img ]; then
+		if make ${kernel_make_opts[@]} -C tools/bootconfig; then
+			make ${kernel_make_opts[@]} bindir='/usr/local/sbin' -C tools/bootconfig install ;
+			if [ -s /boot/boot.config ]; then
+				bootconfig -a /boot/boot.config /boot/initramfs.img ;
+			else
+				bootconfig -a /proc/bootconfig /boot/initramfs.img ;
+			fi ;
+		else
+			echo >&2 "WARN:  'make -C tools/bootconfig' failed: \${?}" ;
+		fi ;
+	fi;
+	set -x ;
 	cp ../build/.config /boot/config-${package_version}-gentoo ;
 	cp ../build/System.map /boot/System.map-${package_version}-gentoo ;
 	cp ../build/arch/x86/boot/bzImage /boot/kernel-${package_version}-gentoo ;
