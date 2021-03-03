@@ -23,7 +23,7 @@ rebuild=''
 force=''
 
 service="${1:-}"
-original_service="${1:-}"
+original_service="${service:-}"
 ports="${2:-0}"
 user="${3:-root}"
 group="${4:-root}"
@@ -38,7 +38,7 @@ IMAGE="${build_name}:latest"
 [ -s common/run.sh ] && . common/run.sh >/dev/null
 
 if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	output >&2 "Usage: $( basename "${0}" ) <service> [<ports> <user> <group> <command> [directory [fs_name]]] [--rebuild] [--force] [--force-keywords]"
+	output >&2 "Usage: $( basename "${0}" ) <service [<ports> <user> <group> <command> [directory [fs_name]]]|--services <service> [service...]> [--rebuild] [--force] [--force-keywords]"
 	output >&2
 	output >&2 "Known services:"
 	s=''
@@ -61,10 +61,12 @@ if (( EUID )); then
 fi
 
 arg=''
+service_list=''
 for arg in "${@}"; do
 	shift
 	case "${arg}" in
 		-a|--all|all)
+			service=''
 			all=1
 			continue
 			;;
@@ -81,13 +83,35 @@ for arg in "${@}"; do
 			rebuild=1
 			continue
 			;;
+		-s|--services)
+			service_list=1
+			continue
+			;;
 		*)
 			set -- "${@}" "${arg}"
 			;;
 	esac
 done
 
+if [ -n "${service_list:-}" ] && [ $(( service_list )) -eq 1 ]; then
+	list=''
+	for arg in "${@}"; do
+		if echo " ${services} " | grep -wq "${arg}"; then
+			list="${list:+${list} }${arg}"
+		else
+			error "Service '${arg}' not known"
+			rc=1
+		fi
+	done
+	[ $(( rc )) -eq 1 ] && die "Unable to process service list"
+
+	services="${list}"
+	service=''
+	all=1
+fi
+
 if [ -n "${all:-}" ] && [ $(( all )) -eq 1 ]; then
+	# Prevent recursion on 'all'...
 	if ! [ "${service:-}" = 'all' ]; then
 		c=0 s='' f=''
 		for s in ${services}; do
@@ -97,7 +121,7 @@ if [ -n "${all:-}" ] && [ $(( all )) -eq 1 ]; then
 
 			: $(( c = c + 1 ))
 			./"$( basename "${0}" )" "${s}" ${rebuild:+--rebuild} ${force:+--force} ${FORCE_KEYWORDS:+--force-keywords} || {
-				: $(( rc = rc + ${?} ))
+				: $(( rc = rc + 1 ))
 				f="${f:+${f} }${s}"
 			}
 			sleep 0.1 2>/dev/null || sleep 1
@@ -239,7 +263,7 @@ fi
 if [ $(( ${force:-0} )) -eq 0 ]; then
 	images="$( $docker image ls "service.${package_name}:${package_version}" 2>&1 )"
 	if echo "${images:-}" | grep -q -- "service.${package_name}\s\+${package_version}\s"; then
-		error "Docker image 'service.${package_name}:${package_version}' already exists - remove or use --force to rebuild"
+		note "Docker image 'service.${package_name}:${package_version}' already exists - remove or use --force to rebuild"
 		exit 0
 	else
 		output "Creating new 'service.${package_name}:${package_version}' image ..."
