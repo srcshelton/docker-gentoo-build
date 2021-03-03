@@ -659,7 +659,7 @@ if [ -s /etc/bash/bashrc ]; then
 	cp /etc/bash/bashrc /service/etc/bash/
 fi
 
-(
+time (
 	export ROOT='/service'
 	export FEATURES='-fail-clean'
 	export USE="-* lib-only make-symlinks timezone-tools"
@@ -740,6 +740,8 @@ fi
 		savefailed
 		exit 1
 	fi
+
+	echo "Time spent updating build container:"
 )
 
 if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
