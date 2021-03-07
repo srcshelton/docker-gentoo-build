@@ -14,6 +14,10 @@ declare build_name=''
 declare docker='docker'
 declare docker_readonly='ro=true'
 
+declare -ir build_space_reqiured=750
+declare -ir temp_space_required=2800
+declare -ir graph_space_required=8500
+
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
 
@@ -303,6 +307,27 @@ if [ "${build:-}" = '1' ]; then
 	if [ -e "${build_dir}"/.config ]; then
 		deforoldconfig='oldconfig'
 	fi
+fi
+
+declare -i rc=0
+if [ -s /etc/containers/storage.conf ] && graphroot="$( sed 's/#.*$//' /etc/containers/storage.conf | grep -m 1 -- '^graphroot' | cut -d'"' -f 2 )" && [ -d "${graphroot:-}" ]; then
+	if (( $( df -BM --output=avail "${graphroot}" | tail -n +2 | sed 's/M$//' ) < graph_space_required )); then
+		warn "Filesystem containing '${graphroot}' has only $( df -h --output=avail "${graphroot}" | tail -n +2 ) space available, need ${graph_space_required}M"
+		rc=1
+	fi
+else
+	error "Cannot determine graph root directory from '/etc/containers/storage.conf'" || :
+fi
+if (( $( df -BM --output=avail /var/tmp/ | tail -n +2 | sed 's/M$//' ) < temp_space_required )); then
+	warn "Filesystem containing '/var/tmp' has only $( df -h --output=avail /var/tmp/ | tail -n +2 ) space available, need ${temp_space_required}M"
+	rc=1
+fi
+if (( $( df -BM --output=avail "${build_dir}"/.. | tail -n +2 | sed 's/M$//' ) + $( df -BM --output=used "${build_dir}" | tail -n +2 | sed 's/M$//' ) < build_space_reqiured )); then
+	warn "Filesystem containing '${build_dir}' has only $( df -h --output=avail "${build_dir}" | tail -n +2 ) space available, need ${build_space_reqiured}M"
+	rc=1
+fi
+if (( rc )); then
+	die "Insufficient space - please free up space and try again"
 fi
 
 # Specifying a configuration file takes precedence over having a build
