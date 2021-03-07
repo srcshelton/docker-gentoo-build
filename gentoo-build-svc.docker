@@ -186,7 +186,8 @@ case "${service:-}" in
 		#service='>=net-dns/bind-9.14.12::container'
 		service='>=net-dns/bind-9.16.6' ;;
 	ntpd|openntpd)
-		service='>=net-misc/openntpd-6.8_p1::container' ;;
+		#service='>=net-misc/openntpd-6.8_p1::container' ;;  # turns out, it's broken :(
+		service='net-misc/openntpd::container' ;;
 	opendkim)
 		service='>=mail-filter/opendkim-2.10.3-r3' ;;
 	opendmarc)
@@ -465,14 +466,22 @@ case "${package_name}" in
 		;;
 	*openntpd*)
 		output "Setting build variables for package 'openntpd' ..."
-		# LibreSSL is now deprecated, so we don't need to jump through these hoops...
-		#pre_remove='app-arch/libarchive dev-libs/openssl dev-python/pypy dev-python/pypy3 dev-python/pypy3-exe net-misc/wget'
-		#pre_remove='app-arch/libarchive dev-libs/openssl' # net-misc/wget'
-		#pre_use='-openssl libressl'
-		#force_python="${python_target}"
-		#pre_pkgs="dev-lang/python dev-libs/libressl dev-util/pkgconf sys-devel/gcc virtual/pkgconfig @system @world"
-		#with_use='-openssl libressl'
-		extra_pkgs='app-misc/ca-certificates'
+
+		case "${package_version}" in
+			6.[02]_p)
+				#pre_remove='app-arch/libarchive dev-libs/openssl dev-python/pypy dev-python/pypy3 dev-python/pypy3-exe net-misc/wget'
+				pre_remove='app-arch/libarchive dev-libs/openssl' # net-misc/wget'
+				pre_use='-openssl libressl'
+				force_python="${python_target}"
+				pre_pkgs="dev-lang/python dev-libs/libressl dev-util/pkgconf sys-devel/gcc virtual/pkgconfig @system @world"
+				with_use='-openssl libressl'
+				;;
+			*)
+				# LibreSSL is now deprecated, so we don't need to jump through these hoops...
+				extra_pkgs='app-misc/ca-certificates'
+				:
+				;;
+		esac
 
 		ports='123/udp'
 		#user='openntpd'

@@ -1,6 +1,7 @@
 
 # First release not to require 'libressl' for 'constraints'...
-~net-misc/openntpd-6.8_p1				~amd64
+#~net-misc/openntpd-6.8_p1				~amd64
+# ... which is broken :(
 
 ~dev-libs/libretls-3.3.1				~amd64
 
