@@ -2,7 +2,7 @@
 # General USE flags:
 #*/*					 asm ipv6 ithreads mdev openssl ssl threads tls-heartbeat zlib  # from 'use_essential'
 */*					-apache2 -awt acpi adns aio ao asm audit
-*/*					 bash-completion bzip2
+*/*					-berkdb bash-completion bzip2
 */*					-cairo -cdb -common-lisp -cups caps chroot curl cxx
 */*					-dbi
 */*					 encode expat
@@ -60,7 +60,7 @@ app-portage/eix				 tools
 app-text/dictd				 judy
 app-text/enchant			-aspell
 dev-db/mariadb				-tcmalloc client-libs extraengine innodb-lz4 innodb-lzo innodb-snappy oqgraph sphinx tokudb
-dev-db/mysql				-berkdb big-tables community extraengine max-idx-128 pbxt profiling xtradb
+dev-db/mysql				 big-tables community extraengine max-idx-128 pbxt profiling xtradb
 >dev-db/mysql-5.1.50			-max-idx-128 big-tables community extraengine pbxt profiling xtradb
 dev-db/redis				-tcmalloc luajit  # Only one of jemalloc || tcmalloc may be active
 dev-db/sqlite				 extensions fts3 secure-delete soundex unlock-notify
@@ -69,9 +69,8 @@ dev-java/icedtea			-*
 dev-java/oracle-jdk-bin			-X -javafx headless-awt jce
 dev-java/sun-jdk			 jce
 dev-lang/php				-ldap-sasl -readline bcmath calendar cgi ctype curlwrappers exif flatfile fpm hash iconv imap inifile intl mhash mysqlnd pcntl pdo posix session simplexml soap sockets sqlite2 sqlite3 sysvipc tidy tokenizer truetype wddx xmlreader xmlrpc xmlwriter xslt zip
-dev-lang/python				-berkdb -gdbm
 dev-lang/python-exec			 native-symlinks
-dev-libs/cyrus-sasl			-berkdb srp
+dev-libs/cyrus-sasl			 srp
 dev-libs/geoip				 city perl-geoipupdate
 dev-libs/glib				-mime
 dev-libs/gmp				 pgo
@@ -126,14 +125,15 @@ net-analyzer/nagios-plugins		-radius nagios-dns nagios-ntp nagios-ping nagios-ss
 net-analyzer/netdata			 fping nfacct
 net-analyzer/net-snmp			-perl -python diskio elf mfd-rewrites netlink pci smux
 net-analyzer/nmap			 ncat ndiff nmap-update nping
+net-analyzer/ossec-hids			-server agent
 net-analyzer/rrdtool			 rrdcgi
 net-analyzer/symon			 symux
-net-analyzer/tcpdump			 suid
+net-analyzer/tcpdump			-smi suid
 net-analyzer/wireshark			-adns -gtk2 -qt -qt4 -qt5 -ssl ares gcrypt libxml2 randpkt randpktdump smi snappy tfshark  # exclude SSL to remove final consumer of gnutls
 net-analyzer/zabbix			-odbc -postgres -sqlite agent frontend libxml2 openipmi ssh
 net-dialup/freeradius			 pcap udpfromto
 net-dns/avahi				-python autoipd  # howl-compat # mdnsresponder-compat
-net-dns/bind				-berkdb -geoip -idn -mysql -odbc dnstap filter-aaaa lmdb nslint rpz
+net-dns/bind				-geoip -idn -mysql -odbc dnstap filter-aaaa lmdb nslint rpz
 net-dns/bind-tools			-gssapi -idn pkcs11
 net-dns/unbound				 dnscrypt dnstap ecs
 net-firewall/nftables			 xtables
@@ -145,6 +145,7 @@ net-ftp/lftp				 openssl
 net-im/bitlbee				 libevent twitter
 net-libs/gnutls				 dane tls-heartbeat tools  # Requires net-dns/unbound
 #net-libs/ldns				-python dane  # Requires dev-lang/swig, but only as a DEPEND
+net-libs/libesmtp			 ssl threads
 net-libs/libpcap			-netlink libnl
 net-libs/miniupnpc			-python
 net-mail/dovecot			 cydir dbox managesieve imapc lucene mdbox sdbox sieve solr  # suid
@@ -155,7 +156,8 @@ net-misc/cgminer			-adl -lm-sensors -opencl sse2_4way
 net-misc/curl				-adns -ares -http2 libssh2 test
 net-misc/dhcpcd				-compat
 net-misc/ntp				-snmp openntpd
-net-misc/openntpd			 libressl
+<net-misc/openntpd-6.8_p1-r1		 libressl
+>=net-misc/openntpd-6.8_p1-r1		 constraints
 net-misc/openssh			-X509 hpn ldns skey
 net-misc/rsync				 system-zlib
 net-misc/scponly			-sftp logging passwd quota scp wildcards
@@ -172,9 +174,9 @@ sys-apps/help2man			-nls  # Requires dev-perl/Locale-gettext, but then can't fin
 sys-apps/hwids				 usb
 sys-apps/ipmitool			 openipmi
 sys-apps/irqbalance			-numa
+sys-apps/kmod				 lzma zlib
 sys-apps/lm-sensors			-sensord
-sys-apps/man				-nls
-sys-apps/man-db				-berkdb -nls
+sys-apps/man-db				-nls
 sys-apps/memtest86			 serial
 sys-apps/memtest86+			 serial
 sys-apps/module-init-tools		 no-old-linux
@@ -186,9 +188,9 @@ sys-apps/usbutils			 experimental
 sys-apps/util-linux			 tty-helpers
 sys-auth/opie				-server
 sys-auth/pam_mobile_otp			 manager
-sys-auth/pambase			-passwdqc pwquality
+sys-auth/pambase			-passwdqc pwquality  # mktemp
 sys-block/parted			 device-mapper
-sys-boot/grub				-fonts -mount -sdl -themes device-mapper
+sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
 sys-cluster/galera			 garbd
 sys-devel/clang				 system-cxx-headers
 sys-devel/gcc				 go mudflap
@@ -203,8 +205,7 @@ sys-fs/lvm2				-lvm1 -static -static-libs -thin
 sys-fs/udev				-extras action_modeswitch edd hwdb keymap
 sys-libs/glibc				-gd nptlonly nscd
 #sys-libs/libcap-ng			-python  # Requires dev-lang/swig, but only as a DEPEND
-sys-libs/ncurses			 trace
-sys-libs/pam				-berkdb
+sys-libs/ncurses			 trace  # unicode
 sys-libs/timezone-data			 leaps_timezone right_timezone
 sys-power/powertop			-X
 #sys-process/audit			-python  # Requires dev-lang/swig, but only as a DEPEND
@@ -234,5 +235,8 @@ sys-kernel/gentoo-sources		 symlink experimental
 # required by sys-libs/libunwind-1.5.0[zlib]
 # required by dev-util/strace-5.8
 >=sys-libs/zlib-1.2.11-r2		 static-libs
+
+# requires Java AWT/JNI components
+>=media-libs/libjpeg-turbo-2.0.3	-java
 
 # vi: set nowrap syntax=gentoo-package-use:
