@@ -210,10 +210,6 @@ sys-auth/elogind			 CC0-1.0
 # required by virtual/rust-1.47.0
 dev-lang/rust				 UoI-NCSA # BSD-1
 
-# required by web-content
-mail-client/roundcube			 PHP-2.02 PHP-3
-dev-php/Masterminds-HTML5		 HTML5-PHP
-
 # required by mail-client/mailx
 # required by virtual/mta
 # required by mail-mta/nullmailer
@@ -223,6 +219,9 @@ dev-php/Masterminds-HTML5		 HTML5-PHP
 dev-libs/boehm-gc			 boehm-gc
 # required by dev-libs/boehm-gc
 dev-libs/libatomic_ops			 boehm-gc
+
+# required by sys-power/apcupsd-3.14.14-r2
+net-analyzer/net-snmp			 HPND
 
 
 # List current licences:
