@@ -10,6 +10,7 @@
 ~app-emulation/podman-2.2.1				~amd64
 ~app-emulation/podman-3.0.0				~amd64
 ~app-emulation/podman-3.0.1				~amd64
+~app-emulation/podman-3.1.0_rc1				~amd64
 
 #~app-emulation/buildah-1.16.0				~amd64
 #~app-emulation/buildah-1.16.1				~amd64
@@ -22,8 +23,9 @@
 #~app-emulation/buildah-1.18.0				~amd64
 #~app-emulation/buildah-1.19.0				~amd64
 #~app-emulation/buildah-1.19.3				~amd64
-~app-emulation/buildah-1.19.4				~amd64
+#~app-emulation/buildah-1.19.4				~amd64
 ~app-emulation/buildah-1.19.6				~amd64
+~app-emulation/buildah-1.19.8				~amd64
 
 #~net-misc/cni-plugins-0.8.7				~amd64
 #~net-misc/cni-plugins-0.9.0				~amd64
@@ -47,12 +49,14 @@
 #~app-emulation/conmon-2.0.24				~amd64
 #~app-emulation/conmon-2.0.25				~amd64
 ~app-emulation/conmon-2.0.26				~amd64
+~app-emulation/conmon-2.0.27				~amd64
 
 # originally required by app-emulation/podman-1.9.3[rootless]
 #~app-emulation/slirp4netns-1.1.4			~amd64
 #~app-emulation/slirp4netns-1.1.6			~amd64
 #~app-emulation/slirp4netns-1.1.7			~amd64
 ~app-emulation/slirp4netns-1.1.8			~amd64
+~app-emulation/slirp4netns-1.1.9			~amd64
 ~net-libs/libslirp-4.3.1				~amd64
 
 # originally required by app-emulation/podman-1.9.3[fuse]

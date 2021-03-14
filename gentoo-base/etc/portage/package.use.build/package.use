@@ -204,6 +204,7 @@ sys-fs/cryptsetup			-static dynamic
 sys-fs/lvm2				-lvm1 -static -static-libs -thin
 sys-fs/udev				-extras action_modeswitch edd hwdb keymap
 sys-libs/glibc				-gd nptlonly nscd
+sys-libs/gdbm				 berkdb
 #sys-libs/libcap-ng			-python  # Requires dev-lang/swig, but only as a DEPEND
 sys-libs/ncurses			 trace  # unicode
 sys-libs/timezone-data			 leaps_timezone right_timezone
