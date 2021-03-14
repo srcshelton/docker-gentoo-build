@@ -213,6 +213,11 @@ fi
 if command -v env-update >/dev/null 2>&1; then
 	LC_ALL='C' env-update
 fi
+if [ -e /usr/gawk ] || [ -e /usr/bin/gawk ]; then
+	if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]; then
+		eselect awk set gawk
+	fi
+fi
 [ -d /etc/env.d/gcc ] && ROOT='/' gcc-config 1
 [ -d /etc/env.d/binutils ] && command -v binutils-config >/dev/null 2>&1 && ROOT='/' binutils-config 1
 # shellcheck disable=SC1091
@@ -644,6 +649,11 @@ if [ -n "${pre_pkgs:-}" ]; then
 	)
 fi
 
+if [ -e /usr/gawk ] || [ -e /usr/bin/gawk ]; then
+	if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]; then
+		eselect awk set gawk
+	fi
+fi
 [ -d /etc/env.d/gcc ] && ROOT='/' gcc-config 1
 [ -d /etc/env.d/binutils ] && command -v binutils-config >/dev/null 2>&1 && ROOT='/' binutils-config 1
 # shellcheck disable=SC1091
@@ -749,6 +759,11 @@ if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
 		export SYSROOT="${ROOT}"
 	fi
 
+	if [ -e "${ROOT}"/usr/gawk ] || [ -e "${ROOT}"/usr/bin/gawk ]; then
+		if [ -e "${ROOT}"/usr/bin/eselect ] && [ -s "${ROOT}"/usr/share/eselect/modules/awk.eselect ]; then
+			eselect awk set gawk
+		fi
+	fi
 	[ -d "${ROOT}"/etc/env.d/gcc ] && gcc-config 1
 	[ -d "${ROOT}"/etc/env.d/binutils ] && command -v binutils-config >/dev/null 2>&1 && binutils-config 1
 	# shellcheck disable=SC1090

@@ -239,7 +239,7 @@ LC_ALL='C' eselect --colour=yes news read
 
 if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 	echo
-	echo " * Building stage3 linted 'sys-apps/gentoo-functions' package ..."
+	echo " * Building linted 'sys-apps/gentoo-functions' package for stage3 ..."
 	echo
 	(
 		USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
@@ -265,7 +265,7 @@ if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 fi
 
 echo
-echo " * Building stage3 'sys-apps/fakeroot' package ..."
+echo " * Building 'sys-apps/fakeroot' package for stage3 ..."
 echo
 (
 	USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
@@ -600,8 +600,9 @@ features_libeudev=1
 # compared to the current portage tree...
 #extra_root='/'
 
+# sys-apps/help2man with USE 'nls' requires Locale-gettext, which depends on sys-apps/help2man;
 # sys-libs/libcap can USE pam, which requires libcap ...
-pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash dev-perl/Locale-gettext app-editors/vim'
+pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext app-editors/vim'
 pkg_initial_use='-nls -pam -perl -python'
 pkg_exclude=''
 if [ -n "${features_libeudev}" ]; then
@@ -666,7 +667,7 @@ echo
 	# dev-libs/icu is needed for circular dependencies on icu -> python -> sqlite -> icu
 	# libarchive is a frequent dependency, and so quicker to pull-in here
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
-	export USE="${pkg_initial_use}${use_essential:+ ${use_essential}}"
+	export USE="${use_essential:-}"
 	export LC_ALL='C'
 	for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
 		export ROOT
@@ -693,7 +694,7 @@ echo
 				--verbose-conflicts \
 				--with-bdeps=n \
 				--with-bdeps-auto=n \
-			@system sys-apps/shadow dev-libs/icu app-arch/libarchive ${pkg_exclude:-} || :
+			@system sys-apps/shadow dev-libs/icu app-arch/libarchive ${pkg_initial} ${pkg_exclude:-} || :
 	done
 )
 LC_ALL='C' etc-update --quiet --preen ; find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
