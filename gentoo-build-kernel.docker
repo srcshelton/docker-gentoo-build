@@ -54,7 +54,15 @@ declare force=0
 declare menuconfig=''
 declare nconfig=''
 declare version=''
-declare patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/enable_additional_cpu_optimizations_for_gcc_v9.1%2B_kernel_v5.8%2B.patch'
+declare patch=''
+if type -pf gcc >/dev/null 2>&1; then
+	case "$( gcc --version | awk '( NR == 1 ) { print $NF }' )" in
+		9.*)
+			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v9-and-kernel-5.8%2B.patch' ;;
+		10.*)
+			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v10-and-kernel-5.8%2B.patch' ;;
+	esac
+fi
 if echo " ${*:-} " | grep -q -- ' --menuconfig '; then
 	menuconfig='menuconfig'  # Just has to be set...
 	nconfig=''
@@ -394,7 +402,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	cd /usr/src/linux ;
 	make mrproper ;
 	set +x ;
-	if [ -n "${patch}" ]; then
+	if [ -n "${patch:-}" ]; then
 		for p in ${patch}; do
 			if wget "\${p}" -qO patch.diff && cat patch.diff | patch -p1 --dry-run --force --quiet; then
 				cat patch.diff | patch -p1 ;
