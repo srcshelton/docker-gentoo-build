@@ -63,6 +63,8 @@ if type -pf gcc >/dev/null 2>&1; then
 			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v10-and-kernel-5.8%2B.patch' ;;
 	esac
 fi
+patch="${patch:+${patch} }https://lore.kernel.org/linux-btrfs/206d121e2e2b609ffe31217e6d90bfabe1c4e121.1616066404.git.fdmanana@suse.com/raw"
+
 if echo " ${*:-} " | grep -q -- ' --menuconfig '; then
 	menuconfig='menuconfig'  # Just has to be set...
 	nconfig=''
@@ -272,31 +274,35 @@ if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:$
 		export name image
 
 		# shellcheck disable=SC2086
-		docker_run \
-					--changed-use \
-					--update \
-					--usepkg=y \
-				"=${package}" \
-				${compiler_pkgs:-} \
-				app-arch/bzip2 \
-				app-arch/cpio \
-				app-arch/lz4 \
-				app-arch/lzma \
-				app-arch/xz-utils \
-				app-arch/zstd \
-				dev-libs/libyaml \
-				sys-apps/coreutils \
-				sys-apps/kmod \
-				sys-firmware/intel-microcode \
-				sys-kernel/linux-firmware \
-			2>&1 | tee log/"docker.${container_name}-${compiler}.log"
-		output " -> ${?}"
+		time {
+			docker_run \
+						--changed-use \
+						--update \
+						--usepkg=y \
+					"=${package}" \
+					${compiler_pkgs:-} \
+					app-arch/bzip2 \
+					app-arch/cpio \
+					app-arch/lz4 \
+					app-arch/lzma \
+					app-arch/xz-utils \
+					app-arch/zstd \
+					dev-libs/libyaml \
+					sys-apps/coreutils \
+					sys-apps/kmod \
+					sys-firmware/intel-microcode \
+					sys-kernel/linux-firmware \
+				2>&1 | tee log/"docker.${container_name}-${compiler}.log"
+			output " -> ${?}"
+		}
 
-		trap '' INT
-		$docker commit "${container_name}-${compiler}" "${container_name%-${package_version}}.${compiler}:${package_version}" 2>&1 | tee -a log/"docker.${container_name}.log"
-		$docker rm --volumes "${container_name}-${compiler}" 2>&1 | tee -a log/"docker.${container_name}-${compiler}.log"
-		output " -> ${?}"
-		trap - INT
+		time {
+			trap '' INT
+			$docker commit "${container_name}-${compiler}" "${container_name%-${package_version}}.${compiler}:${package_version}" 2>&1 | tee -a log/"docker.${container_name}.log"
+			$docker rm --volumes "${container_name}-${compiler}" 2>&1 | tee -a log/"docker.${container_name}-${compiler}.log"
+			output " -> ${?}"
+			trap - INT
+		}
 	)
 fi
 
@@ -369,7 +375,7 @@ kernel_make_opts+=(
 	${container_CC:+CC=${container_CC}}
 	${container_CXX:+CXX=${container_CXX}}
 	${container_LD:+LD=${container_LD}}
-	${container_LLVM:+LLVM=1}
+	${container_LLVM:+LLVM=1 LLVM_IAS=1}
 	${kernel_debug:+${kernel_debug}}
 	O=../build
 )
@@ -445,16 +451,18 @@ unset nl
 
 export DOCKER_ENTRYPOINT DOCKER_INTERACTIVE DOCKER_EXTRA_MOUNTS DOCKER_VOLUMES DOCKER_SCRIPT
 
-#set -x
-#DOCKER_DEVICES="--device=/dev/tty --device=/dev/tty0" \
-TERM="${TERM:-}" \
-DOCKER_HOSTNAME="$( hostname )-build" \
-image="${container_name%-${package_version}}.${compiler}:${package_version}" \
+time {
+	#set -x
+	#DOCKER_DEVICES="--device=/dev/tty --device=/dev/tty0" \
+	TERM="${TERM:-}" \
+	DOCKER_HOSTNAME="$( hostname )-build" \
+	image="${container_name%-${package_version}}.${compiler}:${package_version}" \
 	docker_run \
 			-c "${DOCKER_SCRIPT}" \
 		2>&1 | tee -a log/"docker.${container_name}-${compiler}.log"
-rc=${?}
-#set +x
-output " -> ${rc}"
+	rc=${?}
+	#set +x
+	output " -> ${rc}"
+}
 
 exit ${rc}
