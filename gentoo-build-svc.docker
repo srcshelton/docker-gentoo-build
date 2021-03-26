@@ -21,7 +21,16 @@ services='bitlbee captive-portal dcc dhcpd dovecot fetchmail fwupd imapproxyd ir
 all=0
 rebuild=''
 force=''
+build_debug=''
 
+args=( ${@+"${@}"} )
+set --
+for arg in "${args[@]:-}"; do
+	case "${arg}" in
+		-*|--*)	continue ;;
+		*)		set -- ${@+"${@}"} "${arg}" ;;
+	esac
+done
 service="${1:-}"
 original_service="${service:-}"
 ports="${2:-0}"
@@ -30,7 +39,9 @@ group="${4:-root}"
 container_cmd="${5:-}"
 container_cwd="${6:-/}" # Optional
 fs_name="${7:-}" # Optional: If set create /var/{run,log}/${fs_name} in container
+set -- "${args[@]:-}"
 
+zxtm_service_version=''
 rc=0
 
 IMAGE="${build_name}:latest"
@@ -38,7 +49,7 @@ IMAGE="${build_name}:latest"
 [ -s common/run.sh ] && . common/run.sh >/dev/null
 
 if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	output >&2 "Usage: $( basename "${0}" ) <service [<ports> <user> <group> <command> [directory [fs_name]]]|--services <service> [service...]> [--rebuild] [--force] [--force-keywords]"
+	output >&2 "Usage: $( basename "${0}" ) <service [<ports> <user> <group> <command> [directory [fs_name]]]|--services <service> [service...]> [--rebuild] [--force] [--force-keywords] [--debug]"
 	output >&2
 	output >&2 "Known services:"
 	s=''
@@ -68,6 +79,10 @@ for arg in "${@}"; do
 		-a|--all|all)
 			service=''
 			all=1
+			continue
+			;;
+		-d|--debug)
+			build_debug=1
 			continue
 			;;
 		-f|--force)
@@ -224,7 +239,9 @@ case "${service:-}" in
 	watchdog)
 		service='sys-apps/watchdog' ;;
 	zxtm)
-		service='net-misc/zxtm-init-scripts' ;;
+		zxtm_service_version="$( curl -s https://registry.hub.docker.com/v1/repositories/pulsesecure/vtm/tags | jq -r .[].name | grep -v 'latest' | sort -V | tail -n 1 )"
+		service="net-misc/zxtm-init-scripts-${zxtm_service_version}"
+		;;
 	'')
 		die "No service name or description provided" ;;
 esac
@@ -297,7 +314,7 @@ print "Building for PHP versions '${php_targets}'"
 case "${package_name}" in
 	*bind*)
 		output "Setting build variables for package 'bind' ..."
-		pre_pkgs='sys-apps/help2man sys-devel/gcc acct-user/named acct-group/named'
+		pre_pkgs='sys-apps/help2man sys-devel/gcc acct-group/named acct-user/named'
 		extra_pkgs='app-shells/bash dev-lang/perl sys-apps/coreutils'
 
 		ports='53/tcp 53/udp 953/tcp 8053/tcp'
@@ -565,9 +582,10 @@ case "${package_name}" in
 	*postfix*)
 		output "Setting build variables for package 'postfix' ..."
 		# mail-filter/maildrop's BDEPEND/DEPEND isn't working :(
-		pre_pkgs='sys-apps/help2man acct-user/postfix dev-libs/libpcre net-dns/libidn net-libs/courier-unicode sys-devel/automake sys-devel/gcc sys-devel/libtool'
-		extra_pkgs='dev-libs/cyrus-sasl'
-		post_pkgs='app-shells/bash mail-filter/maildrop mail-filter/procmail net-mail/dovecot sys-apps/shadow'  # dovecot for lda
+		pre_pkgs='sys-apps/help2man acct-group/postfix acct-user/postfix dev-libs/libpcre net-dns/libidn net-libs/courier-unicode sys-devel/automake sys-devel/gcc sys-devel/libtool'
+		#extra_pkgs='dev-libs/cyrus-sasl'
+		#post_pkgs='app-shells/bash mail-filter/maildrop mail-filter/procmail net-mail/dovecot sys-apps/shadow'  # dovecot for lda
+		extra_pkgs='app-shells/bash dev-libs/cyrus-sasl mail-filter/maildrop mail-filter/procmail net-mail/dovecot sys-apps/shadow'  # dovecot for lda
 			# ... shadow as postfix user isn't getting its groups
 
 		container_cmd='/usr/sbin/postfix'
@@ -575,7 +593,7 @@ case "${package_name}" in
 		;;
 	*postgrey*)
 		output "Setting build variables for package 'postgrey' ..."
-		pre_pkgs='acct-user/postfix acct-user/postgrey acct-group/postgrey'
+		pre_pkgs='acct-group/postfix acct-user/postfix acct-group/postgrey acct-user/postgrey'
 
 		container_cmd='/usr/sbin/postgrey'
 		# Not a typo!
@@ -600,7 +618,7 @@ case "${package_name}" in
 		container_cwd='/var/lib/redis'
 		;;
 	*spamassassin*)
-		pre_pkgs='sys-apps/help2man acct-user/spamd acct-group/spamd'
+		pre_pkgs='sys-apps/help2man acct-group/spamd acct-user/spamd'
 		if [ "${original_service}" = 'spamassassin-update' ] || [ "${original_service}" = 'sa-update' ]; then
 			output "Setting build variables for package 'spamassassin-update' ..."
 			# 'srcshelton' repo relocates gawk to /bin/
@@ -661,7 +679,7 @@ case "${package_name}" in
 		# the eval wasn't :o
 		#
 		output "Setting build variables for package 'spampd' ..."
-		pre_pkgs='sys-apps/help2man acct-user/mail acct-group/mail acct-user/spamd acct-group/spamd'
+		pre_pkgs='sys-apps/help2man acct-group/mail acct-user/mail acct-group/spamd acct-user/spamd'
 		extra_pkgs='
 			>=dev-perl/Crypt-OpenSSL-DSA-0.150.0
 			>=dev-perl/Crypt-OpenSSL-EC-1.10.0
@@ -688,7 +706,7 @@ case "${package_name}" in
 		;;
 	*subversion*)
 		output "Setting build variables for package 'svnserve' ..."
-		pre_pkgs='sys-apps/help2man acct-user/svn acct-group/svnusers'
+		pre_pkgs='sys-apps/help2man acct-group/svnusers acct-user/svn'
 		force_python="${python_target}"
 		extra_pkgs='dev-lang/python'
 		with_use='xml'
@@ -801,6 +819,7 @@ pre_pkgs="$( echo "${pre_pkgs}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/
 extra_pkgs="$( echo "${extra_pkgs}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
 post_use="$( echo "${post_use}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
 post_pkgs="$( echo "${post_pkgs}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
+
 case " ${pre_pkgs} " in
 	*' dev-util/pkgconf '*)
 		pre_use="${pre_use:+${pre_use} }pkg-config"
@@ -820,10 +839,19 @@ case " ${pre_pkgs} " in
 	*' sys-devel/gcc '*)
 		pre_use="-lib-only${pre_use:+ ${pre_use}}"
 		post_use="lib-only${post_use:+ ${post_use}}"
+		if [ -n "${post_pkgs:-}" ]; then
+			warn "sys-devel/gcc needs to be rebuild (without dependencies) but 'post_pkgs' is non-empty... suggest moving 'post_pkgs' to 'extra_pkgs'"
+			warn "post_pkgs contains '${post_pkgs}'"
+			warn
+			sleep 5
+		fi
 		post_pkgs="${post_pkgs:+${post_pkgs} }sys-devel/gcc --nodeps --buildpkg=y --usepkg=y"
 		;;
 esac
 
+# Make these additions after the above check, with the intention that user and
+# group packages are explicitly included rather than the user relying on the
+# group being a dependency...
 pkg=''
 case " ${pre_pkgs} " in
 	*' acct-user/'*|*' acct-group/'*)
@@ -845,6 +873,9 @@ case " ${extra_pkgs:-} " in
 		extra_pkgs="${extra_pkgs} sys-libs/readline"
 		;;
 esac
+if [ -n "${build_debug:-}" ]; then
+	extra_pkgs="${extra_pkgs:+${extra_pkgs} }dev-util/strace"
+fi
 extra_pkgs="${extra_pkgs:+${extra_pkgs} }sys-devel/prelink"
 
 [ -z "${post_use:-}" ] && [ -n "${with_use:-}" ] && post_use="${with_use} lib-only"
@@ -996,7 +1027,6 @@ cd gentoo-base || die "chdir() to 'gentoo-base' failed: ${?}"
 case "${package_name}" in
 	*zxtm*)
 		file='Dockerfile.zxtm.service'
-		zxtm_service_version="$( curl -s https://registry.hub.docker.com/v1/repositories/pulsesecure/vtm/tags | jq -r .[].name | grep -v 'latest' | sort -V | tail -n 1 )"
 		;;
 	*)
 		file='Dockerfile.service'
