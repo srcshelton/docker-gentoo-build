@@ -22,7 +22,7 @@ ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAM
 #ARG smtp_domain="rufus.miltonroad.net"
 
 ARG zxtm_image_name="docker.io/pulsesecure/vtm"
-ARG zxtm_service_version="20.1"
+ARG zxtm_service_version="20.3"
 ARG ZEUSHOME="/opt/zeus"
 
 
@@ -140,7 +140,7 @@ COPY --from=base "/usr/share/zoneinfo/${timezone}" /etc/localtime
 #COPY etc/msmtprc /etc/
 
 LABEL maintainer="stuart@shelton.me"
-LABEL Description="Pulse Secure ${service_name}-${service_version} service"
+LABEL Description="Pulse Secure/Ivanti ${service_name}-${service_version} service"
 
 # Try to get nice colours ...
 #

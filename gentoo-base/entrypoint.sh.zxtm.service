@@ -308,6 +308,8 @@ if type -pf eselect  >/dev/null 2>&1 && [[ -s /usr/share/eselect/modules/iptable
 		plog WARN "Failed to switch to NFT iptables back-end"
 		eselect iptables list
 	fi
+else
+	plog WARN "Unable to switch to NFT iptables back-end"
 fi
 if ! [[ -x /sbin/ip6tables ]]; then
 	plog WARN "Creating missing ip6tables symlinks ..."
