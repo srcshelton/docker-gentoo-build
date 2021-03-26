@@ -30,13 +30,15 @@ FROM "${stage3_image}:${stage3_tag}" AS stage3
 
 ARG ARCH
 
-# Save initial environment ...
+# Save initial environment...
 RUN echo "USE=\"$( \
         cat /var/db/pkg/*/*/USE | \
         xargs -n 1 echo | \
+        grep -v '^python_targets_' | \
+        sed -r 's/^(python_single_target_)(.*)$/\1\2\npython_targets_\2/' | \
         sort | \
         uniq | \
-        grep -Ev "${ARCH:-amd64}|elibc_glibc|kernel_linux|userland_GNU|python_single_target_python|python_targets_python" | \
+        grep -v '^static' | \
         xargs echo -n \
     )\"" >/usr/libexec/stage3.info 2>/dev/null
 

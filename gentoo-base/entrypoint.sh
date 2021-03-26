@@ -242,7 +242,7 @@ if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 	echo " * Building linted 'sys-apps/gentoo-functions' package for stage3 ..."
 	echo
 	(
-		USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+		USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean -fakeroot"
 		export LC_ALL='C'
@@ -268,7 +268,7 @@ echo
 echo " * Building 'sys-apps/fakeroot' package for stage3 ..."
 echo
 (
-	USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+	USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
 	export USE
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean -fakeroot"
 	export LC_ALL='C'
@@ -303,7 +303,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		#
 		# The intent, however, is to rebuild as closely to the original stage3
 		# state as possible.
-		USE="livecd nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"  # for busybox
+		USE="-* livecd nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"  # 'livecd' for busybox
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 		export LC_ALL='C'
@@ -333,7 +333,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	oldchost="$( find /usr -mindepth 1 -maxdepth 1 -type d -name '*-*-*' -exec basename {} \; | head -n 1 )"
 	for pkg in 'sys-devel/binutils' 'sys-devel/gcc' 'sys-libs/glibc'; do
 		(
-			USE="nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"  # for busybox
+			USE="-* nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
 			export USE
 			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 			export LC_ALL='C'
@@ -367,24 +367,29 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		# shellcheck disable=SC1091
 		[ -s /etc/profile ] && { . /etc/profile || : ; }
 	done
+	rm -r "/usr/${oldchost}" "/usr/bin/${oldchost}"*
+	#find /bin/ /sbin/ /usr/bin/ /usr/sbin/ /usr/libexec/ /usr/local/ -name "*${oldchost}*" -exec ls -Fhl --color=always {} +
+	#find /usr/ -mindepth 1 -maxdepth 1 -name "*${oldchost}*" -exec ls -dFhl --color=always {} +
 	grep -l "${oldchost}" /etc/env.d/0*gcc* /etc/env.d/0*binutils* | xargs -r rm
-	find /etc/env.d/ -name "\\*${oldchost}\\*" -delete
-	rm -f /etc/env.d/*"${oldchost}"*
+	find /etc/env.d/ -name "*${oldchost}*" -delete
 	env-update || :
+	binutils-config 1 2>/dev/null || :
+	gcc-config 1 2>/dev/null || :
 	# shellcheck disable=SC1091
 	[ -s /etc/profile ] && . /etc/profile
 	echo
 	echo " * Switched from CHOST '${oldchost}' to '${CHOST}'":
 	echo
-	ls -lAR /etc/env.d/
-	grep -HR --colour '^.*$' /etc/env.d/
-	binutils-config -l
-	gcc-config -l
+	#ls -lAR /etc/env.d/
+	#grep -HR --colour '^.*$' /etc/env.d/
+	#binutils-config -l
+	#gcc-config -l
 
 	# shellcheck disable=SC2041
-	for pkg in 'dev-libs/libgpg-error' 'sys-devel/libtool'; do
+	#for pkg in 'dev-libs/libgpg-error' 'sys-devel/libtool'; do
+	for pkg in 'sys-devel/libtool'; do
 		(
-			USE="nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"  # for busybox
+			USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
 			export USE
 			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 			export LC_ALL='C'
@@ -409,16 +414,43 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	[ -x /usr/sbin/fix_libtool_files.sh ] && /usr/sbin/fix_libtool_files.sh "$( gcc -dumpversion )" --oldarch "${oldchost}"
 
 	(
-		USE="nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"  # for busybox
+		USE="-* nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 		export LC_ALL='C'
+
+		# clashing USE flags can't be resolved with current level of
+		# command-line fine-grained package flag control :(
+		exclude='sys-apps/coreutils sys-apps/net-tools sys-apps/util-linux sys-process/procps sys-apps/shadow'
+
 		# shellcheck disable=SC2012,SC2086,SC2046
 		emerge \
 				--ignore-default-opts \
 				--binpkg-respect-use=y \
 				--buildpkg=n \
 				--color=y \
+				--exclude "${exclude}" \
+				--keep-going=y \
+				--oneshot \
+				--quiet-build=y \
+				${opts:-} \
+				--usepkg=y \
+				--verbose=y \
+				--verbose-conflicts \
+				--with-bdeps=n \
+				--with-bdeps-auto=n \
+			dev-libs/libgpg-error
+		#ls -l "/usr/bin/${CHOST}-gpg-error-config"
+		#cat /var/db/pkg/dev-libs/libgpg-error*/CONTENTS
+
+		# shellcheck disable=SC2012,SC2086,SC2046
+		emerge \
+				--ignore-default-opts \
+				--binpkg-respect-use=y \
+				--buildpkg=n \
+				--color=y \
+				--emptytree \
+				--exclude "${exclude}" \
 				--keep-going=y \
 				--oneshot \
 				--quiet-build=y \
@@ -434,7 +466,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 						printf '%s ' "${object}"
 					fi
 				done
-			)dev-libs/libgpg-error dev-lang/perl "=$(
+			)dev-lang/perl "=$(
 				ls /var/db/pkg/dev-lang/python-3* -1d |
 				cut -d'/' -f 5-6 |
 				sort -V |
@@ -451,14 +483,25 @@ fi
 #
 # (For some reason, sys-apps/gentoo-functions::gentoo is very sticky)
 #
-for pkg in 'sys-libs/libcap' 'sys-process/audit' 'dev-perl/libintl-perl' 'dev-perl/Locale-gettext' 'dev-libs/libxml2' 'app-editors/vim'; do
+for pkg in \
+		'sys-libs/libcap' \
+		'sys-process/audit' \
+		'dev-perl/libintl-perl' \
+		'dev-perl/Locale-gettext' \
+		'dev-libs/libxml2' \
+		'app-editors/vim' \
+		'app-admin/eselect' \
+		'app-eselect/eselect-awk' \
+		'sys-apps/gawk' \
+		'virtual/awk'
+do
 	echo
 	echo
 	echo " * Building stage3 '${pkg}' package ..."
 	echo
 
 	(
-		USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+		USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 		export LC_ALL='C'
@@ -481,6 +524,7 @@ for pkg in 'sys-libs/libcap' 'sys-process/audit' 'dev-perl/libintl-perl' 'dev-pe
 	LC_ALL='C' eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
 	LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 done
+LC_ALL='C' eselect awk set gawk || :
 
 echo
 echo
@@ -490,7 +534,7 @@ echo
 # Some packages require prepared kernel sources ...
 #
 (
-	USE="$( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 ) symlink"
+	USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 ) symlink"
 	export USE
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 	export LC_ALL='C'
@@ -565,6 +609,12 @@ done
 unset file
 echo "Setting profile for architeceture '${ARCH}'..."
 LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" 2>&1 | grep -v -- 'Warning:' || :
+
+# It seems we never actually defined USE if not passed-in externally, and yet
+# somehow on amd64 gcc still gets 'nptl'.  An arm64, however, this doesn't
+# happen and everything breaks :(
+# Let's try to fix that...
+export USE="${USE:+${USE} }${use_essential} nptl"
 
 info="$( LC_ALL='C' emerge --info --verbose )"
 echo
@@ -667,9 +717,18 @@ echo
 	# dev-libs/icu is needed for circular dependencies on icu -> python -> sqlite -> icu
 	# libarchive is a frequent dependency, and so quicker to pull-in here
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
-	export USE="${use_essential:-}"
+	USE="${use_essential:-}"
+	if
+		  echo " ${USE} " | grep -q -- ' -nptl ' ||
+		! echo " ${USE} " | grep -q -- ' nptl '
+	then
+		warn "USE flag 'nptl' missing from or disabled in \$USE"
+		USE="${USE:+$( echo "${USE}" | sed 's/ \?-\?nptl \?/ /' ) }nptl"
+		info "USE is now '${USE}'"
+	fi
+	export USE
 	export LC_ALL='C'
-	for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+	for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u ); do
 		export ROOT
 		export SYSROOT="${ROOT}"
 		export PORTAGE_CONFIGROOT="${SYSROOT}"
