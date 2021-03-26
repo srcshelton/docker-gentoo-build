@@ -117,6 +117,7 @@ app-vim/ntp-syntax			 vim
 container/php				 PHP-3.01 Zend-2.0
 dev-php/pecl-memcache			 PHP-3
 dev-php/pecl-redis			 PHP-3.01
+dev-php/Masterminds-HTML5		 HTML5-PHP
 
 # required by services dev-lang/php & www-server/lighttpd
 dev-lang/tcl				 tcltk
