@@ -230,8 +230,8 @@ docker_setup() {
 			docker_arch='arm64'
 			arch='arm64'
 			profile='17.0'
-			#chost='aarch64-unknown-linux-gnu'  # default
-			chost='aarch64-pc-linux-gnu'
+			chost='aarch64-unknown-linux-gnu'  # default
+			#chost='aarch64-pc-linux-gnu'
 			;;
 		armv6l)
 			docker_arch='amd/v6'
@@ -629,6 +629,10 @@ docker_run() {
 		print "Using architecture '${ARCH:-${arch}}' ..."
 		mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-${arch}}/docker"
 		mountpoints['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
+
+		if [ -s "gentoo-base/etc/portage/package.accept_keywords.${ARCH:-${arch}}" ]; then
+			mountpointsro["${PWD%/}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-${arch}}"]="/etc/portage/package.accept_keywords/${ARCH:-${arch}}"
+		fi
 
 		#cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
 		#print "Volume/mount base directory is '${cwd}'"
