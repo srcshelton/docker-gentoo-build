@@ -1,4 +1,7 @@
 
+#net-misc/zxtm-init-scripts		 perl -saveconfig
+net-misc/zxtm-init-scripts		 perl
+
 #net-firewall/iptables			 conntrack ipv6 netlink nftables pcap static-libs systemd
 net-firewall/iptables			 conntrack ipv6 netlink nftables pcap
 
