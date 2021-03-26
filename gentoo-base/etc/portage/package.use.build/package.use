@@ -2,7 +2,7 @@
 # General USE flags:
 #*/*					 asm ipv6 ithreads mdev openssl ssl threads tls-heartbeat zlib  # from 'use_essential'
 */*					-apache2 -awt acpi adns aio ao asm audit
-*/*					-berkdb bash-completion bzip2
+*/*					-berkdb bash-completion btrfs bzip2
 */*					-cairo -cdb -common-lisp -cups caps chroot curl cxx
 */*					-dbi
 */*					 encode expat
