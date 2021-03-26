@@ -153,6 +153,27 @@ checkids() {
 	return 0
 } # checkids
 
+# Check for environment sanity...
+rc=0
+while read -r r; do
+	# FIXME: Discover default rather than assuming 'gentoo'?
+	[ "${r}" == 'gentoo' ] && continue
+	while read -r d; do
+		if [ -d "${d}"/eclass ]; then
+			grep -hR eclass /etc/portage/repos.conf |
+					sed 's/#.*//' |
+					grep '^eclass-overrides' |
+					cut -d '=' -f 2- |
+					grep -Fqw -- "${r}" &&
+				continue
+			warn "ebuild repo '${r}' contains class overrides, but portage isn't configured to allow their use"
+			warn "Add/update 'eclass-overrides = ${r}' (with)in /etc/portage/repos.conf"
+			rc=1
+		fi
+	done < <( portageq get_repo_path "${EROOT:-/}" "${r}" )
+done < <( portageq get_repos "${EROOT:-/}" | xargs -n 1 )
+(( rc )) && sleep 5
+
 # 'cut' separately to emulate 'pipefail' when using /bin/sh
 #
 # (... which we aren't any longer - but pipefail does seem to cause some
