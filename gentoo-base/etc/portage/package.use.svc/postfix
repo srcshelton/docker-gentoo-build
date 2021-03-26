@@ -1,13 +1,18 @@
 
 #dev-libs/cyrus-sasl			 authdaemond berkdb gdbm kerberos ldapdb libressl mysql openldap pam postgres sample selinux sqlite srp static-libs systemd urandom (ssl)
-#mail-mta/postfix			+berkdb cdb dovecot-sasl +eai hardened ldap ldap-bind libressl lmdb memcached mbox mysql nis pam postgres sasl selinux sqlite (ssl)
-#net-mail/dovecot			 argon2 bzip2 caps doc ipv6 kerberos ldap libressl lua lucene lz4 lzma managesieve mysql pam postgres selinux sieve solr sqlite static-libs suid tcpd textcat unwind vpopmail (zlib)
 dev-libs/cyrus-sasl			 gdbm srp urandom
+
+#mail-mta/postfix			+berkdb cdb dovecot-sasl +eai hardened ldap ldap-bind libressl lmdb memcached mbox mysql nis pam postgres sasl selinux sqlite (ssl)
 mail-mta/postfix			 berkdb cdb dovecot-sasl eai lmdb mbox memcached sasl sqlite
-mail-filer/maildrop			 dovecot fam
+
+#net-mail/dovecot			 argon2 bzip2 caps doc ipv6 kerberos ldap libressl lua lucene lz4 lzma managesieve mysql pam postgres selinux sieve solr sqlite static-libs suid tcpd textcat unwind vpopmail (zlib)
 #net-mail/dovecot			 bzip2 caps lzma managesieve pam sieve solr sqlite tcpd textcat unwind
 net-mail/dovecot			 caps sieve
+
+mail-filer/maildrop			 dovecot fam
+
 #net-mail/mailbase			 pam
+
 #dev-libs/nettle			 gmp
 
 # vi: set nowrap syntax=gentoo-package-use:
