@@ -100,7 +100,8 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
     find /var/tmp/ -mindepth 1 -type d -delete ; \
     find /var/log/ -type f -delete ; \
     find /var/log/ -mindepth 1 -type d -delete ; \
-    test -d /root || mkdir -m 0700 -- /root
+    test -d /root || mkdir -m 0700 -- /root ; \
+    test -d /boot || mkdir -- /boot
 
 RUN test -d /etc/portage/package.use.build && \
     rm -r /etc/portage/package.use && \
