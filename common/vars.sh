@@ -1,7 +1,7 @@
 #! /bin/sh
 #shellcheck disable=SC2034
 
-# Since we're now using 'podman info' to determine the graphRoot directory, we
+# Since we're now using 'podman system info' to determine the graphRoot directory, we
 # need to be root simply to setup the environment appropriately :(
 if [ $(( $( id -u ) )) -ne 0 ]; then
 	echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
@@ -72,7 +72,7 @@ if [ -n "${use_cpu_flags:-}" ]; then
 		sed "s/^/cpu_flags_${use_cpu_arch:-x86}_/ ; s/ / cpu_flags_${use_cpu_arch:-x86}_/g"
 	)"
 fi
-use_essential="asm ipv6 ithreads mdev nptl openssl ssl threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
+use_essential="asm curl_ssl_openssl ipv6 ithreads mdev nptl openssl ssl threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
 
 case "$( uname -m )" in
 	x86_64|i686)
@@ -114,9 +114,15 @@ else
 	docker_readonly='ro=true'
 fi
 
+# Allow a separate image directory for persistent images...
+#tmp="$( $docker system info | grep 'imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
+#if [ -n "${tmp}" ]; then
+#	export IMAGE_ROOT="${tmp}"
+#fi
+
 # Optional override to specify alternative build temporary directory
 #export TMPDIR=/var/tmp
-tmp="$( $docker info | grep 'graphRoot:' | cut -d':' -f 2- | awk '{ print $1 }' )/tmp"
+tmp="$( $docker system info | grep 'graphRoot:' | cut -d':' -f 2- | awk '{ print $1 }' )/tmp"
 mkdir -p "${tmp:=/var/lib/containers/storage/tmp}"
 export TMPDIR="${tmp}"
 

@@ -16,11 +16,18 @@ else
 	exit 1
 fi
 
+docker='docker'
 if command -v podman >/dev/null 2>&1; then
 	docker='podman'
 fi
 
 #export USE="-libressl"
+
+# Allow a separate image directory for persistent images...
+#tmp="$( $docker system info | grep 'imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
+#if [ -n "${tmp}" ]; then
+#	export IMAGE_ROOT="${tmp}"
+#fi
 
 arg=''
 haveargs=0
@@ -97,9 +104,11 @@ if [ "${rebuildutils:-0}" = '1' ]; then
 		mkdir -p log
 
 		[ "$( $docker image ls 'localhost/dell-dsu' | wc -l )" = '2' ] ||
-			"${basedir}"/docker-dell/dell.docker centos >>log/dell.docker.centos.log 2>&1 &
+			"${basedir}"/docker-dell/dell.docker --dsu  \
+				>> log/dell.docker.dsu.log 2>&1 &
 		[ "$( $docker image ls 'localhost/dell-ism' | wc -l )" = '2' ] ||
-			"${basedir}"/docker-dell/dell.docker ubuntu >>log/dell.docker.ubuntu.log 2>&1 &
+			"${basedir}"/docker-dell/dell.docker --ism ${IMAGE_ROOT:+--storage-opt="" --root "${IMAGE_ROOT}"} \
+				>> log/dell.docker.ism.log 2>&1 &
 	fi
 fi
 
@@ -148,11 +157,15 @@ if [ "${update:-0}" = '1' ]; then
 				fi
 				echo ">=${pkg}"
 			done
-		) --name 'buildpkg.hostpkgs.update' 2>&1 | tee log/buildpkg.hostpkgs.update.log
+		) --name 'buildpkg.hostpkgs.update' 2>&1 |
+	awk 'BEGIN { RS = null ; ORS = "\n\n" } 1' |
+	tee log/buildpkg.hostpkgs.update.log
 	: $(( rc = rc + ${?} ))
 
 	trap '' INT
-	$docker ps -a | grep -qw -- 'buildpkg.hostpkgs.update$' && $docker rm --volumes 'buildpkg.hostpkgs.update'
+	$docker container ps -a |
+			grep -qw -- 'buildpkg.hostpkgs.update$' &&
+		$docker container rm --volumes 'buildpkg.hostpkgs.update'
 	trap - INT
 fi
 
