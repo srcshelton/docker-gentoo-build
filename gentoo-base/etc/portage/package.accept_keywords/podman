@@ -1,92 +1,94 @@
 
-~app-emulation/catatonit-0.1.5				~amd64
+~app-emulation/catatonit-0.1.5				 **
 
-#~app-emulation/podman-2.0.6				~amd64
-#~app-emulation/podman-2.1.0				~amd64
-#~app-emulation/podman-2.1.1				~amd64
-#~app-emulation/podman-2.2.0_rc1			~amd64
-#~app-emulation/podman-2.2.0_rc2			~amd64
-#~app-emulation/podman-2.2.0				~amd64
-#~app-emulation/podman-2.2.1				~amd64
-#~app-emulation/podman-3.0.0				~amd64
-#~app-emulation/podman-3.0.1				~amd64
-#~app-emulation/podman-3.1.0_rc1			~amd64
-#~app-emulation/podman-3.1.0_rc2			~amd64
-#~app-emulation/podman-3.1.0				~amd64
-~app-emulation/podman-3.1.0-r1				~amd64
-#~app-emulation/podman-3.1.1				~amd64
-~app-emulation/podman-3.1.2				~amd64
+#~app-emulation/podman-2.0.6				 **
+#~app-emulation/podman-2.1.0				 **
+#~app-emulation/podman-2.1.1				 **
+#~app-emulation/podman-2.2.0_rc1			 **
+#~app-emulation/podman-2.2.0_rc2			 **
+#~app-emulation/podman-2.2.0				 **
+#~app-emulation/podman-2.2.1				 **
+#~app-emulation/podman-3.0.0				 **
+#~app-emulation/podman-3.0.1				 **
+#~app-emulation/podman-3.1.0_rc1			 **
+#~app-emulation/podman-3.1.0_rc2			 **
+#~app-emulation/podman-3.1.0				 **
+~app-emulation/podman-3.1.0-r1				 **
+#~app-emulation/podman-3.1.1				 **
+~app-emulation/podman-3.1.2				 **
+~app-emulation/podman-3.2.0_rc1				 **
 
-#~app-emulation/buildah-1.16.0				~amd64
-#~app-emulation/buildah-1.16.1				~amd64
-#~app-emulation/buildah-1.16.2				~amd64
-#~app-emulation/buildah-1.16.3				~amd64
-#~app-emulation/buildah-1.16.4				~amd64
-#~app-emulation/buildah-1.16.7				~amd64
-#~app-emulation/buildah-1.17.0				~amd64
-#~app-emulation/buildah-1.17.1				~amd64
-#~app-emulation/buildah-1.18.0				~amd64
-#~app-emulation/buildah-1.19.0				~amd64
-#~app-emulation/buildah-1.19.3				~amd64
-#~app-emulation/buildah-1.19.4				~amd64
-#~app-emulation/buildah-1.19.6				~amd64
-#~app-emulation/buildah-1.19.8				~amd64
-~app-emulation/buildah-1.20.0				~amd64
-~app-emulation/buildah-1.20.1				~amd64
+#~app-emulation/buildah-1.16.0				 **
+#~app-emulation/buildah-1.16.1				 **
+#~app-emulation/buildah-1.16.2				 **
+#~app-emulation/buildah-1.16.3				 **
+#~app-emulation/buildah-1.16.4				 **
+#~app-emulation/buildah-1.16.7				 **
+#~app-emulation/buildah-1.17.0				 **
+#~app-emulation/buildah-1.17.1				 **
+#~app-emulation/buildah-1.18.0				 **
+#~app-emulation/buildah-1.19.0				 **
+#~app-emulation/buildah-1.19.3				 **
+#~app-emulation/buildah-1.19.4				 **
+#~app-emulation/buildah-1.19.6				 **
+#~app-emulation/buildah-1.19.8				 **
+~app-emulation/buildah-1.20.0				 **
+~app-emulation/buildah-1.20.1				 **
 
-#~net-misc/cni-plugins-0.8.7				~amd64
-#~net-misc/cni-plugins-0.9.0				~amd64
-~net-misc/cni-plugins-0.9.1				~amd64
+#~net-misc/cni-plugins-0.8.7				 **
+#~net-misc/cni-plugins-0.9.0				 **
+~net-misc/cni-plugins-0.9.1				 **
 
-#~app-emulation/crun-0.14.1				~amd64
-#~app-emulation/crun-0.15				~amd64
-#~app-emulation/crun-0.15.1				~amd64
-#~app-emulation/crun-0.16				~amd64
-#~app-emulation/crun-0.17				~amd64
-#~app-emulation/crun-0.18				~amd64
-~app-emulation/crun-0.19				~amd64
-~app-emulation/crun-0.19.1				~amd64
+#~app-emulation/crun-0.14.1				 **
+#~app-emulation/crun-0.15				 **
+#~app-emulation/crun-0.15.1				 **
+#~app-emulation/crun-0.16				 **
+#~app-emulation/crun-0.17				 **
+#~app-emulation/crun-0.18				 **
+~app-emulation/crun-0.19				 **
+~app-emulation/crun-0.19.1				 **
 
-#~app-emulation/runc-1.0.0_rc92				~amd64
-~app-emulation/runc-1.0.0_rc93				~amd64
+#~app-emulation/runc-1.0.0_rc92				 **
+~app-emulation/runc-1.0.0_rc93				 **
 
 # originally required by app-emulation/podman-1.9.3
-#~app-emulation/conmon-2.0.20				~amd64
-#~app-emulation/conmon-2.0.21				~amd64
-#~app-emulation/conmon-2.0.22				~amd64
-#~app-emulation/conmon-2.0.23				~amd64
-#~app-emulation/conmon-2.0.24				~amd64
-#~app-emulation/conmon-2.0.25				~amd64
-~app-emulation/conmon-2.0.26				~amd64
-~app-emulation/conmon-2.0.27				~amd64
+#~app-emulation/conmon-2.0.20				 **
+#~app-emulation/conmon-2.0.21				 **
+#~app-emulation/conmon-2.0.22				 **
+#~app-emulation/conmon-2.0.23				 **
+#~app-emulation/conmon-2.0.24				 **
+#~app-emulation/conmon-2.0.25				 **
+~app-emulation/conmon-2.0.26				 **
+~app-emulation/conmon-2.0.27				 **
 
 # originally required by app-emulation/podman-1.9.3[rootless]
-#~app-emulation/slirp4netns-1.1.4			~amd64
-#~app-emulation/slirp4netns-1.1.6			~amd64
-#~app-emulation/slirp4netns-1.1.7			~amd64
-~app-emulation/slirp4netns-1.1.8			~amd64
-~app-emulation/slirp4netns-1.1.9			~amd64
-~net-libs/libslirp-4.3.1				~amd64
+#~app-emulation/slirp4netns-1.1.4			 **
+#~app-emulation/slirp4netns-1.1.6			 **
+#~app-emulation/slirp4netns-1.1.7			 **
+~app-emulation/slirp4netns-1.1.8			 **
+~app-emulation/slirp4netns-1.1.9			 **
+~net-libs/libslirp-4.3.1				 **
 
 # originally required by app-emulation/podman-1.9.3[fuse]
-#~sys-fs/fuse-overlayfs-1.1.2				~amd64
-#~sys-fs/fuse-overlayfs-1.2.0				~amd64
-~sys-fs/fuse-overlayfs-1.3.0				~amd64
+#~sys-fs/fuse-overlayfs-1.1.2				 **
+#~sys-fs/fuse-overlayfs-1.2.0				 **
+~sys-fs/fuse-overlayfs-1.3.0				 **
 
 # originally required by app-emulation/podman-2.0.0_rc7
-#~app-emulation/catatonit-0.1.5				~amd64
+#~app-emulation/catatonit-0.1.5				 **
 
 # originally required by app-emulation/buildah-1.15.0
-#~app-emulation/skopeo-1.1.1				~amd64
-#~app-emulation/skopeo-1.2.0				~amd64
-#~app-emulation/skopeo-1.2.1				~amd64
-~app-emulation/skopeo-1.2.2				~amd64
-~app-emulation/skopeo-1.2.3				~amd64
+#~app-emulation/skopeo-1.1.1				 **
+#~app-emulation/skopeo-1.2.0				 **
+#~app-emulation/skopeo-1.2.1				 **
+~app-emulation/skopeo-1.2.2				 **
+~app-emulation/skopeo-1.2.3				 **
 
-#~app-emulation/containers-storage-1.27.0		~amd64
-#~app-emulation/containers-storage-1.28.0		~amd64
-#~app-emulation/containers-storage-1.28.1		~amd64
-~app-emulation/containers-storage-1.29.0		~amd64
-~app-emulation/containers-storage-1.30.0		~amd64
+#~app-emulation/containers-storage-1.27.0		 **
+#~app-emulation/containers-storage-1.28.0		 **
+#~app-emulation/containers-storage-1.28.1		 **
+#~app-emulation/containers-storage-1.29.0		 **
+~app-emulation/containers-storage-1.30.0		 **
+~app-emulation/containers-storage-1.30.1		 **
 
 # vi: set syntax=gentoo-package-keywords:
