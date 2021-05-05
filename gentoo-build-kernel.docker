@@ -55,14 +55,15 @@ declare menuconfig=''
 declare nconfig=''
 declare version=''
 declare patch=''
-if type -pf gcc >/dev/null 2>&1; then
-	case "$( gcc --version | awk '( NR == 1 ) { print $NF }' )" in
-		9.*)
-			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v9-and-kernel-5.8%2B.patch' ;;
-		10.*)
-			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v10-and-kernel-5.8%2B.patch' ;;
-	esac
-fi
+#if type -pf gcc >/dev/null 2>&1; then
+#	case "$( gcc --version | awk '( NR == 1 ) { print $NF }' )" in
+#		9.*)
+#			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v9-and-kernel-5.8%2B.patch' ;;
+#		10.*)
+#			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v10-and-kernel-5.8%2B.patch' ;;
+#	esac
+#fi
+patch='https://github.com/graysky2/kernel_gcc_patch/raw/master/more-uarches-for-kernel-5.8%2B.patch'
 patch="${patch:+${patch} }https://lore.kernel.org/linux-btrfs/206d121e2e2b609ffe31217e6d90bfabe1c4e121.1616066404.git.fdmanana@suse.com/raw"
 
 if echo " ${*:-} " | grep -q -- ' --menuconfig '; then
@@ -243,7 +244,8 @@ case "${compiler}" in
 		compiler_USE='clang default-compiler-rt default-libcxx default-lld' # gold
 		container_CC='clang'
 		container_CXX='clang++'
-		container_LD='ld.bfd'
+		#container_LD='ld.bfd'
+		container_LD='ld.lld' # lld required for LTO
 		container_LLVM='1'
 		#LLVM_TARGETS='-* BPF X86' - moved to gentoo-base/etc/portage/package.use.build/package.use
 		;;
@@ -252,19 +254,24 @@ case "${compiler}" in
 		;;
 esac
 
+# FIXME: Standardise on host or container configuration files
+DOCKER_EXTRA_MOUNTS=''
+test -e /etc/portage/package.accept_keywords &&
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
+test -e /etc/portage/package.license &&
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
+test -e /etc/portage/package.mask &&
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.mask,destination=/etc/portage/package.mask${docker_readonly:+,${docker_readonly}}"
+test -e /etc/portage/package.use/package.use &&
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+,${docker_readonly}}"
+test -e /etc/portage/package.use/host.use &&
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/host.use,destination=/etc/portage/package.use/host.use${docker_readonly:+,${docker_readonly}}"
+test -e /etc/portage/package.use/python_targets &&
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/python_targets,destination=/etc/portage/package.use/python_targets${docker_readonly:+,${docker_readonly}}"
+[ -n "${DOCKER_EXTRA_MOUNTS:-}" ] && export DOCKER_EXTRA_MOUNTS
+
 if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:${package_version}" | wc -l )" = '2' ]; then
 	(
-		DOCKER_EXTRA_MOUNTS=''
-		test -e /etc/portage/package.accept_keywords &&
-			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
-		test -e /etc/portage/package.license &&
-			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
-		test -e /etc/portage/package.use/package.use &&
-			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+,${docker_readonly}}"
-		test -e /etc/portage/package.use/python_targets &&
-			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/python_targets,destination=/etc/portage/package.use/python_targets${docker_readonly:+,${docker_readonly}}"
-		[ -n "${DOCKER_EXTRA_MOUNTS:-}" ] && export DOCKER_EXTRA_MOUNTS
-
 		ACCEPT_LICENSE="linux-fw-redistributable no-source-code"
 		USE="-lib-only extra-filters hostname lzma symlink threads zlib${compiler_USE:+ ${compiler_USE}}"
 		export ACCEPT_LICENSE USE
@@ -276,6 +283,7 @@ if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:$
 		# shellcheck disable=SC2086
 		time {
 			docker_run \
+						--with-use="${USE}" \
 						--changed-use \
 						--update \
 						--usepkg=y \
@@ -292,28 +300,34 @@ if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:$
 					sys-apps/kmod \
 					sys-firmware/intel-microcode \
 					sys-kernel/linux-firmware \
+					virtual/linux-sources \
 				2>&1 | tee log/"docker.${container_name}-${compiler}.log"
 			output " -> ${?}"
 		}
 
 		time {
 			trap '' INT
-			$docker commit "${container_name}-${compiler}" "${container_name%-${package_version}}.${compiler}:${package_version}" 2>&1 | tee -a log/"docker.${container_name}.log"
-			$docker rm --volumes "${container_name}-${compiler}" 2>&1 | tee -a log/"docker.${container_name}-${compiler}.log"
+			$docker container commit \
+					"${container_name}-${compiler}" \
+					"${container_name%-${package_version}}.${compiler}:${package_version}" \
+					${IMAGE_ROOT:+--storage-opt="" --root "${IMAGE_ROOT}"} 2>&1 |
+				tee -a log/"docker.${container_name}.log"
+			$docker container rm --volumes "${container_name}-${compiler}" 2>&1 |
+				tee -a log/"docker.${container_name}-${compiler}.log"
 			output " -> ${?}"
 			trap - INT
 		}
 	)
 fi
 
-DOCKER_EXTRA_MOUNTS=''
-DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS} --mount type=bind,source=/lib/modules/,destination=/lib/modules"
-DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS} --mount type=bind,source=/boot/,destination=/boot"
+#DOCKER_EXTRA_MOUNTS=''
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:-} --mount type=bind,source=/lib/modules/,destination=/lib/modules"
+DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:-} --mount type=bind,source=/boot/,destination=/boot"
 DOCKER_ENTRYPOINT='/bin/sh'
 DOCKER_INTERACTIVE=1
 deforoldconfig='defconfig'
 if [ "${build:-}" = '1' ]; then
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS} --mount type=bind,source=${build_dir},destination=/usr/src/build"
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:-} --mount type=bind,source=${build_dir},destination=/usr/src/build"
 	if ! [ -d "${build_dir}" ]; then
 		warn "Build cache directory '${build_dir}' doesn't exists - creating ..."
 		mkdir -p "${build_dir}"
@@ -444,6 +458,8 @@ EOF
 )"
 	#echo "Detected packages:"
 	#ls -1d /var/db/pkg/*/* | cut -d '/' -f 5-
+	#[ -e /etc/python-exec/emerge.conf ] && rm /etc/python-exec/emerge.conf ;
+	#KBUILD_OUTPUT="/usr/src/build" CC="${container_CC}" CXX="${container_CXX}" LD="${container_LD}" emerge --with-bdeps=n --buildpkg=y -kv '>=net-firewall/xtables-addons-3.18' ;
 
 nl="$( printf '\n' )"
 DOCKER_SCRIPT="$( echo "${DOCKER_SCRIPT}" | tr "${nl}" ' ' )"
@@ -466,3 +482,5 @@ time {
 }
 
 exit ${rc}
+
+# vi: set nowrap:
