@@ -143,7 +143,7 @@ if [ "${update:-0}" = '1' ]; then
 	#  flag here to remove this circular dependency)
 	#
 	# shellcheck disable=SC2046
-	USE="-natspec -libressl" \
+	USE="-natspec -libressl pkg-config" \
 	"${basedir}"/docker-gentoo-build/gentoo-build-pkg.docker \
 			--buildpkg=y \
 			--emptytree \
@@ -152,7 +152,7 @@ if [ "${update:-0}" = '1' ]; then
 		$(
 			for pkg in /var/db/pkg/*/*; do
 				pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
-				if echo "${pkg}" | grep -q '^container/'; then
+				if echo "${pkg}" | grep -Eq '^container/|/pkgconfig-'; then
 					continue
 				fi
 				echo ">=${pkg}"
