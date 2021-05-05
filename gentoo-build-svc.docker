@@ -292,7 +292,7 @@ else
 fi
 
 # from common/vars.sh:
-#use_essential="asm ipv6 ithreads mdev nptl openssl ssl threads tls-heartbeat zlib ${use_cpu_flags}"
+#use_essential="asm curl_ssl_openssl ipv6 ithreads mdev nptl openssl ssl threads tls-heartbeat zlib ${use_cpu_flags}"
 
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
@@ -654,6 +654,7 @@ case "${package_name}" in
 			container_cmd='/usr/bin/sa-update'
 		else
 			output "Setting build variables for package 'spamassassin' ..."
+			pre_pkgs='sys-devel/gcc'
 			extra_pkgs='
 				>=dev-perl/Crypt-OpenSSL-DSA-0.150.0
 				>=dev-perl/Crypt-OpenSSL-EC-1.10.0
@@ -734,6 +735,7 @@ case "${package_name}" in
 		# shellcheck disable=SC2034
 		ECLASS_OVERRIDE='unifi'  # consumed in common/run.sh
 
+		export L10N='en'
 		pre_use='headless-awt'
 		force_python='python2_7'
 		#pre_pkgs='dev-java/openjdk-bin:8 dev-lang/python:2.7 sys-devel/gcc'
@@ -967,8 +969,8 @@ else
 	output >&2
 
 	trap '' INT
-	$docker stop "buildsvc-${container_name}" 2>/dev/null || :
-	$docker rm --volumes "buildsvc-${container_name}" 2>/dev/null || :
+	$docker container stop "buildsvc-${container_name}" 2>/dev/null || :
+	$docker container rm --volumes "buildsvc-${container_name}" 2>/dev/null || :
 	trap - INT
 
 	build_use=''
@@ -978,6 +980,13 @@ else
 
 	# shadow needed for /sbin/nologin; coreutils needed for chmod
 	# shellcheck disable=SC2086
+	if [[ -n "${L10N:-}" ]]; then
+		DOCKER_VARS="--env L10N=\"${L10N}\""
+	fi
+	#DOCKER_VARS="${DOCKER_VARS:+${DOCKER_VARS} }--env CURL_SSL=${ssl_opt}"
+	#DOCKER_VARS="${DOCKER_VARS:+${DOCKER_VARS} }--env USE_ORDER=pkg:conf:env:defaults:pkginternal:features:repo:env.d"
+	export DOCKER_VARS
+
 	USE="${build_use:-}" \
 	ROOT="/service" \
 	name="buildsvc-${container_name}" \
@@ -998,7 +1007,6 @@ else
 			--with-bdeps-auto=n \
 		"=${package}${repo:+::${repo}}" ${extra_pkgs:-} \
 	2>&1 | tee log/"docker.buildsvc-${container_name}.log"
-	#DOCKER_VARS="--env CURL_SSL=${ssl_opt}" \
 	rc=${?}
 	output " -> ${rc}"
 
@@ -1019,7 +1027,7 @@ fi
 unset images
 
 trap '' INT
-$docker rm --volumes "buildsvc-${container_name}" 2>/dev/null || :
+$docker container rm --volumes "buildsvc-${container_name}" 2>/dev/null || :
 trap - INT
 
 cd gentoo-base || die "chdir() to 'gentoo-base' failed: ${?}"
@@ -1038,7 +1046,7 @@ output >&2 " ${blue}*${reset} Building ${package_name}:${package_version} (${con
 output >&2
 
 # shellcheck disable=SC2001 # POSIX sh compatibility
-$docker build \
+$docker image build \
 		--build-arg environment_filter="${environment_filter}" \
 		--build-arg image_name="buildsvc-${package_name}" \
 		--build-arg service_cmd="${container_cmd}" \
@@ -1055,6 +1063,7 @@ $docker build \
 		  ${ZEUSHOME:+--build-arg ZEUSHOME="${ZEUSHOME}"} \
 		--compress \
 		--file "${file}" \
+		${IMAGE_ROOT:+--storage-opt="" --root "${IMAGE_ROOT}"} \
 		--tag "service.${package_name}:${package_version}" \
 	.  2>&1 | tee ../log/"docker.service.${container_name}.log"
 		#--network slirp4netns \
