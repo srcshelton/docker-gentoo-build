@@ -9,9 +9,13 @@
 #~app-emulation/podman-2.2.0				~amd64
 #~app-emulation/podman-2.2.1				~amd64
 #~app-emulation/podman-3.0.0				~amd64
-~app-emulation/podman-3.0.1				~amd64
-~app-emulation/podman-3.1.0_rc1				~amd64
-~app-emulation/podman-3.1.0_rc2				~amd64
+#~app-emulation/podman-3.0.1				~amd64
+#~app-emulation/podman-3.1.0_rc1			~amd64
+#~app-emulation/podman-3.1.0_rc2			~amd64
+#~app-emulation/podman-3.1.0				~amd64
+~app-emulation/podman-3.1.0-r1				~amd64
+#~app-emulation/podman-3.1.1				~amd64
+~app-emulation/podman-3.1.2				~amd64
 
 #~app-emulation/buildah-1.16.0				~amd64
 #~app-emulation/buildah-1.16.1				~amd64
@@ -26,8 +30,9 @@
 #~app-emulation/buildah-1.19.3				~amd64
 #~app-emulation/buildah-1.19.4				~amd64
 #~app-emulation/buildah-1.19.6				~amd64
-~app-emulation/buildah-1.19.8				~amd64
+#~app-emulation/buildah-1.19.8				~amd64
 ~app-emulation/buildah-1.20.0				~amd64
+~app-emulation/buildah-1.20.1				~amd64
 
 #~net-misc/cni-plugins-0.8.7				~amd64
 #~net-misc/cni-plugins-0.9.0				~amd64
@@ -37,8 +42,10 @@
 #~app-emulation/crun-0.15				~amd64
 #~app-emulation/crun-0.15.1				~amd64
 #~app-emulation/crun-0.16				~amd64
-~app-emulation/crun-0.17				~amd64
-~app-emulation/crun-0.18				~amd64
+#~app-emulation/crun-0.17				~amd64
+#~app-emulation/crun-0.18				~amd64
+~app-emulation/crun-0.19				~amd64
+~app-emulation/crun-0.19.1				~amd64
 
 #~app-emulation/runc-1.0.0_rc92				~amd64
 ~app-emulation/runc-1.0.0_rc93				~amd64
@@ -72,11 +79,14 @@
 # originally required by app-emulation/buildah-1.15.0
 #~app-emulation/skopeo-1.1.1				~amd64
 #~app-emulation/skopeo-1.2.0				~amd64
-~app-emulation/skopeo-1.2.1				~amd64
+#~app-emulation/skopeo-1.2.1				~amd64
 ~app-emulation/skopeo-1.2.2				~amd64
+~app-emulation/skopeo-1.2.3				~amd64
 
 #~app-emulation/containers-storage-1.27.0		~amd64
-~app-emulation/containers-storage-1.28.0		~amd64
-~app-emulation/containers-storage-1.28.1		~amd64
+#~app-emulation/containers-storage-1.28.0		~amd64
+#~app-emulation/containers-storage-1.28.1		~amd64
+~app-emulation/containers-storage-1.29.0		~amd64
+~app-emulation/containers-storage-1.30.0		~amd64
 
 # vi: set syntax=gentoo-package-keywords:

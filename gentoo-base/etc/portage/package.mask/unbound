@@ -1,0 +1,5 @@
+
+# Mask ebuilds which don't support python3_8+
+<net-dns/unbound-1.11.0
+
+# vi: set colorcolumn=80 syntax=gentoo-package-mask:

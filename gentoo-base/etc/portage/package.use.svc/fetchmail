@@ -6,10 +6,11 @@ net-mail/fetchmail			 nls
 mail-filter/procmail			 mbox
 net-mail/dovecot			 bzip2 caps lzma managesieve sieve solr sqlite tcpd textcat unwind
 
+mail-mta/nullmailer			-ssl
 # required by mail-filter/procmail-3.22-r14
 # required by virtual/mta-1-r1
 # required by mail-mta/nullmailer-2.2-r1[ssl]
 # required by net-libs/gnutls-3.6.15
-dev-libs/nettle				 gmp
+#dev-libs/nettle			 gmp
 
 # vi: set nowrap syntax=gentoo-package-use:

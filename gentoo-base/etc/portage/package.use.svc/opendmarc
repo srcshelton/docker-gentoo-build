@@ -2,4 +2,7 @@
 dev-perl/DBD-mysql			 mysql
 mail-filter/opendmarc			 reports spf
 
+virtual/mail-mta			 msmtp
+mail-mta/msmtp				-ssl
+
 # vi: set nowrap syntax=gentoo-package-use:

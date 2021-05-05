@@ -1,8 +1,8 @@
 
 # General USE flags:
-#*/*					 asm ipv6 ithreads mdev nptl openssl ssl threads tls-heartbeat zlib ${use_cpu_flags}  # from 'use_essential'
+#*/*					 asm curl_ssl_openssl ipv6 ithreads mdev nptl openssl ssl threads tls-heartbeat zlib ${use_cpu_flags}  # from 'use_essential'
 */*					-apache2 -awt acpi adns aio ao asm audit
-*/*					-berkdb bash-completion btrfs bzip2
+*/*					-berkdb bash-completion bzip2
 */*					-cairo -cdb -common-lisp -cups caps chroot curl cxx
 */*					-dbi
 */*					 encode expat
@@ -185,7 +185,7 @@ sys-apps/pciutils			-zlib dns
 sys-apps/portage			-rsync-verify
 sys-apps/smartmontools			 update_drivedb update-drivedb
 sys-apps/usbutils			 experimental
-sys-apps/util-linux			 tty-helpers
+sys-apps/util-linux			 magic tty-helpers
 sys-auth/opie				-server
 sys-auth/pam_mobile_otp			 manager
 sys-auth/pambase			-passwdqc pwquality  # mktemp

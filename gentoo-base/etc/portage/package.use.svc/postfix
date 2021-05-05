@@ -13,7 +13,11 @@ mail-filer/maildrop			 dovecot fam
 
 #net-mail/mailbase			 pam
 
-#dev-libs/nettle			 gmp
+# dependency required by mail-filter/procmail-3.22-r14
+# dependency required by virtual/mta-1-r2
+# dependency required by mail-mta/nullmailer-2.2-r1
+# dependency required by net-libs/gnutls-3.6.15
+dev-libs/nettle				 gmp
 
 # vi: set nowrap syntax=gentoo-package-use:
 

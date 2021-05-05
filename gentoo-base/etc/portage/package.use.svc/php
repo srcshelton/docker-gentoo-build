@@ -1,6 +1,6 @@
 
-*/*					 gmp
-#(dev-libs/nettle, sys-apps/coreutils)
+#*/*					 gmp
+#(dev-libs/nettle, sys-apps/coreutils[gmp])
 
 */*					 session
 #(dev-lang/php, dev-php/*)
@@ -24,6 +24,16 @@ dev-php/pecl-redis			 igbinary json lz4 session zstd
 
 #media-gfx/imagemagick			 X bzip2 corefonts +cxx djvu fftw fontconfig fpx graphviz hdri heif jbig jpeg jpeg2k lcms lqr lzma opencl openexr openmp pango perl png postscript q32 q8 raw static-libs svg test tiff truetype webp wmf xml zlib
 media-gfx/imagemagick			 bzip2 jpeg perl png # svg webp (xml)
+
+# dependency required by dev-php/PEAR-Console_Getopt-1.4.3
+# dependency required by dev-php/PEAR-PEAR-1.10.12
+# dependency required by dev-php/PEAR-Archive_Tar-1.4.12
+# dependency required by dev-lang/php-7.4.16
+# dependency required by virtual/mta-1-r2
+# dependency required by mail-mta/nullmailer-2.2-r1[ssl]
+# dependency required by net-libs/gnutls-3.6.15
+dev-libs/nettle				 gmp
+
 
 # vi: set nowrap syntax=gentoo-package-use:
 

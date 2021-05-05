@@ -1,10 +1,10 @@
 
-# required by net-libs/gnutls-3.6.15
-# required by mail-mta/nullmailer-2.2-r1::srcshelton
-# required by virtual/mta-1-r1
-# required by mail-client/mailx-8.1.2.20180807
+mail-mta/nullmailer			-ssl
 # required by www-servers/captive-portal-0::miltonroad
-#=dev-libs/nettle-3.6-r2		 gmp
-dev-libs/nettle				 gmp
+# required by mail-client/mailx-8.1.2.20180807
+# required by virtual/mta-1-r1
+# required by mail-mta/nullmailer-2.2-r1::srcshelton[ssl]
+# required by net-libs/gnutls-3.6.15
+#dev-libs/nettle			 gmp
 
 # vi: set nowrap syntax=gentoo-package-use:

@@ -2,18 +2,26 @@
 */*					 nls
 
 dev-lang/perl				 berkdb
-dev-libs/nettle				 gmp
+
 #dev-perl/DBD-mysql			-mariadb +mysql test +(ssl)
 dev-perl/DBD-mysql			 mysql
+
 #dev-perl/Net-DNS-SEC			+dsa +ecdsa gost +private-key test
-dev-perl/Net-DNS-SEC			dsa ecdsa private-key
+dev-perl/Net-DNS-SEC			 dsa ecdsa private-key
+
 #mail-filter/spamassassin		+berkdb cron dkim geoip ipv6 largenet ldap libressl mysql office pacct postgres qmail razor +sa-update spf sqlite ssl systemd test unicode
 mail-filter/spamassassin		 sa-update ssl
+
 sys-apps/busybox			-make-symlinks
-sys-apps/coreutils			 gmp
+#sys-apps/coreutils			 gmp
 sys-devel/gcc				-lib-only nptl
 sys-devel/gcc-config			 native-symlinks
 sys-devel/binutils-config		 native-symlinks
+
+app-crypt/gnupg				-ssl
+# dependency required by app-crypt/gnupg-2.2.27[ssl]
+# dependency required by net-libs/gnutls-3.6.15
+dev-libs/nettle				 gmp
 
 # vi: set nowrap syntax=gentoo-package-use:
 

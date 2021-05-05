@@ -7,9 +7,17 @@
 #app-admin/gamin
 #dev-lang/perl				-debug -doc berkdb gdbm (ithreads) perl-cleaner
 #dev-lang/php				 acl apache2 argon2 bcmath berkdb bzip2 calendar cdb cgi cjk +cli coverage +ctype curl debug embed enchant exif ffi +fileinfo +filter firebird +flatfile fpm ftp gd gdbm gmp +iconv imap inifile intl iodbc ipv6 +json kerberos ldap ldap-sasl libedit libressl lmdb mhash mssql mysql mysqli nls oci8-instant-client odbc +opcache pcntl pdo +phar phpdbg +posix postgres qdbm readline selinux +session session-mm sharedmem +simplexml snmp soap sockets sodium spell sqlite (ssl) systemd sysvipc test (threads) tidy +tokenizer tokyocabinet truetype unicode webp +xml xmlreader xmlrpc xmlwriter xpm xslt zip (zlib)
-www-servers/lighttpd			 bzip2 fam libev mmap pcre php rrdtool sqlite webdav xattr
+www-servers/lighttpd			 bzip2 dbi fam libev mmap pcre php rrdtool sqlite webdav xattr
+dev-db/libdbi-drivers			 sqlite
 media-gfx/imagemagick			 bzip2 jpeg perl png # svg webp (xml)
 mail-filter/dcc				 milter rrdtool
 dev-lang/php				 bzip2 sqlite unicode
+
+mail-mta/nullmailer			-ssl
+# dependency required by dev-lang/php-7.4.16
+# dependency required by virtual/mta-1-r2
+# dependency required by mail-mta/nullmailer-2.2-r1[ssl]
+# dependency required by net-libs/gnutls-3.6.15
+dev-libs/nettle				 gmp
 
 # vi: set nowrap syntax=gentoo-package-use:

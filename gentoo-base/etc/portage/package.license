@@ -72,12 +72,16 @@ app-vim/gentoo-syntax			 vim
 #
 
 sys-devel/clang				 Apache-2.0-with-LLVM-exceptions UoI-NCSA
-sys-devel/llvm				 Apache-2.0-with-LLVM-exceptions UoI-NCSA rc
 sys-devel/clang-common			 Apache-2.0-with-LLVM-exceptions UoI-NCSA
 sys-devel/clang-runtime			 metapackage
+sys-devel/lld				 Apache-2.0-with-LLVM-exceptions UoI-NCSA
+sys-devel/llvm				 Apache-2.0-with-LLVM-exceptions UoI-NCSA rc
+sys-devel/llvm-common			 Apache-2.0-with-LLVM-exceptions UoI-NCSA
 sys-libs/compiler-rt			 Apache-2.0-with-LLVM-exceptions
 sys-libs/compiler-rt-sanitizers		 Apache-2.0-with-LLVM-exceptions
-sys-devel/llvm-common			 Apache-2.0-with-LLVM-exceptions UoI-NCSA
+sys-libs/libcxxabi			 Apache-2.0-with-LLVM-exceptions
+sys-libs/libcxx				 Apache-2.0-with-LLVM-exceptions
+sys-libs/llvm-libunwind			 Apache-2.0-with-LLVM-exceptions
 
 
 # required by dev-python/setuptools

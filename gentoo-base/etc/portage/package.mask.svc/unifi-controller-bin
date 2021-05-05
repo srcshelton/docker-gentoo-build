@@ -2,7 +2,7 @@
 # The meson build system isn't compatible with python2_7
 dev-util/meson
 
-# Mask builds beyond what we've pinned...
+# Mask ebuilds beyond what we've pinned...
 >app-misc/pax-utils-1.2.4
 >dev-db/mongodb-4.0.22
 >dev-java/java-config-2.2.0-r4

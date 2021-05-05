@@ -1,9 +1,16 @@
 
-# Current stable package is gentoo-sources-5.4.97
-~sys-kernel/gentoo-sources-5.10.26			~amd64
+# Current stable package is gentoo-sources-5.10.27
+~sys-kernel/gentoo-sources-5.10.32			~amd64
 
 # /usr/src/linux-5.11.x-gentoo/lib/bootconfig.c:830:4: error: use of undeclared identifier 'fallthrough'
 #
-~sys-kernel/gentoo-sources-5.11.10			~amd64
+~sys-kernel/gentoo-sources-5.11.16			~amd64
+
+~sys-kernel/gentoo-sources-5.12.0			~amd64
+
+~sys-kernel/vanilla-sources-5.12.0			~amd64
+
+# Additional kernel-modules
+#~net-firewall/xtables-addons-3.18			~amd64
 
 # vi: set syntax=gentoo-package-keywords:
