@@ -314,7 +314,8 @@ RUN test ! -x /usr/bin/mandb || \
 
 # http://www.gentoo.org/doc/en/prelink-howto.xml
 RUN test -x /usr/sbin/prelink && \
-    /usr/sbin/prelink -av -m -R -f
+    /usr/sbin/prelink -av -m -R -f && \
+    /usr/sbin/prelink -p
 
 EXPOSE "${service_ports}"
 
