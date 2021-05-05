@@ -6,7 +6,7 @@ set -o pipefail
 trace="${TRACE:-}"
 debug="${DEBUG:-}"
 # With 'debug' enabled, set 'DEBUG_EXTRA_ARGS' to pass additional arguments
-# to 'podman build'...
+# to 'podman build'...
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
@@ -78,8 +78,8 @@ fi
 
 if ! $docker --version >/dev/null 2>&1; then
 	die "'$docker' failed to execute: ${?}"
-elif ! $docker build --help | grep -Fq -- '--platform'; then
-	die "'$docker build' lacks '--platform' support (try podman-3.x or later)"
+elif ! $docker image build --help | grep -Fq -- '--platform'; then
+	die "'$docker image build' lacks '--platform' support (try podman-3.x or later)"
 fi
 
 docker_setup
@@ -167,7 +167,7 @@ while read -r r; do
 					grep -Fqw -- "${r}" &&
 				continue
 			warn "ebuild repo '${r}' contains class overrides, but portage isn't configured to allow their use"
-			warn "Add/update 'eclass-overrides = ${r}' (with)in /etc/portage/repos.conf"
+			warn "Add/update 'eclass-overrides = ${r}' in /etc/portage/repos.conf"
 			rc=1
 		fi
 	done < <( portageq get_repo_path "${EROOT:-/}" "${r}" )
@@ -221,7 +221,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 	# USED_BY: stage3 build
 
 	# shellcheck disable=SC2086
-	$docker build \
+	$docker image build \
 			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg PROFILE_PATH="${profile:-}" \
@@ -313,7 +313,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	# USED_BY: init
 
 	# shellcheck disable=SC2086
-	$docker build \
+	$docker image build \
 			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg env_id="${env_id}" \
@@ -327,7 +327,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 			--network none \
 			--no-cache \
 			--tag "${stage3_name}:latest" \
-		. 2>&1 | tee -a ../log/"docker.${stage3_name}.log"
+		. 2>&1 | tee ../log/"docker.${stage3_name}.log"
 	output " -> ${?}"
 
 	[ "${*:-}" = '--stage3' ] && exit 0
@@ -407,7 +407,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 	# USED_BY: base
 
 	# shellcheck disable=SC2086
-	$docker build \
+	$docker image build \
 			--platform "linux/${docker_arch}" \
 			--build-arg ARCH="${arch}" \
 			--build-arg entrypoint_sum="${sum}" \
@@ -451,11 +451,9 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 
 	# Handle leftover container from previous run ...
 	trap '' INT
-	if $docker ps -a | grep -q -- "${base_name}$"; then
-		$docker stop "${base_name}" 2>&1 |
-			tee -a ../log/"docker.${base_name}.log" || :
-		$docker rm --volumes "${base_name}" 2>&1 |
-			tee -a ../log/"docker.${base_name}.log" || :
+	if $docker container ps -a | grep -q -- "${base_name}$"; then
+		$docker container stop "${base_name}"
+		$docker container rm --volumes "${base_name}"
 	fi
 	trap - INT
 
@@ -494,9 +492,9 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 
 	# shellcheck disable=SC2086
 	trap '' INT
-	$docker commit "${base_name}" "${base_name}:latest" 2>&1 |
+	$docker container commit "${base_name}" "${base_name}:latest" 2>&1 |
 		tee -a ../log/"docker.${base_name}.log"
-	$docker rm --volumes "${base_name}" 2>&1 |
+	$docker container rm --volumes "${base_name}" 2>&1 |
 		tee -a ../log/"docker.${base_name}.log"
 	trap - INT
 	output " -> ${?}"
@@ -527,17 +525,14 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	# Handle leftover container from previous run ...
 	trap '' INT
 	# shellcheck disable=SC2015
-	if $docker ps -a | grep -q -- "${build_name}$"; then
-		$docker stop "${build_name}" 2>&1 |
-			tee -a ../log/"docker.${build_name}.log" || :
-		$docker rm --volumes "${build_name}" 2>&1 |
-			tee -a ../log/"docker.${build_name}.log" || :
+	if $docker container ps -a | grep -q -- "${build_name}$"; then
+		$docker container stop "${build_name}"
+		$docker container rm --volumes "${build_name}"
 	fi
 	# shellcheck disable=SC2015
 	$docker image ls "localhost/${build_name}-root:latest" 2>/dev/null |
 	grep -Eq -- "^(localhost/)?${build_name}-root\s+latest\s" && {
-		$docker image rm "${build_name}-root:latest" 2>&1 |
-			tee -a ../log/"docker.${build_name}.log" ;
+		$docker image rm "${build_name}-root:latest"
 	} || :
 	trap - INT
 
@@ -549,7 +544,8 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	python_target="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
 
 	# shellcheck disable=SC2086
-	$docker build \
+	$docker image build \
+			${IMAGE_ROOT:+--storage-opt="" --root "${IMAGE_ROOT}"} \
 			--platform "linux/${docker_arch}" \
 			--build-arg env_id="${env_id}" \
 			--build-arg environment_filter="${environment_filter}" \
@@ -568,11 +564,16 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 		#
 		# sys-libs/libeudev is needed to ensure correct dependencies in the
 		# build root
+		# sys-apps/sed is needed due to use of 'sed -z', which busybox doesn't
+		# support
 		#
 		# shellcheck disable=SC2031
 		export name="${build_name}"
 		# shellcheck disable=SC2031
 		export image="${build_name}-root:latest"
+		if [[ -n "${IMAGE_ROOT:-}" ]]; then
+			export DOCKER_VARS="--storage-opt=\"\" --root \"${IMAGE_ROOT}\""
+		fi
 		docker_run \
 				${use_pypy_pre:+--pre-pkgs="${use_pypy_pre}"} \
 				${use_pypy_pre_use:+--pre-use="${use_pypy_pre_use}"} \
@@ -589,7 +590,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 					"python_targets_${python_target}" \
 					"${use_pypy_use:+python_targets_pypy3 ${use_pypy_use:-}}"
 				)" \
-			sys-devel/gcc dev-libs/icu dev-util/pkgconf sys-libs/libeudev \
+			sys-devel/gcc sys-apps/sed dev-libs/icu dev-util/pkgconf sys-libs/libeudev \
 			@system \
 			${use_pypy:+sys-apps/portage ${use_pypy:-}} 2>&1 |
 		tee -a ../log/"docker.${build_name}.log"
@@ -602,13 +603,16 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	output
 	trap '' INT
 	# shellcheck disable=SC2086
-	$docker commit "${build_name}" "${build_name}:latest" 2>&1 |
+	$docker container commit "${build_name}" "${build_name}:latest" \
+			${IMAGE_ROOT:+--storage-opt="" --root "${IMAGE_ROOT}"} 2>&1 |
 		tee -a ../log/"docker.${build_name}.log"
 	# shellcheck disable=SC2086
-	$docker rm --volumes "${build_name}" 2>&1 |
+	$docker container rm --volumes "${build_name}" \
+			${IMAGE_ROOT:+--storage-opt="" --root "${IMAGE_ROOT}"} 2>&1 |
 		tee -a ../log/"docker.${build_name}.log"
 	# shellcheck disable=SC2086
-	$docker image rm "${build_name}-root:latest" 2>&1 |
+	$docker image rm "${build_name}-root:latest" \
+			${IMAGE_ROOT:+--storage-opt="" --root "${IMAGE_ROOT}"} 2>&1 |
 		tee -a ../log/"docker.${build_name}.log"
 	output " -> ${?}"
 	trap - INT

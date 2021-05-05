@@ -34,7 +34,7 @@ unset f
 
 # Gather exported data from other created containers ...
 id=''
-for id in $( podman ps -a --filter 'name=^openrc-' --format '{{.ID}}' ) $( podman ps -a --filter 'name=^web-' --format '{{.ID}}' ); do
+for id in $( podman container ps -a --filter 'name=^openrc-' --filter 'name=^web-' --format '{{.ID}}' ); do
 	DOCKER_VOLUMES="${DOCKER_VOLUMES:+${DOCKER_VOLUMES} }--volumes-from ${id}:ro"
 done
 unset id

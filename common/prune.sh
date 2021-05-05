@@ -14,18 +14,36 @@ fi
 trap '' INT
 
 # Remove images with generated temporary names...
-$docker ps -a | tr -cd '[:print:]\n' | rev | cut -d' ' -f 1 | rev | grep '^[a-z]\+_[a-z]\+$' | xargs -r $docker rm --volumes
+$docker container ps -a |
+	tr -cd '[:print:]\n' |
+	rev |
+	cut -d' ' -f 1 |
+	rev |
+	grep '^[a-z]\+_[a-z]\+$' |
+	xargs -r $docker container rm --volumes
 
 # Remove images classed as 'dangling'...
-$docker image ls --filter 'dangling=true' | tail -n +2 | awk '{ print $3 }' | xargs -r $docker image rm || :
+$docker image ls --filter 'dangling=true' |
+	tail -n +2 |
+	awk '{ print $3 }' |
+	xargs -r $docker image rm || :
 
 # Try to remove remaining untagged images...
-$docker image ls | grep '^<none>\s\+<none>' | awk '{ print $3 }' | xargs -r $docker image rm || :
-$docker image ls | grep '^<none>\s\+<none>' | awk '{ print $3 }' | xargs -r buildah rmi || :
+$docker image ls |
+	grep '^<none>\s\+<none>' |
+	awk '{ print $3 }' |
+	xargs -r $docker image rm || :
+$docker image ls |
+	grep '^<none>\s\+<none>' |
+	awk '{ print $3 }' |
+	xargs -r buildah rmi || :
 
 # Forcing image removal leads to greater problems :(
 #while $docker image ls | grep -q '^<none>\s\+<none>'; do
-#	$docker image ls | grep '^<none>\s\+<none>' | awk '{ print $3 }' | xargs -r $docker image rm -f || :
+#	$docker image ls |
+#		grep '^<none>\s\+<none>' |
+#		awk '{ print $3 }' |
+#		xargs -r $docker image rm -f || :
 #done
 
 # Podman's 'image prune' operation should now be internally recursive...

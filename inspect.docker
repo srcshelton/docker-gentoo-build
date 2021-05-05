@@ -222,7 +222,7 @@ docker_run() {
 	unset src mp
 
 	# shellcheck disable=SC2086
-	$docker run \
+	$docker container run \
 			"${runargs[@]}" \
 			${DOCKER_EXTRA_MOUNTS:-} \
 			${DOCKER_VOLUMES:-} \

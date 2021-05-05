@@ -458,7 +458,9 @@ docker_image_exists() {
 		return 1
 	fi
 
-	$docker image ls "${image}:${version}" | grep -E -- "^(localhost/)?([^.]+\.)?${image}" | awk '{ print $3 }'
+	$docker image ls "${image}:${version}" |
+		grep -E -- "^(localhost/)?([^.]+\.)?${image}" |
+		awk '{ print $3 }'
 
 	return 0
 } # docker_image_exists
@@ -482,8 +484,10 @@ docker_run() {
 	[ -n "${trace:-}" ] && set -o xtrace
 
 	trap '' INT
-	$docker ps | grep -qw -- "${name:-${container_name}}$" && $docker stop --time 2 "${name:-${container_name}}"
-	$docker ps -a | grep -qw -- "${name:-${container_name}}$" && $docker rm --volumes "${name:-${container_name}}"
+	$docker container ps | grep -qw -- "${name:-${container_name}}$" &&
+		$docker container stop --time 2 "${name:-${container_name}}"
+	$docker container ps -a | grep -qw -- "${name:-${container_name}}$" &&
+		$docker container rm --volumes "${name:-${container_name}}"
 	trap - INT
 
 	if [ -z "${NO_BUILD_MOUNTS:-}" ]; then
@@ -691,14 +695,14 @@ docker_run() {
 
 	(
 		[ -n "${DOCKER_CMD:-}" ] && set -- "${DOCKER_CMD}"
-		print "Starting build container with command '$docker run ${runargs[*]} ${image:-${IMAGE:-gentoo-build:latest}} ${*}'"
-		$docker run \
+		print "Starting build container with command '$docker container run ${runargs[*]} ${image:-${IMAGE:-gentoo-build:latest}} ${*}'"
+		$docker container run \
 				"${runargs[@]}" \
 			"${image:-${IMAGE:-gentoo-build:latest}}" ${@+"${@}"}
 	)
 	rc=${?}
-	if dr_id="$( $docker ps -a | grep -- "\s${name:-${container_name}}$" | awk '{ prnt $1 }' )" && [ -n "${dr_id:-}" ]; then
-		rcc=$( $docker inspect --format='{{.State.ExitCode}}' "${dr_id}" ) || :
+	if dr_id="$( $docker container ps -a | grep -- "\s${name:-${container_name}}$" | awk '{ prnt $1 }' )" && [ -n "${dr_id:-}" ]; then
+		rcc=$( $docker container inspect --format='{{.State.ExitCode}}' "${dr_id}" ) || :
 	fi
 
 	if [ -n "${rcc:-}" ] && [ "${rc}" -ne "${rcc}" ]; then
@@ -709,7 +713,7 @@ docker_run() {
 			rc=${rcc}
 		fi
 	else
-		print "'${docker} run' returned '${rc}'"
+		print "'${docker} container run' returned '${rc}'"
 	fi
 
 	[ -n "${trace:-}" ] && set +o xtrace
@@ -741,12 +745,25 @@ docker_prune() {
 
 	trap '' INT
 	# shellcheck disable=SC2086
-	$docker ps | rev | cut -d' ' -f 1 | rev | grep -- '_' | xargs -r $docker stop --time 2
+	$docker container ps |
+		rev |
+		cut -d' ' -f 1 |
+		rev |
+		grep -- '_' |
+		xargs -r $docker container stop --time 2
 	# shellcheck disable=SC2086
-	$docker ps -a | rev | cut -d' ' -f 1 | rev | grep -- '_' | xargs -r $docker rm --volumes
+	$docker container ps -a |
+		rev |
+		cut -d' ' -f 1 |
+		rev |
+		grep -- '_' |
+		xargs -r $docker container rm --volumes
 
 	# shellcheck disable=SC2086
-	$docker image ls | grep -- '^<none>\s\+<none>' | awk '{ print $3 }' | xargs -r $docker image rm
+	$docker image ls |
+		grep -- '^<none>\s\+<none>' |
+		awk '{ print $3 }' |
+		xargs -r $docker image rm
 	trap - INT
 
 	return 0

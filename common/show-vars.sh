@@ -28,5 +28,13 @@ if [ "$( "${docker}" image ls -n "${image}" | wc -l )" != '1' ]; then
 fi
 
 # See https://github.com/containers/podman/issues/8785
-#"${docker}" inspect -f '{{ .Config.Env }}' "${image}" | tr "${tab}" ' ' | tr -s '[:space:]' | sed -r 's/^\[(.*)\]$/\1/' | sed -r 's/ ([A-Za-z][A-Za-z0-9_-]*)=/\n\1=/g'
-buildah inspect --format '{{ .OCIv1.Config.Env }}' "${image}" | tr "${tab}" ' ' | tr -s '[:space:]' | sed -r 's/^\[(.*)\]$/\1/' | sed -r 's/ ([A-Za-z][A-Za-z0-9_-]*)=/\n\1=/g' ; echo
+#"${docker}" image inspect -f '{{ .Config.Env }}' "${image}" |
+#	tr "${tab}" ' ' |
+#	tr -s '[:space:]' |
+#	sed -r 's/^\[(.*)\]$/\1/' |
+#	sed -r 's/ ([A-Za-z][A-Za-z0-9_-]*)=/\n\1=/g'
+buildah inspect --format '{{ .OCIv1.Config.Env }}' "${image}" |
+	tr "${tab}" ' ' |
+	tr -s '[:space:]' |
+	sed -r 's/^\[(.*)\]$/\1/' |
+	sed -r 's/ ([A-Za-z][A-Za-z0-9_-]*)=/\n\1=/g' ; echo
