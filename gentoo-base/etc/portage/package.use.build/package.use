@@ -92,6 +92,7 @@ dev-python/pygobject			-X
 dev-python/pyyaml			 libyaml
 dev-scheme/guile			 discouraged elisp networking
 dev-util/cmake				-server
+>=dev-util/ltrace-0.7.91_p195		-elfutils unwind
 dev-util/pkgconf			 pkg-config
 dev-vcs/subversion			 ctypes-python
 gnome-base/librsvg			-vala
