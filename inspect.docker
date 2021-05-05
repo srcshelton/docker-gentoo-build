@@ -170,6 +170,9 @@ docker_run() {
 	cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
 	print "Volume/mount base directory is '${cwd}'"
 	mountpointsro["${cwd}/gentoo-base/etc/portage/package.accept_keywords"]='/etc/portage/package.accept_keywords'
+	if [ -s "${cwd}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-${arch}}" ]; then
+		mountpointsro["${cwd}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-${arch}}"]="/etc/portage/package.accept_keywords/${ARCH:-${arch}}"
+	fi
 	mountpointsro["${cwd}/gentoo-base/etc/portage/package.license"]='/etc/portage/package.license'
 	mountpointsro["${cwd}/gentoo-base/etc/portage/package.use.build"]='/etc/portage/package.use'
 
