@@ -144,7 +144,7 @@ if [ "${update:-0}" = '1' ]; then
 	#
 	# shellcheck disable=SC2046
 	USE="-natspec -libressl pkg-config" \
-	"${basedir}"/docker-gentoo-build/gentoo-build-pkg.docker \
+	stdbuf -o0 "${basedir}"/docker-gentoo-build/gentoo-build-pkg.docker \
 			--buildpkg=y \
 			--emptytree \
 			--usepkg=y \
@@ -158,7 +158,7 @@ if [ "${update:-0}" = '1' ]; then
 				echo ">=${pkg}"
 			done
 		) --name 'buildpkg.hostpkgs.update' 2>&1 |
-	awk 'BEGIN { RS = null ; ORS = "\n\n" } 1' |
+	stdbuf -i0 -o0 awk 'BEGIN { RS = null ; ORS = "\n\n" } 1' |
 	tee log/buildpkg.hostpkgs.update.log
 	: $(( rc = rc + ${?} ))
 
