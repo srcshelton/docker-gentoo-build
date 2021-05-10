@@ -17,7 +17,43 @@ reset=''
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
 
-services='bitlbee captive-portal dcc dhcpd dovecot fetchmail fwupd imapproxyd irqbalance less lighttpd lynis man mariadb memcached metalog named opendkim opendmarc openntpd php pinfo postfix powertop redis postgrey spamassassin spamassassin-update spampd subversion syslog-ng unifi vim watchdog zxtm'
+services='
+	bitlbee
+	captive-portal
+	dcc
+	dhcpd
+	dovecot
+	fetchmail
+	fwupd
+	imapproxyd
+	irqbalance
+	less
+	lighttpd
+	lynis
+	man
+	mariadb
+	memcached
+	metalog
+	named
+	opendkim
+	opendmarc
+	openntpd
+	php
+	pinfo
+	postfix
+	postgrey
+	powertop
+	redis
+	spamassassin
+	spamassassin-update
+	spampd
+	subversion
+	syslog-ng
+	unifi
+	vim
+	watchdog
+	zxtm
+'
 all=0
 rebuild=''
 force=''
