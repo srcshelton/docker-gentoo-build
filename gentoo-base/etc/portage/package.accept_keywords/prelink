@@ -1,0 +1,5 @@
+
+# prelink
+=sys-devel/prelink-99999999				~amd64
+
+# vi: set syntax=gentoo-package-keywords:
