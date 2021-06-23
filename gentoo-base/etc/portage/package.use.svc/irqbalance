@@ -1,4 +1,5 @@
-#sys-apps/irqbalance			 caps +numa selinux systemd tui
+
+#sys-apps/irqbalance			 caps +numa (-selinux) systemd tui
 sys-apps/irqbalance			 caps tui
 
 # vi: set nowrap syntax=gentoo-package-use:

@@ -1,4 +1,5 @@
-#net-misc/dhcp				+client ipv6 kernel_linux ldap libressl selinux +server (ssl) systemd vim-syntax
-net-misc/dhcp				 server
+
+#net-misc/dhcp				+client (ipv6) kernel_linux ldap (-selinux) +server (ssl) systemd vim-syntax
+net-misc/dhcp				-client server
 
 # vi: set nowrap syntax=gentoo-package-use:

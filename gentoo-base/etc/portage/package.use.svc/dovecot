@@ -1,8 +1,11 @@
-#net-mail/dovecot			 argon2 bzip2 caps doc ipv6 kerberos ldap libressl lua lucene lz4 lzma managesieve mysql pam postgres selinux sieve solr sqlite static-libs suid tcpd textcat unwind vpopmail (zlib)
+
+#net-mail/dovecot			 argon2 bzip2 caps doc (ipv6) kerberos ldap lua lucene lz4 lzma managesieve mysql pam postgres selinux sieve solr sqlite static-libs suid tcpd textcat unwind vpopmail (zlib)
 net-mail/dovecot			 bzip2 caps lzma managesieve pam sieve solr sqlite tcpd textcat unwind
 net-mail/mailbase			 pam
 
-mail-mta/msmtp				-ssl
+virtual/mta				 no-mta
+#virtual/mta				 msmtp
+#mail-mta/msmtp				-ssl
 # required by mail-mta/msmtp-1.8.12[ssl]
 # required by net-libs/gnutls-3.6.15
 #dev-libs/nettle			 gmp

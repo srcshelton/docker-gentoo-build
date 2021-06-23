@@ -1,7 +1,7 @@
 
 #dev-db/redis				+jemalloc luajit systemd tcmalloc test
+dev-db/redis				 jemalloc luajit
 #dev-libs/jemalloc			 debug hardened lazy-lock prof static-libs stats xmalloc
-dev-db/redis				 jemalloc luajit lua_single_target_luajit
 
 # vi: set nowrap syntax=gentoo-package-use:
 

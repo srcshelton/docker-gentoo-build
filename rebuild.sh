@@ -21,8 +21,6 @@ if command -v podman >/dev/null 2>&1; then
 	docker='podman'
 fi
 
-#export USE="-libressl"
-
 # Allow a separate image directory for persistent images...
 #tmp="$( $docker system info | grep 'imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
 #if [ -n "${tmp}" ]; then
@@ -141,10 +139,34 @@ if [ "${update:-0}" = '1' ]; then
 	# (unzip[natspec] depends on libnatspec, which depends on python:2.7,
 	#  which depends on sqlite, which depends on unzip - disable this USE
 	#  flag here to remove this circular dependency)
-	#
+
+	# Adding awk squashes blank lines (which portage seems to like to add), but
+	# adds buffering and so lengthy pauses before output is rendered.  Adding
+	# 'stdbuf' intended to fix this - and did so partially - but also sometimes
+	# lead to output being delayed indefinitely for long-running builds :(
+
 	# shellcheck disable=SC2046
-	USE="-natspec -libressl pkg-config" \
-	stdbuf -o0 "${basedir}"/docker-gentoo-build/gentoo-build-pkg.docker \
+	#USE="-natspec pkg-config" \
+	#stdbuf -o0 "${basedir}"/docker-gentoo-build/gentoo-build-pkg.docker \
+	#		--buildpkg=y \
+	#		--emptytree \
+	#		--usepkg=y \
+	#		--with-bdeps=y \
+	#	$(
+	#		for pkg in /var/db/pkg/*/*; do
+	#			pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
+	#			if echo "${pkg}" | grep -Eq '^container/|/pkgconfig-'; then
+	#				continue
+	#			fi
+	#			echo ">=${pkg}"
+	#		done
+	#	) --name 'buildpkg.hostpkgs.update' 2>&1 |
+	#stdbuf -i0 -o0 awk 'BEGIN { RS = null ; ORS = "\n\n" } 1' |
+	#tee log/buildpkg.hostpkgs.update.log
+
+	# shellcheck disable=SC2046
+	USE="-natspec pkg-config" \
+	"${basedir}"/docker-gentoo-build/gentoo-build-pkg.docker \
 			--buildpkg=y \
 			--emptytree \
 			--usepkg=y \
@@ -158,7 +180,6 @@ if [ "${update:-0}" = '1' ]; then
 				echo ">=${pkg}"
 			done
 		) --name 'buildpkg.hostpkgs.update' 2>&1 |
-	stdbuf -i0 -o0 awk 'BEGIN { RS = null ; ORS = "\n\n" } 1' |
 	tee log/buildpkg.hostpkgs.update.log
 	: $(( rc = rc + ${?} ))
 
@@ -183,7 +204,6 @@ if [ "${system:-0}" = '1' ]; then
 			--binpkg-respect-use=y \
 			--color=n \
 			--deep \
-			--exclude libressl \
 			--newuse \
 			--pretend \
 			--tree \
@@ -199,7 +219,6 @@ if [ "${system:-0}" = '1' ]; then
 	cut -d' ' -f 1 |
 	xargs -r emerge \
 			--binpkg-respect-use=y \
-			--exclude libressl \
 			--tree \
 			--usepkg=y \
 			--verbose-conflicts \

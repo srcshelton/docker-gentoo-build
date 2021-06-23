@@ -174,9 +174,6 @@ dev-db/lmdb				 OPENLDAP
 # required by service net-misc/dhcp
 net-misc/dhcp				 MPL-2.0 SSLeay
 
-# required by service net-misc/openntpd
-dev-libs/libressl			 openssl
-
 # required by service net-misc/unifi-controller-bin
 container/unifi-controller		 UBNT
 net-misc/unifi-controller-bin		 UBNT

@@ -42,6 +42,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "        --package     Specify kernel package to build"
 	output >&2 "                      (default: sys-kernel/gentoo-sources)"
 	output >&2 "        --clang       Compile kernel with llvm"
+	output >&2 "        --llvm-unwind Install LLVM edition of libunwind"
 	output >&2 "        --patch <url> Apply patch (-p1) from specified URL"
 	output >&2
 	exit 0
@@ -49,6 +50,7 @@ fi
 declare build=1
 declare build_dir=''
 declare compiler='gcc'
+declare unwind=''
 declare config=''
 declare force=0
 declare menuconfig=''
@@ -63,8 +65,8 @@ declare patch=''
 #			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v10-and-kernel-5.8%2B.patch' ;;
 #	esac
 #fi
-patch='https://github.com/graysky2/kernel_gcc_patch/raw/master/more-uarches-for-kernel-5.8%2B.patch'
-patch="${patch:+${patch} }https://lore.kernel.org/linux-btrfs/206d121e2e2b609ffe31217e6d90bfabe1c4e121.1616066404.git.fdmanana@suse.com/raw"
+patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.8%2B.patch'
+#patch="${patch:+${patch} }https://lore.kernel.org/linux-btrfs/206d121e2e2b609ffe31217e6d90bfabe1c4e121.1616066404.git.fdmanana@suse.com/raw"
 
 if echo " ${*:-} " | grep -q -- ' --menuconfig '; then
 	menuconfig='menuconfig'  # Just has to be set...
@@ -76,6 +78,9 @@ if echo " ${*:-} " | grep -q -- ' --nconfig '; then
 fi
 if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 	compiler='clang'
+fi
+if echo " ${*:-} " | grep -Eq -- ' --(llvm-)?(lib)?unwind '; then
+	unwind='llvm'
 fi
 if echo " ${*:-} " | grep -Eq -- ' --config(-from)?[= ]'; then
 	if echo " ${*:-} " | grep -Eq -- ' --config(-from)?=[^ ]+ '; then
@@ -170,14 +175,7 @@ export container_name
 
 build_version="$( echo "${package_version:-}" | cut -d'.' -f 1-2 )"
 if [ -z "${build_dir:-}" ]; then
-	case "${compiler}" in
-		gcc)
-			build_dir="/usr/src/build-${build_version}.x"
-			;;
-		*)
-			build_dir="/usr/src/${compiler}-${build_version}.x"
-			;;
-	esac
+	build_dir="/usr/src/linux-build-${compiler}${unwind:+-unwind}-${build_version}.x"
 fi
 if [ "${build:-}" = '1' ]; then
 	info >&2 "Using build directory '${build_dir}' ..."
@@ -253,6 +251,12 @@ case "${compiler}" in
 		die "Unknown compiler '${compiler}'"
 		;;
 esac
+case "${unwind:-}" in
+	llvm)
+		compiler_pkgs="${compiler_pkgs} sys-libs/llvm-libunwind"
+		pre_remove="sys-libs/unwind"
+		;;
+esac
 
 # FIXME: Standardise on host or container configuration files
 DOCKER_EXTRA_MOUNTS=''
@@ -287,6 +291,7 @@ if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:$
 						--changed-use \
 						--update \
 						--usepkg=y \
+						${pre_remove:+--pre-remove="${pre_remove}"} \
 					"=${package}" \
 					${compiler_pkgs:-} \
 					app-arch/bzip2 \
@@ -417,6 +422,11 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	fi ;
 	env-update ;
 	test -s /etc/profile && . /etc/profile ;
+	if portageq has_version / sys-libs/llvm-libunwind; then
+		LDFLAGS_MODULE="-unwindlib=libunwind"
+		HOSTLDFLAGS="-unwindlib=libunwind"
+		export LDFLAGS_MODULE HOSTLDFLAGS
+	fi ;
 	${container_CC} --version ;
 	set -x ;
 	cd /usr/src/linux ;

@@ -1,13 +1,9 @@
 
-#*/*					 CURL_SSL: libressl
-#*/*					-openssl libressl ssl
-*/*					 openssl ssl
-
-#net-misc/openntpd			 constraints -(libressl) selinux
+#net-misc/openntpd			 constraints selinux
 net-misc/openntpd			 constraints
 
 # required by dev-python/setuptools-50.3.0[python_targets_python3_8]
 # required by dev-python/setuptools_scm-4.1.2-r1
 dev-lang/python				 xml
 
-# vi: set nowrap syntax=gentoo-package-use:
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

@@ -1,5 +1,5 @@
 
-#app-admin/syslog-ng			 amqp caps dbi geoip2 http ipv6 json kafka libressl mongodb pacct python redis smtp snmp test spoof-source systemd tcpd
+#app-admin/syslog-ng			 amqp caps dbi geoip2 http (ipv6) json kafka mongodb pacct python redis smtp snmp test spoof-source systemd tcpd
 app-admin/syslog-ng			 caps smtp spoof-source tcpd
 
 # vi: set nowrap syntax=gentoo-package-use:

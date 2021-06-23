@@ -20,6 +20,11 @@ ARG stage3_image="docker.io/gentoo/stage3"
 ARG stage3_tag="latest"
 ARG stage3_id=""
 
+# Below, we try to inherit the python version used to build the stage3 image.
+# However, there will be times when we wish to override this, which we can do
+# here:
+ARG python_target_override=""
+
 #ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
 
 
@@ -29,13 +34,14 @@ ARG stage3_id=""
 FROM "${stage3_image}:${stage3_tag}" AS stage3
 
 ARG ARCH
+ARG python_target_override
 
 # Save initial environment...
 RUN echo "USE=\"$( \
         cat /var/db/pkg/*/*/USE | \
         xargs -n 1 echo | \
         grep -v '^python_targets_' | \
-        sed -r 's/^(python_single_target_)(.*)$/\1\2\npython_targets_\2/' | \
+        sed -r "s/^(python_single_target_)(.*)$/\1${python_target_override:-\2}\npython_targets_${python_target_override:-\2}/" | \
         sort | \
         uniq | \
         grep -v '^static' | \

@@ -20,13 +20,6 @@ build_name="gentoo-build"
 #
 environment_filter='^(declare -x|export) (COLUMNS|EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?|LINES|LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)='
 
-# Define essential USE flags
-#
-#  dev-lang/perl:		berkdb gdbm ithreads -debug -doc -perl-cleaner
-#  dev-libs/openssl:	asm tls-heartbeat zlib
-#  sys-apps/busybox:	mdev
-# (General:				ipv6 openssl ssl threads)
-#
 if command -v cpuid2cpuflags >/dev/null 2>&1; then
 	#cpuid2cpuflags | cut -d':' -f 2- | sed 's/ / cpu_flags_x86_/g'
 	#use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- | sed 's/ / cpu_flags_x86_/g' )"
@@ -72,7 +65,28 @@ if [ -n "${use_cpu_flags:-}" ]; then
 		sed "s/^/cpu_flags_${use_cpu_arch:-x86}_/ ; s/ / cpu_flags_${use_cpu_arch:-x86}_/g"
 	)"
 fi
-use_essential="asm curl_ssl_openssl ipv6 ithreads mdev nptl openssl ssl threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
+
+# Define essential USE flags
+#
+# WARNING: Any values defined here will be written into container environment,
+#          meaning that they will not be able to be modified without changing
+#          the portage USE-flag order of precadence, which has other knock-on
+#          effects.
+#          Since there are some builds which bring in sizable dependencies when
+#          USE="ssl" is active but will never be communicating outside their
+#          container or over any network (principally because pacakges depend
+#          upon virtual/mta but will actually be using 'postfix' in their own
+#          container rather than any container-local binaries) then we may wish
+#          not to force this flag here...
+#
+#  dev-lang/perl:		ithreads
+#  dev-libs/openssl:	asm tls-heartbeat zlib
+#  net-misc/curl:	   ~curl_ssl_openssl~
+#  sys-apps/busybox:	mdev
+#  sys-devel/gcc:		nptl
+# (General:				ipv6 ~openssl~ ~ssl~ threads)
+#
+use_essential="asm ipv6 ithreads mdev nptl threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
 
 case "$( uname -m )" in
 	x86_64|i686)

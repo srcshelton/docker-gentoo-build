@@ -1,6 +1,6 @@
 # USE flag adjustments for more minimal host deployment
 
-*/*					 PYTHON_TARGETS: -* python3_8
+*/*					 PYTHON_TARGETS: -* python3_9
 
 # bzip2 natspec unicode
 app-arch/unzip				-* bzip2 unicode
@@ -9,13 +9,14 @@ app-arch/unzip				-* bzip2 unicode
 dev-db/mariadb				-* backup bindist
 container/mariadb			-server
 
-dev-lang/perl				-perl-cleaner
+dev-lang/perl				 minimal # -perl-cleaner
 # Avoid additional perl dependencies
 dev-perl/JSON				-xs
 
-net-firewall/xtables-addons		 XTABLES_ADDONS: -* geoip
+# No longer compiles :(
+#net-firewall/xtables-addons		 XTABLES_ADDONS: -* geoip
 
-# +client ipv6 kernel_linux ldap libressl selinux +server ssl systemd vim-syntax
+# +client ipv6 kernel_linux ldap selinux +server ssl systemd vim-syntax
 net-misc/dhcp				-* client ipv6 ssl vim-syntax
 
 # apidoc build doc gentoo-dev +ipc +native-extensions +rsync-verify selinux test xattr

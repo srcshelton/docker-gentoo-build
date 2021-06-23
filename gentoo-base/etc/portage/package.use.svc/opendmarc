@@ -2,7 +2,11 @@
 dev-perl/DBD-mysql			 mysql
 mail-filter/opendmarc			 reports spf
 
-virtual/mail-mta			 msmtp
-mail-mta/msmtp				-ssl
+virtual/mail-mta			 no-mta
+#virtual/mail-mta			 msmtp
+#mail-mta/msmtp				-ssl
+# required by mail-mta/msmtp-1.8.12[ssl]
+# required by net-libs/gnutls-3.7.1
+#dev-libs/nettle				 gmp
 
 # vi: set nowrap syntax=gentoo-package-use:

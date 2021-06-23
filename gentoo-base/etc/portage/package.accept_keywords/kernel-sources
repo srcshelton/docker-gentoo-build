@@ -1,14 +1,13 @@
 
 # Current stable package is gentoo-sources-5.10.27
-~sys-kernel/gentoo-sources-5.10.32			~amd64
+~sys-kernel/gentoo-sources-5.10.43-r1			~amd64
 
 # /usr/src/linux-5.11.x-gentoo/lib/bootconfig.c:830:4: error: use of undeclared identifier 'fallthrough'
 #
-~sys-kernel/gentoo-sources-5.11.16			~amd64
+#~sys-kernel/gentoo-sources-5.11.22			~amd64
 
-~sys-kernel/gentoo-sources-5.12.0			~amd64
-
-~sys-kernel/vanilla-sources-5.12.0			~amd64
+~sys-kernel/gentoo-sources-5.12.10			~amd64
+#~sys-kernel/vanilla-sources-5.12.10			~amd64
 
 # Additional kernel-modules
 #~net-firewall/xtables-addons-3.18			~amd64

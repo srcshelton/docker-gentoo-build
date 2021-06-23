@@ -1,3 +1,5 @@
+
+#net-misc/openssh			 audit (-bindist) debug hpn kerberos (kernel_linux) ldns libedit (livecd) pam +pie +scp sctp security-key (-selinux) +(ssl) static test X X509 xmss
 net-misc/openssh			 scp
 
 # vi: set nowrap syntax=gentoo-package-use:

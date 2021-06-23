@@ -1,12 +1,14 @@
-#net-mail/fetchmail			 kerberos libressl nls socks tk (ssl)
-#mail-filter/procmail			 mbox selinux
-#net-mail/dovecot			 argon2 bzip2 caps doc ipv6 kerberos ldap libressl lua lucene lz4 lzma managesieve mysql pam postgres selinux sieve solr sqlite static-libs suid tcpd textcat unwind vpopmail (zlib)
-#dev-lang/perl				-ddebug -doc  berkdb gdbm (ithreads) perl-cleaner
-net-mail/fetchmail			 nls
-mail-filter/procmail			 mbox
-net-mail/dovecot			 bzip2 caps lzma managesieve sieve solr sqlite tcpd textcat unwind
 
-mail-mta/nullmailer			-ssl
+#net-mail/fetchmail			 kerberos nls socks tk (ssl)
+net-mail/fetchmail			 nls
+#mail-filter/procmail			 mbox selinux
+mail-filter/procmail			 mbox
+#net-mail/dovecot			 argon2 bzip2 caps doc (ipv6) kerberos ldap lua lucene lz4 lzma managesieve mysql pam postgres (-selinux) sieve solr sqlite static-libs suid tcpd textcat unwind vpopmail (zlib)
+net-mail/dovecot			 bzip2 caps lzma managesieve sieve solr sqlite tcpd textcat unwind
+#dev-lang/perl				-debug -doc  berkdb gdbm (ithreads) -minimal
+
+virtual/mta				 no-mta
+#mail-mta/nullmailer			-ssl
 # required by mail-filter/procmail-3.22-r14
 # required by virtual/mta-1-r1
 # required by mail-mta/nullmailer-2.2-r1[ssl]

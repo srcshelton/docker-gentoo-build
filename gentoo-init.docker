@@ -79,7 +79,15 @@ fi
 if ! $docker --version >/dev/null 2>&1; then
 	die "'$docker' failed to execute: ${?}"
 elif ! $docker image build --help | grep -Fq -- '--platform'; then
-	die "'$docker image build' lacks '--platform' support (try podman-3.x or later)"
+	die "'$docker image build' lacks '--platform' support (try podman-3.x or" \
+		"later)"
+fi
+
+if [ -n "${python_target_override:-}" ]; then
+	[[ "${python_target_override}" =~ ^python[[:digit:]]_[[:digit:]]+$ ]] ||
+		die "python_target_override value '${python_target_override}'" \
+			"doesn't appear to be a valid python version" \
+			"(matching 'pythonX_Y', e.g. 'python3_9')"
 fi
 
 docker_setup
@@ -321,6 +329,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 			--build-arg stage3_id="${stage3_id}" \
 			--build-arg stage3_image="${stage3_image}" \
 			--build-arg stage3_tag="${stage3_tag}" \
+			${python_target_override:+--build-arg python_target_override="${python_target_override}"} \
 			--compress \
 			--file 'Dockerfile.stage3' \
 			${debug:+--loglevel 3 ${DEBUG_EXTRA_ARGS:-}} \
@@ -541,7 +550,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	# USES:    base env
 	# USED_BY: service
 
-	python_target="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
+	python_target="${python_target_override:-$( portageq envvar 'PYTHON_SINGLE_TARGET' )}"
 
 	# shellcheck disable=SC2086
 	$docker image build \
@@ -567,6 +576,11 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 		# sys-apps/sed is needed due to use of 'sed -z', which busybox doesn't
 		# support
 		#
+		# Even though we want a minimal set of flags at this point, gcc's flags
+		# are significant since they'll affect the compiler facilities
+		# available to all packages built later...
+		# FIXME: Source these flags from package.use
+		#
 		# shellcheck disable=SC2031
 		export name="${build_name}"
 		# shellcheck disable=SC2031
@@ -585,10 +599,11 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 				--with-bdeps=n \
 				--with-use="$( echo \
 					"-* -lib-only" \
-					"pkg-config ${use_essential:-}" \
+					"pkg-config ${use_essential:-} curl_ssl_openssl openssl ssl " \
 					"python_single_target_${python_target}" \
 					"python_targets_${python_target}" \
-					"${use_pypy_use:+python_targets_pypy3 ${use_pypy_use:-}}"
+					"${use_pypy_use:+python_targets_pypy3 ${use_pypy_use:-}}" \
+					"graphite nptl openmp pch sanitize ssp vtv zstd"
 				)" \
 			sys-devel/gcc sys-apps/sed dev-libs/icu dev-util/pkgconf sys-libs/libeudev \
 			@system \

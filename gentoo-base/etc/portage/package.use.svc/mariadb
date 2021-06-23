@@ -1,9 +1,9 @@
 
 */*					 mysql
 
-#dev-libs/libpcre			 bzip2 +cxx +jit libedit pcre16 pcre32 +readline +recursion-limit static-libs unicode zlib
-#dev-db/mariadb				+backup bindist cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 libressl mroonga numa odbc oqgraph pam +perl profiling rocksdb selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test tokudb xml yassl
-dev-db/mariadb				 backup cracklib innodb-bzip2 innodb-lz4 jemalloc latin1 perl server
+#dev-db/mariadb				+backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 (-selinux) +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl
+dev-db/mariadb				 backup cracklib extraengine innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jemalloc latin1 perl server
+#dev-libs/libpcre			 bzip2 +cxx +jit libedit pcre16 pcre32 +readline +recursion-limit static-libs unicode (zlib)
 dev-libs/libpcre			 jit recursion-limit
 
 # vi: set nowrap syntax=gentoo-package-use:

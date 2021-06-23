@@ -420,28 +420,15 @@ if [ -n "${post_use:-}" ]; then
 else
 	post_use="${USE:-}"
 fi
-if [ -n "${TUSE:-}" ]; then
-	if ! printf '%s' " ${TUSE} " | grep -Fq -- ' -* '; then
-		TUSE="${USE:+${USE} }${TUSE}"
-	fi
-fi
 if [ -n "${use_essential:-}" ]; then
-	if echo " ${use_essential:-} " | grep -Fq -- ' openssl '; then
-		if
-			echo " ${USE:-} " | grep -Fq -- ' libressl ' ||
-			echo " ${TUSE:-} " | grep -Fq -- ' libressl '
-		then
-			use_essential="$(
-				echo "${use_essential}" |
-				sed -r 's/(\s)openssl(\s)/\1libressl\2/g'
-			)"
-		fi
-	fi
 	if ! echo "${post_use:-}" | grep -Fq -- "${use_essential}"; then
 		post_use="${post_use:+${post_use} }${use_essential}"
 	fi
 fi
 if [ -n "${TUSE:-}" ]; then
+	if ! printf '%s' " ${TUSE} " | grep -Fq -- ' -* '; then
+		TUSE="${USE:+${USE} }${TUSE}"
+	fi
 	if
 		[ -n "${use_essential:-}" ] &&
 		echo "${TUSE}" | grep -Fq -- "${use_essential}"
@@ -452,13 +439,6 @@ if [ -n "${TUSE:-}" ]; then
 	fi
 	export USE
 	unset TUSE
-fi
-if echo " ${USE:-} " | grep -Fq -- ' libressl ';  then
-	USE="$(
-		echo "${USE}" |
-		sed -r 's/(\s)openssl(\s)/\1libressl\2/g'
-	)"
-	echo 'dev-libs/openssl' >> /etc/portage/package.mask/openssl
 fi
 
 info="$( LC_ALL='C' emerge --info --verbose )"

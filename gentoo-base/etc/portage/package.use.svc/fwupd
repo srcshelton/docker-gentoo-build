@@ -1,14 +1,19 @@
 
 #sys-apps/fwupd				 agent amt dell gtk-doc elogind flashrom minimal introspection +man nvme policykit redfish synaptics systemd test thunderbolt tpm uefi
-sys-apps/fwupd				 amt dell flashrom minimal uefi
+sys-apps/fwupd				 amt dell flashrom gnutls minimal uefi
 
-#sys-auth/polkit			 #elogind examples gtk +introspection jit kde nls pam selinux systemd test
+#sys-auth/polkit			 #elogind examples gtk +introspection jit kde nls pam (-selinux) systemd test
 sys-auth/polkit				 elogind
 
 # required by sys-apps/fwupd-1.5.5
 dev-libs/libjcat			 gpg pkcs7
 dev-python/pygobject			 cairo
 x11-libs/pango				 introspection
+
+# required by sys-apps/fwupd-1.5.9-r1
+# required by x11-libs/pango-1.48.5
+media-libs/harfbuzz			 introspection
+
 
 # required by dev-python/pygobject-3.36.1-r1
 # required by dev-libs/gobject-introspection-1.64.1-r1

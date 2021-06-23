@@ -1,7 +1,7 @@
 
 #app-text/pinfo				 nls readline
-#sys-apps/texinfo			 nls +standalone static
 app-text/pinfo				 nls readline
+#sys-apps/texinfo			 nls +standalone static
 sys-apps/texinfo			 nls standalone
 
 # vi: set nowrap syntax=gentoo-package-use:

@@ -397,7 +397,7 @@ case "${package_name}" in
 	*dovecot*)
 		output "Setting build variables for package 'dovecot' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc'
-		extra_pkgs='app-shells/bash mail-mta/msmtp'
+		extra_pkgs='app-shells/bash' #  mail-mta/msmtp'
 
 		ports='143/tcp 993/tcp 24242/tcp'
 		container_cmd='/usr/sbin/dovecot'
@@ -508,7 +508,7 @@ case "${package_name}" in
 	*opendmarc*)
 		output "Setting build variables for package 'opendmarc' ..."
 		pre_pkgs='sys-devel/gcc'
-		extra_pkgs='mail-mta/msmtp'
+		#extra_pkgs='mail-mta/msmtp'
 
 		ports='8893/tcp'
 		#user='milter'

@@ -1,0 +1,5 @@
+
+*/*					 LUA_SINGLE_TARGET: -lua5-1 luajit
+*/*					 LUA_TARGETS: -lua5-1 luajit
+
+# vi: set nowrap syntax=gentoo-package-use:
