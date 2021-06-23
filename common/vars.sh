@@ -129,10 +129,15 @@ else
 fi
 
 # Allow a separate image directory for persistent images...
-#tmp="$( $docker system info | grep 'imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
-#if [ -n "${tmp}" ]; then
-#	export IMAGE_ROOT="${tmp}"
+#store="$( $docker system info | grep -F 'overlay.imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
+#if [ -n "${store}" ]; then
+#	export IMAGE_ROOT="${store}"
+#	store="$( $docker system info | grep 'graphRoot:' | cut -d':' -f 2- | awk '{ print $1 }' )"
+#	if [ -n "${store}" ]; then
+#		export GRAPH_ROOT="${store}"
+#	fi
 #fi
+#unset store
 
 # Optional override to specify alternative build temporary directory
 #export TMPDIR=/var/tmp

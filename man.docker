@@ -36,7 +36,7 @@ unset id
 
 export DOCKER_EXTRA_MOUNTS DOCKER_VOLUMES
 
-export DOCKER_VARS="--env LINES=${LINES} --env COLUMNS=${COLUMNS} --env TERM=${TERM}"
+export DOCKER_CMD_VARS="--env LINES=${LINES} --env COLUMNS=${COLUMNS} --env TERM=${TERM}"
 
 export DOCKER_INTERACTIVE=1
 export NO_BUILD_MOUNTS='no_build_mounts' # ... any value will do

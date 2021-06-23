@@ -64,6 +64,8 @@ test -e /etc/portage/package.use/package.use &&
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+,${docker_readonly}}"
 test -e /etc/portage/package.use/python_targets &&
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/python_targets,destination=/etc/portage/package.use/python_targets${docker_readonly:+,${docker_readonly}}"
+test -f /etc/portage/package.use && test -s /etc/portage/package.use &&
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+,${docker_readonly}}"
 #
 # Even with all of the below made available, linux-info.eclass still causes
 # builds to fail due to not being able to find a valid kernel configuration?!

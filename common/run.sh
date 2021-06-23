@@ -449,16 +449,16 @@ docker_image_exists() {
 		image="${image/\//.}"
 	fi
 
-	if ! $docker image ls "${image}" | grep -Eq -- "^(localhost/)?([^.]+\.)?${image}"; then
+	if ! $docker ${DOCKER_VARS:-} image ls "${image}" | grep -Eq -- "^(localhost/)?([^.]+\.)?${image}"; then
 		error "docker image '${image}' not found"
 		return 1
 
-	elif ! $docker image ls "${image}:${version}" | grep -Eq -- "^(localhost/)?([^.]+\.)?${image}"; then
+	elif ! $docker ${DOCKER_VARS:-} image ls "${image}:${version}" | grep -Eq -- "^(localhost/)?([^.]+\.)?${image}"; then
 		erro "docker image '${image}' found, but not version '${version}'"
 		return 1
 	fi
 
-	$docker image ls "${image}:${version}" |
+	$docker ${DOCKER_VARS:-} image ls "${image}:${version}" |
 		grep -E -- "^(localhost/)?([^.]+\.)?${image}" |
 		awk '{ print $3 }'
 
@@ -484,10 +484,10 @@ docker_run() {
 	[ -n "${trace:-}" ] && set -o xtrace
 
 	trap '' INT
-	$docker container ps | grep -qw -- "${name:-${container_name}}$" &&
-		$docker container stop --time 2 "${name:-${container_name}}"
-	$docker container ps -a | grep -qw -- "${name:-${container_name}}$" &&
-		$docker container rm --volumes "${name:-${container_name}}"
+	$docker ${DOCKER_VARS:-} container ps | grep -qw -- "${name:-${container_name}}$" &&
+		$docker ${DOCKER_VARS:-} container stop --time 2 "${name:-${container_name}}"
+	$docker ${DOCKER_VARS:-} container ps -a | grep -qw -- "${name:-${container_name}}$" &&
+		$docker ${DOCKER_VARS:-} container rm --volumes "${name:-${container_name}}"
 	trap - INT
 
 	if [ -z "${NO_BUILD_MOUNTS:-}" ]; then
@@ -579,7 +579,7 @@ docker_run() {
 		  ${TERM:+--env TERM}
 		  ${TRACE:+--env TRACE}
 		  ${USE:+--env "USE=${USE}"}
-		  ${DOCKER_VARS:-}
+		  ${DOCKER_CMD_VARS:-}
 		  ${DOCKER_INTERACTIVE:+--interactive --tty}
 		  ${DOCKER_PRIVILEGED:+--privileged}
 		  ${DOCKER_EXTRA_MOUNTS:-}
@@ -695,14 +695,31 @@ docker_run() {
 
 	(
 		[ -n "${DOCKER_CMD:-}" ] && set -- "${DOCKER_CMD}"
+
+		# DEBUG:
+		if [ -n "${DOCKER_VARS:-}" ]; then
+			output "Defined pre-build container images:"
+			set -x
+			eval $docker ${DOCKER_VARS:-} image ls --noheading
+			set +x
+			output "Defined pre-build additional-store container tasks:"
+			set -x
+			eval $docker ${DOCKER_VARS:-} container ps --noheading -a
+			set +x
+			output "Defined pre-build container tasks:"
+			$docker container ps --noheading -a
+		fi
+
 		print "Starting build container with command '$docker container run ${runargs[*]} ${image:-${IMAGE:-gentoo-build:latest}} ${*}'"
-		$docker container run \
+		$docker \
+				${DOCKER_VARS:-} \
+			container run \
 				"${runargs[@]}" \
 			"${image:-${IMAGE:-gentoo-build:latest}}" ${@+"${@}"}
 	)
 	rc=${?}
-	if dr_id="$( $docker container ps -a | grep -- "\s${name:-${container_name}}$" | awk '{ prnt $1 }' )" && [ -n "${dr_id:-}" ]; then
-		rcc=$( $docker container inspect --format='{{.State.ExitCode}}' "${dr_id}" ) || :
+	if dr_id="$( $docker ${DOCKER_VARS:-} container ps -a | grep -- "\s${name:-${container_name}}$" | awk '{ prnt $1 }' )" && [ -n "${dr_id:-}" ]; then
+		rcc=$( $docker ${DOCKER_VARS:-} container inspect --format='{{.State.ExitCode}}' "${dr_id}" ) || :
 	fi
 
 	if [ -n "${rcc:-}" ] && [ "${rc}" -ne "${rcc}" ]; then
@@ -739,31 +756,31 @@ docker_build_pkg() {
 # Garbage collect
 #
 docker_prune() {
-	#$docker system prune --all --filter 'until=24h' --filter 'label!=build' --filter 'label!=build.system' --force # --volumes
+	#$docker ${DOCKER_VARS:-} system prune --all --filter 'until=24h' --filter 'label!=build' --filter 'label!=build.system' --force # --volumes
 	# volumes can't be pruned with a filter :(
-	#$docker volume prune --force
+	#$docker ${DOCKER_VARS:-} volume prune --force
 
 	trap '' INT
 	# shellcheck disable=SC2086
-	$docker container ps |
+	$docker ${DOCKER_VARS:-} container ps |
 		rev |
 		cut -d' ' -f 1 |
 		rev |
 		grep -- '_' |
-		xargs -r $docker container stop --time 2
+		xargs -r $docker ${DOCKER_VARS:-} container stop --time 2
 	# shellcheck disable=SC2086
-	$docker container ps -a |
+	$docker ${DOCKER_VARS:-} container ps -a |
 		rev |
 		cut -d' ' -f 1 |
 		rev |
 		grep -- '_' |
-		xargs -r $docker container rm --volumes
+		xargs -r $docker ${DOCKER_VARS:-} container rm --volumes
 
 	# shellcheck disable=SC2086
-	$docker image ls |
+	$docker ${DOCKER_VARS:-} image ls |
 		grep -- '^<none>\s\+<none>' |
 		awk '{ print $3 }' |
-		xargs -r $docker image rm
+		xargs -r $docker ${DOCKER_VARS:-} image rm
 	trap - INT
 
 	return 0

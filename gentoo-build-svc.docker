@@ -1017,11 +1017,9 @@ else
 	# shadow needed for /sbin/nologin; coreutils needed for chmod
 	# shellcheck disable=SC2086
 	if [[ -n "${L10N:-}" ]]; then
-		DOCKER_VARS="--env L10N=\"${L10N}\""
+		DOCKER_CMD_VARS="--env L10N=\"${L10N}\""
 	fi
-	#DOCKER_VARS="${DOCKER_VARS:+${DOCKER_VARS} }--env CURL_SSL=${ssl_opt}"
-	#DOCKER_VARS="${DOCKER_VARS:+${DOCKER_VARS} }--env USE_ORDER=pkg:conf:env:defaults:pkginternal:features:repo:env.d"
-	export DOCKER_VARS
+	export DOCKER_CMD_VARS
 
 	USE="${build_use:-}" \
 	ROOT="/service" \

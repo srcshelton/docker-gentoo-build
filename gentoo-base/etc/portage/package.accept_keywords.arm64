@@ -7,6 +7,7 @@
 # the specified packages will quickly be superseded and no longer applicable,
 # while providing an initial base-line.
 
+=sys-apps/fakeroot-1.25.3-r1				~arm64
 =sys-apps/fakeroot-1.25.3				~arm64
 =sys-process/audit-3.0					~arm64
 
@@ -20,9 +21,10 @@
 =sys-kernel/raspberrypi-image-5.10.17_p20210430-r1	~arm64
 =sys-kernel/raspberrypi-sources-5.10.17_p20210430-r1	~arm64
 
-=net-libs/libesmtp-1.0.6_p20200824			~arm64
+=net-libs/libesmtp-1.0.6-r3				~arm64
 
-=app-admin/syslog-ng-3.30.1-r1				~amd64
+=app-admin/syslog-ng-3.30.1				~amd64
+=container/syslog-ng-3.30.1				 **
 =app-text/lesspipe-1.83					 **
 =app-text/pinfo-0.6.13					 **
 =app-vim/help-extra-syntax-20050106-r2			 **
@@ -62,7 +64,7 @@
 =app-admin/perl-cleaner-2.27				~arm64
 =app-admin/sudo-1.9.5_p2-r1				~arm64
 =app-admin/syslog-ng-3.30.1				~arm64
-=app-admin/webapp-config-1.55-r1			~arm64
+=app-admin/webapp-config-1.55-r2			~arm64
 =app-arch/bzip2-1.0.6-r11				~arm64
 =app-arch/cpio-2.12-r1					~arm64
 =app-arch/gzip-1.10					~arm64
@@ -74,7 +76,7 @@
 =app-arch/zstd-1.4.5					~arm64
 =app-crypt/gnupg-2.2.25					~arm64
 =app-crypt/gpgme-1.14.0					~arm64
-=app-crypt/libb2-0.98.1-r2				~arm64
+=app-crypt/libb2-0.98.1-r3				~arm64
 =app-crypt/mit-krb5-1.18.2-r3				~arm64
 =app-crypt/pinentry-1.1.0-r4				~arm64
 =app-crypt/rhash-1.3.6-r1				~arm64
@@ -125,10 +127,10 @@
 =app-text/dos2unix-7.4.2				~arm64
 =app-text/manpager-1					~arm64
 =app-text/openjade-1.3.2-r9				~arm64
-=app-text/opensp-1.5.2-r3				~arm64
+=app-text/opensp-1.5.2-r6				~amd64
 =app-text/po4a-0.57					~arm64
 =app-text/sgml-common-0.6.3-r7				~arm64
-=app-text/xmlto-0.0.28-r3				~arm64
+=app-text/xmlto-0.0.28-r6				~arm64
 =app-vim/dhcpd-syntax-20030825-r1			~arm64
 =app-vim/eselect-syntax-20070506-r1			~arm64
 =app-vim/gentoo-syntax-20201216				~arm64
@@ -139,7 +141,7 @@
 =dev-embedded/rpi-eeprom-11.10_p1			~arm64
 =dev-go/go-md2man-2.0.0					~arm64
 =dev-lang/go-1.15.7					~arm64
-=dev-lang/perl-5.30.3					~arm64
+=dev-lang/perl-5.30.3-r1				~arm64
 =dev-lang/python-3.8.7-r1				~arm64
 =dev-lang/python-3.9.1-r1				~arm64
 =dev-lang/python-exec-2.4.6-r2				~arm64
@@ -268,7 +270,7 @@
 =dev-util/gtk-doc-am-1.33.1				~arm64
 =dev-util/intltool-0.51.0-r2				~arm64
 =dev-util/itstool-2.0.6-r1				~arm64
-=dev-util/ltrace-0.7.2					~arm64
+=dev-util/ltrace-0.7.91_p195				~arm64
 =dev-util/meson-0.55.3					~arm64
 =dev-util/meson-format-array-0				~arm64
 =dev-util/ninja-1.10.1					~arm64
@@ -286,18 +288,18 @@
 =media-libs/freetype-2.10.4				~arm64
 =media-libs/libpng-1.6.37-r2				~arm64
 =net-analyzer/rrdtool-1.7.2-r100			~arm64
-=net-analyzer/tcpdump-4.9.3-r4				~arm64
+=net-analyzer/tcpdump-4.99.0				~arm64
 =net-dialup/lrzsz-0.12.20-r4				~arm64
 =net-dialup/minicom-2.7.1				~arm64
 =net-dns/bind-9.16.12					~arm64
 =net-dns/bind-tools-9.16.12				~arm64
 =net-dns/libidn2-2.3.0					~arm64
 =net-firewall/iptables-1.8.5				~arm64
-=net-firewall/nftables-0.9.6				~arm64
+=net-firewall/nftables-0.9.6-r1				~arm64
 =net-fs/nfs-utils-2.5.1					~arm64
 =net-libs/liblockfile-1.16				~arm64
 =net-libs/libmnl-1.0.4					~arm64
-=net-libs/libnetfilter_conntrack-1.0.6			~arm64
+=net-libs/libnetfilter_conntrack-1.0.8			~arm64
 =net-libs/libnet-1.2					~arm64
 =net-libs/libnfnetlink-1.0.1				~arm64
 =net-libs/libnftnl-1.1.7				~arm64
@@ -310,24 +312,24 @@
 =net-misc/bridge-utils-1.6				~arm64
 =net-misc/cni-plugins-0.8.7				~arm64
 =net-misc/curl-7.74.0-r2				~arm64
-=net-misc/dhcpcd-8.1.9-r1				~arm64
+=net-misc/dhcpcd-9.3.4					~arm64
 =net-misc/dhcp-4.4.2-r3					~arm64
 =net-misc/ethertypes-0					~arm64
-=net-misc/iputils-20190709-r1				~arm64
+=net-misc/iputils-20200821-r2				~arm64
 =net-misc/ndisc6-1.0.3					~arm64
 =net-misc/netifrc-0.7.1-r1				~arm64
 =net-misc/netkit-telnetd-0.17-r12			~arm64
 =net-misc/ntp-4.2.8_p15					~arm64
 =net-misc/openssh-8.4_p1-r3				~arm64
 =net-misc/rsync-3.2.3-r1				~arm64
-=net-misc/usbip-3.19					~arm64
+=net-misc/usbip-4.13-r1					 **
 =net-misc/wget-1.20.3-r3				~arm64
 =net-nds/rpcbind-1.2.5					~arm64
 =net-wireless/bluez-5.55				~arm64
 =net-wireless/wireless-regdb-20201120			~arm64
 =perl-core/File-Temp-0.230.900				~arm64
 =sys-apps/acl-2.2.53-r1					~arm64
-=sys-apps/attr-2.4.48-r4				~arm64
+=sys-apps/attr-2.4.48-r5				~arm64
 =sys-apps/baselayout-2.7				~arm64
 =sys-apps/busybox-1.32.1				~arm64
 =sys-apps/coreutils-8.32-r1				~arm64
@@ -344,7 +346,7 @@
 =sys-apps/gptfdisk-1.0.6-r1				~arm64
 =sys-apps/grep-3.5					~arm64
 =sys-apps/groff-1.22.4					~arm64
-=sys-apps/haveged-1.9.8c-r1				~arm64
+=sys-apps/haveged-1.9.14-r1				~arm64
 =sys-apps/hdparm-9.58					~arm64
 =sys-apps/help2man-1.47.17				~arm64
 =sys-apps/hwids-20201207				~arm64
@@ -359,7 +361,7 @@
 =sys-apps/man-pages-posix-2017a				~arm64
 =sys-apps/memtester-4.3.0				~arm64
 =sys-apps/miscfiles-1.5-r3				~arm64
-=sys-apps/mlocate-0.26-r2				~arm64
+=sys-apps/mlocate-0.26-r3				~arm64
 =sys-apps/net-tools-1.60_p20180626073013		~arm64
 =sys-apps/openrc-0.42.1-r1				~arm64
 =sys-apps/pciutils-3.6.4				~arm64
@@ -372,7 +374,7 @@
 =sys-apps/tcp-wrappers-7.6.28				~arm64
 =sys-apps/texinfo-6.7					~arm64
 =sys-apps/tmpfs-1.0-r1					~arm64
-=sys-apps/usbutils-013					~arm64
+=sys-apps/usbutils-013-r1				~arm64
 =sys-apps/util-linux-2.35.2				~arm64
 =sys-apps/watchdog-5.15					~arm64
 =sys-apps/which-2.21					~arm64
@@ -421,11 +423,12 @@
 =sys-libs/pam-1.5.1					~arm64
 =sys-libs/readline-8.0_p4				~arm64
 =sys-libs/timezone-data-2021a				~arm64
-=sys-libs/zlib-1.2.11-r3				~arm64
+=sys-libs/zlib-1.2.11-r4				~arm64
 =sys-process/cronbase-0.3.7-r6				~arm64
 =sys-process/cronie-1.5.5-r1				~arm64
 =sys-process/lsof-4.93.2-r1				~arm64
 =sys-process/procps-3.3.16-r2				~arm64
+#=sys-process/procps-3.3.16-r3				~arm64
 =sys-process/psmisc-23.3-r1				~arm64
 =virtual/acl-0-r2					~arm64
 =virtual/awk-1						~arm64
@@ -442,7 +445,7 @@
 =virtual/libudev-232-r3					~arm64
 =virtual/libusb-1-r2					~arm64
 =virtual/mailx-1					~arm64
-=virtual/man-0-r3					~arm64
+=virtual/man-0-r4					~arm64
 =virtual/mta-1-r1					~arm64
 =virtual/os-headers-0-r2				~arm64
 =virtual/package-manager-1				~arm64
@@ -487,7 +490,7 @@
 =virtual/perl-Time-Local-1.280.0-r1			~arm64
 =virtual/perl-XSLoader-0.300.0-r3			~arm64
 =virtual/perl-if-0.60.800-r3				~arm64
-=virtual/perl-libnet-3.110.0-r3				~arm64
+=virtual/perl-libnet-3.110.0-r4				~arm64
 =virtual/perl-parent-0.237.0				~arm64
 =virtual/perl-podlators-4.110.0				~arm64
 =virtual/perl-version-0.992.400-r1			~arm64
