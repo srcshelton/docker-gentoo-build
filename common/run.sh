@@ -652,7 +652,7 @@ docker_run() {
 				: $(( skipped = skipped + 1 ))
 				continue
 			fi
-			runargs+=( --mount "type=bind,source=${mp},destination=${mp}${docker_readonly:+,${docker_readonly}}" )
+			runargs+=( --mount "type=bind,source=${src},destination=${mp}${docker_readonly:+,${docker_readonly}}" )
 		done
 		for mp in ${mirrormountpoints[@]+"${mirrormountpoints[@]}"}; do
 			[ -n "${mp:-}" ] || continue
@@ -662,7 +662,7 @@ docker_run() {
 				: $(( skipped = skipped + 1 ))
 				continue
 			fi
-			runargs+=( --mount "type=bind,source=${mp},destination=${mp}" )
+			runargs+=( --mount "type=bind,source=${src},destination=${mp}" )
 		done
 		for mp in ${mountpointsro[@]+"${!mountpointsro[@]}"}; do
 			[ -n "${mp:-}" ] || continue
