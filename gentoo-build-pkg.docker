@@ -56,16 +56,25 @@ for arg in "${@}"; do
 done
 
 DOCKER_EXTRA_MOUNTS=''
-test -e /etc/portage/package.accept_keywords &&
+test -s /etc/portage/package.accept_keywords &&
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
-test -e /etc/portage/package.license &&
+test -s /etc/portage/package.license &&
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
-test -e /etc/portage/package.use/package.use &&
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+,${docker_readonly}}"
-test -e /etc/portage/package.use/python_targets &&
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/python_targets,destination=/etc/portage/package.use/python_targets${docker_readonly:+,${docker_readonly}}"
-test -f /etc/portage/package.use && test -s /etc/portage/package.use &&
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+,${docker_readonly}}"
+
+if ! [ -d /etc/portage/package.use ]; then
+	test -f /etc/portage/package.use && test -s /etc/portage/package.use &&
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+,${docker_readonly}}"
+else
+	test -s /etc/portage/package.use/package.use &&
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+,${docker_readonly}}"
+	test -s /etc/portage/package.use/host.use &&
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/host.use,destination=/etc/portage/package.use/host.use${docker_readonly:+,${docker_readonly}}"
+	while read -r targets; do
+		file="$( basename "${targets}" )"
+		test -s "/etc/portage/package.use/${file}" &&
+			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/${file},destination=/etc/portage/package.use/${file}${docker_readonly:+,${docker_readonly}}"
+	done < <( find /etc/portage/package.use/ -mindepth 1 -maxdepth 1 -type f -name '*_targets' )
+fi
 #
 # Even with all of the below made available, linux-info.eclass still causes
 # builds to fail due to not being able to find a valid kernel configuration?!
