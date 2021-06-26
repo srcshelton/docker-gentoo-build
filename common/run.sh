@@ -693,6 +693,36 @@ docker_run() {
 		unset src mp
 	fi
 
+	if [ -n "${DOCKER_VERBOSE:-}" ]; then
+		output
+		[ -n "${DOCKER_VARS:-}" ] && output "VERBOSE: DOCKER_VARS is '${DOCKER_VARS}'"
+		local arg='' next=''
+		for arg in "${runargs[@]}"; do
+			case "${next}" in
+				mount)
+					arg="$(
+						sed -r \
+								-e 's/^type=/type: /' \
+								-e 's/,(src|source)=/\tsource: /' \
+								-e 's/,(dst|destination)=/\tdestination: /' \
+								-e 's/, ro=true$/\tRO/' \
+							<<<"${arg}"
+					)"
+					output "VERBOSE: Mount point '${arg}'"
+					;;
+				volume)
+					output "VERBOSE: Volume '${arg}'"
+					;;
+			esac
+			if [[ "${arg}" =~ ^--(mount|volume)$ ]]; then
+				next="${arg#--}"
+			else
+				next=''
+			fi
+		done | column -t -s $'\t'
+		output
+	fi
+
 	(
 		[ -n "${DOCKER_CMD:-}" ] && set -- "${DOCKER_CMD}"
 
