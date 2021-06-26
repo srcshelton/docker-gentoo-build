@@ -123,15 +123,14 @@ if [ "${rebuild:-0}" = '1' ]; then
 	mkdir -p log
 
 	if "${basedir}"/docker-gentoo-build/gentoo-init.docker; then
-		if [ $(( force )) -eq 0 ]; then
-			"${basedir}"/docker-gentoo-build/gentoo-build-svc.docker all ||
-				: $(( rc = rc + ${?} ))
-			"${basedir}"/docker-gentoo-build/gentoo-web/gentoo-build-web.docker ||
-				: $(( rc = rc + ${?} ))
-		else
-			"${basedir}"/docker-gentoo-build/gentoo-build-svc.docker --force all ||
-				: $(( rc = rc + ${?} ))
-			"${basedir}"/docker-gentoo-build/gentoo-web/gentoo-build-web.docker --force ||
+		forceflag=''
+		if ! [ $(( force )) -eq 0 ]; then
+			forceflag='--force'
+		fi
+		"${basedir}"/docker-gentoo-build/gentoo-build-svc.docker ${forceflag:+${forceflag} --rebuild} all ||
+			: $(( rc = rc + ${?} ))
+		if [ -x "${basedir}"/docker-gentoo-build/gentoo-web/gentoo-build-web.docker ]; then
+			"${basedir}"/docker-gentoo-build/gentoo-web/gentoo-build-web.docker ${forceflag} ||
 				: $(( rc = rc + ${?} ))
 		fi
 		# shellcheck disable=SC2086
