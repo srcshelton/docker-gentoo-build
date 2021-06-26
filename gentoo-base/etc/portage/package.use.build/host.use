@@ -5,9 +5,11 @@
 # bzip2 natspec unicode
 app-arch/unzip				-* bzip2 unicode
 
+container/dovecot			 managesieve sieve
+container/mariadb			 server
+
 # backup extraengine innodb-lz4 innodb-lzo innodb-snappy jemalloc odbc oqgraph pam perl sphinx tokudb xml
 dev-db/mariadb				-* backup bindist
-container/mariadb			-server
 
 dev-lang/perl				 minimal # -perl-cleaner
 # Avoid additional perl dependencies
