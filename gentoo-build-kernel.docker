@@ -26,27 +26,39 @@ declare IMAGE="${build_name}:latest"
 [ -s common/run.sh ] && . common/run.sh
 
 if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	output >&2 "Usage: $( basename "${0}" ) [--config-from=<file> [--force]] [--no-keep-build|--keep-build[=<dir>]] [--no-patch|--patch=<url>[,<url]] [--menuconfig|--nconfig] [--package=<atom>] [--clang]"
+	usage="Usage: $( basename "${0}" ) "
+	# shellcheck disable=SC2116 # echo used for line-splitting
+	options="$( echo \
+		"[--config-from=<file> [--force]]" \
+		"[--no-keep-build|--keep-build[=<dir>]]" \
+		"[--no-patch|--patch=<url>[,<url]]" \
+		"[--menuconfig|--nconfig]" \
+		"[--package=<atom>]" \
+		"[--clang [--llvm-unwind]]"
+	)"
+	output "${usage}${options}" | fold -sw ${COLUMNS:-80} - | head -n 1 >&2
+	output "${options}" | fold -sw $(( ${COLUMNS:-80} - ${#usage} )) - | sed "s|^|${usage//?/ }|" | tail -n +2 >&2
 	output >&2
 	output >&2 "Options:"
-	output >&2 "        --config-from Use specified file as kernel base configuration"
-	output >&2 "                      (specify config.gz or /proc/config.gz to auto-extract the"
-	output >&2 "                       active kernel configuration)"
-	output >&2 "                      N.B. To save the resultant configuration, use the"
-	output >&2 "                           '--keep-build' option to save the build output"
-	output >&2 "        --force       Overwrite build-cache configuration with specified file"
-	output >&2 "        --keep-build  Cache the kernel build artefacts for re-use"
-	output >&2 "                      (optionally in the specified directory)"
-	output >&2 "        --menuconfig  Interactively reconfigure the kernel via ncurses"
-	output >&2 "        --nconfig     Interactively reconfigure the kernel via nconfig"
-	output >&2 "        --package     Specify kernel package to build"
-	output >&2 "                      (default: sys-kernel/gentoo-sources)"
-	output >&2 "        --clang       Compile kernel with llvm"
-	output >&2 "        --llvm-unwind Install LLVM edition of libunwind"
-	output >&2 "        --patch <url> Apply patch (-p1) from specified URL"
+	output >&2 "       --config-from Use specified file as kernel base configuration"
+	output >&2 "                    (specify config.gz or /proc/config.gz to auto-extract the"
+	output >&2 "                     active kernel configuration)"
+	output >&2 "                     N.B. To keep the resultant configuration, use the"
+	output >&2 "                          '--keep-build' option to save the build output"
+	output >&2 "       --force       Overwrite build-cache configuration with specified file"
+	output >&2 "       --keep-build  Cache the kernel build artefacts for re-use"
+	output >&2 "                    (optionally in the specified directory)"
+	output >&2 "       --menuconfig  Interactively reconfigure the kernel via ncurses"
+	output >&2 "       --nconfig     Interactively reconfigure the kernel via nconfig"
+	output >&2 "       --package     Specify kernel package to build"
+	output >&2 "                    (default: sys-kernel/gentoo-sources)"
+	output >&2 "       --clang       Compile kernel with llvm"
+	output >&2 "       --llvm-unwind Install LLVM edition of libunwind"
+	output >&2 "       --patch <url> Apply patch (-p1) from specified URL"
 	output >&2
 	exit 0
 fi
+
 declare build=1
 declare build_dir=''
 declare compiler='gcc'
@@ -78,9 +90,13 @@ if echo " ${*:-} " | grep -q -- ' --nconfig '; then
 fi
 if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 	compiler='clang'
-fi
-if echo " ${*:-} " | grep -Eq -- ' --(llvm-)?(lib)?unwind '; then
-	unwind='llvm'
+	if echo " ${*:-} " | grep -Eq -- ' --(llvm-)?(lib)?unwind '; then
+		unwind='llvm'
+	fi
+else
+	if echo " ${*:-} " | grep -Eq -- ' --(llvm-)?(lib)?unwind '; then
+		warn "'--llvm-unwind' is not a valid option without '--clang'"
+	fi
 fi
 if echo " ${*:-} " | grep -Eq -- ' --config(-from)?[= ]'; then
 	if echo " ${*:-} " | grep -Eq -- ' --config(-from)?=[^ ]+ '; then
@@ -106,20 +122,17 @@ else
 	fi
 fi
 if echo " ${*:-} " | grep -q -- ' --keep-build'; then
+	build=1
 	if echo " ${*:-} " | grep -q -- ' --keep-build=[^ ]\+ '; then
 		build_dir="$( echo " ${*} " | grep -o -- '--keep-build=[^ ]\+ ' | cut -d'=' -f 2- | sed 's/ $//' )"
-		build=1
 	elif echo " ${*:-} " | grep -q -- ' --keep-build [^ -][^ ]* '; then
 		build_dir="$( echo " ${*} " | grep -o -- '--keep-build [^ ]\+ ' | cut -d' ' -f 2- | sed 's/ $//' )"
-		build=1
-	elif echo " ${*:-} " | grep -q -- ' --keep-build '; then
-		build=1
 	else
 		warn "Invalid build option '$( echo " ${*:-} " | grep -o -- '--keep-build[^ ]\+ ' | sed 's/ $//' )'"
 	fi
 elif echo " ${*:-} " | grep -q -- ' --no-keep-build'; then
-	build_dir=''
 	build=0
+	build_dir=''
 fi
 if echo " ${*:-} " | grep -q -- ' --package'; then
 	if echo " ${*:-} " | grep -q -- ' --package=[^ ]\+ '; then
@@ -175,6 +188,9 @@ export container_name
 
 build_version="$( echo "${package_version:-}" | cut -d'.' -f 1-2 )"
 if [ -z "${build_dir:-}" ]; then
+	# Even if '--keep-build' hasn't been specified, we still set build_dir
+	# here, we just won't mount it from the host later...
+	#
 	build_dir="/usr/src/linux-build-${compiler}${unwind:+-unwind}-${build_version}.x"
 fi
 if [ "${build:-}" = '1' ]; then
@@ -183,44 +199,49 @@ if [ "${build:-}" = '1' ]; then
 fi
 
 if [ -n "${config:-}" ]; then
-	if [ "${build:-}" = '1' ]; then
-		if [ -e "${build_dir}"/.config ]; then
-			if ! [ "${force:-}" = '1' ]; then
-				die "'${build_dir}/.config' already exists"
-			fi
-		fi
-	fi
-	if [ "${config}" = 'config.gz' ] || [ "${config}" = '/proc/config.gz' ]; then
-		if ! [ -r /proc/config.gz ]; then
-			die "Cannot read '/proc/config.gz' - do you need to 'sudo modprobe configs'?"
-		fi
-		if [ "${build:-}" = '1' ]; then
-			zcat /proc/config.gz > "${build_dir}"/.config || die "zcat failed: ${?}"
-			config="${build_dir}/.config"
-		else
-			if [ -e "${TMPDIR:-/tmp}/config" ]; then
-				die "'${TMPDIR:-/tmp}/config' already exists"
-			fi
-			note >&2 "Extracting /proc/config.gz to '${TMPDIR:-/tmp}' ..."
-			zcat /proc/config.gz > "${TMPDIR:-/tmp}/config"
-			config="${TMPDIR:-/tmp}/config"
-		fi
+	if [ "${build:-}" = '1' ] && [ -s "${build_dir}"/.config ] && ! [ "${force:-}" = '1' ]; then
+		warn "not replacing existing '${build_dir}/.config' file without '--force'"
 	else
-		if [ "${build:-}" = '1' ]; then
-			cp "${config}" "${build_dir}"/.config || die "File copy failed: ${?}"
-			config="${build_dir}/.config"
+		# We've already changed to the script directory, so if there ever were
+		# a file in the same location named 'config.gz', it's unlikely to be
+		# one we'd actually want to use!
+		#
+		if [ "${config}" = 'config.gz' ] || [ "${config}" = '/proc/config.gz' ]; then
+			if ! lsmod | grep -qw -- '^configs'; then
+				warn "Attempting to load 'configs' module..."
+				modprobe configs || :
+			fi
+			if ! [ -r /proc/config.gz ]; then
+				die "Cannot read current kernel configuration '/proc/config.gz'"
+			fi
+			if [ "${build:-}" = '1' ]; then
+				config="${build_dir}/.config"
+				zcat /proc/config.gz > "${config}" || die "zcat failed: ${?}"
+			else
+				config="${TMPDIR:-/tmp}/linux-${package_version%-r[0-9]}.config"
+				if [ -e "${config}" ]; then
+					die "configuration file '${config}' already exists"
+				fi
+				note >&2 "Extracting /proc/config.gz to '${config}' ..."
+				zcat /proc/config.gz > "${config}" || die "zcat failed: ${?}"
+			fi
+		else
+			if [ "${build:-}" = '1' ]; then
+				cp "${config}" "${build_dir}"/.config || die "File copy failed: ${?}"
+				config="${build_dir}/.config"
+			fi
 		fi
-	fi
-	config="$( readlink -e "${config}" )"
-	if ! [ -s "${config}" ]; then
-		die "Cannot read kernel configuration file '${config}'"
-	fi
-	if ! [ -w "${config}" ]; then
-		die "Cannot write to kernel configuration file '${config}'"
-	fi
-	if ! [ "${build:-}" = '1' ]; then
-		#info >&2 "Using '${config}' as kernel configuration - changes WILL BE saved to this file..."
-		info >&2 "Using '${config}' as kernel configuration"
+		config="$( readlink -e "${config}" )"
+		if ! [ -s "${config}" ]; then
+			die "Cannot read kernel configuration file '${config}'"
+		fi
+		if ! [ -w "${config}" ]; then
+			die "Cannot write to kernel configuration file '${config}'"
+		fi
+		if ! [ "${build:-}" = '1' ]; then
+			#info >&2 "Using '${config}' as kernel configuration - changes WILL BE saved to this file..."
+			info >&2 "Using '${config}' as kernel configuration"
+		fi
 	fi
 fi
 
@@ -254,7 +275,9 @@ esac
 case "${unwind:-}" in
 	llvm)
 		compiler_pkgs="${compiler_pkgs} sys-libs/llvm-libunwind"
-		pre_remove="sys-libs/unwind"
+		compiler_USE="${compiler_USE:+${compiler_USE} }llvm-libunwind"
+		#pre_remove="sys-libs/libunwind"
+		#pre_pkgs="sys-libs/llvm-libunwind"
 		;;
 esac
 
@@ -284,7 +307,7 @@ if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:$
 		image="${IMAGE}"
 		export name image
 
-		# shellcheck disable=SC2086
+		# shellcheck disable=SC2086,SC2154
 		time {
 			docker_run \
 						--with-use="${USE}" \
@@ -292,6 +315,7 @@ if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:$
 						--update \
 						--usepkg=y \
 						${pre_remove:+--pre-remove="${pre_remove}"} \
+						${pre_pkgs:+--pre-pkgs="${pre_pkgs}"} \
 					"=${package}" \
 					${compiler_pkgs:-} \
 					app-arch/bzip2 \
@@ -306,7 +330,7 @@ if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:$
 					sys-firmware/intel-microcode \
 					sys-kernel/linux-firmware \
 					virtual/linux-sources \
-				2>&1 | tee log/"docker.${container_name}-${compiler}.log"
+				2>&1 | tee "log/docker.${container_name}-${compiler}.log"
 			output " -> ${?}"
 		}
 
@@ -315,10 +339,10 @@ if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:$
 			$docker container commit \
 					"${container_name}-${compiler}" \
 					"${container_name%-${package_version}}.${compiler}:${package_version}" \
-					${IMAGE_ROOT:+--storage-opt="" --root "${IMAGE_ROOT}"} 2>&1 |
-				tee -a log/"docker.${container_name}.log"
+					${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} 2>&1 |
+				tee -a "log/docker.${container_name}.log"
 			$docker container rm --volumes "${container_name}-${compiler}" 2>&1 |
-				tee -a log/"docker.${container_name}-${compiler}.log"
+				tee -a "log/docker.${container_name}-${compiler}.log"
 			output " -> ${?}"
 			trap - INT
 		}
@@ -444,6 +468,8 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	fi ;
 	set -x ;
 	mkdir -p ../build ;
+	echo "Configuration changes from '.config':" ;
+	make ${kernel_make_opts[@]} listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
 	time make ${kernel_make_opts[@]} ${deforoldconfig} prepare ${menuconfig:+menuconfig} ${nconfig:+nconfig} vmlinux modules bzImage modules_install ;
 	set +x ;
 	if [ -s /boot/boot.config -o -s /proc/bootconfig ] && [ -e /boot/initramfs.img ]; then
@@ -485,7 +511,7 @@ time {
 	image="${container_name%-${package_version}}.${compiler}:${package_version}" \
 	docker_run \
 			-c "${DOCKER_SCRIPT}" \
-		2>&1 | tee -a log/"docker.${container_name}-${compiler}.log"
+		2>&1 | tee -a "log/docker.${container_name}-${compiler}.log"
 	rc=${?}
 	#set +x
 	output " -> ${rc}"
