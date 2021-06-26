@@ -27,6 +27,7 @@ fi
 #	export IMAGE_ROOT="${tmp}"
 #fi
 
+kbuild_opt="${kbuild_opt:---config /proc/config.gz --keep-build --clang --llvm-unwind}"
 arg=''
 haveargs=0
 rebuildutils=0
@@ -43,6 +44,8 @@ case " ${*:-} " in
 		else
 			echo >&2 "Usage: $( basename "${0}" ) [--rebuild-images [--force]] [--update-pkgs] [--update-system [--pretend]]"
 		fi
+		echo >&2
+		echo >&2 "       kernel build options: kbuild_opt='${kbuild_opt}'"
 		exit 0
 		;;
 esac
@@ -101,12 +104,18 @@ if [ "${rebuildutils:-0}" = '1' ]; then
 	else
 		mkdir -p log
 
-		[ "$( $docker image ls 'localhost/dell-dsu' | wc -l )" = '2' ] ||
-			"${basedir}"/docker-dell/dell.docker --dsu  \
+		if [ "$( $docker image ls -n 'localhost/dell-dsu' | wc -l )" = '0' ]; then
+			"${basedir}"/docker-dell/dell.docker --dsu ${IMAGE_ROOT:+--root "${IMAGE_ROOT}"} \
 				>> log/dell.docker.dsu.log 2>&1 &
-		[ "$( $docker image ls 'localhost/dell-ism' | wc -l )" = '2' ] ||
-			"${basedir}"/docker-dell/dell.docker --ism ${IMAGE_ROOT:+--storage-opt="" --root "${IMAGE_ROOT}"} \
+			# shellcheck disable=SC3044
+			disown 2>/dev/null || :  # doesn't exist in POSIX sh :(
+		fi
+		if [ "$( $docker image ls -n 'localhost/dell-ism' | wc -l )" = '0' ]; then
+			"${basedir}"/docker-dell/dell.docker --ism ${IMAGE_ROOT:+--root "${IMAGE_ROOT}"} \
 				>> log/dell.docker.ism.log 2>&1 &
+			# shellcheck disable=SC3044
+			disown 2>/dev/null || :  # doesn't exist in POSIX sh :(
+		fi
 	fi
 fi
 
@@ -116,18 +125,18 @@ if [ "${rebuild:-0}" = '1' ]; then
 	if "${basedir}"/docker-gentoo-build/gentoo-init.docker; then
 		if [ $(( force )) -eq 0 ]; then
 			"${basedir}"/docker-gentoo-build/gentoo-build-svc.docker all ||
-			: $(( rc = rc + ${?} ))
+				: $(( rc = rc + ${?} ))
 			"${basedir}"/docker-gentoo-build/gentoo-web/gentoo-build-web.docker ||
-			: $(( rc = rc + ${?} ))
+				: $(( rc = rc + ${?} ))
 		else
 			"${basedir}"/docker-gentoo-build/gentoo-build-svc.docker --force all ||
-			: $(( rc = rc + ${?} ))
+				: $(( rc = rc + ${?} ))
 			"${basedir}"/docker-gentoo-build/gentoo-web/gentoo-build-web.docker --force ||
-			: $(( rc = rc + ${?} ))
+				: $(( rc = rc + ${?} ))
 		fi
-		#"${basedir}"/docker-gentoo-build/gentoo-build-kernel.docker --keep-build --config /proc/config.gz ||
-		"${basedir}"/docker-gentoo-build/gentoo-build-kernel.docker --keep-build --clang ||
-		: $(( rc = rc + ${?} ))
+		# shellcheck disable=SC2086
+		"${basedir}"/docker-gentoo-build/gentoo-build-kernel.docker ${kbuild_opt:-} ||
+			: $(( rc = rc + ${?} ))
 	else
 		: $(( rc = rc + ${?} ))
 	fi
