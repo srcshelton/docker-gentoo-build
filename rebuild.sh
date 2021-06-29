@@ -29,20 +29,21 @@ fi
 
 kbuild_opt="${kbuild_opt:---config /proc/config.gz --keep-build --clang --llvm-unwind}"
 arg=''
-haveargs=0
-rebuildutils=0
-rebuild=0
-update=0
-system=0
-pretend=0
+all=0
 force=0
+haveargs=0
+pretend=0
 rc=0
+rebuild=0
+rebuildutils=0
+system=0
+update=0
 case " ${*:-} " in
 	*' -h '*|*' --help '*)
 		if [ -d "${basedir}/docker-dell" ]; then
-			echo >&2 "Usage: $( basename "${0}" ) [--rebuild-utilities] [--rebuild-images [--force]] [--update-pkgs] [--update-system [--pretend]]"
+			echo >&2 "Usage: $( basename "${0}" ) [--rebuild-utilities] [--rebuild-images [--force] [--all]] [--update-pkgs] [--update-system [--pretend]]"
 		else
-			echo >&2 "Usage: $( basename "${0}" ) [--rebuild-images [--force]] [--update-pkgs] [--update-system [--pretend]]"
+			echo >&2 "Usage: $( basename "${0}" ) [--rebuild-images [--force] [--all]] [--update-pkgs] [--update-system [--pretend]]"
 		fi
 		echo >&2
 		echo >&2 "       kernel build options: kbuild_opt='${kbuild_opt}'"
@@ -67,11 +68,14 @@ for arg in ${@+"${@}"}; do
 			system=1
 			haveargs=1
 			;;
-		-p|--pretend)
-			pretend=1
+		-a|--all)
+			all=1
 			;;
 		-f|--force)
 			force=1
+			;;
+		-p|--pretend)
+			pretend=1
 			;;
 		*)
 			echo >&2 "FATAL: Unknown argument '${arg:-}'"
@@ -127,14 +131,22 @@ if [ "${rebuild:-0}" = '1' ]; then
 		if ! [ $(( force )) -eq 0 ]; then
 			forceflag='--force'
 		fi
-		"${basedir}"/docker-gentoo-build/gentoo-build-svc.docker ${forceflag:+${forceflag} --rebuild} all ||
+		selection='--installed'
+		if ! [ $(( all )) -eq 0 ]; then
+			selection='--all'
+		fi
+		"${basedir}"/docker-gentoo-build/gentoo-build-svc.docker \
+				${forceflag:+${forceflag} --rebuild} \
+				"${selection}" ||
 			: $(( rc = rc + ${?} ))
 		if [ -x "${basedir}"/docker-gentoo-build/gentoo-web/gentoo-build-web.docker ]; then
-			"${basedir}"/docker-gentoo-build/gentoo-web/gentoo-build-web.docker ${forceflag} ||
+			"${basedir}"/docker-gentoo-build/gentoo-web/gentoo-build-web.docker \
+					${forceflag} ||
 				: $(( rc = rc + ${?} ))
 		fi
 		# shellcheck disable=SC2086
-		"${basedir}"/docker-gentoo-build/gentoo-build-kernel.docker ${kbuild_opt:-} ||
+		"${basedir}"/docker-gentoo-build/gentoo-build-kernel.docker \
+				${kbuild_opt:-} ||
 			: $(( rc = rc + ${?} ))
 	else
 		: $(( rc = rc + ${?} ))
