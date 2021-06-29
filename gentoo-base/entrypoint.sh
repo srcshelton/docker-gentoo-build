@@ -249,6 +249,7 @@ if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 		# shellcheck disable=SC2086
 		emerge \
 				--ignore-default-opts \
+				--binpkg-changed-deps=y \
 				--binpkg-respect-use=y \
 				--buildpkg=n \
 				--color=y \
@@ -275,6 +276,7 @@ echo
 	# shellcheck disable=SC2086
 	emerge \
 			--ignore-default-opts \
+			--binpkg-changed-deps=y \
 			--binpkg-respect-use=y \
 			--buildpkg=n \
 			--color=y \
@@ -310,6 +312,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		# shellcheck disable=SC2086
 		emerge \
 				--ignore-default-opts \
+				--binpkg-changed-deps=y \
 				--binpkg-respect-use=y \
 				--buildpkg=n \
 				--color=y \
@@ -340,6 +343,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 			# shellcheck disable=SC2086
 			emerge \
 					--ignore-default-opts \
+					--binpkg-changed-deps=y \
 					--binpkg-respect-use=y \
 					--buildpkg=n \
 					--color=y \
@@ -396,6 +400,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 			# shellcheck disable=SC2086
 			emerge \
 					--ignore-default-opts \
+					--binpkg-changed-deps=y \
 					--binpkg-respect-use=y \
 					--buildpkg=n \
 					--color=y \
@@ -426,6 +431,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		# shellcheck disable=SC2012,SC2086,SC2046
 		emerge \
 				--ignore-default-opts \
+				--binpkg-changed-deps=y \
 				--binpkg-respect-use=y \
 				--buildpkg=n \
 				--color=y \
@@ -446,6 +452,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		# shellcheck disable=SC2012,SC2086,SC2046
 		emerge \
 				--ignore-default-opts \
+				--binpkg-changed-deps=y \
 				--binpkg-respect-use=y \
 				--buildpkg=n \
 				--color=y \
@@ -508,6 +515,7 @@ do
 		# shellcheck disable=SC2086
 		emerge \
 				--ignore-default-opts \
+				--binpkg-changed-deps=y \
 				--binpkg-respect-use=y \
 				--buildpkg=n \
 				--color=y \
@@ -541,6 +549,7 @@ echo
 	# shellcheck disable=SC2086
 	emerge \
 			--ignore-default-opts \
+			--binpkg-changed-deps=y \
 			--binpkg-respect-use=y \
 			--buildpkg=n \
 			--color=y \
