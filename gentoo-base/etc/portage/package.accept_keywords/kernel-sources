@@ -3,7 +3,9 @@
 ~sys-kernel/gentoo-sources-5.10.46			~amd64
 
 ~sys-kernel/gentoo-sources-5.12.13			~amd64
-#~sys-kernel/vanilla-sources-5.12.13			~amd64
+
+~sys-kernel/gentoo-sources-5.13.0			~amd64
+#~sys-kernel/vanilla-sources-5.13.0			~amd64
 
 # Additional kernel-modules
 #~net-firewall/xtables-addons-3.18			~amd64

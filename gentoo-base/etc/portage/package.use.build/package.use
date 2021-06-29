@@ -26,7 +26,7 @@
 */*					 yaml
 */*					 zlib zstd
 
-*/*					 CURL_SSL: openssl
+net-misc/curl				 CURL_SSL: openssl
 
 # A/V & Fonts USE flags:
 */*					-truetype -xpm
