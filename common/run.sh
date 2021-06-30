@@ -593,6 +593,9 @@ docker_run() {
 		local -i ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
 		local -i changed=0
 		if (( ram < ${PODMAN_MEMORY_LIMIT%g} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
+			echo >&2 "INFO:  Host resources (rounded down to nearest 1GiB):"
+			echo >&2 "         RAM:        ${ram}G"
+			echo >&2 "         Swap:       ${swp}G"
 			echo >&2 "INFO:  Original memory limits:"
 			echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
 			echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
