@@ -122,17 +122,18 @@ else
 	fi
 fi
 if echo " ${*:-} " | grep -q -- ' --keep-build'; then
-	build=1
 	if echo " ${*:-} " | grep -q -- ' --keep-build=[^ ]\+ '; then
 		build_dir="$( echo " ${*} " | grep -o -- '--keep-build=[^ ]\+ ' | cut -d'=' -f 2- | sed 's/ $//' )"
 	elif echo " ${*:-} " | grep -q -- ' --keep-build [^ -][^ ]* '; then
 		build_dir="$( echo " ${*} " | grep -o -- '--keep-build [^ ]\+ ' | cut -d' ' -f 2- | sed 's/ $//' )"
+	elif echo " ${*:-} " | grep -q -- ' --keep-build '; then
+		:
 	else
 		warn "Invalid build option '$( echo " ${*:-} " | grep -o -- '--keep-build[^ ]\+ ' | sed 's/ $//' )'"
+		build=0
 	fi
 elif echo " ${*:-} " | grep -q -- ' --no-keep-build'; then
 	build=0
-	build_dir=''
 fi
 if echo " ${*:-} " | grep -q -- ' --package'; then
 	if echo " ${*:-} " | grep -q -- ' --package=[^ ]\+ '; then
