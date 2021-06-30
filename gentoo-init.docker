@@ -24,6 +24,8 @@ reset=''
 
 docker_arch=''
 arch=''
+
+# use_pypy & use_pypy_use are defined in common/vars.sh
 use_pypy_pre=''
 use_pypy_pre_use=''
 use_pypy_post=''
@@ -541,6 +543,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	# shellcheck disable=SC2015
 	$docker image ls "localhost/${build_name}-root:latest" 2>/dev/null |
 	grep -Eq -- "^(localhost/)?${build_name}-root\s+latest\s" && {
+		# shellcheck disable=SC2140
 		$docker image rm \
 				${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} \
 			"${build_name}-root:latest"
@@ -554,7 +557,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 
 	python_target="${python_target_override:-$( portageq envvar 'PYTHON_SINGLE_TARGET' )}"
 
-	# shellcheck disable=SC2086
+	# shellcheck disable=SC2086,SC2140
 	$docker image build \
 			${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} \
 			--platform "linux/${docker_arch}" \
@@ -587,14 +590,19 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 		export name="${build_name}"
 		# shellcheck disable=SC2031
 		export image="${build_name}-root:latest"
+		# shellcheck disable=SC2030
 		if [[ -n "${IMAGE_ROOT:-}" ]]; then
 			export DOCKER_VARS="--storage-opt=\"overlay.imagestore=${GRAPH_ROOT}\" --root \"${IMAGE_ROOT}\""
 		fi
+		# shellcheck disable=SC2086
 		if eval $docker ${DOCKER_VARS:-} container exists --external "${name}"; then
 			warn "Container with name '${name}' already exists:"
 			eval $docker ${DOCKER_VARS:-} container ps --noheading -a | grep -F "${name}"
 			eval $docker ${DOCKER_VARS:-} container stop "${name}" || :
 			eval $docker ${DOCKER_VARS:-} container rm -v "${name}"
+		fi
+		if ! (( ( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ) > 6 )); then
+			use_pypy_use="${use_pypy_use:+${use_pypy_use} }low-memory"
 		fi
 		docker_run \
 				${use_pypy_pre:+--pre-pkgs="${use_pypy_pre}"} \
@@ -625,17 +633,17 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 		"'${build_name}:latest' ..."
 	output
 	trap '' INT
-	# shellcheck disable=SC2086
+	# shellcheck disable=SC2031,SC2086,SC2140
 	$docker \
 			${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
 		container commit "${build_name}" "${build_name}:latest" |
 	tee -a ../log/"docker.${build_name}.log"
-	# shellcheck disable=SC2086
+	# shellcheck disable=SC2031,SC2086,SC2140
 	$docker \
 			${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
 		container rm --volumes "${build_name}" |
 	tee -a ../log/"docker.${build_name}.log"
-	# shellcheck disable=SC2086
+	# shellcheck disable=SC2031,SC2086,SC2140
 	$docker \
 			${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
 		image rm "${build_name}-root:latest" |

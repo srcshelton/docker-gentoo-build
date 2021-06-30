@@ -91,8 +91,7 @@ use_essential="asm ipv6 ithreads mdev nptl threads tls-heartbeat zlib${use_cpu_f
 case "$( uname -m )" in
 	x86_64|i686)
 		# Enable pypy support for Portage accleration of ~35%!
-		use_pypy_pre="dev-python/pypy dev-python/pypy-exe-bin"
-		use_pypy="dev-python/pypy3"
+		use_pypy="dev-python/pypy3 dev-python/pypy3-exe"  #dev-python/pypy3-exe-bin
 		use_pypy_use="bzip2 jit"
 		;;
 esac
