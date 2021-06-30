@@ -589,7 +589,7 @@ docker_run() {
 	if [[ -r /proc/cgroups ]] && grep -q -- '^memory.*1$' /proc/cgroups &&
 		[[ -n "${PODMAN_MEMORY_RESERVATION:-}" || -n "${PODMAN_MEMORY_LIMIT}" || -n "${PODMAN_SWAP_LIMIT}" ]]
 	then
-		local -i swp=$(( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
+		local -i swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) + 16 ) / 1024 / 1024 ))
 		local -i ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
 		local -i changed=0
 		if (( ram < ${PODMAN_MEMORY_LIMIT%g} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
