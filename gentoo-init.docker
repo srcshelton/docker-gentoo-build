@@ -10,6 +10,7 @@ debug="${DEBUG:-}"
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
+# Set by common/vars.sh
 docker='docker'
 env_name=''
 init_name=''
@@ -22,8 +23,11 @@ red=''
 blue=''
 reset=''
 
+# Set by common/run.sh docker_setup()
 docker_arch=''
 arch=''
+
+native=''
 
 # use_pypy & use_pypy_use are defined in common/vars.sh
 use_pypy_pre=''
@@ -205,6 +209,11 @@ case "${docker_arch}" in
 	'i386')
 		stage3_tag='x86' ;;
 esac
+case "${docker_arch}" in
+	'arm'*)
+		# See https://community.arm.com/developer/tools-software/tools/b/tools-software-ides-blog/posts/compiler-flags-across-architectures-march-mtune-and-mcpu
+		native='-mcpu=native' ;;
+esac
 env_id="$(
 	$docker image ls \
 			--format='{{.ID}}' \
@@ -236,6 +245,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 			--build-arg ARCH="${arch}" \
 			--build-arg PROFILE_PATH="${profile:-}" \
 			--build-arg CHOST="${chost:-}" \
+			${native:+--build-arg NATIVE="${native}"} \
 			--build-arg JOBS="${JOBS:-}" \
 			--build-arg MAXLOAD="${MAXLOAD:-}" \
 			--build-arg SET_TERM="${TERM:-}" \
