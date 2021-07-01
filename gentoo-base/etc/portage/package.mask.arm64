@@ -1,0 +1,16 @@
+
+# Later releases of RPi firmware fail to boot :(
+# See https://github.com/raspberrypi/firmware/issues/1453
+#>sys-boot/raspberrypi-firmware-1.20200601
+
+# Fails to build on ARM with junk in header file
+=dev-libs/gmp-6.1.0:0/10.4::gentoo
+
+# lxc-1.1.0 and later require sys-process/criu, which fails on arm
+#>=sys-process/criu-1.5-r2
+#>=app-emulation/lxc-1.1.0
+
+# cmake fails on filesystems without xattr support...
+=dev-util/cmake-2.8.12.2
+
+# vi: set colorcolumn=80 syntax=gentoo-package-mask:
