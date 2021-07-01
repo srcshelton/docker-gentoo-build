@@ -1,17 +1,17 @@
 
-~net-p2p/bitcoind-0.19.1				~amd64
+~net-p2p/bitcoind-0.19.1				~amd64 ~arm ~arm64 ~x86
 
-~dev-libs/boost-1.62.0					~amd64
-~dev-util/boost-build-1.62.0				~amd64
-=dev-libs/leveldb-1.9.0-r6				~amd64
-=virtual/bitcoin-leveldb-0				~amd64
-=dev-libs/libsecp256k1-0.1_pre20170928			~amd64
+~dev-libs/boost-1.62.0					~amd64 ~arm ~arm64 ~x86
+~dev-util/boost-build-1.62.0				~amd64 ~arm ~arm64 ~x86
+=dev-libs/leveldb-1.9.0-r6				~amd64 ~arm ~arm64 ~x86
+=virtual/bitcoin-leveldb-0				~amd64 ~arm ~arm64 ~x86
+=dev-libs/libsecp256k1-0.1_pre20170928			~amd64 ~arm ~arm64 ~x86
 
 # required by net-p2p/bitcoind-0.17.1
-~dev-libs/univalue-1.0.4				~amd64
+~dev-libs/univalue-1.0.4				~amd64 ~arm ~arm64 ~x86
 
 # required by net-libs/libblkmaker-0.5.0
 # required by net-misc/bfgminer-4.8.0
-=dev-libs/libbase58-0.1.1				~amd64
+=dev-libs/libbase58-0.1.1				~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

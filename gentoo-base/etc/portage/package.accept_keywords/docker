@@ -1,13 +1,13 @@
 
-#~app-emulation/docker-18.09.6				~amd64
+#~app-emulation/docker-18.09.6				~amd64 ~arm ~arm64 ~x86
 
 # required by app-emulation/docker-18.09.6
-#~app-emulation/containerd-1.2.5			~amd64
-#~app-emulation/runc-1.0.0_rc6_p20190216		~amd64
-#~app-emulation/docker-proxy-0.8.0_p20190417		~amd64
-#~dev-go/go-md2man-1.0.8				~amd64
+#~app-emulation/containerd-1.2.5			~amd64 ~arm ~arm64 ~x86
+#~app-emulation/runc-1.0.0_rc6_p20190216		~amd64 ~arm ~arm64 ~x86
+#~app-emulation/docker-proxy-0.8.0_p20190417		~amd64 ~arm ~arm64 ~x86
+#~dev-go/go-md2man-1.0.8				~amd64 ~arm ~arm64 ~x86
 
 # required by app-emulation/docker-18.09.6[container-init]
-#~sys-process/tini-0.18.0				~amd64
+#~sys-process/tini-0.18.0				~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

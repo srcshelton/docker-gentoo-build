@@ -1,6 +1,6 @@
 
 # Upgrade past last remaining packages which don't work with python:3.8 ...
-=dev-libs/libnl-3.5.0::srcshelton			~amd64
-=sys-apps/kmod-27-r2					~amd64
+=dev-libs/libnl-3.5.0::srcshelton			~amd64 ~arm ~arm64 ~x86
+=sys-apps/kmod-27-r2					~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

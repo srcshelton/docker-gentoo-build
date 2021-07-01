@@ -1,9 +1,9 @@
 
 # GnuPG
-=app-crypt/gnupg-2.1.21-r1				~amd64
-=app-crypt/pinentry-0.8.0-r1				~amd64
+=app-crypt/gnupg-2.1.21-r1				~amd64 ~arm ~arm64 ~x86
+=app-crypt/pinentry-0.8.0-r1				~amd64 ~arm ~arm64 ~x86
 
 # move app-admin/eselect-pinentry app-eselect/eselect-pinentry
-~app-eselect/eselect-pinentry-0.7			~amd64
+~app-eselect/eselect-pinentry-0.7			~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

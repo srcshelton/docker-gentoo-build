@@ -2,6 +2,19 @@
 #  '*' - Make package available if stable on any other architecture
 # '**' = Make package available regardless of keywords
 
+# RPi System-essential packages
+=media-libs/raspberrypi-userland-9999-r1		~arm64
+=media-libs/raspberrypi-userland-9999-r2		~arm64
+#=sys-apps/raspberrypi-utilities-armv6-1.20210303	~arm64
+#=sys-apps/raspberrypi-utilities-armv6-1.20210430	~arm64
+=sys-boot/raspberrypi-firmware-1.20210303		~arm64
+=sys-boot/raspberrypi-firmware-1.20210430		~arm64
+=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p9	~arm64
+=sys-kernel/raspberrypi-image-5.10.17_p20210303-r1	~arm64
+=sys-kernel/raspberrypi-image-5.10.17_p20210430-r1	~arm64
+=sys-kernel/raspberrypi-sources-5.10.17_p20210303-r1	~arm64
+=sys-kernel/raspberrypi-sources-5.10.17_p20210430-r1	~arm64
+
 # arm64 is currently not well-keyworded, so match specific 'arm' stable
 # packages in order to build an equivalent base-system, with the intent that
 # the specified packages will quickly be superseded and no longer applicable,
@@ -14,17 +27,13 @@
 =sys-devel/prelink-20151030-r1				~arm64
 
 =dev-python/raspberrypi-gpio-0.7.0			~arm64
-=media-libs/raspberrypi-userland-9999-r2		~arm64
-=sys-apps/raspberrypi-utilities-armv6-1.20210430	~arm64
-=sys-boot/raspberrypi-firmware-1.20210430		~arm64
-=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p9	~arm64
-=sys-kernel/raspberrypi-image-5.10.17_p20210430-r1	~arm64
-=sys-kernel/raspberrypi-sources-5.10.17_p20210430-r1	~arm64
 
 =net-libs/libesmtp-1.0.6-r3				~arm64
 
 =app-admin/syslog-ng-3.30.1				~amd64
 =container/syslog-ng-3.30.1				 **
+=net-misc/dhcp-4.4.2_p1					~arm64
+=container/dhcp-4.4.2_p1				 **
 =app-text/lesspipe-1.83					 **
 =app-text/pinfo-0.6.13					 **
 =app-vim/help-extra-syntax-20050106-r2			 **
@@ -63,7 +72,6 @@
 =app-admin/monit-5.25.3					~arm64
 =app-admin/perl-cleaner-2.27				~arm64
 =app-admin/sudo-1.9.5_p2-r1				~arm64
-=app-admin/syslog-ng-3.30.1				~arm64
 =app-admin/webapp-config-1.55-r2			~arm64
 =app-arch/bzip2-1.0.6-r11				~arm64
 =app-arch/cpio-2.12-r1					~arm64
@@ -84,13 +92,6 @@
 =app-editors/nano-5.3-r1				~arm64
 =app-editors/vim-8.2.0814-r100				~arm64
 =app-editors/vim-core-8.2.0814				~arm64
-=app-emulation/buildah-1.19.0				~arm64
-=app-emulation/catatonit-0.1.5				~arm64
-=app-emulation/conmon-2.0.22				~arm64
-=app-emulation/crun-0.16				~arm64
-=app-emulation/podman-2.2.1				~arm64
-=app-emulation/runc-1.0.0_rc92				~arm64
-=app-emulation/skopeo-1.2.1				~arm64
 =app-eselect/eselect-ctags-1.18				~arm64
 =app-eselect/eselect-fontconfig-1.1-r1			~arm64
 =app-eselect/eselect-iptables-20200508			~arm64
@@ -313,7 +314,6 @@
 =net-misc/cni-plugins-0.8.7				~arm64
 =net-misc/curl-7.74.0-r2				~arm64
 =net-misc/dhcpcd-9.3.4					~arm64
-=net-misc/dhcp-4.4.2-r3					~arm64
 =net-misc/ethertypes-0					~arm64
 =net-misc/iputils-20200821-r2				~arm64
 =net-misc/ndisc6-1.0.3					~arm64
@@ -350,7 +350,7 @@
 =sys-apps/hdparm-9.58					~arm64
 =sys-apps/help2man-1.47.17				~arm64
 =sys-apps/hwids-20201207				~arm64
-=sys-apps/i2c-tools-4.1-r1				~arm64
+=sys-apps/i2c-tools-4.2					~arm64
 =sys-apps/iproute2-5.7.0				~arm64
 =sys-apps/kbd-2.3.0-r1					~arm64
 =sys-apps/keyutils-1.6.1				~arm64

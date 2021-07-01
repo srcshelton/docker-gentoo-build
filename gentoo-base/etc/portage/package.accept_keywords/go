@@ -1,4 +1,4 @@
 
-~dev-lang/go-1.15					~amd64
+~dev-lang/go-1.15					~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

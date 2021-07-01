@@ -1,29 +1,29 @@
 
 # move app-arch/upx-ucl app-arch/upx
-~app-arch/upx-3.96					~amd64
-~app-benchmarks/bootchart2-0.14.8			~amd64
-~app-forensics/lynis-3.0.1				~amd64
-~app-misc/linux-logo-6.0				~amd64
-~dev-perl/Net-MAC-Vendor-1.265				~amd64
-~dev-perl/Net-Subnet-1.30.0				~amd64
-~dev-util/dropwatch-1.4_p20150706			~amd64
-~mail-filter/postgrey-1.36				~amd64
-~net-analyzer/fping-4.2					~amd64
-~net-analyzer/masscan-1.0.3				~amd64
-~net-analyzer/netdata-1.21.1				~amd64
-~net-analyzer/zabbix-4.4.8				~amd64
-~net-dns/hesinfo-3.1.0					~amd64
-~net-ftp/uftpd-2.7					~amd64
-~net-im/bitlbee-3.6					~amd64
-~net-libs/libblkmaker-0.5.3				~amd64
-~net-misc/bfgminer-5.5.0				~amd64
-~net-misc/mosh-1.3.2					~amd64
-~net-nds/phpldapadmin-1.2.5				~amd64
-~sys-apps/cpuid-20200211				~amd64
-~sys-libs/libeudev-3.0					~amd64
-~sys-power/powertop-2.11				~amd64
-~sys-process/glances-3.1.4.1				~amd64
-~www-apps/phpBB-3.2.8					~amd64
-~www-misc/monitorix-3.11.0				~amd64
+~app-arch/upx-3.96					~amd64 ~arm ~arm64 ~x86
+~app-benchmarks/bootchart2-0.14.8			~amd64 ~arm ~arm64 ~x86
+~app-forensics/lynis-3.0.1				~amd64 ~arm ~arm64 ~x86
+~app-misc/linux-logo-6.0				~amd64 ~arm ~arm64 ~x86
+~dev-perl/Net-MAC-Vendor-1.265				~amd64 ~arm ~arm64 ~x86
+~dev-perl/Net-Subnet-1.30.0				~amd64 ~arm ~arm64 ~x86
+~dev-util/dropwatch-1.4_p20150706			~amd64 ~arm ~arm64 ~x86
+~mail-filter/postgrey-1.36				~amd64 ~arm ~arm64 ~x86
+~net-analyzer/fping-4.2					~amd64 ~arm ~arm64 ~x86
+~net-analyzer/masscan-1.0.3				~amd64 ~arm ~arm64 ~x86
+~net-analyzer/netdata-1.21.1				~amd64 ~arm ~arm64 ~x86
+~net-analyzer/zabbix-4.4.8				~amd64 ~arm ~arm64 ~x86
+~net-dns/hesinfo-3.1.0					~amd64 ~arm ~arm64 ~x86
+~net-ftp/uftpd-2.7					~amd64 ~arm ~arm64 ~x86
+~net-im/bitlbee-3.6					~amd64 ~arm ~arm64 ~x86
+~net-libs/libblkmaker-0.5.3				~amd64 ~arm ~arm64 ~x86
+~net-misc/bfgminer-5.5.0				~amd64 ~arm ~arm64 ~x86
+~net-misc/mosh-1.3.2					~amd64 ~arm ~arm64 ~x86
+~net-nds/phpldapadmin-1.2.5				~amd64 ~arm ~arm64 ~x86
+~sys-apps/cpuid-20200211				~amd64 ~arm ~arm64 ~x86
+~sys-libs/libeudev-3.0					~amd64 ~arm ~arm64 ~x86
+~sys-power/powertop-2.11				~amd64 ~arm ~arm64 ~x86
+~sys-process/glances-3.1.4.1				~amd64 ~arm ~arm64 ~x86
+~www-apps/phpBB-3.2.8					~amd64 ~arm ~arm64 ~x86
+~www-misc/monitorix-3.11.0				~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

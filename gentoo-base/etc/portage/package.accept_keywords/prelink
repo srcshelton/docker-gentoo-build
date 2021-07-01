@@ -1,5 +1,5 @@
 
-# prelink
-=sys-devel/prelink-99999999				~amd64
+# prelink - last release was 2015 :(
+=sys-devel/prelink-99999999				~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

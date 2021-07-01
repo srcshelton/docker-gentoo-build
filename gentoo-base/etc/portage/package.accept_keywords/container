@@ -1,5 +1,5 @@
 
 # These overrides should remain commented for infrastructure building...
-#=container/bitlbee-3.6-r1::container			~amd64
+#=container/bitlbee-3.6-r1::container			~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

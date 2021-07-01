@@ -1,11 +1,11 @@
 
 # Intentionally unversioned unstable mask:
 # We want to be using the latest wordpress release always, for security reasons
-www-apps/wordpress					~amd64
+www-apps/wordpress					~amd64 ~arm ~arm64 ~x86
 
 # For Wordpress and OTP
-=sys-auth/yubipam-1.1_beta1				~amd64
-=sys-auth/ykpers-99999999				~amd64
-=sys-auth/libyubikey-99999999				~amd64
+=sys-auth/yubipam-1.1_beta1				~amd64 ~arm ~arm64 ~x86
+=sys-auth/ykpers-99999999				~amd64 ~arm ~arm64 ~x86
+=sys-auth/libyubikey-99999999				~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

@@ -1,18 +1,18 @@
 
 # Nessus GPL
-#=net-analyzer/nessus-2.2.9				~amd64
-#=net-analyzer/nessus-plugins-2.2.9-r1			~amd64
-#=net-analyzer/nessus-core-2.2.9-r1			~amd64
-#=net-analyzer/nessus-libraries-2.2.9-r1		~amd64
-#=net-analyzer/libnasl-2.2.9-r1				~amd64
+#=net-analyzer/nessus-2.2.9				~amd64 ~arm ~arm64 ~x86
+#=net-analyzer/nessus-plugins-2.2.9-r1			~amd64 ~arm ~arm64 ~x86
+#=net-analyzer/nessus-core-2.2.9-r1			~amd64 ~arm ~arm64 ~x86
+#=net-analyzer/nessus-libraries-2.2.9-r1		~amd64 ~arm ~arm64 ~x86
+#=net-analyzer/libnasl-2.2.9-r1				~amd64 ~arm ~arm64 ~x86
 
-#=net-analyzer/nessus-bin-5.2.5				~amd64
-=net-analyzer/nessus-bin-6.3.6				~amd64
-=net-analyzer/nessus-bin-6.9.1				~amd64
-=net-analyzer/nessus-bin-6.10.5				~amd64
-=net-analyzer/nessus-bin-6.12.1				~amd64
-=net-analyzer/nessus-bin-7.1.5				~amd64
-=net-analyzer/nessus-bin-7.2.3				~amd64
-=net-analyzer/nessus-bin-8.10.0				~amd64
+#=net-analyzer/nessus-bin-5.2.5				~amd64 ~arm ~arm64 ~x86
+=net-analyzer/nessus-bin-6.3.6				~amd64 ~arm ~arm64 ~x86
+=net-analyzer/nessus-bin-6.9.1				~amd64 ~arm ~arm64 ~x86
+=net-analyzer/nessus-bin-6.10.5				~amd64 ~arm ~arm64 ~x86
+=net-analyzer/nessus-bin-6.12.1				~amd64 ~arm ~arm64 ~x86
+=net-analyzer/nessus-bin-7.1.5				~amd64 ~arm ~arm64 ~x86
+=net-analyzer/nessus-bin-7.2.3				~amd64 ~arm ~arm64 ~x86
+=net-analyzer/nessus-bin-8.10.0				~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

@@ -19,4 +19,4 @@ sys-fs/udev
 sys-apps/gentoo-functions::gentoo
 <sys-apps/gentoo-functions-0.13
 
-# vi: set colorcolumn=80:
+# vi: set colorcolumn=80 syntax=gentoo-package-mask:

@@ -1,4 +1,4 @@
 
-~sys-apps/fwupd-1.5.5					~amd64
+~sys-apps/fwupd-1.5.5					~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

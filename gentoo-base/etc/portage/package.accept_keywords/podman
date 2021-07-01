@@ -16,7 +16,7 @@
 #~app-emulation/podman-3.1.0-r1				 **
 #~app-emulation/podman-3.1.1				 **
 #~app-emulation/podman-3.1.2				 **
-#~app-emulation/podman-3.2.0_rc1			 **
+~app-emulation/podman-3.2.0_rc1			 **
 #~app-emulation/podman-3.2.0_rc2			 **
 #~app-emulation/podman-3.2.0_rc3			 **
 ~app-emulation/podman-3.2.0				 **
@@ -54,12 +54,12 @@
 #~app-emulation/crun-0.17				 **
 #~app-emulation/crun-0.18				 **
 #~app-emulation/crun-0.19				 **
-#~app-emulation/crun-0.19.1				 **
+~app-emulation/crun-0.19.1				 **
 ~app-emulation/crun-0.20				 **
 ~app-emulation/crun-0.20.1				 **
 
 #~app-emulation/runc-1.0.0_rc92				 **
-#~app-emulation/runc-1.0.0_rc93				 **
+~app-emulation/runc-1.0.0_rc93				 **
 #~app-emulation/runc-1.0.0_rc94				 **  # CVE-2021-30465
 ~app-emulation/runc-1.0.0_rc95				 **
 ~app-emulation/runc-1.0.0				 **
