@@ -611,9 +611,6 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 			eval $docker ${DOCKER_VARS:-} container stop "${name}" || :
 			eval $docker ${DOCKER_VARS:-} container rm -v "${name}"
 		fi
-		if ! (( ( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ) > 6 )); then
-			use_pypy_use="${use_pypy_use:+${use_pypy_use} }low-memory"
-		fi
 		docker_run \
 				${use_pypy_pre:+--pre-pkgs="${use_pypy_pre}"} \
 				${use_pypy_pre_use:+--pre-use="${use_pypy_pre_use}"} \
