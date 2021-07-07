@@ -178,25 +178,21 @@ fi
 if [ -n "${installed:-}" ] && [ $(( installed )) -eq 1 ]; then
 	service_list=1
 
-	# Build list based on installed packages... (useful if the local image
-	# cache has been cleared!)
-	#
-	# shellcheck disable=SC2046 # We want separate items!
-	set -- "${@}" $(
+	set -- "${@}" $( xargs -n 1 echo <<<"$(
+		# Build list based on installed packages... (useful if the local image
+		# cache has been cleared!)
+		#
 		find /var/db/pkg/container/ -mindepth 2 -maxdepth 2 -type f -name CONTENTS -print |
 			awk -F '/' 'NF-1 { print $(NF-1) }' |
 			sed -r 's/-[0-9][0-9.]*(_p[0-9]+)?(-r[0-9]+)?//'
-	)
 
-	# Build list based on present images...
-	#
-	# shellcheck disable=SC2046 # We want separate items!
-	set -- "${@}" $(
+		# Build list based on present images...
+		#
 		$docker image list --noheading --sort repository --format '{{.Repository}}' 'localhost/service.' |
 			cut -d'.' -f 3- |
 			sort |
 			uniq
-	)
+	)" | sort | uniq )
 fi
 
 if [ -n "${tools:-}" ] && [ $(( tools )) -eq 1 ]; then
