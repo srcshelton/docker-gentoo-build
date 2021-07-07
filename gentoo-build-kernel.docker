@@ -25,6 +25,8 @@ declare IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh
 
+docker_setup
+
 if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	usage="Usage: $( basename "${0}" ) "
 	# shellcheck disable=SC2116 # echo used for line-splitting
@@ -56,6 +58,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "       --llvm-unwind Install LLVM edition of libunwind"
 	output >&2 "       --patch <url> Apply patch (-p1) from specified URL"
 	output >&2
+	output >&2 "Running on architecture '${arch:-${ARCH:-}}'"
 	exit 0
 fi
 
@@ -78,6 +81,11 @@ declare patch=''
 #	esac
 #fi
 patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.8%2B.patch'
+case "${arch:-${ARCH:-}}" in
+	arm64)
+		patch="${patch:+${patch} }https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/build-with-mcpu-for-cortex-a72.patch"
+		;;
+esac
 #patch="${patch:+${patch} }https://lore.kernel.org/linux-btrfs/206d121e2e2b609ffe31217e6d90bfabe1c4e121.1616066404.git.fdmanana@suse.com/raw"
 
 if echo " ${*:-} " | grep -q -- ' --menuconfig '; then
@@ -160,7 +168,7 @@ if (( EUID )); then
 	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi
 
-$docker image ls "${IMAGE%:*}" | grep -Eq -- "^(localhost/)?${IMAGE%:*}" || die "docker image '${IMAGE%:*}' not found"
+$docker image list "${IMAGE%:*}" | grep -Eq -- "^(localhost/)?${IMAGE%:*}" || die "docker image '${IMAGE%:*}' not found"
 
 if mount | grep ' on /boot ' | grep -Eq '(\(ro,|,ro,|,ro\))'; then
 	output >&2
@@ -298,7 +306,7 @@ test -f /etc/portage/package.use/python_targets && test -s /etc/portage/package.
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/python_targets,destination=/etc/portage/package.use/python_targets${docker_readonly:+,${docker_readonly}}"
 [ -n "${DOCKER_EXTRA_MOUNTS:-}" ] && export DOCKER_EXTRA_MOUNTS
 
-if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:${package_version}" | wc -l )" = '2' ]; then
+if ! [ "$( $docker image list "${container_name%-${package_version}}.${compiler}:${package_version}" | wc -l )" = '2' ]; then
 	(
 		ACCEPT_LICENSE="linux-fw-redistributable no-source-code"
 		USE="-lib-only extra-filters hostname lzma symlink threads zlib${compiler_USE:+ ${compiler_USE}}"
@@ -307,6 +315,11 @@ if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:$
 		name="${container_name}-${compiler}"
 		image="${IMAGE}"
 		export name image
+
+		microcode=''
+		if grep 'vendor_id' /proc/cpuinfo | awk '{ print $3 }' | grep -iqm 1 'intel'; then
+			microcode='sys-firmware/intel-microcode'
+		fi
 
 		# shellcheck disable=SC2086,SC2154
 		time {
@@ -328,7 +341,7 @@ if ! [ "$( $docker image ls "${container_name%-${package_version}}.${compiler}:$
 					dev-libs/libyaml \
 					sys-apps/coreutils \
 					sys-apps/kmod \
-					sys-firmware/intel-microcode \
+					${microcode:-} \
 					sys-kernel/linux-firmware \
 					virtual/linux-sources \
 				2>&1 | tee "log/docker.${container_name}-${compiler}.log"
@@ -452,6 +465,18 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		HOSTLDFLAGS="-unwindlib=libunwind"
 		export LDFLAGS_MODULE HOSTLDFLAGS
 	fi ;
+	kernel='bzImage' ;
+	dir='x86' ;
+	case "${arch:-${ARCH:-}}" in
+		arm64)
+			kernel='Image.gz' ;
+			dir='arm64'
+			;;
+		arm*)
+			kernel='Image.gz' ;
+			dir='arm'
+			;;
+	esac ;
 	${container_CC} --version ;
 	set -x ;
 	cd /usr/src/linux ;
@@ -459,6 +484,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	set +x ;
 	if [ -n "${patch:-}" ]; then
 		for p in ${patch}; do
+			echo "Processing patch '\${p}' ..." ;
 			if wget "\${p}" -qO patch.diff && cat patch.diff | patch -p1 --dry-run --force --quiet; then
 				cat patch.diff | patch -p1 ;
 			else
@@ -467,11 +493,11 @@ DOCKER_SCRIPT="$( cat <<-EOF
 			rm patch.diff ;
 		done ;
 	fi ;
-	set -x ;
 	mkdir -p ../build ;
 	echo "Configuration changes from '.config':" ;
 	make ${kernel_make_opts[@]} listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
-	time make ${kernel_make_opts[@]} ${deforoldconfig} prepare ${menuconfig:+menuconfig} ${nconfig:+nconfig} vmlinux modules bzImage modules_install ;
+	set -x ;
+	time make ${kernel_make_opts[@]} ${deforoldconfig} prepare ${menuconfig:+menuconfig} ${nconfig:+nconfig} vmlinux modules \${kernel} modules_install ;
 	set +x ;
 	if [ -s /boot/boot.config -o -s /proc/bootconfig ] && [ -e /boot/initramfs.img ]; then
 		if make ${kernel_make_opts[@]} -C tools/bootconfig; then
@@ -488,7 +514,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	set -x ;
 	cp ../build/.config /boot/config-${package_version}-gentoo ;
 	cp ../build/System.map /boot/System.map-${package_version}-gentoo ;
-	cp ../build/arch/x86/boot/bzImage /boot/kernel-${package_version}-gentoo ;
+	cp ../build/arch/\${dir}/boot/\${kernel} /boot/kernel-${package_version}-gentoo ;
 	set +x ;
 	echo 'Linux kernel-${package_version}-gentoo installed - please update your bootloader' ;
 EOF
