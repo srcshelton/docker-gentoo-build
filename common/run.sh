@@ -1,5 +1,14 @@
 #! /usr/bin/env bash
 
+# TODO: Consider how to switch from hard-coded 'gentoo-base' to using
+# ${base_dir}, given that all references to ${base_dir} are relative, so it's
+# of little value without incorporating ${PWD} into its value - which means
+# that the current working directory must be correct when 'common/vars.sh' is
+# invoked.
+# Alternatively, it could incorporate a fixed installation-directory
+# (conventionally '/opt/containers/docker-gentoo-build'), if one were defined
+# or configured...
+
 # This script now requires 'bash' rather than simply 'sh' in order to gain
 # array-handling capability...
 

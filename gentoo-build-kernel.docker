@@ -275,7 +275,7 @@ case "${compiler}" in
 		#container_LD='ld.bfd'
 		container_LD='ld.lld' # lld required for LTO
 		container_LLVM='1'
-		#LLVM_TARGETS='-* BPF X86' - moved to gentoo-base/etc/portage/package.use.build/package.use
+		#LLVM_TARGETS='-* BPF X86' - moved to ${base_dir}/etc/portage/package.use.build/package.use
 		;;
 	*)
 		die "Unknown compiler '${compiler}'"
@@ -298,6 +298,8 @@ test -f /etc/portage/package.license && test -s /etc/portage/package.license &&
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
 test -f /etc/portage/package.mask && test -s /etc/portage/package.mask &&
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.mask,destination=/etc/portage/package.mask${docker_readonly:+,${docker_readonly}}"
+test -f "${base_dir:+${base_dir}/}etc/portage/package.mask" && test -s "${base_dir:+${base_dir}/}etc/portage/package.mask" &&
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask,destination=/etc/portage/package.mask${docker_readonly:+,${docker_readonly}}"
 test -f /etc/portage/package.use/package.use && test -s /etc/portage/package.use/package.use &&
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+,${docker_readonly}}"
 test -f /etc/portage/package.use/host.use && test -s /etc/portage/package.use/host.use &&

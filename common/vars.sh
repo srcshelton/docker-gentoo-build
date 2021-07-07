@@ -16,6 +16,16 @@ init_name="gentoo-init"
 base_name="gentoo-base"
 build_name="gentoo-build"
 
+# Set Containerfile, configuration, and entrypoint script relative filesystem
+# location...
+#
+# (N.B. This is different to 'base_name', above)
+#
+base_dir='gentoo-base'
+if ! [ -d "${base_dir}" ]; then
+	base_dir=''
+fi
+
 # Default environment-variable filter
 #
 environment_filter='^(declare -x|export) (COLUMNS|EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?|LINES|LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)='

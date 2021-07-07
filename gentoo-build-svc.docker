@@ -6,6 +6,7 @@ set -o pipefail
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
 build_name=''
+base_dir=''
 #use_essential=''
 docker='docker'
 docker_readonly=''
@@ -393,7 +394,8 @@ package_name=''
 package_version=''
 repo=''
 container_name=''
-docker_resolve "${service%::*}" 'buildsvc'
+container_prefix='buildsvc'
+docker_resolve "${service%::*}" "${container_prefix}"
 # shellcheck disable=SC2001 # POSIX sh compatibility
 container_name="$( echo "${package}" | sed 's|/|.|' )"
 # shellcheck disable=SC2001 # POSIX sh compatibility
@@ -1049,60 +1051,80 @@ DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type
 DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/ssl/,destination=/etc/ssl"
 
 # package.accept_keywords
-if [ -e "gentoo-base/etc/portage/package.accept_keywords" ]; then
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
+if [ -e "${base_dir:+${base_dir}/}etc/portage/package.accept_keywords" ]; then
+	print "Mounting $( test -d "${base_dir:+${base_dir}/}etc/portage/package.accept_keywords" && echo 'directory' || echo 'file' ) '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.accept_keywords' to '/etc/portage/package.accept_keywords' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
 else
-	note "No 'package.accept_keywords' override found in '${PWD}/gentoo-base/etc/portage/'"
+	note "No 'package.accept_keywords' override found in '${PWD}/${base_dir:+${base_dir}/}etc/portage/'"
+fi
+if [ -e "${base_dir:+${base_dir}/}etc/portage/package.accept_keywords.${arch:-}" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.accept_keywords.${arch}' to '/etc/portage/package.accept_keywords/${arch}' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.accept_keywords.${arch},destination=/etc/portage/package.accept_keywords/${arch}${docker_readonly:+,${docker_readonly}}"
 fi
 
 # package.license
-if [ -e "gentoo-base/etc/portage/package.license" ]; then
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
+if [ -e "${base_dir:+${base_dir}/}etc/portage/package.license" ]; then
+	print "Mounting $( test -d "${base_dir:+${base_dir}/}etc/portage/package.license" && echo 'directory' || echo 'file' ) '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.license' to '/etc/portage/package.license' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
 else
-	note "No 'package.license' override found in '${PWD}/gentoo-base/etc/portage/'"
+	note "No 'package.license' override found in '${PWD}/${base_dir:+${base_dir}/}etc/portage/'"
 fi
 
 # NB: test -s returns '0' when called on a directory (even if it's empty...)
 #
 # package.unmask.svc
-if [ -f "gentoo-base/etc/portage/package.unmask.svc/${package_name#*.}" ] && ! [ -d "gentoo-base/etc/portage/package.unmask.svc/${package_name#*.}" ]; then
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.unmask.svc/${package_name#*.},destination=/etc/portage/package.unmask/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
-elif [ -f "gentoo-base/etc/portage/package.unmask.svc/package.unmask" ] && ! [ -d "gentoo-base/etc/portage/package.unmask.svc/package.unmask" ]; then
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.unmask.svc/package.unmask,destination=/etc/portage/package.unmask/package.unmask${docker_readonly:+,${docker_readonly}}"
-elif [ -f "gentoo-base/etc/portage/package.unmask.svc" ] && ! [ -d "gentoo-base/etc/portage/package.unmask.svc" ]; then
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.unmask.svc,destination=/etc/portage/package.unmask/package.unmask${docker_readonly:+,${docker_readonly}}"
+if [ -s "${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/${package_name#*.}" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/${package_name#*.}" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/${package_name#*.}' to '/etc/portage/package.unmask/${package_name#*.}' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/${package_name#*.},destination=/etc/portage/package.unmask/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
+elif [ -s "${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/package.unmask" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/package.unmask" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/package.mask' to '/etc/portage/package.mask/package.unmask' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/package.unmask,destination=/etc/portage/package.unmask/package.unmask${docker_readonly:+,${docker_readonly}}"
+elif [ -s "${base_dir:+${base_dir}/}etc/portage/package.unmask.svc" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.unmask.svc" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc' to '/etc/portage/package.mask/package.unmask' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc,destination=/etc/portage/package.unmask/package.unmask${docker_readonly:+,${docker_readonly}}"
 else
-	note "No 'package.unmask' override found in '${PWD}/gentoo-base/etc/portage/'"
+	note "No 'package.unmask' override found in '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/'"
+fi
+if [ -e "${base_dir:+${base_dir}/}etc/portage/package.unmask.${arch:-}" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.${arch}' to '/etc/portage/package.unmask/${arch}' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.${arch},destination=/etc/portage/package.unmask/${arch}${docker_readonly:+,${docker_readonly}}"
 fi
 
 # package.mask.svc
-if [ -f "gentoo-base/etc/portage/package.mask.svc/${package_name#*.}" ] && ! [ -d "gentoo-base/etc/portage/package.mask.svc/${package_name#*.}" ]; then
-	print "Mounting file '${PWD}/gentoo-base/etc/portage/package.mask.svc/${package_name#*.}' to '/etc/portage/package.mask/${package_name#*.}' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.mask.svc/${package_name#*.},destination=/etc/portage/package.mask/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
-elif [ -f "gentoo-base/etc/portage/package.mask.svc/package.mask" ] && ! [ -d "gentoo-base/etc/portage/package.mask.svc/package.mask" ]; then
-	print "Mounting file '${PWD}/gentoo-base/etc/portage/package.mask.svc/package.mask' to '/etc/portage/package.mask/package.mask' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.mask.svc/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
-elif [ -f "gentoo-base/etc/portage/package.mask.svc" ] && ! [ -d "gentoo-base/etc/portage/package.mask.svc" ]; then
-	print "Mounting file '${PWD}/gentoo-base/etc/portage/package.mask.svc' to '/etc/portage/package.mask/package.mask' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.mask.svc,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
+if [ -s "${base_dir:+${base_dir}/}etc/portage/package.mask.svc/${package_name#*.}" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.mask.svc/${package_name#*.}" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc/${package_name#*.}' to '/etc/portage/package.mask/${package_name#*.}' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc/${package_name#*.},destination=/etc/portage/package.mask/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
+elif [ -s "${base_dir:+${base_dir}/}etc/portage/package.mask.svc/package.mask" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.mask.svc/package.mask" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc/package.mask' to '/etc/portage/package.mask/package.mask' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
+elif [ -s "${base_dir:+${base_dir}/}etc/portage/package.mask.svc" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.mask.svc" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc' to '/etc/portage/package.mask/package.mask' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
 else
-	note "No 'package.mask' override found in '${PWD}/gentoo-base/etc/portage/'"
+	note "No 'package.mask' override found in '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc/'"
+fi
+if [ -e "${base_dir:+${base_dir}/}etc/portage/package.mask.${arch:-}" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.${arch}' to '/etc/portage/package.mask/${arch}' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.${arch},destination=/etc/portage/package.mask/${arch}${docker_readonly:+,${docker_readonly}}"
 fi
 
 # package.use.svc
-if [ -f "gentoo-base/etc/portage/package.use.svc/${package_name#*.}" ]; then
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.use.svc/package.use.header,destination=/etc/portage/package.use.override/package.use.header${docker_readonly:+,${docker_readonly}}"
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.use.svc/${package_name#*.},destination=/etc/portage/package.use.override/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
-elif [ -e "gentoo-base/etc/portage/package.use.svc/package.use.header" ]; then
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.use.svc/package.use.header,destination=/etc/portage/package.use.override/package.use${docker_readonly:+,${docker_readonly}}"
+if [ -s "${base_dir:+${base_dir}/}etc/portage/package.use.svc/${package_name#*.}" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/package.use.header' to '/etc/portage/package.mask/package.use.override/package.use.header' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/package.use.header,destination=/etc/portage/package.use.override/package.use.header${docker_readonly:+,${docker_readonly}}"
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/${package_name#*.}' to '/etc/portage/package.use.override/${package_name#*.}' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/${package_name#*.},destination=/etc/portage/package.use.override/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
+elif [ -s "${base_dir:+${base_dir}/}etc/portage/package.use.svc/package.use.header" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/package.use.header' to '/etc/portage/package.mask/package.use.override/package.use' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/package.use.header,destination=/etc/portage/package.use.override/package.use${docker_readonly:+,${docker_readonly}}"
 else
-	note "No 'package.use' override found in '${PWD}/gentoo-base/etc/portage/'"
+	note "No 'package.use' override found in '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/'"
 fi
 
 export DOCKER_EXTRA_MOUNTS
 
-images="$( $docker image list --noheading "buildsvc-${package_name}:${package_version}" 2>&1 )"
-if echo "${images:-}" | grep -q -- "buildsvc-${package_name}\s\+${package_version}\s"; then
+images="$( $docker image list --noheading "${container_prefix}-${package_name}:${package_version}" 2>&1 )"
+if echo "${images:-}" | grep -q -- "${container_prefix}-${package_name}\s\+${package_version}\s"; then
 	output >&2
 	output >&2 " ${blue}*${reset} Re-using existing '${package_name}:${package_version}' root image ..."
 else
@@ -1111,8 +1133,8 @@ else
 	output >&2
 
 	trap '' INT
-	$docker container stop "buildsvc-${container_name}" 2>/dev/null || :
-	$docker container rm --volumes "buildsvc-${container_name}" 2>/dev/null || :
+	$docker container stop "${container_prefix}-${container_name}" 2>/dev/null || :
+	$docker container rm --volumes "${container_prefix}-${container_name}" 2>/dev/null || :
 	trap - INT
 
 	build_use=''
@@ -1131,7 +1153,7 @@ else
 	# shellcheck disable=SC2086 # We don't want a null argument if there are no ${extra_pkgs} items
 	USE="${build_use:-}" \
 	ROOT="/service" \
-	name="buildsvc-${container_name}" \
+	name="${container_prefix}-${container_name}" \
 	image="${IMAGE}" \
 	docker_run \
 			${pre_remove:+--pre-remove="${pre_remove}"} \
@@ -1148,7 +1170,7 @@ else
 			--with-bdeps=n \
 			--with-bdeps-auto=n \
 		"=${package}${repo:+::${repo}}" ${extra_pkgs:-} \
-	2>&1 | tee log/"docker.buildsvc-${container_name}.log"
+	2>&1 | tee log/"docker.${container_prefix}-${container_name}.log"
 	rc=${?}
 	output " -> ${rc}"
 
@@ -1156,10 +1178,10 @@ else
 
 	# podman is fragile :(
 	trap '' INT
-	$docker commit \
-			"buildsvc-${container_name}" \
-			"buildsvc-${package_name}:${package_version}" \
-		2>&1 | tee -a log/"docker.buildsvc-${container_name}.log"
+	$docker container commit \
+			"${container_prefix}-${container_name}" \
+			"${container_prefix}-${package_name}:${package_version}" \
+		2>&1 | tee -a log/"docker.${container_prefix}-${container_name}.log"
 	rc=${?}
 	trap - INT
 	output " -> ${rc}"
@@ -1169,10 +1191,10 @@ fi
 unset images
 
 trap '' INT
-$docker container rm --volumes "buildsvc-${container_name}" 2>/dev/null || :
+$docker container rm --volumes "${container_prefix}-${container_name}" 2>/dev/null || :
 trap - INT
 
-cd gentoo-base || die "chdir() to 'gentoo-base' failed: ${?}"
+cd "${base_dir}" || die "chdir() to '${base_dir}' failed: ${?}"
 
 case "${package_name}" in
 	*zxtm*)
@@ -1190,7 +1212,7 @@ output >&2
 # shellcheck disable=SC2001 # POSIX sh compatibility
 $docker image build \
 		--build-arg environment_filter="${environment_filter}" \
-		--build-arg image_name="buildsvc-${package_name}" \
+		--build-arg image_name="${container_prefix}-${package_name}" \
 		--build-arg service_cmd="${container_cmd}" \
 		  ${container_cwd:+--build-arg service_cwd="${container_cwd}"} \
 		  ${fs_name:+--build-arg service_fs_name="${fs_name}"} \
@@ -1214,7 +1236,7 @@ output " -> ${rc}"
 
 if [ $(( ${rc:-1} )) -eq 0 ]; then
 	trap '' INT
-	$docker image rm "buildsvc-${package_name}:${package_version}" 2>/dev/null || :
+	$docker image rm "${container_prefix}-${package_name}:${package_version}" 2>/dev/null || :
 	trap - INT
 fi
 

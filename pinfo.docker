@@ -29,7 +29,7 @@ if [ -s "${f}" ]; then
 fi
 unset f
 #DOCKER_VOLUMES="${DOCKER_VOLUMES:+${DOCKER_VOLUMES}}
-#	--volume ${PWD}/gentoo-base/entrypoint.sh.service:/usr/libexec/entrypoint.sh:ro
+#	--volume ${PWD}/${base_dir:+${base_dir}/}entrypoint.sh.service:/usr/libexec/entrypoint.sh:ro
 #"
 
 # Gather exported data from other created containers ...

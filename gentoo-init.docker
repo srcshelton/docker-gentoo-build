@@ -37,10 +37,11 @@ use_pypy_post=''
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
 
-[ -d gentoo-base ]
-[ -e gentoo-base/Dockerfile.env ]
-[ -e gentoo-base/Dockerfile.init ]
-[ -e gentoo-base/Dockerfile.build ]
+[ -n "${base_dir:-}" ]
+[ -d "${base_dir}" ]
+[ -e "${base_dir}"/Dockerfile.env ]
+[ -e "${base_dir}"/Dockerfile.init ]
+[ -e "${base_dir}"/Dockerfile.build ]
 
 [ -d log ] || mkdir log
 
@@ -98,7 +99,7 @@ fi
 
 docker_setup
 
-cd gentoo-base || die "chdir() to 'gentoo-base' failed; ${?}"
+cd "${base_dir}" || die "chdir() to '${base_dir}' failed; ${?}"
 
 checkids() {
 	local name="${1:-}"
