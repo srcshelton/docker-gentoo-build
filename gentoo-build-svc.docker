@@ -244,7 +244,7 @@ done
 if [ -n "${service_list:-}" ] && [ $(( service_list )) -eq 1 ]; then
 	list=''
 	for arg in "${@}"; do
-		if echo " ${services} " | grep -wq "${arg}"; then
+		if echo " ${services} " | grep -wq -- "${arg}"; then
 			list="${list:+${list} }${arg}"
 		else
 			error "Service '${arg}' not known"
@@ -383,7 +383,7 @@ case "${service:-}" in
 	watchdog)
 		service='sys-apps/watchdog' ;;
 	zxtm)
-		zxtm_service_version="$( curl -s https://registry.hub.docker.com/v1/repositories/pulsesecure/vtm/tags | jq -r .[].name | grep -v 'latest' | sort -V | tail -n 1 )"
+		zxtm_service_version="$( curl -s https://registry.hub.docker.com/v1/repositories/pulsesecure/vtm/tags | jq -r .[].name | grep -v -- 'latest' | sort -V | tail -n 1 )"
 		service="net-misc/zxtm-init-scripts-${zxtm_service_version}"
 		;;
 	'')
@@ -680,7 +680,7 @@ case "${package_name}" in
 		#	emerge -ep roundcube |
 		#		cut -d']' -f 2- |
 		#		awk '{ print $1 }' |
-		#		grep '^dev-php' |
+		#		grep -- '^dev-php' |
 		#		sed 's/::.*$// ; s/^/>=/'
 		#)"
 		extra_pkgs='
