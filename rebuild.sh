@@ -208,6 +208,22 @@ if [ "${update:-0}" = '1' ]; then
 			grep -qw -- 'buildpkg.hostpkgs.update$' &&
 		$docker container rm --volumes 'buildpkg.hostpkgs.update'
 	trap - INT
+
+	USE="-* lib-only nptl" \
+	"${basedir}"/docker-gentoo-build/gentoo-build-pkg.docker \
+			--buildpkg=y \
+			--usepkg=y \
+			--with-bdeps=y \
+			--name 'buildpkg.hostpkgs.gcc.update' \
+		sys-devel/gcc 2>&1 |
+	tee log/buildpkg.hostpkgs.gcc.update.log
+	: $(( rc = rc + ${?} ))
+
+	trap '' INT
+	$docker container ps -a |
+			grep -qw -- 'buildpkg.hostpkgs.gcc.update$' &&
+		$docker container rm --volumes 'buildpkg.hostpkgs.gcc.update'
+	trap - INT
 fi
 
 if [ "${system:-0}" = '1' ]; then
