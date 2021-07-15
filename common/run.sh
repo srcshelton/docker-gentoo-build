@@ -548,6 +548,7 @@ docker_run() {
 	# nicer!
 	local -a runargs=()
 	runargs=(
+		$( (( $( nproc ) > 1 )) && echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))" )
 		--init
 		--name "${name:-${container_name}}"
 		#--network slirp4netns
