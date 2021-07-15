@@ -106,7 +106,7 @@ checkids() {
 	local tag="${2:-}"
 
 	#inherit docker stage3_name env_id bold reset red
-	local images='' stage3_env_id='' stage3_src_id=''
+	local repo='' images='' stage3_env_id='' stage3_src_id=''
 
 	if [ -z "${name}" ]; then
 		error "Image name not set"
@@ -122,19 +122,23 @@ checkids() {
 		return 1
 	fi
 
-	relation="inherited by"
+	local relation="inherited by"
 	if [ "${name}" = "${stage3_name}" ]; then
 		relation="about to be linked to"
 	fi
 
-	images="$( $docker image ls \
-		"localhost/${name}:${tag:-latest}" 2>/dev/null
+	repo='localhost/'
+	if [[ "${name}" =~ / ]]; then
+		repo=''
+	fi
+	images="$( $docker image ls --noheading \
+		"${repo}${name}:${tag:-latest}" 2>/dev/null
 	)"
 	if echo "${images}" | grep -Eq -- "^(localhost/)?${name}"; then
 		stage3_env_id="$(
 			$docker image inspect \
 					--format='{{.Config.Labels.envrionment_from}}' \
-				"localhost/${stage3_name}:${tag:-latest}" 2>/dev/null
+				"${repo}${stage3_name}:${tag:-latest}" 2>/dev/null
 		)" || :
 		stage3_env_id="$( echo "${stage3_env_id:-}" | cut -d':' -f 2- )"
 
@@ -150,9 +154,9 @@ checkids() {
 			stage3_src_id="$(
 				$docker image inspect \
 						--format='{{.Config.Labels.stage3_from}}' \
-					"localhost/${name}:${tag:-latest}" 2>/dev/null
+					"${repo}${name}:${tag:-latest}" 2>/dev/null
 			)" || :
-			stage3_src_id="$( echo "${stage3_src_id:-}" | cut -d':' -f 2- )"
+			stage3_src_id="$( echo "${stage3_src_id:-}" | awk -F':' '{ print $NF }' )"
 
 			# Does our upstream stage3 ID match that encoded in our stage3?
 			if [ "${stage3_id}" != "${stage3_src_id:-}" ]; then
@@ -216,12 +220,12 @@ case "${docker_arch}" in
 		native='-mcpu=native' ;;
 esac
 env_id="$(
-	$docker image ls \
+	$docker image ls --noheading \
 			--format='{{.ID}}' \
 		"localhost/${env_name}:latest" 2>/dev/null
 )" || :
 local_stage3_id="$(
-	$docker image ls \
+	$docker image ls --noheading \
 			--format='{{.ID}}' \
 		"localhost/${stage3_name}:latest" 2>/dev/null
 )" || :
@@ -266,7 +270,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 
 	[ "${*:-}" = '--env' ] && exit 0
 
-	env_id="$( $docker image ls \
+	env_id="$( $docker image ls --noheading \
 			--format='{{.ID}}' \
 		"localhost/${env_name}:latest" 2>/dev/null
 	)"
@@ -326,9 +330,9 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	[ $(( rc )) -eq 0 ] ||
 		die "'$docker image pull' failed to retrieve image '${stage3_image}:latest' for architecture '${docker_arch}'"
 	stage3_id="$(
-		$docker image ls \
+		$docker image ls --noheading \
 				--format='{{.ID}}' \
-			"localhost/${stage3_image}:${stage3_tag}" 2>/dev/null
+			"${stage3_image}:${stage3_tag}" 2>/dev/null
 	)" || :
 
 	# NAME:    stage3
@@ -358,7 +362,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	[ "${*:-}" = '--stage3' ] && exit 0
 
 	local_stage3_id="$(
-		$docker image ls \
+		$docker image ls --noheading \
 				--format='{{.ID}}' \
 			"localhost/${stage3_name}:latest" 2>/dev/null
 	)"
@@ -368,9 +372,9 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	output
 else
 	stage3_id="$(
-		$docker image ls \
+		$docker image ls --noheading \
 				--format='{{.ID}}' \
-			"localhost/${stage3_image}:${stage3_tag}" 2>/dev/null
+			"${stage3_image}:${stage3_tag}" 2>/dev/null
 	)" || :
 fi
 
@@ -382,7 +386,10 @@ if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
 	# However, with pipefail set the statement is interpreted to have
 	# failed when run in the same pipeline?!
 	#
-	images="$( $docker image ls "localhost/${init_name}" 2>/dev/null )"
+	images="$(
+		$docker image ls --noheading \
+			"localhost/${init_name}" 2>/dev/null
+	)"
 	if echo "${images}" | grep -Eq -- "^(localhost/)?${init_name}"; then
 		imagesum="$(
 			$docker image inspect \
@@ -460,7 +467,10 @@ fi
 # snapshot the result to create a base image ...
 #
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
-	images="$( $docker image ls "localhost/${init_name}" 2>/dev/null )"
+	images="$(
+		$docker image ls --noheading \
+			"localhost/${init_name}" 2>/dev/null
+	)"
 	if ! echo "${images}" | grep -Eq -- "^(localhost/)?${init_name}"; then
 		die "Initial stage not found - please execute '$(
 			basename "${0}"
@@ -534,7 +544,10 @@ fi
 # Ensure that @system is correctly installed to ROOT=/ and snapshot result as
 # build image.
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
-	images="$( $docker image ls "localhost/${base_name}" 2>/dev/null )"
+	images="$(
+		$docker image ls --noheading \
+			"localhost/${base_name}" 2>/dev/null
+	)"
 	if ! echo "${images}" | grep -Eq -- "^(localhost/)?${base_name}"; then
 		die "Base stage not found - please execute '$(
 			basename "${0}"
@@ -555,7 +568,8 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 		$docker container rm --volumes "${build_name}"
 	fi
 	# shellcheck disable=SC2015
-	$docker image ls "localhost/${build_name}-root:latest" 2>/dev/null |
+	$docker image ls --noheading \
+		"localhost/${build_name}-root:latest" 2>/dev/null |
 	grep -Eq -- "^(localhost/)?${build_name}-root\s+latest\s" && {
 		# shellcheck disable=SC2140
 		$docker image rm \
