@@ -292,14 +292,18 @@ esac
 
 # FIXME: Standardise on host or container configuration files
 DOCKER_EXTRA_MOUNTS=''
-test -f /etc/portage/package.accept_keywords && test -s /etc/portage/package.accept_keywords &&
+test -e /etc/portage/package.accept_keywords &&
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
-test -f /etc/portage/package.license && test -s /etc/portage/package.license &&
+test -e /etc/portage/package.license &&
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
+test -d /etc/portage/package.mask/ &&
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask,destination=/etc/portage/package.mask${docker_readonly:+,${docker_readonly}}"
 test -f /etc/portage/package.mask && test -s /etc/portage/package.mask &&
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/gentoo-base/etc/portage/package.mask,destination=/etc/portage/package.mask${docker_readonly:+,${docker_readonly}}"
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask,destination=/etc/portage/package.mask/host.mask${docker_readonly:+,${docker_readonly}}"
 test -f "${base_dir:+${base_dir}/}etc/portage/package.mask" && test -s "${base_dir:+${base_dir}/}etc/portage/package.mask" &&
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask,destination=/etc/portage/package.mask${docker_readonly:+,${docker_readonly}}"
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
+test -f "${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask" && test -s "${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask" &&
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
 test -f /etc/portage/package.use/package.use && test -s /etc/portage/package.use/package.use &&
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+,${docker_readonly}}"
 test -f /etc/portage/package.use/host.use && test -s /etc/portage/package.use/host.use &&
@@ -391,8 +395,15 @@ if [ -s /etc/containers/storage.conf ] && graphroot="$( sed 's/#.*$//' /etc/cont
 else
 	error "Cannot determine graph root directory from '/etc/containers/storage.conf'" || :
 fi
-if (( $( df -BM --output=avail /var/tmp/ | tail -n +2 | sed 's/M$//' ) < temp_space_required )); then
-	warn "Filesystem containing '/var/tmp' has only $( df -h --output=avail /var/tmp/ | tail -n +2 ) space available, need ${temp_space_required}M"
+if [[ -n "${TMPDIR:-}" ]]; then
+	if ! [[ -d "${TMPDIR}" ]]; then
+		die "Temporary directory '${TMPDIR}' (from variable 'TMPDIR') doesn't exist"
+	fi
+	warn "Temporary directory override 'TMPDIR' (${TMPDIR}) set, but container tools may ignore this variable"
+	export TMPDIR
+fi
+if (( $( df -BM --output=avail "${TMPDIR:-/var/tmp/}" | tail -n +2 | sed 's/M$//' ) < temp_space_required )); then
+	warn "Filesystem containing '${TMPDIR:-/var/tmp}' has only $( df -h --output=avail /var/tmp/ | tail -n +2 ) space available, need ${temp_space_required}M"
 	rc=1
 fi
 if (( $( df -BM --output=avail "${build_dir}"/.. | tail -n +2 | sed 's/M$//' ) + $( df -BM --output=used "${build_dir}" | tail -n +2 | sed 's/M$//' ) < build_space_reqiured )); then
