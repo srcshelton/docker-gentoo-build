@@ -1051,15 +1051,15 @@ DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type
 DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/ssl/,destination=/etc/ssl"
 
 # package.accept_keywords
+#
+# FIXME: package.accept_keywords.${arch:-} is handled in common/run.sh rather
+#        than here - standardise this to do everything in one place or the
+#        other!
 if [ -e "${base_dir:+${base_dir}/}etc/portage/package.accept_keywords" ]; then
 	print "Mounting $( test -d "${base_dir:+${base_dir}/}etc/portage/package.accept_keywords" && echo 'directory' || echo 'file' ) '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.accept_keywords' to '/etc/portage/package.accept_keywords' ..."
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
 else
 	note "No 'package.accept_keywords' override found in '${PWD}/${base_dir:+${base_dir}/}etc/portage/'"
-fi
-if [ -e "${base_dir:+${base_dir}/}etc/portage/package.accept_keywords.${arch:-}" ]; then
-	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.accept_keywords.${arch}' to '/etc/portage/package.accept_keywords/${arch}' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.accept_keywords.${arch},destination=/etc/portage/package.accept_keywords/${arch}${docker_readonly:+,${docker_readonly}}"
 fi
 
 # package.license
