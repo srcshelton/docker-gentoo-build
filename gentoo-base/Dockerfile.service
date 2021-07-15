@@ -18,8 +18,8 @@ ARG timezone="GB"
 ARG ROOT="/service"
 ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
 
-ARG smtp_smarthost="smtp"
-ARG smtp_domain="rufus.miltonroad.net"
+ARG smtp_smarthost="localhost"
+ARG smtp_domain="localhost"
 
 
 # -----------------------------------------------------------------------------

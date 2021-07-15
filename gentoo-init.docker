@@ -249,6 +249,9 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 			${native:+--build-arg NATIVE="${native}"} \
 			--build-arg JOBS="${JOBS:-}" \
 			--build-arg MAXLOAD="${MAXLOAD:-}" \
+			--build-arg MAIL_FROM="${mail_from}" \
+			--build-arg MAIL_TO="${mail_to}" \
+			--build-arg MAIL_MTA="${mail_mta}" \
 			--build-arg SET_TERM="${TERM:-}" \
 			--build-arg SET_USE_ESSENTIAL="${use_essential:-}" \
 			--compress \

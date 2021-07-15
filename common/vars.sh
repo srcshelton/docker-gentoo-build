@@ -8,6 +8,12 @@ if [ $(( $( id -u ) )) -ne 0 ]; then
 	exit 1
 fi
 
+# Alerting options...
+mail_domain='localhost'
+mail_from="portage@${mail_domain}"
+mail_to='root@localhost'
+mail_mta='localhost'
+
 # Set docker image names...
 #
 env_name="gentoo-env"
@@ -159,5 +165,10 @@ fi
 tmp="$( $docker system info | grep 'graphRoot:' | cut -d':' -f 2- | awk '{ print $1 }' )/tmp"
 mkdir -p "${tmp:=/var/lib/containers/storage/tmp}"
 export TMPDIR="${tmp}"
+
+if [ -f common/local.sh ]; then
+	. common/local.sh
+	export JOBS MAXJOBS TMPDIR
+fi
 
 # vi: set nowrap sw=4 ts=4:

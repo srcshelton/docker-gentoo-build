@@ -1211,20 +1211,22 @@ output >&2
 
 # shellcheck disable=SC2001 # POSIX sh compatibility
 $docker image build \
-		--build-arg environment_filter="${environment_filter}" \
 		--build-arg image_name="${container_prefix}-${package_name}" \
+		--build-arg service_name="$( echo "${package_name}" | sed 's|\.|/|' )" \
+		--build-arg service_name_short="$( echo "${package_name}" | sed 's|\.|/|' | cut -d'/' -f 2- )" \
+		--build-arg service_version="${package_version}" \
+		--build-arg service_ports="${ports}" \
+		--build-arg service_user="${user}" \
+		--build-arg service_group="${group}" \
 		--build-arg service_cmd="${container_cmd}" \
 		  ${container_cwd:+--build-arg service_cwd="${container_cwd}"} \
 		  ${fs_name:+--build-arg service_fs_name="${fs_name}"} \
-		--build-arg service_group="${group}" \
-		--build-arg service_name="$( echo "${package_name}" | sed 's|\.|/|' )" \
-		--build-arg service_name_short="$( echo "${package_name}" | sed 's|\.|/|' | cut -d'/' -f 2- )" \
-		--build-arg service_ports="${ports}" \
-		--build-arg service_user="${user}" \
-		--build-arg service_version="${package_version}" \
+		--build-arg environment_filter="${environment_filter}" \
+		--build-arg smtp_smarthost="${mail_mta}" \
+		--build-arg smtp_domain="${mail_domain}" \
 		  ${zxtm_service_version:+--build-arg zxtm_service_version="${zxtm_service_version}"} \
-		--build-arg SET_TERM="${TERM}" \
 		  ${ZEUSHOME:+--build-arg ZEUSHOME="${ZEUSHOME}"} \
+		--build-arg SET_TERM="${TERM}" \
 		--compress \
 		--file "${file}" \
 		${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
