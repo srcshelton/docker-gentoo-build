@@ -879,11 +879,12 @@ case "${package_name}" in
 		# shellcheck disable=SC2034
 		ECLASS_OVERRIDE='unifi'  # consumed in common/run.sh
 
+		masked_packages='app-misc/pax-utils sys-apps/file sys-apps/util-linux' # sys-apps/portage
 		export L10N='en'
 		pre_use='headless-awt'
 		force_python='python2_7'
 		#pre_pkgs='dev-java/openjdk-bin:8 dev-lang/python:2.7 sys-devel/gcc'
-		pre_pkgs='sys-devel/gcc'
+		pre_pkgs="${masked_packages} sys-devel/gcc"
 		#extra_pkgs='
 		#	  sys-devel/gcc
 		#	 =app-misc/pax-utils-1.2.4
@@ -923,6 +924,7 @@ case "${package_name}" in
 		#       to be build with ROOT != / and then openjdk-bin:8 removed...
 		#extra_pkgs='<dev-db/mongodb-4.2 dev-java/openjdk:8 dev-lang/python:2.7 app-admin/eselect app-eselect/eselect-python'
 		extra_pkgs='<dev-db/mongodb-4.2 dev-java/openjdk-bin:8 dev-lang/python:2.7' # app-admin/eselect app-eselect/eselect-python'
+		extra_pkgs="${extra_pkgs} ${masked_packages}"
 		#post_remove='dev-java/openjdk-bin:8'
 		with_use="python_targets_${force_python}"
 
