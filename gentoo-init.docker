@@ -123,7 +123,7 @@ checkids() {
 	fi
 
 	local relation="inherited by"
-	if [ "${name}" = "${stage3_name}" ]; then
+	if [ "${name#*/}" = "${stage3_name#*/}" ]; then
 		relation="about to be linked to"
 	fi
 
@@ -173,25 +173,29 @@ checkids() {
 } # checkids
 
 # Check for environment sanity...
-rc=0
-while read -r r; do
-	# FIXME: Discover default rather than assuming 'gentoo'?
-	[ "${r}" == 'gentoo' ] && continue
-	while read -r d; do
-		if [ -d "${d}"/eclass ]; then
-			grep -hR eclass /etc/portage/repos.conf |
-					sed 's/#.*//' |
-					grep '^eclass-overrides' |
-					cut -d '=' -f 2- |
-					grep -Fqw -- "${r}" &&
-				continue
-			warn "ebuild repo '${r}' contains class overrides, but portage isn't configured to allow their use"
-			warn "Add/update 'eclass-overrides = ${r}' in /etc/portage/repos.conf"
-			rc=1
-		fi
-	done < <( portageq get_repo_path "${EROOT:-/}" "${r}" )
-done < <( portageq get_repos "${EROOT:-/}" | xargs -n 1 )
-(( rc )) && sleep 5
+if ! command -v portageq >/dev/null 2>&1; then
+	warn "Not running on Gentoo host system, not checking eclass overrides"
+else
+	rc=0
+	while read -r r; do
+		# FIXME: Discover default rather than assuming 'gentoo'?
+		[ "${r}" == 'gentoo' ] && continue
+		while read -r d; do
+			if [ -d "${d}"/eclass ]; then
+				grep -hR eclass /etc/portage/repos.conf |
+						sed 's/#.*//' |
+						grep '^eclass-overrides' |
+						cut -d '=' -f 2- |
+						grep -Fqw -- "${r}" &&
+					continue
+				warn "ebuild repo '${r}' contains class overrides, but portage isn't configured to allow their use"
+				warn "Add/update 'eclass-overrides = ${r}' in /etc/portage/repos.conf"
+				rc=1
+			fi
+		done < <( portageq get_repo_path "${EROOT:-/}" "${r}" )
+	done < <( portageq get_repos "${EROOT:-/}" | xargs -n 1 )
+	(( rc )) && sleep 5
+fi
 
 # 'cut' separately to emulate 'pipefail' when using /bin/sh
 #
@@ -222,12 +226,12 @@ esac
 env_id="$(
 	$docker image ls --noheading \
 			--format='{{.ID}}' \
-		"localhost/${env_name}:latest" 2>/dev/null
+		"${env_name}:latest" 2>/dev/null
 )" || :
 local_stage3_id="$(
 	$docker image ls --noheading \
 			--format='{{.ID}}' \
-		"localhost/${stage3_name}:latest" 2>/dev/null
+		"${stage3_name}:latest" 2>/dev/null
 )" || :
 
 [ -n "${trace:-}" ] && set -o xtrace
@@ -236,7 +240,7 @@ local_stage3_id="$(
 #
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 	output
-	output " ${blue}*${reset} Creating image 'localhost/${env_name}:latest' ..."
+	output " ${blue}*${reset} Creating image '${env_name}:latest' ..."
 	output
 
 	# NAME:    env
@@ -253,9 +257,9 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 			${native:+--build-arg NATIVE="${native}"} \
 			--build-arg JOBS="${JOBS:-}" \
 			--build-arg MAXLOAD="${MAXLOAD:-}" \
-			--build-arg MAIL_FROM="${mail_from}" \
-			--build-arg MAIL_TO="${mail_to}" \
-			--build-arg MAIL_MTA="${mail_mta}" \
+			--build-arg MAIL_FROM="${mail_from:-}" \
+			--build-arg MAIL_TO="${mail_to:-}" \
+			--build-arg MAIL_MTA="${mail_mta:-}" \
 			--build-arg SET_TERM="${TERM:-}" \
 			--build-arg SET_USE_ESSENTIAL="${use_essential:-}" \
 			--compress \
@@ -265,14 +269,14 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 			--no-cache \
 			--tag "${env_name}:latest" \
 			--rm \
-		. 2>&1 | tee ../log/"docker.${env_name}.log"
+		. 2>&1 | tee ../log/"docker.${env_name#*/}.log"
 	output " -> ${?}"
 
 	[ "${*:-}" = '--env' ] && exit 0
 
 	env_id="$( $docker image ls --noheading \
 			--format='{{.ID}}' \
-		"localhost/${env_name}:latest" 2>/dev/null
+		"${env_name}:latest" 2>/dev/null
 	)"
 
 	output
@@ -293,7 +297,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 
 	output
 	output " ${blue}*${reset} Creating image" \
-		"'localhost/${stage3_name}:latest' ..."
+		"'${stage3_name}:latest' ..."
 	output
 
 	# We have to 'pull' manually, or else this stage fails ...
@@ -356,7 +360,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 			--network none \
 			--no-cache \
 			--tag "${stage3_name}:latest" \
-		. 2>&1 | tee ../log/"docker.${stage3_name}.log"
+		. 2>&1 | tee ../log/"docker.${stage3_name#*/}.log"
 	output " -> ${?}"
 
 	[ "${*:-}" = '--stage3' ] && exit 0
@@ -364,7 +368,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	local_stage3_id="$(
 		$docker image ls --noheading \
 				--format='{{.ID}}' \
-			"localhost/${stage3_name}:latest" 2>/dev/null
+			"${stage3_name}:latest" 2>/dev/null
 	)"
 
 	output
@@ -388,13 +392,13 @@ if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
 	#
 	images="$(
 		$docker image ls --noheading \
-			"localhost/${init_name}" 2>/dev/null
+			"${init_name}" 2>/dev/null
 	)"
 	if echo "${images}" | grep -Eq -- "^(localhost/)?${init_name}"; then
 		imagesum="$(
 			$docker image inspect \
 					--format='{{.Config.Labels.entrypoint_sum}}' \
-				"localhost/${init_name}:latest" 2>/dev/null
+				"${init_name}:latest" 2>/dev/null
 		)" || :
 		if [ "${imagesum:-}" != "${sum}" ]; then
 			if echo " ${*} " | grep -Fq -- ' --force '; then
@@ -421,14 +425,14 @@ fi
 
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 	if [ -z "${local_stage3_id:-}" ]; then
-		die "Updated Gentoo stage 3 image 'localhost/${stage3_name}:latest'" \
+		die "Updated Gentoo stage 3 image '${stage3_name}:latest'" \
 			"not found - please execute '$(
 				basename "${0}"
 			) --stage3'"
 	fi
 
 	output
-	output " ${blue}*${reset} Creating image 'localhost/${init_name}:latest' ..."
+	output " ${blue}*${reset} Creating image '${init_name}:latest' ..."
 	output
 
 	checkids "${stage3_name}"
@@ -452,7 +456,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
 			--network none \
 			--no-cache \
 			--tag "${init_name}:latest" \
-		. 2>&1 | tee ../log/"docker.${init_name}.log"
+		. 2>&1 | tee ../log/"docker.${init_name#*/}.log"
 			#--network slirp4netns \
 	output " -> ${?}"
 
@@ -469,16 +473,16 @@ fi
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 	images="$(
 		$docker image ls --noheading \
-			"localhost/${init_name}" 2>/dev/null
+			"${init_name}" 2>/dev/null
 	)"
-	if ! echo "${images}" | grep -Eq -- "^(localhost/)?${init_name}"; then
+	if ! echo "${images}" | grep -Eq -- "^(localhost/)?${init_name#*/}"; then
 		die "Initial stage not found - please execute '$(
 			basename "${0}"
 		) --init'"
 	fi
 
 	output
-	output " ${blue}*${reset} Deploying container '${base_name}' from image" \
+	output " ${blue}*${reset} Deploying container '${base_name#*/}' from image" \
 		"'${init_name}:latest' ..."
 	output
 
@@ -486,9 +490,9 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 
 	# Handle leftover container from previous run ...
 	trap '' INT
-	if $docker container ps -a | grep -q -- "${base_name}$"; then
-		$docker container stop "${base_name}"
-		$docker container rm --volumes "${base_name}"
+	if $docker container ps -a | grep -q -- "${base_name#*/}$"; then
+		$docker container stop "${base_name#*/}"
+		$docker container rm --volumes "${base_name#*/}"
 	fi
 	trap - INT
 
@@ -503,10 +507,12 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 	(
 		# Add '@preserved-rebuild' for potential outdated stage3 base-images...
 		post='dev-util/pkgconf sys-libs/glibc @preserved-rebuild sys-apps/portage'
-		portageq get_repos / | grep -Fq -- 'srcshelton' &&
-			post+=' sys-apps/gentoo-functions::srcshelton'
+		if command -v portageq >/dev/null 2>&1; then
+			portageq get_repos / | grep -Fq -- 'srcshelton' &&
+				post+=' sys-apps/gentoo-functions::srcshelton'
+		fi
 		# shellcheck disable=SC2030
-		export name="${base_name}"
+		export name="${base_name#*/}"
 		# shellcheck disable=SC2030
 		export image="${init_name}:latest"
 		export DOCKER_CMD_VARS="--env ARCH=${arch:-${ARCH}}"
@@ -516,21 +522,21 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 				--with-bdeps-auto=n \
 				--with-bdeps=n \
 			virtual/libc 2>&1 |
-		tee ../log/"docker.${base_name}.log"
+		tee ../log/"docker.${base_name#*/}.log"
 	)
 	output " -> ${?}"
 
 	output
-	output " ${blue}*${reset} Saving container '${base_name}' as image" \
+	output " ${blue}*${reset} Saving container '${base_name#*/}' as image" \
 		"'${base_name}:latest' ..."
 	output
 
 	# shellcheck disable=SC2086
 	trap '' INT
-	$docker container commit "${base_name}" "${base_name}:latest" 2>&1 |
-		tee -a ../log/"docker.${base_name}.log"
-	$docker container rm --volumes "${base_name}" 2>&1 |
-		tee -a ../log/"docker.${base_name}.log"
+	$docker container commit "${base_name#*/}" "${base_name}:latest" 2>&1 |
+		tee -a ../log/"docker.${base_name#*/}.log"
+	$docker container rm --volumes "${base_name#*/}" 2>&1 |
+		tee -a ../log/"docker.${base_name#*/}.log"
 	trap - INT
 	output " -> ${?}"
 
@@ -546,7 +552,7 @@ fi
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	images="$(
 		$docker image ls --noheading \
-			"localhost/${base_name}" 2>/dev/null
+			"${base_name}" 2>/dev/null
 	)"
 	if ! echo "${images}" | grep -Eq -- "^(localhost/)?${base_name}"; then
 		die "Base stage not found - please execute '$(
@@ -555,7 +561,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	fi
 
 	output
-	output " ${blue}*${reset} Deploying container '${build_name}' ..."
+	output " ${blue}*${reset} Deploying container '${build_name#*/}' ..."
 	output
 
 	checkids "${base_name}"
@@ -563,13 +569,13 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	# Handle leftover container from previous run ...
 	trap '' INT
 	# shellcheck disable=SC2015
-	if $docker container ps -a | grep -q -- "${build_name}$"; then
-		$docker container stop "${build_name}"
-		$docker container rm --volumes "${build_name}"
+	if $docker container ps -a | grep -q -- "${build_name#*/}$"; then
+		$docker container stop "${build_name#*/}"
+		$docker container rm --volumes "${build_name#*/}"
 	fi
 	# shellcheck disable=SC2015
 	$docker image ls --noheading \
-		"localhost/${build_name}-root:latest" 2>/dev/null |
+		"${build_name}-root:latest" 2>/dev/null |
 	grep -Eq -- "^(localhost/)?${build_name}-root\s+latest\s" && {
 		# shellcheck disable=SC2140
 		$docker image rm \
@@ -583,7 +589,12 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	# USES:    base env
 	# USED_BY: service
 
-	python_target="${python_target_override:-$( portageq envvar 'PYTHON_SINGLE_TARGET' )}"
+	if command -v portageq >/dev/null 2>&1; then
+		python_target="${python_target_override:-$( portageq envvar 'PYTHON_SINGLE_TARGET' )}"
+	fi
+	if [ -z "${python_target:-}" ]; then
+		python_target="${python_default_target:-}"
+	fi
 
 	# shellcheck disable=SC2086,SC2140
 	$docker image build \
@@ -597,7 +608,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 			--network none \
 			--no-cache \
 			--tag "${build_name}-root:latest" \
-		. 2>&1 | tee ../log/"docker.${build_name}.log"
+		. 2>&1 | tee ../log/"docker.${build_name#*/}.log"
 			#--network slirp4netns \
 
 	(
@@ -615,7 +626,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 		# FIXME: Source these flags from package.use
 		#
 		# shellcheck disable=SC2031
-		export name="${build_name}"
+		export name="${build_name#*/}"
 		# shellcheck disable=SC2031
 		export image="${build_name}-root:latest"
 		# shellcheck disable=SC2030
@@ -649,30 +660,30 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 			sys-devel/gcc sys-apps/sed dev-libs/icu dev-util/pkgconf sys-libs/libeudev \
 			@system \
 			${use_pypy:+sys-apps/portage ${use_pypy:-}} 2>&1 |
-		tee -a ../log/"docker.${build_name}.log"
+		tee -a ../log/"docker.${build_name#*/}.log"
 	)
 	output " -> ${?}"
 
 	output
-	output " ${blue}*${reset} Saving container '${build_name}' as image" \
+	output " ${blue}*${reset} Saving container '${build_name#*/}' as image" \
 		"'${build_name}:latest' ..."
 	output
 	trap '' INT
 	# shellcheck disable=SC2031,SC2086,SC2140
 	$docker \
 			${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
-		container commit "${build_name}" "${build_name}:latest" |
-	tee -a ../log/"docker.${build_name}.log"
+		container commit "${build_name#*/}" "${build_name}:latest" |
+	tee -a ../log/"docker.${build_name#*/}.log"
 	# shellcheck disable=SC2031,SC2086,SC2140
 	$docker \
 			${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
-		container rm --volumes "${build_name}" |
-	tee -a ../log/"docker.${build_name}.log"
+		container rm --volumes "${build_name#*/}" |
+	tee -a ../log/"docker.${build_name#*/}.log"
 	# shellcheck disable=SC2031,SC2086,SC2140
 	$docker \
 			${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
 		image rm "${build_name}-root:latest" |
-	tee -a ../log/"docker.${build_name}.log"
+	tee -a ../log/"docker.${build_name#*/}.log"
 	output " -> ${?}"
 	trap - INT
 

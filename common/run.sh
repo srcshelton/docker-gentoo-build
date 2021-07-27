@@ -458,6 +458,7 @@ docker_image_exists() {
 		image="${image/\//.}"
 	fi
 
+	# shellcheck disable=SC2086
 	if ! $docker ${DOCKER_VARS:-} image ls "${image}" | grep -Eq -- "^(localhost/)?([^.]+\.)?${image}"; then
 		error "docker image '${image}' not found"
 		return 1
@@ -467,6 +468,7 @@ docker_image_exists() {
 		return 1
 	fi
 
+	# shellcheck disable=SC2086
 	$docker ${DOCKER_VARS:-} image ls "${image}:${version}" |
 		grep -E -- "^(localhost/)?([^.]+\.)?${image}" |
 		awk '{ print $3 }'
@@ -493,8 +495,10 @@ docker_run() {
 	[ -n "${trace:-}" ] && set -o xtrace
 
 	trap '' INT
+	# shellcheck disable=SC2086
 	$docker ${DOCKER_VARS:-} container ps | grep -qw -- "${name:-${container_name}}$" &&
 		$docker ${DOCKER_VARS:-} container stop --time 2 "${name:-${container_name}}"
+	# shellcheck disable=SC2086
 	$docker ${DOCKER_VARS:-} container ps -a | grep -qw -- "${name:-${container_name}}$" &&
 		$docker ${DOCKER_VARS:-} container rm --volumes "${name:-${container_name}}"
 	trap - INT
@@ -547,6 +551,7 @@ docker_run() {
 	# We're now running under bash, so can use arrays to make this so much
 	# nicer!
 	local -a runargs=()
+	# shellcheck disable=SC2207
 	runargs=(
 		$( (( $( nproc ) > 1 )) && echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))" )
 		--init
@@ -643,12 +648,19 @@ docker_run() {
 		local -A mountpointsro=()
 		local -i skipped=0
 		local mp='' src=''  # cwd=''
+		local default_repo_path='' default_distdir_path='' default_pkgdir_path=''
+
+		if ! type -pf portageq >/dev/null 2>&1; then
+			default_repo_path='/var/db/repos/gentoo'
+			default_distdir_path='/var/cache/portage/dist'
+			default_pkgdir_path='/var/cache/portage/pkg'
+		fi
 
 		# shellcheck disable=SC2046,SC2207
 		mirrormountpointsro=(
 			# We need write access to be able to update eclasses...
 			#/etc/portage/repos.conf
-			$( portageq get_repo_path "${EROOT:-/}" $( portageq get_repos "${EROOT:-/}" ) )
+			${default_repo_path:-$( portageq get_repo_path "${EROOT:-/}" $( portageq get_repos "${EROOT:-/}" ) )}
 			#/usr/src  # Breaks gentoo-kernel-build package
 			#/var/db/repo/container
 			#/var/db/repo/gentoo
@@ -657,8 +669,8 @@ docker_run() {
 		)
 		mirrormountpoints=(
 			#/var/cache/portage/dist
-			"$( portageq distdir )"
-			/var/log/portage
+			"${default_distdir_path:-$( portageq distdir )}"
+			'/var/log/portage'
 		)
 
 		if [ -z "${arch:-}" ]; then
@@ -668,7 +680,7 @@ docker_run() {
 		#ENV PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
 		local PKGCACHE="${PKGCACHE:=/var/cache/portage/pkg}"
 		local PKGHOST="${PKGHOST:=docker}"
-		local PKGDIR="${PKGDIR:=$( portageq pkgdir )}"
+		local PKGDIR="${PKGDIR:=${default_pkgdir_path:-$( portageq pkgdir )}}"
 
 		# Allow use of 'ARCH' variable as an override...
 		print "Using architecture '${ARCH:-${arch}}' ..."
@@ -768,13 +780,16 @@ docker_run() {
 		[ -n "${DOCKER_CMD:-}" ] && set -- "${DOCKER_CMD}"
 
 		# DEBUG:
+		# shellcheck disable=SC2030
 		if [ -n "${DOCKER_VARS:-}" ]; then
 			output "Defined pre-build container images:"
 			set -x
+			# shellcheck disable=SC2086
 			eval $docker ${DOCKER_VARS:-} image ls --noheading
 			set +x
 			output "Defined pre-build additional-store container tasks:"
 			set -x
+			# shellcheck disable=SC2086
 			eval $docker ${DOCKER_VARS:-} container ps --noheading -a
 			set +x
 			output "Defined pre-build container tasks:"
@@ -782,6 +797,7 @@ docker_run() {
 		fi
 
 		print "Starting build container with command '$docker container run ${runargs[*]} ${image:-${IMAGE:-gentoo-build:latest}} ${*}'"
+		# shellcheck disable=SC2086
 		$docker \
 				${DOCKER_VARS:-} \
 			container run \
@@ -789,6 +805,7 @@ docker_run() {
 			"${image:-${IMAGE:-gentoo-build:latest}}" ${@+"${@}"}
 	)
 	rc=${?}
+	# shellcheck disable=SC2031,SC2086
 	if dr_id="$( $docker ${DOCKER_VARS:-} container ps -a | grep -- "\s${name:-${container_name}}$" | awk '{ prnt $1 }' )" && [ -n "${dr_id:-}" ]; then
 		rcc=$( $docker ${DOCKER_VARS:-} container inspect --format='{{.State.ExitCode}}' "${dr_id}" ) || :
 	fi
@@ -827,19 +844,21 @@ docker_build_pkg() {
 # Garbage collect
 #
 docker_prune() {
+	# shellcheck disable=SC2086
 	#$docker ${DOCKER_VARS:-} system prune --all --filter 'until=24h' --filter 'label!=build' --filter 'label!=build.system' --force # --volumes
 	# volumes can't be pruned with a filter :(
+	# shellcheck disable=SC2086
 	#$docker ${DOCKER_VARS:-} volume prune --force
 
 	trap '' INT
-	# shellcheck disable=SC2086
+	# shellcheck disable=SC2031,SC2086
 	$docker ${DOCKER_VARS:-} container ps |
 		rev |
 		cut -d' ' -f 1 |
 		rev |
 		grep -- '_' |
 		xargs -r $docker ${DOCKER_VARS:-} container stop --time 2
-	# shellcheck disable=SC2086
+	# shellcheck disable=SC2031,SC2086
 	$docker ${DOCKER_VARS:-} container ps -a |
 		rev |
 		cut -d' ' -f 1 |
@@ -847,7 +866,7 @@ docker_prune() {
 		grep -- '_' |
 		xargs -r $docker ${DOCKER_VARS:-} container rm --volumes
 
-	# shellcheck disable=SC2086
+	# shellcheck disable=SC2031,SC2086
 	$docker ${DOCKER_VARS:-} image ls |
 		grep -- '^<none>\s\+<none>' |
 		awk '{ print $3 }' |
