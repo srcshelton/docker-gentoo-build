@@ -16,11 +16,11 @@ mail_mta='localhost'
 
 # Set docker image names...
 #
-env_name="gentoo-env"
-stage3_name="gentoo-stage3"
-init_name="gentoo-init"
-base_name="gentoo-base"
-build_name="gentoo-build"
+env_name="localhost/gentoo-env"
+stage3_name="localhost/gentoo-stage3"
+init_name="localhost/gentoo-init"
+base_name="localhost/gentoo-base"
+build_name="localhost/gentoo-build"
 
 # Set Containerfile, configuration, and entrypoint script relative filesystem
 # location...
@@ -50,6 +50,9 @@ else
 		*': Intel(R) Core(TM) i3-21'*' CPU @ '*)
 			use_cpu_arch='x86'
 			use_cpu_flags="avx mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3" ;;
+		*': Intel(R) Core(TM) i5-24'*' CPU @ '*)
+			use_cpu_arch='x86'
+			use_cpu_flags="aes avx mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3" ;;
 		*': Intel(R) Xeon(R) CPU E3-'*' v5 @ '*)
 			use_cpu_arch='x86'
 			use_cpu_flags="aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sse sse2 sse3 sse4_1 sse4_2 ssse3" ;;
@@ -72,7 +75,7 @@ else
 			use_cpu_flags="edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2" ;;
 
 		*)
-			echo >&2 "Unknown CPU '$( echo "${description}" | cut -d':' -f 2- | sed 's/^\s*// ; s/\s*$//' )' - not enabling model-specific CPU flags" ;;
+			echo >&2 "Unknown CPU '$( echo "${description}" | cut -d':' -f 2- | sed 's/^\s*// ; s/\s*$//' )' and 'cpuid2cpuflags' not installed - not enabling model-specific CPU flags" ;;
 	esac
 fi
 if [ -n "${use_cpu_flags:-}" ]; then
@@ -109,7 +112,7 @@ case "$( uname -m )" in
 		# Enable pypy support for Portage accleration of ~35%!
 		use_pypy="dev-python/pypy3"
 		use_pypy_use="bzip2 jit"
-		if (( ( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ) > 6 )); then
+		if [ $(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 )) -gt 6 ]; then
 			use_pypy="${use_pypy} dev-python/pypy3-exe"
 		else
 			use_pypy="${use_pypy} dev-python/pypy3-exe-bin"
@@ -166,7 +169,10 @@ tmp="$( $docker system info | grep 'graphRoot:' | cut -d':' -f 2- | awk '{ print
 mkdir -p "${tmp:=/var/lib/containers/storage/tmp}"
 export TMPDIR="${tmp}"
 
+python_default_target='python3_9'
+
 if [ -f common/local.sh ]; then
+	# shellcheck disable=SC1091
 	. common/local.sh
 	export JOBS MAXJOBS TMPDIR
 fi

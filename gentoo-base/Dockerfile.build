@@ -4,8 +4,8 @@
 #   package repo, extracted from the stage3 environment ROOT.
 
 
-ARG base_name="gentoo-base"
-ARG env_name="gentoo-env"
+ARG base_name="localhost/gentoo-base"
+ARG env_name="localhost/gentoo-env"
 ARG env_id=""
 
 ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
@@ -20,7 +20,7 @@ ARG PORTAGE_CONFIGROOT="${SYSROOT}"
 # Import system image
 #
 # linter ignore=EF0003
-FROM "${base_name:-gentoo-base}:latest" AS base
+FROM "${base_name}:latest" AS base
 
 ARG ROOT
 
@@ -32,7 +32,7 @@ RUN test -s "${ROOT}"/usr/libexec/environment.sh
 # Create a new container
 #
 # linter ignore=EF0003
-FROM "${env_name:-gentoo-env}:latest"
+FROM "${env_name}:latest"
 
 ARG env_name
 ARG env_id

@@ -10,7 +10,7 @@
 
 ARG ARCH
 
-ARG env_name="gentoo-env"
+ARG env_name="localhost/gentoo-env"
 ARG env_id=""
 
 # gentoo/stage3 supports 386, amd64, arm-v5, arm-v6, arm-v7, arm64, ppc64le, s390x

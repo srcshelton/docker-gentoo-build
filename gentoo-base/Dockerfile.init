@@ -8,7 +8,7 @@
 ARG ARCH
 
 ARG stage3_image="docker.io/gentoo/stage3"
-ARG stage3_name="gentoo-stage3"
+ARG stage3_name="localhost/gentoo-stage3"
 ARG stage3_id=""
 ARG entrypoint_sum=""
 
@@ -18,7 +18,7 @@ ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAM
 # -----------------------------------------------------------------------------
 
 # linter ignore=EF0003
-FROM "${stage3_name:-gentoo-stage3}:latest"
+FROM "${stage3_name}:latest"
 
 ARG ARCH
 

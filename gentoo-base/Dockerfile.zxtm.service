@@ -53,7 +53,7 @@ FROM "${zxtm_image_name}:${zxtm_service_version}" AS zxtm
 
 # Import system image
 #
-FROM "${image_name}:${service_version}" AS base
+FROM "localhost/${image_name}:${service_version}" AS base
 
 ARG ROOT
 ARG environment_filter
