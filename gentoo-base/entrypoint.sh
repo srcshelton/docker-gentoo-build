@@ -17,6 +17,12 @@ environment_filter='__ENVFILTER__'
 arch="${ARCH}"
 unset -v ARCH
 
+# Even though we want a minimal set of flags during this stage, gcc's flags are
+# significant since they'll affect the compiler facilities available to all
+# packages built later...
+# FIXME: Source these flags from package.use
+gcc_use="graphite nptl openmp pch sanitize ssp vtv zstd"
+
 die() {
 	printf >&2 'FATAL: %s\n' "${*:-Unknown error}"
 	exit 1
@@ -500,6 +506,7 @@ for pkg in \
 		'app-admin/eselect' \
 		'app-eselect/eselect-awk' \
 		'sys-apps/gawk' \
+		'sys-devel/gcc' \
 		'virtual/awk'
 do
 	echo
@@ -509,6 +516,7 @@ do
 
 	(
 		USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+		USE="${USE} ${gcc_use}"
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 		export LC_ALL='C'
@@ -726,7 +734,7 @@ echo
 	# dev-libs/icu is needed for circular dependencies on icu -> python -> sqlite -> icu
 	# libarchive is a frequent dependency, and so quicker to pull-in here
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
-	USE="${use_essential:-}"
+	USE="${USE:+${USE} }${gcc_use}"
 	if
 		  echo " ${USE} " | grep -q -- ' -nptl ' ||
 		! echo " ${USE} " | grep -q -- ' nptl '
@@ -762,7 +770,7 @@ echo
 				--verbose-conflicts \
 				--with-bdeps=n \
 				--with-bdeps-auto=n \
-			@system sys-apps/shadow dev-libs/icu app-arch/libarchive ${pkg_initial} ${pkg_exclude:-} || :
+			@system sys-devel/gcc sys-apps/shadow dev-libs/icu app-arch/libarchive ${pkg_initial} ${pkg_exclude:-} || :
 	done
 )
 LC_ALL='C' etc-update --quiet --preen ; find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
