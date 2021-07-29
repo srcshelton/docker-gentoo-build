@@ -46,28 +46,36 @@ declare -i rc=0
 
 for file in *.${ARCH}; do
 	[[ "${file}" == "${file#.}" ]] || continue
+	[[ -s "${file}" ]] || continue
 	diff -q "${file}" "/etc/portage/${file%.${ARCH}}/${file}" >/dev/null 2>&1 && continue
+	mkdir -p "$( dirname "/etc/portage/${file%.${ARCH}}/${file}" )"
 	cp -v "${file}" "$( find_seq "/etc/portage/${file%.${ARCH}}/${file}" )" ||
 		(( rc = 2 ))
 done
 
 for file in color.map package.accept_keywords/* package.mask/* profile/use.mask savedconfig/*/*; do
 	[[ "${file}" == "${file#.}" ]] || continue
+	[[ -s "${file}" ]] || continue
 	diff -q "${file}" "/etc/portage/${file}" >/dev/null 2>&1 && continue
+	mkdir -p "$( dirname "/etc/portage/${file}" )"
 	cp -v "${file}" "$( find_seq "/etc/portage/${file}" )" ||
 		(( rc = 2 ))
 done
 
 for file in package.use.build/*; do
 	[[ "${file}" == "${file#.}" ]] || continue
+	[[ -s "${file}" ]] || continue
 	diff -q "${file}" "/etc/portage/package.use/${file#package.use.build/}" >/dev/null 2>&1 && continue
+	mkdir -p "$( dirname "/etc/portage/package.use/${file#package.use.build/}" )"
 	cp -v "${file}" "$( find_seq "/etc/portage/package.use/${file#package.use.build/}" )" ||
 		(( rc = 2 ))
 done
 
 for file in /etc/portage/savedconfig/*/*; do
 	[[ "${file}" == "${file#.}" ]] || continue
+	[[ -s "${file}" ]] || continue
 	diff -q "${file}" "/etc/portage/${file#/etc/portage/}" >/dev/null 2>&1 && continue
+	mkdir -p "$( dirname "${file#/etc/portage/}" )"
 	cp -v "${file}" "$( find_seq "${file#/etc/portage/}" )" ||
 		(( rc = 2 ))
 done
