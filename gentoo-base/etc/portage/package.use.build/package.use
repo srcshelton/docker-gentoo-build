@@ -46,15 +46,15 @@ app-admin/sysstat			 lm-sensors
 app-admin/ulogd				 nfacct pcap
 app-arch/libarchive			 acl e2fsprogs iconv nettle
 #app-arch/unzip				 natspec
-app-benchmarks/bootchart		 acct
 app-benchmarks/bootchart2		-X
-# move app-admin/eselect-php app-eselect/eselect-php
+app-benchmarks/bootchart		 acct
 app-crypt/gnupg				-ssl ecc idea mta
 #app-crypt/gpgme			-python  # Requires dev-lang/swig, but only as a BDEPEND
 app-editors/vim				-cscope -sound terminal vim-pager
 app-emulation/crun			-criu bpf
 # move app-emulation/libpod app-emulation/podman
 app-emulation/podman			-fuse -rootless
+# move app-admin/eselect-php app-eselect/eselect-php
 app-eselect/eselect-php			 fpm
 app-misc/screen				 multiuser
 app-portage/eix				 tools
@@ -98,7 +98,6 @@ dev-util/cmake				-server
 dev-util/pkgconf			 pkg-config
 dev-vcs/subversion			 ctypes-python
 gnome-base/librsvg			-vala
-#mail-mta/msmtp				-ssl  # Requires gnutls
 mail-client/alpine			 passfile smime
 mail-client/mutt			 imap sidebar smime
 mail-client/pine			 largeterminal passfile
@@ -108,6 +107,7 @@ mail-filter/libmilter			 poll
 mail-filter/opendkim			-curl -memcached -opendbx libevent poll unbound
 mail-filter/opendmarc			 spf
 mail-filter/spamassassin		 cron
+#mail-mta/msmtp				-ssl  # Requires gnutls
 mail-mta/postfix			-ldap-bind dovecot-sasl
 media-fonts/dejavu			-X -fontforge
 media-fonts/liberation-fonts		-X -fontforge
@@ -139,8 +139,8 @@ net-dns/avahi				-python autoipd  # howl-compat # mdnsresponder-compat
 net-dns/bind				-geoip -idn -mysql -odbc dnstap filter-aaaa lmdb nslint rpz
 net-dns/bind-tools			-gssapi -idn pkcs11
 net-dns/unbound				 dnscrypt dnstap ecs
-net-firewall/nftables			 xtables
 net-firewall/iptables			-extensions -imq -l7filter conntrack netlink nftables pcap xlate
+net-firewall/nftables			 xtables
 net-fs/cifs-utils			-acl -ads -caps caps-ng creds upcall
 net-fs/nfs-utils			 junction nfsdcld nfsidmap nfsv41
 net-fs/samba				-avahi async automount ldb libclamav oav quota quotas smbsharemodes smbtav2 swat winbind
@@ -190,8 +190,8 @@ sys-apps/smartmontools			 update_drivedb update-drivedb
 sys-apps/usbutils			 experimental
 sys-apps/util-linux			 magic tty-helpers
 sys-auth/opie				-server
-sys-auth/pam_mobile_otp			 manager
 sys-auth/pambase			-passwdqc pwquality  # mktemp
+sys-auth/pam_mobile_otp			 manager
 sys-block/parted			 device-mapper
 sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
 sys-cluster/galera			 garbd
@@ -199,7 +199,7 @@ sys-devel/clang				 system-cxx-headers
 #sys-devel/gcc				 go mudflap
 # gccgo from gcc-6.4.0 tries to include a deprecated glibc header, ustat.h, and fails.
 #~sys-devel/gcc-6.4.0			-go
-sys-devel/gcc				 graphite openmp pch sanitize ssp vtv zstd
+sys-devel/gcc				-graphite openmp pch sanitize ssp vtv zstd  # graphite has a runtime dependency on dev-libs/isl
 sys-devel/gettext			 cvs git
 sys-devel/llvm				 clang llvm-gcc udis86
 # move sys-apps/microcode-data sys-firmware/intel-microcode
@@ -207,8 +207,8 @@ sys-firmware/intel-microcode		 hostonly split-ucode
 sys-fs/cryptsetup			-static dynamic
 sys-fs/lvm2				-lvm1 -static -static-libs -thin
 sys-fs/udev				-extras action_modeswitch edd hwdb keymap
-sys-libs/glibc				-gd nscd
 sys-libs/gdbm				 berkdb
+sys-libs/glibc				-gd nscd
 #sys-libs/libcap-ng			-python  # Requires dev-lang/swig, but only as a DEPEND
 sys-libs/libseccomp			-python  # Requires static-libs
 sys-libs/ncurses			 trace  # unicode
@@ -221,10 +221,10 @@ sys-process/procps			 modern-top
 www-apps/horde-imp			-crypt
 www-apps/mediawiki			 imagemagick
 www-apps/opennab			 test demo
-www-client/links			-deprecated
 www-client/elinks			-javascript -mouse bittorrent finger gopher
-www-servers/lighttpd			-memcached fastcgi libev memcache uploadprogress webdav
+www-client/links			-deprecated
 www-misc/monitorix			 hddtemp postfix
+www-servers/lighttpd			-memcached fastcgi libev memcache uploadprogress webdav
 x11-libs/cairo				-X cleartype lcdfilter
 
 app-shells/stdlib			 colour
