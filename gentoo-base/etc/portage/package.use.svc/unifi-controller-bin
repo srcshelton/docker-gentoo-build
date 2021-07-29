@@ -8,6 +8,8 @@ net-misc/unifi-controller-bin		 nls tools
 
 dev-java/openjdk			-alsa -cups headless-awt jbootstrap pch
 dev-java/openjdk-bin			-alsa -cups headless-awt
+virtual/jdk				 headless-awt
+
 dev-lang/python				 xml
 
 # required by sys-apps/baselayout-java-0.1.0-r1
