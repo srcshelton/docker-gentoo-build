@@ -79,8 +79,9 @@ else
 	esac
 fi
 if [ -n "${use_cpu_flags:-}" ]; then
+	use_cpu_flags_raw="${use_cpu_flags}"
 	use_cpu_flags="$(
-		echo "${use_cpu_flags}" |
+		echo "${use_cpu_flags_raw}" |
 		sed "s/^/cpu_flags_${use_cpu_arch:-x86}_/ ; s/ / cpu_flags_${use_cpu_arch:-x86}_/g"
 	)"
 fi

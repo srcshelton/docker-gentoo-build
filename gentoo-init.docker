@@ -254,6 +254,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 			--build-arg ARCH="${arch}" \
 			--build-arg PROFILE_PATH="${profile:-}" \
 			--build-arg CHOST="${chost:-}" \
+			${use_cpu_arch:+${use_cpu_flags_raw:+--build-arg CPU_FLAGS_${use_cpu_arch^^}="${use_cpu_flags_raw}"}} \
 			${native:+--build-arg NATIVE="${native}"} \
 			--build-arg JOBS="${JOBS:-}" \
 			--build-arg MAXLOAD="${MAXLOAD:-}" \
