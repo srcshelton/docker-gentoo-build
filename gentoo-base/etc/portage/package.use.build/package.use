@@ -169,7 +169,7 @@ net-vpn/openvpn				 down-root eurephia iproute2 passwordsave
 perl-core/bignum			 test
 sci-mathematics/pari			-X
 sys-apps/busybox			-pam -sep-usr -split-usr math static
-sys-apps/coreutils			 hostname  # conflicts sys-apps/net-tools[hostname]
+sys-apps/coreutils			-hostname  # conflicts sys-apps/net-tools[hostname]
 sys-apps/debianutils			-installkernel
 sys-apps/hal				 disk-partition
 sys-apps/help2man			-nls  # Requires dev-perl/Locale-gettext, but then can't find it in many cases :(
@@ -182,7 +182,7 @@ sys-apps/man-db				-nls
 sys-apps/memtest86			 serial
 sys-apps/memtest86+			 serial
 sys-apps/module-init-tools		 no-old-linux
-sys-apps/net-tools			-hostname  # conflicts sys-apps/coreutils[hostname]
+sys-apps/net-tools			 hostname  # conflicts sys-apps/coreutils[hostname]
 sys-apps/openrc				 compat  # newnet
 sys-apps/pciutils			-zlib dns
 sys-apps/portage			-rsync-verify
