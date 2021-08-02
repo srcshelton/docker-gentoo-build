@@ -36,7 +36,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 		"[--no-patch|--patch=<url>[,<url]]" \
 		"[--menuconfig|--nconfig]" \
 		"[--package=<atom>]" \
-		"[--clang [--llvm-unwind]]"
+		"[--clang [--clean-lto] [--llvm-unwind]]"
 	)"
 	output "${usage}${options}" | fold -sw ${COLUMNS:-80} - | head -n 1 >&2
 	output "${options}" | fold -sw $(( ${COLUMNS:-80} - ${#usage} )) - | sed "s|^|${usage//?/ }|" | tail -n +2 >&2
@@ -50,13 +50,14 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "       --force       Overwrite build-cache configuration with specified file"
 	output >&2 "       --keep-build  Cache the kernel build artefacts for re-use"
 	output >&2 "                    (optionally in the specified directory)"
+	output >&2 "       --patch <url> Apply patch (-p1) from specified URL"
 	output >&2 "       --menuconfig  Interactively reconfigure the kernel via ncurses"
 	output >&2 "       --nconfig     Interactively reconfigure the kernel via nconfig"
 	output >&2 "       --package     Specify kernel package to build"
 	output >&2 "                    (default: sys-kernel/gentoo-sources)"
 	output >&2 "       --clang       Compile kernel with llvm"
+	output >&2 "       --clean-lto   Remove exisitng *.lto.o objects"
 	output >&2 "       --llvm-unwind Install LLVM edition of libunwind"
-	output >&2 "       --patch <url> Apply patch (-p1) from specified URL"
 	output >&2
 	output >&2 "Running on architecture '${arch:-${ARCH:-}}'"
 	exit 0
@@ -72,6 +73,7 @@ declare menuconfig=''
 declare nconfig=''
 declare version=''
 declare patch=''
+declare clean_lto=0
 #if type -pf gcc >/dev/null 2>&1; then
 #	case "$( gcc --version | awk '( NR == 1 ) { print $NF }' )" in
 #		9.*)
@@ -98,10 +100,16 @@ if echo " ${*:-} " | grep -q -- ' --nconfig '; then
 fi
 if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 	compiler='clang'
+	if echo " ${*:-} " | grep -Fq -- ' --clean-lto '; then
+		clean_lto=1
+	fi
 	if echo " ${*:-} " | grep -Eq -- ' --(llvm-)?(lib)?unwind '; then
 		unwind='llvm'
 	fi
 else
+	if echo " ${*:-} " | grep -Fq -- ' --clean-lto '; then
+		warn "'--clean-lto' is not a valid option without '--clang'"
+	fi
 	if echo " ${*:-} " | grep -Eq -- ' --(llvm-)?(lib)?unwind '; then
 		warn "'--llvm-unwind' is not a valid option without '--clang'"
 	fi
@@ -190,10 +198,16 @@ docker_setup
 package=''
 package_version=''
 container_name=''
+distro=''
 docker_resolve "${version:-sys-kernel/gentoo-sources}"
 # shellcheck disable=SC2001 # POSIX sh compatibility
 container_name="$( echo "${package}" | sed 's|/|.|' )"
 export container_name
+case "${package}" in
+	*gentoo*)
+		distro='-gentoo'
+		;;
+esac
 
 build_version="$( echo "${package_version:-}" | cut -d'.' -f 1-2 )"
 if [ -z "${build_dir:-}" ]; then
@@ -409,8 +423,8 @@ if [ -s /etc/containers/storage.conf ] && graphroot="$( sed 's/#.*$//' /etc/cont
 else
 	error "Cannot determine graph root directory from '/etc/containers/storage.conf'" || :
 fi
-if [[ -n "${TMPDIR:-}" ]]; then
-	if ! [[ -d "${TMPDIR}" ]]; then
+if [ -n "${TMPDIR:-}" ]; then
+	if ! [ -d "${TMPDIR}" ]; then
 		die "Temporary directory '${TMPDIR}' (from variable 'TMPDIR') doesn't exist"
 	fi
 	warn "Temporary directory override 'TMPDIR' (${TMPDIR}) set, but container tools may ignore this variable"
@@ -521,10 +535,15 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		done ;
 	fi ;
 	mkdir -p ../build ;
+	[ "${clean_lto}" = '1' ] && find ../build/ -name '*.lto.o' -delete ;
 	echo "Configuration changes from '.config':" ;
 	make ${kernel_make_opts[@]} listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
+	success=0 ;
 	set -x ;
-	time make ${kernel_make_opts[@]} ${deforoldconfig} prepare ${menuconfig:+menuconfig} ${nconfig:+nconfig} vmlinux modules \${kernel} modules_install ;
+	time make ${kernel_make_opts[@]} ${deforoldconfig} prepare ${menuconfig:+menuconfig} ${nconfig:+nconfig} vmlinux modules \${kernel} &&
+	rm -rf "/lib/modules/${package_version}${distro:-}" &&
+	make ${kernel_make_opts[@]} modules_install &&
+	success=1 ;
 	set +x ;
 	if [ -s /boot/boot.config -o -s /proc/bootconfig ] && [ -e /boot/initramfs.img ]; then
 		if make ${kernel_make_opts[@]} -C tools/bootconfig; then
@@ -538,12 +557,14 @@ DOCKER_SCRIPT="$( cat <<-EOF
 			echo >&2 "WARN:  'make -C tools/bootconfig' failed: \${?}" ;
 		fi ;
 	fi;
-	set -x ;
-	cp ../build/.config /boot/config-${package_version}-gentoo ;
-	cp ../build/System.map /boot/System.map-${package_version}-gentoo ;
-	cp ../build/arch/\${dir}/boot/\${kernel} /boot/kernel-${package_version}-gentoo ;
-	set +x ;
-	echo 'Linux kernel-${package_version}-gentoo installed - please update your bootloader' ;
+	if [ "\${success}" = '1' ]; then
+		set -x ;
+		cp ../build/.config /boot/config-${package_version}${distro:-} ;
+		cp ../build/System.map /boot/System.map-${package_version}${distro:-} ;
+		cp ../build/arch/\${dir}/boot/\${kernel} /boot/kernel-${package_version}${distro:-} ;
+		set +x ;
+		echo 'Linux kernel-${package_version}${distro:-} installed - please update your bootloader' ;
+	fi ;
 EOF
 )"
 	#echo "Detected packages:"
