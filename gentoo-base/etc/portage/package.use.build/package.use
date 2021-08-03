@@ -58,7 +58,7 @@ app-emulation/podman			-fuse -rootless
 app-eselect/eselect-php			 fpm
 app-misc/screen				 multiuser
 app-portage/eix				 tools
-<app-shells/bash-4.3			 bashlogger mem-scramble plugins
+#<app-shells/bash-5.1			 bashlogger mem-scramble plugins  # Enable additional options for any additional compatibility shell
 app-text/dictd				 judy
 app-text/enchant			-aspell
 dev-db/mariadb				-tcmalloc client-libs extraengine innodb-lz4 innodb-lzo innodb-snappy oqgraph sphinx tokudb
@@ -151,9 +151,9 @@ net-libs/libpcap			-netlink libnl
 net-libs/miniupnpc			-python
 net-mail/dovecot			 cydir dbox managesieve imapc lucene mdbox sdbox sieve solr  # suid
 net-mail/fetchmail			 hesiod
-<net-misc/bfgminer-3.1.0		-adl -opencl sse2_4way
->=net-misc/bfgminer-3.1.0		-adl -lm-sensors -opencl cpumining sse2_4way
-net-misc/cgminer			-adl -lm-sensors -opencl sse2_4way
+net-misc/bfgminer			-adl -opencl
+>=net-misc/bfgminer-3.1.0		-lm-sensors cpumining
+#net-misc/cgminer			-adl -lm-sensors -opencl  # CPU mining removed before 2015 :o
 net-misc/curl				-adns -ares -http2 libssh2 test
 net-misc/dhcpcd				-compat
 net-misc/ntp				-snmp openntpd
@@ -225,6 +225,7 @@ www-client/elinks			-javascript -mouse bittorrent finger gopher
 www-client/links			-deprecated
 www-misc/monitorix			 hddtemp postfix
 www-servers/lighttpd			-memcached fastcgi libev memcache uploadprogress webdav
+>=www-servers/lighttpd-1.4.58		 dbi  # webdav requires sqlite, which now requires dbi
 x11-libs/cairo				-X cleartype lcdfilter
 
 app-shells/stdlib			 colour
