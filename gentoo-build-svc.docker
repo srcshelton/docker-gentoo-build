@@ -1001,7 +1001,7 @@ case " ${pre_pkgs} " in
 		pre_use="-lib-only${pre_use:+ ${pre_use}}"
 		post_use="lib-only${post_use:+ ${post_use}}"
 		if [ -n "${post_pkgs:-}" ]; then
-			warn "sys-devel/gcc needs to be rebuild (without dependencies) but 'post_pkgs' is non-empty... suggest moving 'post_pkgs' to 'extra_pkgs'"
+			warn "sys-devel/gcc needs to be rebuilt (without dependencies) but 'post_pkgs' is non-empty... suggest moving 'post_pkgs' to 'extra_pkgs'"
 			warn "post_pkgs contains '${post_pkgs}'"
 			warn
 			sleep 5
