@@ -44,6 +44,7 @@ services='
 	postfix
 	postgrey
 	powertop
+	privoxy
 	redis
 	spamassassin
 	spamassassin-update
@@ -360,6 +361,8 @@ case "${service:-}" in
 		service='mail-filter/postgrey' ;;
 	powertop)
 		service='sys-power/powertop' ;;
+	privoxy)
+		service='net-proxy/privoxy' ;;
 	redis)
 		service='dev-db/redis' ;;
 	spamassassin|spamd)
@@ -530,6 +533,7 @@ case "${package_name}" in
 		#ports='143/tcp'
 		ports='8143/tcp'
 		container_cmd='/usr/sbin/imapproxyd'
+		etcdir='imapproxy'
 		;;
 	*irqbalance*)
 		output "Setting build variables for package 'irqbalance' ..."
@@ -751,6 +755,14 @@ case "${package_name}" in
 		container_cmd='/usr/sbin/powertop'
 		# Container requires '--privileged' to operate, data in /var/cache/powertop/
 		;;
+	*privoxy*)
+		output "Setting build variables for package 'privoxy' ..."
+		pre_pkgs='acct-group/privoxy acct-user/privoxy'
+
+		ports='8118/tcp'
+		container_cmd='/usr/sbin/privoxy'
+		etcdir='privoxy'
+		;;
 	*redis*)
 		output "Setting build variables for package 'redis' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc'
@@ -760,6 +772,7 @@ case "${package_name}" in
 		group='redis'
 		container_cmd='/usr/sbin/redis-server'
 		container_cwd='/var/lib/redis'
+		etcdir='redis'
 		;;
 	*spamassassin*)
 		pre_pkgs='sys-apps/help2man acct-group/spamd acct-user/spamd'

@@ -1,0 +1,8 @@
+
+#*/*					-* asm ipv6 ithreads mdev nptl openssl ssl threads tls-heartbeat zlib
+
+#net-proxy/privoxy			+acl brotli client-tags compression editor extended-host-patterns extended-statistics external-filters +fast-redirects +force fuzz graceful-termination +image-blocking ipv6 lfs +mbedtls openssl png-images selinux ssl +stats +threads toggle tools whitelists +zlib
+net-proxy/privoxy			-openssl acl brotli client-tags compression editor extended-statistics fast-redirects force image-blocking mbedtls png-images stats toggle whitelists
+
+# vi: set nowrap syntax=gentoo-package-use:
+
