@@ -184,8 +184,21 @@ if [ "${update:-0}" = '1' ]; then
 	#stdbuf -i0 -o0 awk 'BEGIN { RS = null ; ORS = "\n\n" } 1' |
 	#tee log/buildpkg.hostpkgs.update.log
 
+	gcc_use="-graphite nptl openmp pch sanitize ssp vtv zstd"
+	# Look for "build" gcc USE-flags in package.use only (or use defaults above) ...
+	if [ -s /etc/portage/package.use/package.use ]; then
+		gcc_use="$(
+			sed 's/#.*$//' /etc/portage/package.use/package.use |
+			tr -s '[:space:]' |
+			grep -E '^\s?([<>=~]=?)?sys-devel/gcc' |
+			cut -f 2- |
+			xargs -n 1 echo |
+			sort |
+			uniq
+		)"
+	fi
 	# shellcheck disable=SC2046
-	USE="-natspec pkg-config" \
+	USE="-lib-only -natspec pkg-config ${gcc_use}" \
 	"${basedir}"/docker-gentoo-build/gentoo-build-pkg.docker \
 			--buildpkg=y \
 			--emptytree \
@@ -210,7 +223,21 @@ if [ "${update:-0}" = '1' ]; then
 	trap - INT
 
 	if [ $(( rc )) -eq 0 ]; then
-		USE="-* lib-only nptl" \
+		gcc_use="-* lib-only nptl"
+		# ... and look for "host" gcc USE-flags in host.use only (or use defaults)
+		# FIXME: What about package.use.local?
+		if [ -s /etc/portage/package.use/host.use ]; then
+			gcc_use="$(
+				sed 's/#.*$//' /etc/portage/package.use/host.use |
+				tr -s '[:space:]' |
+				grep -E '^\s?([<>=~]=?)?sys-devel/gcc' |
+				cut -f 2- |
+				xargs -n 1 echo |
+				sort |
+				uniq
+			)"
+		fi
+		USE="${gcc_use}" \
 		"${basedir}"/docker-gentoo-build/gentoo-build-pkg.docker \
 				--buildpkg=y \
 				--usepkg=y \
