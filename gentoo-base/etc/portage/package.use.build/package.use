@@ -58,7 +58,6 @@ app-emulation/podman			-fuse -rootless
 app-eselect/eselect-php			 fpm
 app-misc/screen				 multiuser
 app-portage/eix				 tools
-#<app-shells/bash-5.1			 bashlogger mem-scramble plugins  # Enable additional options for any additional compatibility shell
 app-text/dictd				 judy
 app-text/enchant			-aspell
 dev-db/mariadb				-tcmalloc client-libs extraengine innodb-lz4 innodb-lzo innodb-snappy oqgraph sphinx tokudb
