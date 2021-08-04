@@ -38,6 +38,7 @@ format() {
 
 	[ -n "${variable:-}" ] || return 1
 
+	variable="$( echo "${variable}" | xargs -n 1 | sort -d | xargs echo -n )"
 	spaces="$( printf "%${padding}s" )"
 	string="%-${padding}s= \"%s\"\\n"
 
@@ -865,7 +866,12 @@ case "${1:-}" in
 		#echo
 		unset info
 
+		# Do we want to build packages one at a time (indicated via the
+		# '--single-build' flag in EMERGE_OPTS)?
+		#
 		if [ -n "${EMERGE_OPTS:-}" ] && echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-build)? '; then
+			# Save any command-line flags...
+			#
 			flags=''
 			for arg in "${@}"; do
 				case "${arg}" in
@@ -874,6 +880,12 @@ case "${1:-}" in
 						;;
 				esac
 			done
+
+			# ... then process any non-flag options as individual packages to
+			# rebuild, except when EMERGE_OPTS contains '--swap-build', in
+			# which case we instead save the first non-flag argument and come
+			# back to it later...
+			#
 			first=''
 			for arg in "${@}"; do
 				case "${arg}" in
@@ -895,6 +907,10 @@ case "${1:-}" in
 						;;
 				esac
 			done
+
+			# ... and finally, if '--swap-build' is in effect, build the first
+			# original package specified now, at the end of the process.
+			#
 			if [ -n "${first:-}" ] && echo " ${EMERGE_OPTS} " | grep -Eq -- ' --swap(-build)? '; then
 					echo
 					echo " * Building first package '${arg}' of '${*}' ..."
@@ -904,7 +920,11 @@ case "${1:-}" in
 					# shellcheck disable=SC2086
 					LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y ${flags:-} "${first}" || rc=${?}
 			fi
-		else
+
+		else # ! echo " ${EMERGE_OPTS:-} " | grep -Eq -- ' --single(-build)? '; then
+			# We're not performing single-builds, so build everything at the
+			# same time (and potentially in parallel)
+			#
 			# shellcheck disable=SC2016
 			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
 			# shellcheck disable=SC2086
@@ -952,6 +972,10 @@ case "${1:-}" in
 			fi
 			echo
 
+			# See handling of EMERGE_OPTS above for details of logic below, but
+			# without the complexity of '--swap-build' and with the (passed-in)
+			# value of '${rebuid}' appended to the argument list...
+			#
 			if [ -n "${EMERGE_OPTS:-}" ] && echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-rebuild)? '; then
 				flags=''
 				for arg in "${@}" ${rebuild}; do
@@ -968,6 +992,16 @@ case "${1:-}" in
 							echo
 							echo " * Building single package '${arg}' from '${rebuild} ..."
 							echo
+
+							# Reinstall package first to maximise dependency re-use...
+							#
+							# shellcheck disable=SC2016
+							print "Running build-dependencies 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
+							# shellcheck disable=SC2086
+							LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y --with-bdeps=y ${flags:-} ${arg} || rc=${?}
+
+							# ... then install again without '--usepkg':
+							#
 							# shellcheck disable=SC2016
 							print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
 							# shellcheck disable=SC2086
@@ -976,6 +1010,15 @@ case "${1:-}" in
 					esac
 				done
 			else
+				# Reinstall package first to maximise dependency re-use...
+				#
+				# shellcheck disable=SC2016
+				print "Running build-dependencies 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y ${rebuild}'${USE:+ with USE='${USE}'}"
+				# shellcheck disable=SC2086
+				LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y --with-bdeps=y ${rebuild} || rc=${?}
+
+				# ... then install again without '--usepkg':
+				#
 				# shellcheck disable=SC2016
 				print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n ${rebuild}'${USE:+ with USE='${USE}'}"
 				# shellcheck disable=SC2086

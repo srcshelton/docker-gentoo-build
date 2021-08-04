@@ -50,6 +50,7 @@ format() {
 
 	[ -n "${variable:-}" ] || return 1
 
+	variable="$( echo "${variable}" | xargs -n 1 | sort -d | xargs echo -n )"
 	spaces="$( printf "%${padding}s" )"
 	string="%-${padding}s= \"%s\"\\n"
 
@@ -873,10 +874,10 @@ unset path
 # Save environment for later docker stages...
 printf "#FILTER: '%s'\n\n" "${environment_filter}" > "${ROOT}"/usr/libexec/environment.sh
 export -p |
-	grep -- '=' |
-	grep -Ev -- "${environment_filter}" | \
-	sed -r 's/\s+/ /g' | \
-	grep -v '^export [a-z_]' \
+		grep -- '=' |
+		grep -Ev -- "${environment_filter}" | \
+		sed -r 's/\s+/ /g ; s/^(export [a-z][a-z0-9_]+=")\s+/\1/i' | \
+		grep -v -e '^export [a-z_]' -e '=""$' \
 	>> "${ROOT}"/usr/libexec/environment.sh
 test -e "${ROOT}"/usr/libexec/environment.sh || warn "'${ROOT%/}/usr/libexec/environment.sh' does not exist"
 test -s "${ROOT}"/usr/libexec/environment.sh || warn "'${ROOT%/}/usr/libexec/environment.sh' is empty"
