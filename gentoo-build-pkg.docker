@@ -68,6 +68,8 @@ else
 	# Add a prefix so that host.use can override package.use...
 	test -f /etc/portage/package.use/package.use && test -s /etc/portage/package.use/package.use &&
 		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/package.use,destination=/etc/portage/package.use/aa-package.use${docker_readonly:+,${docker_readonly}}"
+	test -f /etc/portage/package.use/package.use.local && test -s /etc/portage/package.use/package.use.local &&
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/package.use.local,destination=/etc/portage/package.use/ab-package.use.local${docker_readonly:+,${docker_readonly}}"
 	test -f /etc/portage/package.use/host.use && test -s /etc/portage/package.use/host.use &&
 		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/host.use,destination=/etc/portage/package.use/zz-host.use${docker_readonly:+,${docker_readonly}}"
 	while read -r targets; do
