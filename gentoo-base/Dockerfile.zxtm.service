@@ -69,8 +69,8 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
     export -p | \
             grep -- '=' | \
             grep -Ev -- "${environment_filter}" | \
-            sed -r 's/\s+/ /g' | \
-            grep -v '^export [a-z_]' \
+            sed -r 's/\s+/ /g ; s/^(export [a-z][a-z0-9_]+=")\s+/\1/i' | \
+            grep -v -e '^export [a-z_]' -e '=""$' \
         >> "${ROOT}"/usr/libexec/environment.sh && \
     grep >&2 -- ' ROOT=' "${ROOT}"/usr/libexec/environment.sh && { \
             printf >&2 "Invalid 'ROOT' directive in '%s/usr/libexec/environment.sh':\n\n%s\n\n" "${ROOT%/}" "$( < "${ROOT}"/usr/libexec/environment.sh )" ; \
