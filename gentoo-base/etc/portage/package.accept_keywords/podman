@@ -46,8 +46,9 @@
 #~app-emulation/buildah-1.20.1				 **
 #~app-emulation/buildah-1.21.0				 **
 #~app-emulation/buildah-1.21.1				 **
-~app-emulation/buildah-1.21.2				 **
+#~app-emulation/buildah-1.21.2				 **
 ~app-emulation/buildah-1.21.3				 **
+~app-emulation/buildah-1.22.0				 **
 
 #~net-misc/cni-plugins-0.8.7				 **
 #~net-misc/cni-plugins-0.9.0				 **
@@ -86,8 +87,11 @@
 #~app-emulation/containers-storage-1.32.0		 **
 #~app-emulation/containers-storage-1.32.1		 **
 #~app-emulation/containers-storage-1.32.2		 **
-~app-emulation/containers-storage-1.32.3		 **
-~app-emulation/containers-storage-1.33.0		 **
+#~app-emulation/containers-storage-1.32.3		 **
+#~app-emulation/containers-storage-1.33.0		 **
+#~app-emulation/containers-storage-1.33.1		 **
+~app-emulation/containers-storage-1.33.2		 **
+~app-emulation/containers-storage-1.34.0		 **
 
 # originally required by app-emulation/podman-1.9.3
 #~app-emulation/conmon-2.0.20				 **
@@ -106,9 +110,10 @@
 #~app-emulation/slirp4netns-1.1.6			 **
 #~app-emulation/slirp4netns-1.1.7			 **
 #~app-emulation/slirp4netns-1.1.8			 **
-~app-emulation/slirp4netns-1.1.9			 **
-~app-emulation/slirp4netns-1.1.10			 **
+#~app-emulation/slirp4netns-1.1.9			 **
+#~app-emulation/slirp4netns-1.1.10			 **
 ~app-emulation/slirp4netns-1.1.11			 **
+~app-emulation/slirp4netns-1.1.12			 **
 ~net-libs/libslirp-4.3.1				 **
 
 # originally required by app-emulation/podman-1.9.3[fuse]
@@ -125,7 +130,8 @@
 #~app-emulation/skopeo-1.2.1				 **
 #~app-emulation/skopeo-1.2.2				 **
 #~app-emulation/skopeo-1.2.3				 **
-~app-emulation/skopeo-1.3.0				 **
+#~app-emulation/skopeo-1.3.0				 **
 ~app-emulation/skopeo-1.3.1				 **
+~app-emulation/skopeo-1.4.0				 **
 
 # vi: set syntax=gentoo-package-keywords:
