@@ -1,56 +1,58 @@
 #! /usr/bin/env bash
 
-# Tiny
-#: "${PODMAN_MEMORY_RESERVATION:=256m}"
-#: "${PODMAN_MEMORY_LIMIT:=512m}"
-#: "${PODMAN_SWAP_LIMIT:=1g}"
-# Small
-#: "${PODMAN_MEMORY_RESERVATION:=512m}"
-#: "${PODMAN_MEMORY_LIMIT:=1g}"
-#: "${PODMAN_SWAP_LIMIT:=2g}"
-# Medium
-#: "${PODMAN_MEMORY_RESERVATION:=1g}"
-#: "${PODMAN_MEMORY_LIMIT:=2g}"
-#: "${PODMAN_SWAP_LIMIT:=4g}"
-# Large
-: "${PODMAN_MEMORY_RESERVATION:=2g}"
-: "${PODMAN_MEMORY_LIMIT:=4g}"
-: "${PODMAN_SWAP_LIMIT:=8g}"
-# Extra-Large
-#: "${PODMAN_MEMORY_RESERVATION:=4g}"
-#: "${PODMAN_MEMORY_LIMIT:=8g}"
-#: "${PODMAN_SWAP_LIMIT:=16g}"
+if [[ -z "${NO_MEMORY_LIMITS:-}" ]]; then
+	# Tiny
+	#: "${PODMAN_MEMORY_RESERVATION:=256m}"
+	#: "${PODMAN_MEMORY_LIMIT:=512m}"
+	#: "${PODMAN_SWAP_LIMIT:=1g}"
+	# Small
+	#: "${PODMAN_MEMORY_RESERVATION:=512m}"
+	#: "${PODMAN_MEMORY_LIMIT:=1g}"
+	#: "${PODMAN_SWAP_LIMIT:=2g}"
+	# Medium
+	#: "${PODMAN_MEMORY_RESERVATION:=1g}"
+	#: "${PODMAN_MEMORY_LIMIT:=2g}"
+	#: "${PODMAN_SWAP_LIMIT:=4g}"
+	# Large
+	: "${PODMAN_MEMORY_RESERVATION:=2g}"
+	: "${PODMAN_MEMORY_LIMIT:=4g}"
+	: "${PODMAN_SWAP_LIMIT:=8g}"
+	# Extra-Large
+	#: "${PODMAN_MEMORY_RESERVATION:=4g}"
+	#: "${PODMAN_MEMORY_LIMIT:=8g}"
+	#: "${PODMAN_SWAP_LIMIT:=16g}"
 
-declare -i swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) + 16 ) / 1024 / 1024 ))
-declare -i ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
-declare -i changed=0
-if (( ram < ${PODMAN_MEMORY_LIMIT%g} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
-	echo >&2 "INFO:  Host resources (rounded down to nearest 1GiB):"
-	echo >&2 "         RAM:        ${ram}G"
-	echo >&2 "         Swap:       ${swp}G"
-	echo >&2 "INFO:  Original memory limits:"
-	echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
-	echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
-	echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
+	declare -i swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) + 16 ) / 1024 / 1024 ))
+	declare -i ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
+	declare -i changed=0
+	if (( ram < ${PODMAN_MEMORY_LIMIT%g} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
+		echo >&2 "INFO:  Host resources (rounded down to nearest 1GiB):"
+		echo >&2 "         RAM:        ${ram}G"
+		echo >&2 "         Swap:       ${swp}G"
+		echo >&2 "INFO:  Original memory limits:"
+		echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
+		echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
+		echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
+	fi
+	if (( ram < ${PODMAN_MEMORY_LIMIT%g} )); then
+		PODMAN_MEMORY_RESERVATION="$(( ram - 1 ))g"
+		PODMAN_MEMORY_LIMIT="$(( ram ))g"
+		PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+		changed=1
+	fi
+	if (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
+		PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+		changed=1
+	fi
+	if (( changed )); then
+		echo >&2 "NOTE:  Changed memory limits based on host configuration:"
+		echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
+		echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
+		echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
+		echo >&2
+	fi
+	unset changed ram swp
 fi
-if (( ram < ${PODMAN_MEMORY_LIMIT%g} )); then
-	PODMAN_MEMORY_RESERVATION="$(( ram - 1 ))g"
-	PODMAN_MEMORY_LIMIT="$(( ram ))g"
-	PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
-	changed=1
-fi
-if (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
-	PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
-	changed=1
-fi
-if (( changed )); then
-	echo >&2 "NOTE:  Changed memory limits based on host configuration:"
-	echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
-	echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
-	echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
-	echo >&2
-fi
-unset changed ram swp
 
 #debug="${DEBUG:-}"
 trace="${TRACE:-}"

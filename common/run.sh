@@ -601,45 +601,47 @@ docker_run() {
 		  ${DOCKER_VOLUMES:-}
 		  ${DOCKER_HOSTNAME:+--hostname ${DOCKER_HOSTNAME}}
 	)
-	if [[ -r /proc/cgroups ]] && grep -q -- '^memory.*1$' /proc/cgroups &&
-		[[ -n "${PODMAN_MEMORY_RESERVATION:-}" || -n "${PODMAN_MEMORY_LIMIT}" || -n "${PODMAN_SWAP_LIMIT}" ]]
-	then
-		local -i swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) + 16 ) / 1024 / 1024 ))
-		local -i ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
-		local -i changed=0
-		if (( ram < ${PODMAN_MEMORY_LIMIT%g} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
-			echo >&2 "INFO:  Host resources (rounded down to nearest 1GiB):"
-			echo >&2 "         RAM:        ${ram}G"
-			echo >&2 "         Swap:       ${swp}G"
-			echo >&2 "INFO:  Original memory limits:"
-			echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
-			echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
-			echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
-		fi
-		if (( ram < ${PODMAN_MEMORY_LIMIT%g} )); then
-			PODMAN_MEMORY_RESERVATION="$(( ram - 1 ))g"
-			PODMAN_MEMORY_LIMIT="$(( ram ))g"
-			PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
-			changed=1
-		fi
-		if (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
-			PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
-			changed=1
-		fi
-		if (( changed )); then
-			echo >&2 "NOTE:  Changed memory limits based on host configuration:"
-			echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
-			echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
-			echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
-			echo >&2
-		fi
-		unset changed ram swp
+	if [[ -z "${NO_MEMORY_LIMITS:-}" ]]; then
+		if [[ -r /proc/cgroups ]] && grep -q -- '^memory.*1$' /proc/cgroups &&
+			[[ -n "${PODMAN_MEMORY_RESERVATION:-}" || -n "${PODMAN_MEMORY_LIMIT}" || -n "${PODMAN_SWAP_LIMIT}" ]]
+		then
+			local -i swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) + 16 ) / 1024 / 1024 ))
+			local -i ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
+			local -i changed=0
+			if (( ram < ${PODMAN_MEMORY_LIMIT%g} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
+				echo >&2 "INFO:  Host resources (rounded down to nearest 1GiB):"
+				echo >&2 "         RAM:        ${ram}G"
+				echo >&2 "         Swap:       ${swp}G"
+				echo >&2 "INFO:  Original memory limits:"
+				echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
+				echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
+				echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
+			fi
+			if (( ram < ${PODMAN_MEMORY_LIMIT%g} )); then
+				PODMAN_MEMORY_RESERVATION="$(( ram - 1 ))g"
+				PODMAN_MEMORY_LIMIT="$(( ram ))g"
+				PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+				changed=1
+			fi
+			if (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
+				PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+				changed=1
+			fi
+			if (( changed )); then
+				echo >&2 "NOTE:  Changed memory limits based on host configuration:"
+				echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
+				echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
+				echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
+				echo >&2
+			fi
+			unset changed ram swp
 
-		runargs+=(
-			${PODMAN_MEMORY_RESERVATION:+--memory-reservation ${PODMAN_MEMORY_RESERVATION}}
-			${PODMAN_MEMORY_LIMIT:+--memory ${PODMAN_MEMORY_LIMIT}}
-			${PODMAN_SWAP_LIMIT:+--memory-swap ${PODMAN_SWAP_LIMIT}}
-		)
+			runargs+=(
+				${PODMAN_MEMORY_RESERVATION:+--memory-reservation ${PODMAN_MEMORY_RESERVATION}}
+				${PODMAN_MEMORY_LIMIT:+--memory ${PODMAN_MEMORY_LIMIT}}
+				${PODMAN_SWAP_LIMIT:+--memory-swap ${PODMAN_SWAP_LIMIT}}
+			)
+		fi
 	fi
 	if [ -z "${NO_BUILD_MOUNTS:-}" ]; then
 		local -a mirrormountpoints=()
