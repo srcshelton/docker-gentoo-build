@@ -108,6 +108,25 @@ fi
 #unset pkg
 #set -- "${@}" --pre-use='-lz4 internal-glib'
 
+prepkg=''
+preuse=''
+for arg in "${@:-}"; do
+	case "$( echo "${arg}" | sed -r 's/^[<>]?=?//' )" in
+		media-libs/freetype|freetype|media-libs/freetype-*|freetype-*)
+			prepkg="${prepkg:+${prepkg} }${arg}"
+			preuse="${preuse:+${preuse} }-harfbuzz"
+			;;
+	esac
+done
+if [ -n "${prepkg:-}" ]; then
+	note >&2 "Adding pre-build package(s) '${prepkg}' to resolve depenency loops ..."
+	set -- "${@}" --pre-pkgs="${prepkg}"
+fi
+if [ -n "${preuse:-}" ]; then
+	note >&2 "Adding pre-build USE flag(s) '${preuse}' to resolve depenency loops ..."
+	set -- "${@}" --pre-use="${preuse}"
+fi
+
 # Provide a '--name' to prevent the container being removed on exit.
 # Invoke with '--usepkg=n' to rebuild existing packages...
 
