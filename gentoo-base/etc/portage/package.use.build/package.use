@@ -8,7 +8,7 @@
 */*					 encode expat
 */*					-fontconfig -fortran fam fftw filecaps ftp
 */*					-gnutls -gpm -graph -gtk -gtk3 -guile gd gdbm gmp
-*/*					-introspection icu idn iodbc ipv6 ithreads
+*/*					-introspection icu idn inotify iodbc ipv6 ithreads
 */*					-java javascript jemalloc json
 */*					-kerberos
 */*					-ldap -lua libatomic libedit libffi libidn2 libwww lighttpd lz4 lzma lzo
