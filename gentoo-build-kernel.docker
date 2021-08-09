@@ -343,7 +343,7 @@ fi
 if ! [ "$( $docker image list "${container_name%-${package_version}}.${compiler}:${package_version}" | wc -l )" = '2' ]; then
 	(
 		ACCEPT_LICENSE="linux-fw-redistributable no-source-code"
-		USE="-lib-only extra-filters hostname lzma symlink threads zlib${compiler_USE:+ ${compiler_USE}}"
+		USE="-lib-only extra-filters firmware hostname lzma symlink threads zlib${compiler_USE:+ ${compiler_USE}}"
 		export ACCEPT_LICENSE USE
 
 		name="${container_name}-${compiler}"
