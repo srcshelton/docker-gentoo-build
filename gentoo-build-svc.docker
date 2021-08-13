@@ -886,15 +886,29 @@ case "${package_name}" in
 		;;
 	*unifi*)
 		output "Setting build variales for package 'unifi-controller-bin' ..."
-		CFLAGS="${CFLAGS:+${CFLAGS} }-w"  # mongodb is *really* noisy...
 		#EMERGE_OPTS='--single --swap'  # Merge packages one at a time, for debug purposes
 
 		# shellcheck disable=SC2034
 		ECLASS_OVERRIDE='unifi'  # consumed in common/run.sh
 
-		masked_packages='app-misc/pax-utils sys-apps/file sys-apps/util-linux' # sys-apps/portage
+		gcc_use="-fortran -graphite nptl openmp pch sanitize ssp vtv zstd"
+		# Look for "build" gcc USE-flags in package.use only (or use defaults above) ...
+		if [ -s /etc/portage/package.use/package.use ]; then
+			gcc_use="$(
+				sed 's/#.*$//' /etc/portage/package.use/package.use |
+				tr -s '[:space:]' |
+				grep -E '^\s?([<>=~]=?)?sys-devel/gcc' |
+				cut -f 2- |
+				xargs -n 1 echo |
+				sort |
+				uniq
+			)"
+		fi
+
+		masked_packages='sys-apps/file sys-apps/util-linux' # sys-apps/portage
 		export L10N='en'
-		pre_use='headless-awt'
+		export CFLAGS="${CFLAGS:+${CFLAGS} }-w"  # mongodb is *really* noisy...
+		pre_use="headless-awt ${gcc_use}"
 		force_python='python2_7'
 		#pre_pkgs='dev-java/openjdk-bin:8 dev-lang/python:2.7 sys-devel/gcc'
 		pre_pkgs="${masked_packages} sys-devel/gcc"
