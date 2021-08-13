@@ -109,13 +109,16 @@ fi
 #set -- "${@}" --pre-use='-lz4 internal-glib'
 
 prepkg=''
-preuse=''
+preuse="${PREUSE:-}"
 for arg in "${@:-}"; do
 	case "$( echo "${arg}" | sed -r 's/^[<>]?=?//' )" in
 		media-libs/freetype|freetype|media-libs/freetype-*|freetype-*)
 			prepkg="${prepkg:+${prepkg} }${arg}"
 			preuse="${preuse:+${preuse} }-harfbuzz"
 			;;
+		#sys-libs/glibc|glibc|sys-libs/glibc-*|glibc-*)
+		#	prepkg="${prepkg:+${prepkg} }${arg}"
+		#	;;
 	esac
 done
 if [ -n "${prepkg:-}" ]; then

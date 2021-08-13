@@ -657,6 +657,9 @@ docker_run() {
 			default_distdir_path='/var/cache/portage/dist'
 			default_pkgdir_path='/var/cache/portage/pkg'
 		fi
+		if [ -n "${PKGDIR_OVERRIDE:-}" ]; then
+			default_pkgdir_path="${PKGDIR_OVERRIDE}"
+		fi
 
 		# shellcheck disable=SC2046,SC2207
 		mirrormountpointsro=(
@@ -680,8 +683,8 @@ docker_run() {
 		fi
 
 		#ENV PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
-		local PKGCACHE="${PKGCACHE:=/var/cache/portage/pkg}"
-		local PKGHOST="${PKGHOST:=docker}"
+		#local PKGCACHE="${PKGCACHE:=/var/cache/portage/pkg}"
+		#local PKGHOST="${PKGHOST:=docker}"
 		local PKGDIR="${PKGDIR:=${default_pkgdir_path:-$( portageq pkgdir )}}"
 
 		# Allow use of 'ARCH' variable as an override...
