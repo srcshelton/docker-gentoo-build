@@ -21,7 +21,7 @@ unset -v ARCH
 # significant since they'll affect the compiler facilities available to all
 # packages built later...
 # FIXME: Source these flags from package.use
-gcc_use="graphite nptl openmp pch sanitize ssp vtv zstd"
+gcc_use="-fortran graphite nptl openmp pch sanitize ssp vtv zstd"
 
 die() {
 	printf >&2 'FATAL: %s\n' "${*:-Unknown error}"

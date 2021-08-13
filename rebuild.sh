@@ -27,7 +27,7 @@ fi
 #	export IMAGE_ROOT="${tmp}"
 #fi
 
-kbuild_opt="${kbuild_opt:---config /proc/config.gz --keep-build --clang --llvm-unwind}"
+kbuild_opt="${kbuild_opt:---config-from=/proc/config.gz --keep-build --no-patch --clang --llvm-unwind}"
 arg=''
 all=0
 force=0
@@ -184,7 +184,7 @@ if [ "${update:-0}" = '1' ]; then
 	#stdbuf -i0 -o0 awk 'BEGIN { RS = null ; ORS = "\n\n" } 1' |
 	#tee log/buildpkg.hostpkgs.update.log
 
-	gcc_use="-graphite nptl openmp pch sanitize ssp vtv zstd"
+	gcc_use="-fortran -graphite nptl openmp pch sanitize ssp vtv zstd"
 	# Look for "build" gcc USE-flags in package.use only (or use defaults above) ...
 	if [ -s /etc/portage/package.use/package.use ]; then
 		gcc_use="$(
