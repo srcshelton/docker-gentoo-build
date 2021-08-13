@@ -250,8 +250,14 @@ if [ -n "${config:-}" ]; then
 			fi
 		else
 			if [ "${build:-}" = '1' ]; then
-				cp "${config}" "${build_dir}"/.config || die "File copy failed: ${?}"
-				config="${build_dir}/.config"
+				if ! file "${config}" >/dev/null 2>&1; then
+					die "configuration file '${config}' is unreadable or missing"
+				elif file "${config}" 2>&1 | grep -Fq -- 'gzip compressed data'; then
+					die "configuration file '${config}' is compressed"
+				else
+					cp "${config}" "${build_dir}"/.config || die "File copy failed: ${?}"
+					config="${build_dir}/.config"
+				fi
 			fi
 		fi
 		config="$( readlink -e "${config}" )"
