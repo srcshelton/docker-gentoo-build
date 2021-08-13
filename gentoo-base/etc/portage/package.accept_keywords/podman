@@ -53,6 +53,7 @@
 #~net-misc/cni-plugins-0.8.7				 **
 #~net-misc/cni-plugins-0.9.0				 **
 ~net-misc/cni-plugins-0.9.1				 **
+~net-misc/cni-plugins-1.0.0				 **
 
 #~app-emulation/crun-0.14.1				 **
 #~app-emulation/crun-0.15				 **
