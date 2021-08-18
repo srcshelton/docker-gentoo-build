@@ -226,6 +226,7 @@ www-misc/monitorix			 hddtemp postfix
 www-servers/lighttpd			-memcached fastcgi libev memcache uploadprogress webdav
 >=www-servers/lighttpd-1.4.58		 dbi  # webdav requires sqlite, which now requires dbi
 x11-libs/cairo				-X cleartype lcdfilter
+virtual/mta				 ssmtp
 
 app-shells/stdlib			 colour
 mail-client/roundcube::srcshelton	 plugins zxcvbn
