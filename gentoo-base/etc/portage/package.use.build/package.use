@@ -46,8 +46,8 @@ app-admin/sysstat			 lm-sensors
 app-admin/ulogd				 nfacct pcap
 app-arch/libarchive			 acl e2fsprogs iconv nettle
 #app-arch/unzip				 natspec
-app-benchmarks/bootchart2		-X
 app-benchmarks/bootchart		 acct
+app-benchmarks/bootchart2		-X
 app-crypt/gnupg				-ssl ecc idea mta
 #app-crypt/gpgme			-python  # Requires dev-lang/swig, but only as a BDEPEND
 app-editors/vim				-cscope -sound terminal vim-pager
@@ -139,7 +139,7 @@ net-dns/bind				-geoip -idn -mysql -odbc dnstap filter-aaaa lmdb nslint rpz
 net-dns/bind-tools			-gssapi -idn pkcs11
 net-dns/unbound				 dnscrypt dnstap ecs
 net-firewall/iptables			-extensions -imq -l7filter conntrack netlink nftables pcap xlate
-net-firewall/nftables			 xtables
+net-firewall/nftables			-readline xtables
 net-fs/cifs-utils			-acl -ads -caps caps-ng creds upcall
 net-fs/nfs-utils			 junction nfsdcld nfsidmap nfsv41
 net-fs/samba				-avahi async automount ldb libclamav oav quota quotas smbsharemodes smbtav2 swat winbind

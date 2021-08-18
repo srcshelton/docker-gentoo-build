@@ -1,6 +1,6 @@
 
 dev-perl/DBD-mysql			 mysql
-mail-filter/opendmarc			 reports spf
+mail-filter/opendmarc			 milter reports spf
 
 virtual/mail-mta			 no-mta
 #virtual/mail-mta			 msmtp
