@@ -24,6 +24,9 @@
 #~app-emulation/podman-3.2.2				 **
 ~app-emulation/podman-3.2.3				 **
 #~app-emulation/podman-3.2.9999				 **
+#~app-emulation/podman-3.3.0_rc1			 **
+#~app-emulation/podman-3.3.0_rc2			 **
+~app-emulation/podman-3.3.0_rc3				 **
 
 #~app-emulation/buildah-1.16.0				 **
 #~app-emulation/buildah-1.16.1				 **
@@ -91,8 +94,9 @@
 #~app-emulation/containers-storage-1.32.3		 **
 #~app-emulation/containers-storage-1.33.0		 **
 #~app-emulation/containers-storage-1.33.1		 **
-~app-emulation/containers-storage-1.33.2		 **
+#~app-emulation/containers-storage-1.33.2		 **
 ~app-emulation/containers-storage-1.34.0		 **
+~app-emulation/containers-storage-1.34.1		 **
 
 # originally required by app-emulation/podman-1.9.3
 #~app-emulation/conmon-2.0.20				 **
