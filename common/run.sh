@@ -835,7 +835,7 @@ docker_run() {
 # Invokes container launch with package-build arguments
 #
 docker_build_pkg() {
-	[ -n "${USE:-}" ] && info "USE override: '${USE}'"
+	[ -n "${USE:-}" ] && info "USE override: '$( echo "${USE}" | xargs echo -n )'"
 
 	# shellcheck disable=SC2016
 	info "Building package '${package}' ${extra[*]+plus additional packages '${extra[*]}' }into container '${name:-${container_name}}' ..."
