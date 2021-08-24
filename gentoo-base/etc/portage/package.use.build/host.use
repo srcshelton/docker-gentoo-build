@@ -9,7 +9,7 @@ container/dovecot			 managesieve sieve
 container/mariadb			 server
 
 # backup extraengine innodb-lz4 innodb-lzo innodb-snappy jemalloc odbc oqgraph pam perl sphinx tokudb xml
-dev-db/mariadb				-* backup bindist
+dev-db/mariadb				-* bindist  # avoid sys-libs/binutils-libs dependency
 
 dev-lang/perl				 minimal # -perl-cleaner
 # Avoid additional perl dependencies

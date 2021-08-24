@@ -60,9 +60,13 @@ app-misc/screen				 multiuser
 app-portage/eix				 tools
 app-text/dictd				 judy
 app-text/enchant			-aspell
-dev-db/mariadb				-tcmalloc client-libs extraengine innodb-lz4 innodb-lzo innodb-snappy oqgraph sphinx tokudb
-dev-db/mysql				 big-tables community extraengine max-idx-128 pbxt profiling xtradb
->dev-db/mysql-5.1.50			-max-idx-128 big-tables community extraengine pbxt profiling xtradb
+# mariadb and mysql are unusual in that the same ebuild can provide only client
+# or only server binaries.  The flags below are suitable for a server build,
+# which never uses this file any more - client-only overrides are in host.use
+# whilst server flags are now in the mariadb service-flags file.
+#dev-db/mariadb				-tcmalloc client-libs extraengine innodb-lz4 innodb-lzo innodb-snappy oqgraph sphinx tokudb
+#dev-db/mysql				 big-tables community extraengine max-idx-128 pbxt profiling xtradb
+#>dev-db/mysql-5.1.50			-max-idx-128 big-tables community extraengine pbxt profiling xtradb
 dev-db/redis				-tcmalloc luajit  # Only one of jemalloc || tcmalloc may be active
 dev-db/sqlite				 extensions fts3 secure-delete soundex unlock-notify
 dev-java/gjdoc				 xmldoclet
