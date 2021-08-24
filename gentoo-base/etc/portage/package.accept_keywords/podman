@@ -26,7 +26,8 @@
 #~app-emulation/podman-3.2.9999				 **
 #~app-emulation/podman-3.3.0_rc1			 **
 #~app-emulation/podman-3.3.0_rc2			 **
-~app-emulation/podman-3.3.0_rc3				 **
+#~app-emulation/podman-3.3.0_rc3			 **
+#~app-emulation/podman-3.3.0				 **
 
 #~app-emulation/buildah-1.16.0				 **
 #~app-emulation/buildah-1.16.1				 **
@@ -50,8 +51,11 @@
 #~app-emulation/buildah-1.21.0				 **
 #~app-emulation/buildah-1.21.1				 **
 #~app-emulation/buildah-1.21.2				 **
-~app-emulation/buildah-1.21.3				 **
-~app-emulation/buildah-1.22.0				 **
+#~app-emulation/buildah-1.21.3				 **
+#~app-emulation/buildah-1.22.0				 **
+~app-emulation/buildah-1.22.1				 **
+#~app-emulation/buildah-1.22.2				 **
+~app-emulation/buildah-1.22.3				 **
 
 #~net-misc/cni-plugins-0.8.7				 **
 #~net-misc/cni-plugins-0.9.0				 **
@@ -74,8 +78,9 @@
 #~app-emulation/runc-1.0.0_rc93				 **
 #~app-emulation/runc-1.0.0_rc94				 **  # CVE-2021-30465
 #~app-emulation/runc-1.0.0_rc95				 **
-~app-emulation/runc-1.0.0				 **
+#~app-emulation/runc-1.0.0				 **
 ~app-emulation/runc-1.0.1				 **
+~app-emulation/runc-1.0.2				 **
 
 #~app-emulation/containers-storage-1.27.0		 **
 #~app-emulation/containers-storage-1.28.0		 **
@@ -136,7 +141,8 @@
 #~app-emulation/skopeo-1.2.2				 **
 #~app-emulation/skopeo-1.2.3				 **
 #~app-emulation/skopeo-1.3.0				 **
-~app-emulation/skopeo-1.3.1				 **
+#~app-emulation/skopeo-1.3.1				 **
 ~app-emulation/skopeo-1.4.0				 **
+~app-emulation/skopeo-1.4.1				 **
 
 # vi: set syntax=gentoo-package-keywords:
