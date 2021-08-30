@@ -13,3 +13,4 @@
 */*					 CURL_SSL: openssl
 
 dev-lang/python-exec			 native-symlinks
+dev-util/pkgconf			 pkg-config
