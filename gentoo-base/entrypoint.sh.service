@@ -43,8 +43,9 @@ fi
 if [ -n "${uid:-}" ] && [ "${uid}" = '0' ]; then
 	if hostname="$( hostname -s 2>/dev/null )"; then
 		if ! grep -qw -- "${hostname}" /etc/hosts; then
-			print "Adding hostname '${hostname}' to /etc/hosts ..."
-			sed -i "/^[1-9:]/ s/\([[:space:]]\)localhost\([[:space:]]\|$\)/\1localhost ${hostname}\2/g" /etc/hosts
+			print "Adding hostname alias '${hostname}' to /etc/hosts ..."
+			sed -i "/^[1-9:]/ s/\([[:space:]]\)localhost\([[:space:]]\|$\)/\1localhost ${hostname}\2/g" /etc/hosts 2>/dev/null ||
+			printf '%s\n%s\n' "127.0.0.1 localhost ${hostname}" "::1 localhost ${hostname}" >> /etc/hosts 2>/dev/null || :
 		fi
 	fi
 	unset hostname
