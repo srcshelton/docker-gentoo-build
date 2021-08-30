@@ -71,8 +71,9 @@
 #~app-emulation/crun-0.19				 **
 #~app-emulation/crun-0.19.1				 **
 #~app-emulation/crun-0.20				 **
-~app-emulation/crun-0.20.1				 **
+#~app-emulation/crun-0.20.1				 **
 ~app-emulation/crun-0.21				 **
+~app-emulation/crun-1.0				 **
 
 #~app-emulation/runc-1.0.0_rc92				 **
 #~app-emulation/runc-1.0.0_rc93				 **
@@ -100,8 +101,9 @@
 #~app-emulation/containers-storage-1.33.0		 **
 #~app-emulation/containers-storage-1.33.1		 **
 #~app-emulation/containers-storage-1.33.2		 **
-~app-emulation/containers-storage-1.34.0		 **
+#~app-emulation/containers-storage-1.34.0		 **
 ~app-emulation/containers-storage-1.34.1		 **
+~app-emulation/containers-storage-1.35.0		 **
 
 # originally required by app-emulation/podman-1.9.3
 #~app-emulation/conmon-2.0.20				 **
