@@ -20,7 +20,7 @@
 #~app-emulation/podman-3.2.0_rc2			 **
 #~app-emulation/podman-3.2.0_rc3			 **
 #~app-emulation/podman-3.2.0				 **
-~app-emulation/podman-3.2.1				 **
+#~app-emulation/podman-3.2.1				 **
 #~app-emulation/podman-3.2.2				 **
 ~app-emulation/podman-3.2.3				 **
 #~app-emulation/podman-3.2.9999				 **
@@ -28,6 +28,7 @@
 #~app-emulation/podman-3.3.0_rc2			 **
 #~app-emulation/podman-3.3.0_rc3			 **
 #~app-emulation/podman-3.3.0				 **
+~app-emulation/podman-3.3.1				 **
 
 #~app-emulation/buildah-1.16.0				 **
 #~app-emulation/buildah-1.16.1				 **
