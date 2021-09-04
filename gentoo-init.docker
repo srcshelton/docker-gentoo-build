@@ -175,6 +175,42 @@ checkids() {
 # Check for environment sanity...
 if ! command -v portageq >/dev/null 2>&1; then
 	warn "Not running on Gentoo host system, not checking eclass overrides"
+
+	for dir in /etc/portage/repos.conf; do
+		mkdir -p "${dir}" || die "mkdir() on '${dir}' failed: ${?}"
+	done
+	for cfg in DEFAULT.conf gentoo.conf srcshelton.conf; do
+		[ -s /etc/portage/repos.conf/${cfg} ] ||
+			cp -v etc/portage/repos.conf/${cfg} /etc/portage/repos.conf/
+	done
+	# FIXME: Hardcoded paths, use repos.conf
+	if [ ! -d /var/db/repo/gentoo ] && [ ! -d /var/db/repos/gentoo ]; then
+		for dir in /var/db/repo{,s} /var/db; do
+			if [ -d "${dir}" ]; then
+				if ! [ $(( df --block-size=1G --output=avail "${dir}" | tail -n 1 )) -ge 2 ]; then
+					die "Insufficient filesystem space to download Gentoo Portage repo: 2GB required"
+				fi
+				break
+			fi
+		done
+		command -v git >/dev/null 2>&1 || die "required binary 'git' missing"
+		note "Creating local Gentoo Portage repo mirror at '/var/db/repo/gentoo' ..."
+		for dir in /var/db/repo; do
+			mkdir -p "${dir}" || die "mkdir() on '${dir}' failed: ${?}"
+		done
+		git clone https://github.com/gentoo/gentoo.git /var/db/repo/gentoo || die "git 'clone' operation failed: ${?}"
+	fi
+	if [ ! -d /var/db/repo/srcshelton ] && [ ! -d /var/db/repos/srcshelton ]; then
+		command -v git >/dev/null 2>&1 || die "required binary 'git' missing"
+		note "Creating custom packages repo mirror at '/var/db/repo/srcshelton' ..."
+		for dir in /var/db/repo; do
+			mkdir -p "${dir}" || die "mkdir() on '${dir}' failed: ${?}"
+		done
+		git clone https://github.com/srcshelton/gentoo-ebuilds.git /var/db/repo/srcshelton || die "git 'clone' operation failed: ${?}"
+	fi
+	for dir in /var/cache/portage/dist /var/log/portage /var/cache/portage/pkg; do
+		mkdir -p "${dir}" || die "mkdir() on '${dir}' failed: ${?}"
+	done
 else
 	rc=0
 	while read -r r; do
@@ -511,6 +547,8 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 		if command -v portageq >/dev/null 2>&1; then
 			portageq get_repos / | grep -Fq -- 'srcshelton' &&
 				post+=' sys-apps/gentoo-functions::srcshelton'
+		else
+			post+=' sys-apps/gentoo-functions::srcshelton'
 		fi
 		# shellcheck disable=SC2030
 		export name="${base_name#*/}"

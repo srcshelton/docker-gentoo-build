@@ -653,9 +653,12 @@ docker_run() {
 		local default_repo_path='' default_distdir_path='' default_pkgdir_path=''
 
 		if ! type -pf portageq >/dev/null 2>&1; then
-			default_repo_path='/var/db/repos/gentoo'
+			default_repo_path='/var/db/repos/gentoo /var/db/repos/srcshelton'
 			default_distdir_path='/var/cache/portage/dist'
 			default_pkgdir_path='/var/cache/portage/pkg'
+			if [ ! -d /var/db/repos/gentoo ] && [ -d /var/db/repo/gentoo ]; then
+				default_repo_path='/var/db/repo/gentoo /var/db/repo/srcshelton'
+			fi
 		fi
 		if [ -n "${PKGDIR_OVERRIDE:-}" ]; then
 			default_pkgdir_path="${PKGDIR_OVERRIDE}"
@@ -704,7 +707,7 @@ docker_run() {
 
 		for mp in ${mirrormountpointsro[@]+"${mirrormountpointsro[@]}"}; do
 			[ -n "${mp:-}" ] || continue
-			src="$( readlink -e "${mp}" )" || die "readlink() on '${mp}' failed: ${?}"
+			src="$( readlink -e "${mp}" )" || die "readlink() on mirrored read-only mountpoint '${mp}' failed: ${?}"
 			if [ -z "${src:-}" ]; then
 				warn "Skipping mountpoint '${mp}'"
 				: $(( skipped = skipped + 1 ))
@@ -714,7 +717,7 @@ docker_run() {
 		done
 		for mp in ${mirrormountpoints[@]+"${mirrormountpoints[@]}"}; do
 			[ -n "${mp:-}" ] || continue
-			src="$( readlink -e "${mp}" )" || die "readlink() on '${mp}' failed: ${?}"
+			src="$( readlink -e "${mp}" )" || die "readlink() on mirrored mountpoint '${mp}' failed: ${?}"
 			if [ -z "${src:-}" ]; then
 				warn "Skipping mountpoint '${mp}'"
 				: $(( skipped = skipped + 1 ))
@@ -724,7 +727,7 @@ docker_run() {
 		done
 		for mp in ${mountpointsro[@]+"${!mountpointsro[@]}"}; do
 			[ -n "${mp:-}" ] || continue
-			src="$( readlink -e "${mp}" )" || die "readlink() on '${mp}' failed: ${?}"
+			src="$( readlink -e "${mp}" )" || die "readlink() on read-only mountpoint '${mp}' failed: ${?}"
 			if [ -z "${src:-}" ]; then
 				warn "Skipping mountpoint '${mp}' -> '${mountpointsro[${mp}]}'"
 				: $(( skipped = skipped + 1 ))
@@ -734,7 +737,7 @@ docker_run() {
 		done
 		for mp in ${mountpoints[@]+"${!mountpoints[@]}"}; do
 			[ -n "${mp:-}" ] || continue
-			src="$( readlink -e "${mp}" )" || die "readlink() on '${mp}' failed (do you need to set 'PKGDIR'?): ${?}"
+			src="$( readlink -e "${mp}" )" || die "readlink() on mountpoint '${mp}' failed (do you need to set 'PKGDIR'?): ${?}"
 			if [ -z "${src:-}" ]; then
 				warn "Skipping mountpoint '${mp}' -> '${mountpoints[${mp}]}'"
 				: $(( skipped = skipped + 1 ))

@@ -491,6 +491,48 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 fi
 
+echo
+echo
+echo " * Installing stage3 'sys-kernel/gentoo-sources' kernel source package ..."
+echo
+
+# Some packages require prepared kernel sources ...
+#
+(
+	USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 ) symlink"
+	export USE
+	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+	export LC_ALL='C'
+	# shellcheck disable=SC2086
+	emerge \
+			--ignore-default-opts \
+			--binpkg-changed-deps=y \
+			--binpkg-respect-use=y \
+			--buildpkg=n \
+			--color=y \
+			--keep-going=y \
+			--quiet-build=y \
+			${opts:-} \
+			--usepkg=y \
+			--verbose=y \
+			--verbose-conflicts \
+			--with-bdeps=n \
+			--with-bdeps-auto=n \
+		sys-kernel/gentoo-sources
+)
+
+echo
+echo ' * Configuring stage3 kernel sources ...'
+echo
+
+#pushd >/dev/null /usr/src/linux
+src_cwd="${PWD}"
+cd /usr/src/linux/
+make defconfig prepare
+#popd >/dev/null
+cd "${src_cwd}"
+unset src_cwd
+
 # Certain @system packages incorrectly fail to find ROOT-installed
 # dependencies, and so require prior package installation directly into the
 # stage3 environment...
@@ -542,48 +584,6 @@ do
 	LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 done
 LC_ALL='C' eselect awk set gawk || :
-
-echo
-echo
-echo " * Installing stage3 'sys-kernel/gentoo-sources' kernel source package ..."
-echo
-
-# Some packages require prepared kernel sources ...
-#
-(
-	USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 ) symlink"
-	export USE
-	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
-	export LC_ALL='C'
-	# shellcheck disable=SC2086
-	emerge \
-			--ignore-default-opts \
-			--binpkg-changed-deps=y \
-			--binpkg-respect-use=y \
-			--buildpkg=n \
-			--color=y \
-			--keep-going=y \
-			--quiet-build=y \
-			${opts:-} \
-			--usepkg=y \
-			--verbose=y \
-			--verbose-conflicts \
-			--with-bdeps=n \
-			--with-bdeps-auto=n \
-		sys-kernel/gentoo-sources
-)
-
-echo
-echo ' * Configuring stage3 kernel sources ...'
-echo
-
-#pushd >/dev/null /usr/src/linux
-src_cwd="${PWD}"
-cd /usr/src/linux/
-make defconfig prepare
-#popd >/dev/null
-cd "${src_cwd}"
-unset src_cwd
 
 echo
 echo
