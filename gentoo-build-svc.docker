@@ -818,7 +818,10 @@ case "${package_name}" in
 				>=dev-perl/Crypt-OpenSSL-ECDSA-0.60.0
 				>=dev-perl/Crypt-OpenSSL-Random-0.100.0
 				>=dev-perl/Digest-GOST-0.60.0
+				dev-perl/Archive-Zip
+				dev-perl/BSD-Resource
 				dev-perl/GeoIP2
+				dev-perl/IO-String
 				mail-filter/dcc
 				sys-apps/findutils
 				sys-devel/gcc
