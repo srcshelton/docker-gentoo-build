@@ -320,7 +320,7 @@ case "${service:-}" in
 	fwupd)
 		service='sys-apps/fwupd' ;;
 	imapproxy|imapproxyd)
-		service='>=net-mail/imapproxy-1.2.8_p14843-r1::srcshelton' ;;
+		service='>=net-mail/imapproxy-1.2.8_p14637::srcshelton' ;;
 	irqbalance)
 		service='sys-apps/irqbalance' ;;
 	less)
