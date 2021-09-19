@@ -223,13 +223,15 @@ fi
 
 if [ -n "${config:-}" ]; then
 	if [ "${build:-}" = '1' ] && [ -s "${build_dir}"/.config ] && ! [ "${force:-}" = '1' ]; then
-		warn "not replacing existing '${build_dir}/.config' file without '--force'"
+		warn "Not replacing existing '${build_dir}/.config' file without '--force'"
+		config="${build_dir}/.config"
 	else
 		# We've already changed to the script directory, so if there ever were
 		# a file in the same location named 'config.gz', it's unlikely to be
 		# one we'd actually want to use!
 		#
 		if [ "${config}" = 'config.gz' ] || [ "${config}" = '/proc/config.gz' ]; then
+			note >&2 "Attempting to use current kernel configuration ..."
 			if ! lsmod | grep -qw -- '^configs'; then
 				warn "Attempting to load 'configs' module..."
 				modprobe configs || :
@@ -239,6 +241,7 @@ if [ -n "${config:-}" ]; then
 			fi
 			if [ "${build:-}" = '1' ]; then
 				config="${build_dir}/.config"
+				note >&2 "Extracting /proc/config.gz to '${config}' ..."
 				zcat /proc/config.gz > "${config}" || die "zcat failed: ${?}"
 			else
 				config="${TMPDIR:-/tmp}/linux-${package_version%-r[0-9]}.config"
@@ -260,7 +263,9 @@ if [ -n "${config:-}" ]; then
 				fi
 			fi
 		fi
+		note >&2 "Resolving kernel configuration '${config}' ..."
 		config="$( readlink -e "${config}" )"
+		note >&2 "Kernel configuration resolved to '${config}'"
 		if ! [ -s "${config}" ]; then
 			die "Cannot read kernel configuration file '${config}'"
 		fi
