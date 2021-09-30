@@ -242,9 +242,16 @@ sum="$( sha1sum entrypoint.sh )"
 sum="$( echo "${sum}" | cut -d' ' -f 1 )"
 
 stage3_tag='latest'
+# https://hub.docker.com/r/gentoo/stage3 tag-naming is a mess - not only does
+# it keep changing, but there's now an inconsistency as to whether the init
+# system is tagged onto the image or not (for example, the amd64 image used to
+# be 'amd64-nomultilib', which is now no longer being updated.  There are now
+# new 'nomultilib' and 'amd64-nomultilib-openrc' images - while the 32bit image
+# name has changed from 'x86' to 'i686-openrc' and the ARM image names are
+# unchanged for 'openrc', but now have variants with a 'systemd' suffix)
 case "${docker_arch}" in
 	'amd64')
-		stage3_tag="${docker_arch}-nomultilib" ;;
+		stage3_tag="${docker_arch}-nomultilib-openrc" ;;
 	'arm64')
 		stage3_tag="${docker_arch}" ;;
 	'arm/v7')
@@ -252,7 +259,7 @@ case "${docker_arch}" in
 	'arm/v6')
 		stage3_tag='armv6j_hardfp' ;;
 	'i386')
-		stage3_tag='x86' ;;
+		stage3_tag='i686-openrc' ;;
 esac
 case "${docker_arch}" in
 	'arm'*)
