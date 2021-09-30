@@ -1,5 +1,6 @@
 
 ~app-emulation/catatonit-0.1.5				 **
+~app-emulation/catatonit-0.1.6				 **
 
 #~app-emulation/podman-2.0.6				 **
 #~app-emulation/podman-2.1.0				 **
@@ -29,6 +30,8 @@
 #~app-emulation/podman-3.3.0_rc3			 **
 #~app-emulation/podman-3.3.0				 **
 ~app-emulation/podman-3.3.1				 **
+~app-emulation/podman-3.4.0_rc1				 **
+~app-emulation/podman-3.4.0_rc2				 **
 
 #~app-emulation/buildah-1.16.0				 **
 #~app-emulation/buildah-1.16.1				 **
@@ -56,8 +59,9 @@
 #~app-emulation/buildah-1.22.0				 **
 #~app-emulation/buildah-1.22.1				 **
 #~app-emulation/buildah-1.22.2				 **
-~app-emulation/buildah-1.22.3				 **
+#~app-emulation/buildah-1.22.3				 **
 ~app-emulation/buildah-1.23.0				 **
+~app-emulation/buildah-1.23.1				 **
 
 #~net-misc/cni-plugins-0.8.7				 **
 #~net-misc/cni-plugins-0.9.0				 **
@@ -75,8 +79,9 @@
 #~app-emulation/crun-0.19.1				 **
 #~app-emulation/crun-0.20				 **
 #~app-emulation/crun-0.20.1				 **
-~app-emulation/crun-0.21				 **
-~app-emulation/crun-1.0				 **
+#~app-emulation/crun-0.21				 **
+~app-emulation/crun-1.0					 **
+~app-emulation/crun-1.1					 **
 
 #~app-emulation/runc-1.0.0_rc92				 **
 #~app-emulation/runc-1.0.0_rc93				 **
@@ -117,9 +122,10 @@
 #~app-emulation/conmon-2.0.24				 **
 #~app-emulation/conmon-2.0.25				 **
 #~app-emulation/conmon-2.0.26				 **
-~app-emulation/conmon-2.0.27				 **
+#~app-emulation/conmon-2.0.27				 **
 #~app-emulation/conmon-2.0.28				 **
 ~app-emulation/conmon-2.0.29				 **
+~app-emulation/conmon-2.0.30				 **
 
 # originally required by app-emulation/podman-1.9.3[rootless]
 #~app-emulation/slirp4netns-1.1.4			 **
