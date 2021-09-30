@@ -659,6 +659,7 @@ case "${package_name}" in
 	*php*)
 		LIB='lib64'
 		PHP_SLOT='php7.4'
+		#PHP_SLOT='php8.0'
 		output "Setting build variables for package 'php' ..."
 		# eselect-php-0.9.6+ required for ROOT support
 		pre_pkgs='dev-php/PEAR-PEAR media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6'
