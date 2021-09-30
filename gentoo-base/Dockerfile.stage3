@@ -40,11 +40,10 @@ ARG python_target_override
 RUN echo "USE=\"$( \
         cat /var/db/pkg/*/*/USE | \
         xargs -n 1 echo | \
-        grep -v '^python_targets_' | \
+        grep -v -e '^python_targets_' -e 'udev' -e '^static' | \
         sed -r "s/^(python_single_target_)(.*)$/\1${python_target_override:-\2}\npython_targets_${python_target_override:-\2}/" | \
         sort | \
         uniq | \
-        grep -v '^static' | \
         xargs echo -n \
     )\"" >/usr/libexec/stage3.info 2>/dev/null
 

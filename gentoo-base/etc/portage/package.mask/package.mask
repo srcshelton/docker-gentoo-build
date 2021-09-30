@@ -14,6 +14,7 @@ dev-db/mysql
 # We prefer busybox 'mdev' and a lightweight alternative to 'udev':
 # https://wiki.gentoo.org/wiki/Mdev
 sys-fs/udev
+virtual/udev
 
 # Ensure we're pulling-in the 'fixed' gentoo-functions script
 sys-apps/gentoo-functions::gentoo

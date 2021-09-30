@@ -244,6 +244,58 @@ LC_ALL='C' eselect --colour=yes news read
 # To try to work around this, snapshot the current stage3 version...
 #quickpkg --include-config y --include-unmodified-config y sys-libs/zlib
 
+# To make the following output potentially clearer, attempt to remove any
+# masked packages which exist in the image we're building from...
+echo
+echo " * Attempting to remove masked packages from stage3 ..."
+echo
+(
+	mkdir -p /var/lib/portage
+	touch /var/lib/portage/world
+
+	USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+	export USE
+	export FEATURES="${FEATURES:+${FEATURES} }-fakeroot"
+	export LC_ALL='C'
+	# shellcheck disable=SC2086
+	emerge \
+			--ignore-default-opts \
+			--color=y \
+			--implicit-system-deps=n \
+			--keep-going=y \
+			--verbose=n \
+			--with-bdeps-auto=n \
+			--with-bdeps=n \
+			--unmerge \
+		'virtual/dev-manager'
+	# shellcheck disable=SC2086
+	emerge \
+			--ignore-default-opts \
+			--color=y \
+			--implicit-system-deps=n \
+			--keep-going=y \
+			--verbose=n \
+			--with-bdeps-auto=n \
+			--with-bdeps=n \
+			--depclean \
+		$(
+			cat /etc/portage/package.mask/* |
+			sed 's/#.*$//' |
+			grep -v -- 'gentoo-functions' |
+			xargs -n 1
+
+			#virtual/udev-217-r3 pulled in by:
+			#    sys-apps/hwids-20210613-r1 requires virtual/udev
+			#    sys-fs/udev-init-scripts-34 requires >=virtual/udev-217
+			#    virtual/dev-manager-0-r2 requires virtual/udev
+			cat /etc/portage/package.mask/* |
+			sed 's/#.*$//' |
+			grep -Eqw -- '((virtual|sys-fs)/)?udev' &&
+				echo 'sys-apps/hwids sys-fs/udev-init-scripts' \
+					'virtual/dev-manager'
+		)
+)
+
 if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 	echo
 	echo " * Building linted 'sys-apps/gentoo-functions' package for stage3 ..."
