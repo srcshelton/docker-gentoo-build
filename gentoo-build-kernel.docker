@@ -25,6 +25,8 @@ declare IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh
 
+set -e
+
 docker_setup
 
 if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
@@ -63,6 +65,20 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	exit 0
 fi
 
+package=''
+package_version=''
+container_name=''
+distro=''
+docker_resolve "${version:-sys-kernel/gentoo-sources}"
+# shellcheck disable=SC2001 # POSIX sh compatibility
+container_name="$( echo "${package}" | sed 's|/|.|' )"
+export container_name
+case "${package}" in
+	*gentoo*)
+		distro='-gentoo'
+		;;
+esac
+
 declare build=1
 declare build_dir=''
 declare compiler='gcc'
@@ -74,21 +90,56 @@ declare nconfig=''
 declare version=''
 declare patch=''
 declare clean_lto=0
-#if type -pf gcc >/dev/null 2>&1; then
-#	case "$( gcc --version | awk '( NR == 1 ) { print $NF }' )" in
-#		9.*)
-#			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v9-and-kernel-5.8%2B.patch' ;;
-#		10.*)
-#			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v10-and-kernel-5.8%2B.patch' ;;
-#	esac
-#fi
-patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.8%2B.patch'
+# Unless noted, the patches below are for the highest supported GCC version...
+case "${package_version:-}" in
+	3.[23456789].*|3.1[01234].*)
+		# gcc-4.2 patch also available
+		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/linux-3.2%2B/gcc-4.9%2B/enable_additional_cpu_optimizations_for_gcc_v4.9%2B.patch' ;;
+	3.1[56789].*|4.[0123456789].*|4.1[012].*)
+		# gcc-4.2 patch also available
+		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/enable_additional_cpu_optimizations_for_gcc_v4.9%2B_kernel_v3.15%2B.patch' ;;
+	4.1[345678].*)
+		# gcc-4.9 patch also available
+		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/enable_additional_cpu_optimizations_for_gcc_v8.1%2B_kernel_v4.13%2B.patch' ;;
+	4.19.*|5.[01234].*)
+		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-4.19-5.4.patch' ;;
+	5.[56].*)
+		# gcc-9.1 patch also available
+		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/enable_additional_cpu_optimizations_for_gcc_v10.1%2B_kernel_v5.5-v5.6.patch' ;;
+	5.7.*)
+		# gcc-9.1 patch also available
+		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/enable_additional_cpu_optimizations_for_gcc_v10.1%2B_kernel_v5.7.patch' ;;
+	5.[89].*|5.1[01234].*)
+		#if type -pf gcc >/dev/null 2>&1; then
+		#	case "$( gcc --version | awk '( NR == 1 ) { print $NF }' )" in
+		#		9.*)
+		#			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v9-and-kernel-5.8%2B.patch' ;;
+		#		10.*)
+		#			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v10-and-kernel-5.8%2B.patch' ;;
+		#	esac
+		#fi
+		#patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.8%2B.patch'
+		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.8-5.14.patch'
+		case "${package_version:-}" in
+			5.11.*)
+				patch="${patch:+${patch} }https://lore.kernel.org/linux-btrfs/206d121e2e2b609ffe31217e6d90bfabe1c4e121.1616066404.git.fdmanana@suse.com/raw" ;;
+		esac
+		;;
+	5.15.*)
+		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15%2B.patch' ;;
+	'')
+		: ;;
+	*)
+		if ! echo " ${*:-} " | grep -q -- ' --no-patch'; then
+			warn "No known patch for kernel ${package_version} from https://github.com/graysky2/kernel_compiler_patch"
+		fi
+		;;
+esac
 case "${arch:-${ARCH:-}}" in
 	arm64)
 		patch="${patch:+${patch} }https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/build-with-mcpu-for-cortex-a72.patch"
 		;;
 esac
-#patch="${patch:+${patch} }https://lore.kernel.org/linux-btrfs/206d121e2e2b609ffe31217e6d90bfabe1c4e121.1616066404.git.fdmanana@suse.com/raw"
 
 if echo " ${*:-} " | grep -q -- ' --menuconfig '; then
 	menuconfig='menuconfig'  # Just has to be set...
@@ -190,24 +241,6 @@ if mount | grep ' on /boot ' | grep -Eq '(\(ro,|,ro,|,ro\))'; then
 	output >&2
 	sleep 5
 fi
-
-set -e
-
-docker_setup
-
-package=''
-package_version=''
-container_name=''
-distro=''
-docker_resolve "${version:-sys-kernel/gentoo-sources}"
-# shellcheck disable=SC2001 # POSIX sh compatibility
-container_name="$( echo "${package}" | sed 's|/|.|' )"
-export container_name
-case "${package}" in
-	*gentoo*)
-		distro='-gentoo'
-		;;
-esac
 
 build_version="$( echo "${package_version:-}" | cut -d'.' -f 1-2 )"
 if [ -z "${build_dir:-}" ]; then
