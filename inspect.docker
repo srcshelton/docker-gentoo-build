@@ -145,6 +145,7 @@ docker_run() {
 	local -i skipped=0
 	local -i runrc=0
 	local mp='' src=''  # cwd=''
+	local default_repo_path='' default_distdir_path='' default_pkgdir_path=''
 
 	#${arr[@]+"${arr[@]}"}
 	(( 0 == ${#args[@]} )) && args=( 'sh' )
@@ -182,10 +183,23 @@ docker_run() {
 		)
 	fi
 
+	if ! type -pf portageq >/dev/null 2>&1; then
+		default_repo_path='/var/db/repos/gentoo /var/db/repos/srcshelton'
+		default_distdir_path='/var/cache/portage/dist'
+		default_pkgdir_path='/var/cache/portage/pkg'
+		if [ ! -d /var/db/repos/gentoo ] && [ -d /var/db/repo/gentoo ]; then
+			default_repo_path='/var/db/repo/gentoo /var/db/repo/srcshelton'
+		fi
+	fi
+	if [ -n "${PKGDIR_OVERRIDE:-}" ]; then
+		default_pkgdir_path="${PKGDIR_OVERRIDE}"
+	fi
+
 	# shellcheck disable=SC2046,SC2207
 	mirrormountpointsro=(
-		/etc/portage/repos.conf
-		$( portageq get_repo_path "${EROOT:-/}" $( portageq get_repos "${EROOT:-/}" ) )
+		# We need write access to be able to update eclasses...
+		#/etc/portage/repos.conf
+		${default_repo_path:-$( portageq get_repo_path "${EROOT:-/}" $( portageq get_repos "${EROOT:-/}" ) )}
 		#/usr/src  # Breaks gentoo-kernel-build package
 		#/var/db/repo/container
 		#/var/db/repo/gentoo
@@ -194,11 +208,19 @@ docker_run() {
 	)
 	mirrormountpoints=(
 		#/var/cache/portage/dist
-		"$( portageq distdir )"
-		/var/log/portage
+		"${default_distdir_path:-$( portageq distdir )}"
+		'/var/log/portage'
 	)
+
+	#ENV PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
+	#local PKGCACHE="${PKGCACHE:=/var/cache/portage/pkg}"
+	#local PKGHOST="${PKGHOST:=docker}"
+	local PKGDIR="${PKGDIR:=${default_pkgdir_path:-$( portageq pkgdir )}}"
+
+	# Allow use of 'ARCH' variable as an override...
 	print "Using architecture '${ARCH:-${arch}}' ..."
-	mountpoints["$( portageq pkgdir )"]="/var/cache/portage/pkg/${ARCH:-${arch}}/docker"
+	mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-${arch}}/docker"
+	mountpoints['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
 	[ -S /var/run/syslog-ng/log ] && mountpoints['/var/run/syslog-ng/log']='/dev/log'
 
 	cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
@@ -212,7 +234,7 @@ docker_run() {
 
 	for mp in ${mirrormountpointsro[@]+"${mirrormountpointsro[@]}"}; do
 		[ -n "${mp:-}" ] || continue
-		src="$( readlink -e "${mp}" )"
+		src="$( readlink -e "${mp}" )" || die "readlink() on mirrored read-only mountpoint '${mp}' failed: ${?}"
 		if [ -z "${src:-}" ]; then
 			warn "Skipping mountpoint '${mp}'"
 			: $(( skipped = skipped + 1 ))
@@ -222,7 +244,7 @@ docker_run() {
 	done
 	for mp in ${mirrormountpoints[@]+"${mirrormountpoints[@]}"}; do
 		[ -n "${mp:-}" ] || continue
-		src="$( readlink -e "${mp}" )"
+		src="$( readlink -e "${mp}" )" || die "readlink() on mirrored mountpoint '${mp}' failed: ${?}"
 		if [ -z "${src:-}" ]; then
 			warn "Skipping mountpoint '${mp}'"
 			: $(( skipped = skipped + 1 ))
@@ -232,7 +254,7 @@ docker_run() {
 	done
 	for mp in ${mountpointsro[@]+"${!mountpointsro[@]}"}; do
 		[ -n "${mp:-}" ] || continue
-		src="$( readlink -e "${mp}" )"
+		src="$( readlink -e "${mp}" )" || die "readlink() on read-only mountpoint '${mp}' failed: ${?}"
 		if [ -z "${src:-}" ]; then
 			warn "Skipping mountpoint '${mp}' -> '${mountpointsro[${mp}]}'"
 			: $(( skipped = skipped + 1 ))
@@ -242,7 +264,7 @@ docker_run() {
 	done
 	for mp in ${mountpoints[@]+"${!mountpoints[@]}"}; do
 		[ -n "${mp:-}" ] || continue
-		src="$( readlink -e "${mp}" )"
+		src="$( readlink -e "${mp}" )" || die "readlink() on mountpoint '${mp}' failed (do you need to set 'PKGDIR'?): ${?}"
 		if [ -z "${src:-}" ]; then
 			warn "Skipping mountpoint '${mp}' -> '${mountpoints[${mp}]}'"
 			: $(( skipped = skipped + 1 ))
@@ -258,13 +280,46 @@ docker_run() {
 
 	unset src mp
 
+	if [ -n "${DOCKER_VERBOSE:-}" ]; then
+		output
+		[ -n "${DOCKER_VARS:-}" ] && output "VERBOSE: DOCKER_VARS is '${DOCKER_VARS}'"
+		local arg='' next=''
+		for arg in "${runargs[@]}"; do
+			case "${next}" in
+				mount)
+					arg="$(
+						sed -r \
+								-e 's/^type=/type: /' \
+								-e 's/,(src|source)=/\tsource: /' \
+								-e 's/,(dst|destination)=/\tdestination: /' \
+								-e 's/, ro=true$/\tRO/' \
+							<<<"${arg}"
+					)"
+					output "VERBOSE: Mount point '${arg}'"
+					;;
+				volume)
+					output "VERBOSE: Volume '${arg}'"
+					;;
+			esac
+			if [[ "${arg}" =~ ^--(mount|volume)$ ]]; then
+				next="${arg#--}"
+			else
+				next=''
+			fi
+		done | column -t -s $'\t'
+		output
+	fi
+
+	print "Starting container with command '$docker container run ${runargs[*]} ${image} ${*}'"
 	# shellcheck disable=SC2086
-	$docker container run \
+	$docker \
+		container run \
 			"${runargs[@]}" \
 			${DOCKER_EXTRA_MOUNTS:-} \
 			${DOCKER_VOLUMES:-} \
 		"${image}" -c "${args[@]}" || runrc=${?}
 
+	# shellcheck disable=SC2086
 	return ${runrc}
 } # docker_run
 
