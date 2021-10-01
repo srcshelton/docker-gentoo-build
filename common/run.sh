@@ -746,7 +746,7 @@ docker_run() {
 			runargs+=( --mount "type=bind,source=${src},destination=${mountpoints[${mp}]}" )
 		done
 
-		if [ $(( skipped )) -eq 1 ]; then
+		if [ $(( skipped )) -ge 1 ]; then
 			warn "${skipped} mount-points not connected to container"
 			sleep 5
 		fi
