@@ -81,8 +81,9 @@
 #~app-emulation/crun-0.20				 **
 #~app-emulation/crun-0.20.1				 **
 #~app-emulation/crun-0.21				 **
-~app-emulation/crun-1.0					 **
+#~app-emulation/crun-1.0					 **
 ~app-emulation/crun-1.1					 **
+~app-emulation/crun-1.2					 **
 
 #~app-emulation/runc-1.0.0_rc92				 **
 #~app-emulation/runc-1.0.0_rc93				 **
@@ -156,7 +157,8 @@
 #~app-emulation/skopeo-1.2.3				 **
 #~app-emulation/skopeo-1.3.0				 **
 #~app-emulation/skopeo-1.3.1				 **
-~app-emulation/skopeo-1.4.0				 **
+#~app-emulation/skopeo-1.4.0				 **
 ~app-emulation/skopeo-1.4.1				 **
+~app-emulation/skopeo-1.5.0				 **
 
 # vi: set syntax=gentoo-package-keywords:
