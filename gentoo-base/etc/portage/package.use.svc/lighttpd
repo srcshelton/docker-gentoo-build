@@ -3,15 +3,23 @@
 
 #www-servers/lighttpd			 bzip2 dbi doc fam gdbm geoip (ipv6) kerberos ldap libev lua memcached minimal mmap mysql pcre php postgres rrdtool sasl selinux sqlite (ssl) systemd test webdav xattr (zlib)
 www-servers/lighttpd			 bzip2 dbi fam libev mmap pcre php rrdtool sqlite webdav xattr
+
 #media-gfx/imagemagick			 bzip2 corefonts +cxx djvu fftw fontconfig fpx graphviz hdri heif jbig jpeg jpeg2k lcms lqr lzma opencl openexr openmp pango perl png postscript q32 q8 raw static-libs svg test tiff truetype webp wmf X xml (zlib)
 media-gfx/imagemagick			 bzip2 jpeg perl png # svg webp (xml)
+
 #mail-filter/dcc			(cgi) (ipv6) milter rrdtool
 mail-filter/dcc				 milter rrdtool
+
 #dev-lang/php				 acl apache2 argon2 bcmath berkdb bzip2 calendar cdb (cgi) cjk +cli coverage +ctype curl debug embed enchant exif ffi +fileinfo +filter firebird +flatfile fpm ftp gd gdbm gmp +iconv imap inifile intl iodbc (ipv6) +json kerberos ldap ldap-sasl libedit lmdb mhash mssql mysql mysqli nls oci8-instant-client odbc +opcache pcntl pdo +phar phpdbg +posix postgres qdbm readline selinux +session session-mm sharedmem +simplexml snmp soap sockets sodium spell sqlite (ssl) systemd sysvipc test (threads) tidy +tokenizer tokyocabinet truetype (unicode) webp +xml xmlreader xmlrpc xmlwriter xpm xslt zip (zlib)
 dev-lang/php				 bzip2 sqlite
+
 #app-admin/gamin
 #dev-lang/perl				-debug -doc berkdb gdbm (ithreads) -minimal
 dev-db/libdbi-drivers			 sqlite
+
+# required by dev-lang/php-7.4.21-r1[jit?,unicode]
+#dev-libs/libpcre2			 bzip2 +jit libedit pcre16 pcre32 +readline +recursion-limit static-libs unicode (zlib)
+dev-libs/libpcre2			 jit recursion-limit unicode
 
 virtual/mta				 no-mta
 #mail-mta/nullmailer			-ssl
