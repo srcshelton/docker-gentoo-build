@@ -1,0 +1,18 @@
+
+~net-misc/unifi-controller-bin-6.0.45			 amd64
+
+# Releases 6.1.x and above have a less-functional UI divided into 'old' and
+# 'new' views, neither of which are as functional as the 6.0.x UI :(
+#
+#~net-misc/unifi-controller-bin-6.1.71			~amd64
+#~net-misc/unifi-controller-bin-6.2.26			~amd64
+#~net-misc/unifi-controller-bin-6.4.54			~amd64
+
+# Ensure the host package matches the version of the target container
+#
+~container/unifi-controller-6.0.45			 amd64
+#~container/unifi-controller-6.1.71			~amd64
+#~container/unifi-controller-6.2.26			~amd64
+#~container/unifi-controller-6.4.54			~amd64
+
+# vi: set syntax=gentoo-package-keywords:

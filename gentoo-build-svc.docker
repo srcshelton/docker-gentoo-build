@@ -889,7 +889,7 @@ case "${package_name}" in
 		etcdir='syslog-ng'
 		;;
 	*unifi*)
-		output "Setting build variales for package 'unifi-controller-bin' ..."
+		output "Setting build variables for package 'unifi-controller-bin' ..."
 		#EMERGE_OPTS='--single --swap'  # Merge packages one at a time, for debug purposes
 
 		# shellcheck disable=SC2034
