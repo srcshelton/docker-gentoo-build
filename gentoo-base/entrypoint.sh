@@ -251,7 +251,7 @@ echo " * Attempting to remove masked packages from stage3 ..."
 echo
 (
 	mkdir -p /var/lib/portage
-	touch /var/lib/portage/world
+	echo 'virtual/libc' > /var/lib/portage/world
 
 	USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
 	export USE
