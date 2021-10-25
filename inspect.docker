@@ -152,7 +152,7 @@ docker_run() {
 	(( 0 == ${#args[@]} )) && args=( 'sh' )
 
 	runargs=(
-		$( (( $( nproc ) > 1 )) && echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))" )
+		$( [[ "$( uname -s )" != 'Darwin' ]] && (( $( nproc ) > 1 )) && echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))" || : )
 		--init
 		--name "${name}"
 		--privileged

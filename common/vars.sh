@@ -1,11 +1,15 @@
 #! /bin/sh
 #shellcheck disable=SC2034
 
-# Since we're now using 'podman system info' to determine the graphRoot directory, we
-# need to be root simply to setup the environment appropriately :(
-if [ $(( $( id -u ) )) -ne 0 ]; then
-	echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
-	exit 1
+# Since we're now using 'podman system info' to determine the graphRoot
+# directory, we need to be root simply to setup the environment
+# appropriately :(
+# Support 'core' user for podman+machine Fedora default user...
+if [ "$( uname -s )" != 'Darwin' ]; then
+	if [ $(( $( id -u ) )) -ne 0 ] && [ "$( id -un )" != 'core' ]; then
+		echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
+		exit 1
+	fi
 fi
 
 # Alerting options...
@@ -42,7 +46,11 @@ if command -v cpuid2cpuflags >/dev/null 2>&1; then
 	use_cpu_arch="$( uname -m | cut -c 1-3 | sed 's/aar/arm/' )"
 	use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- )"
 else
-	description="$( grep -E '(model name|Raspberry)' /proc/cpuinfo | sort | tail -n 1 )"
+	if [ "$( uname -s )" = 'Darwin' ]; then
+		description="$( sysctl -n machdep.cpu.brand_string )"
+	else
+		description="$( grep -E '(model name|Raspberry)' /proc/cpuinfo | sort | tail -n 1 )"
+	fi
 	case "${description}" in
 		*': Intel(R) Atom(TM) CPU '*' 330 '*' @ '*)
 			use_cpu_arch='x86'
@@ -74,6 +82,9 @@ else
 			use_cpu_arch='arm'
 			use_cpu_flags="edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2" ;;
 
+		'Apple M1')
+			use_cpu_arch='arm'
+			use_cpu_flags="aes crc32 sha1 sha2" ;;
 		*)
 			echo >&2 "Unknown CPU '$( echo "${description}" | cut -d':' -f 2- | sed 's/^\s*// ; s/\s*$//' )' and 'cpuid2cpuflags' not installed - not enabling model-specific CPU flags" ;;
 	esac

@@ -101,6 +101,12 @@ print() {
 	fi
 } # print
 
+if [[ "$( uname -s )" == 'Darwin' ]]; then
+	readlink() {
+		perl -MCwd=abs_path -le 'print abs_path readlink(shift);' "${2}"
+	}
+fi
+
 # Now we're forced to run with bash to gain arrays, this is no longer
 # necessary!
 #
@@ -235,7 +241,7 @@ docker_setup() {
 
 	# shellcheck disable=SC2034
 	case "$( uname -m )" in
-		aarch64)
+		aarch64|arm64)
 			docker_arch='arm64'
 			arch='arm64'
 			profile='17.0'
@@ -553,7 +559,7 @@ docker_run() {
 	local -a runargs=()
 	# shellcheck disable=SC2207
 	runargs=(
-		$( (( $( nproc ) > 1 )) && echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))" )
+		$( [[ "$( uname -s )" != 'Darwin' ]] && (( $( nproc ) > 1 )) && echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))" || : )
 		--init
 		--name "${name:-${container_name}}"
 		#--network slirp4netns

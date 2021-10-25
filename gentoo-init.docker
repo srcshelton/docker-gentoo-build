@@ -8,7 +8,19 @@ debug="${DEBUG:-}"
 # With 'debug' enabled, set 'DEBUG_EXTRA_ARGS' to pass additional arguments
 # to 'podman build'...
 
+if [[ -n "${BASH_VERSINFO[0]:-}" ]] && (( ${BASH_VERSINFO[0]} < 4 )); then
+	echo >&2 "FATAL: bash-4.0.0 or later is required to run this script - on macOS, try 'brew install bash'"
+	exit 1
+fi
+
+if [[ "$( uname -s )" == 'Darwin' ]]; then
+	readlink() {
+		perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
+	}
+fi
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+
+NOTIFY_MKDIR=0
 
 # Set by common/vars.sh
 docker='docker'
@@ -79,8 +91,11 @@ if [ -n "${*:-}" ]; then
 	fi
 fi
 
-if (( EUID )); then
-	die "Please re-run '$( basename "${0}" )' as user 'root'"
+# Support 'core' user for podman+machine Fedora default user...
+if [[ "$( uname -s )" == 'Darwin' ]]; then
+	if (( EUID )) && [[ "$( id -nu )" == 'core' ]]; then
+		die "Please re-run '$( basename "${0}" )' as user 'root'"
+	fi
 fi
 
 if ! $docker --version >/dev/null 2>&1; then
@@ -172,12 +187,36 @@ checkids() {
 	return 0
 } # checkids
 
+makedir() {
+	local dir="${1:-}"
+
+	[[ -n "${dir}" ]] || return 1
+
+	if ! (( NOTIFY_MKDIR )) && (( EUID )); then
+		NOTIFY_MKDIR=1
+
+		info "In order to run on a non-gentoo system, we need to"
+		info "create several system directories."
+		info "You will be now prompted to enter your password in"
+		info "order to authenticate with superuser credentials and"
+		info "allow for this to proceed:"
+	fi
+
+	if [[ "$( uname -s )" == 'Darwin' ]] || (( EUID )); then
+		sudo mkdir -p "${dir}" || die "mkdir() on '${dir}' failed: ${?}"
+	else
+		mkdir -p "${dir}" || die "mkdir() on '${dir}' failed: ${?}"
+	fi
+
+	info " * ${dir}"
+} # makedir
+
 # Check for environment sanity...
 if ! command -v portageq >/dev/null 2>&1; then
 	warn "Not running on Gentoo host system, not checking eclass overrides"
 
 	for dir in /etc/portage/repos.conf; do
-		mkdir -p "${dir}" || die "mkdir() on '${dir}' failed: ${?}"
+		[[ -d "${dir}" ]] || makedir "${dir}"
 	done
 	for cfg in DEFAULT.conf gentoo.conf srcshelton.conf; do
 		[ -s /etc/portage/repos.conf/${cfg} ] ||
@@ -185,18 +224,22 @@ if ! command -v portageq >/dev/null 2>&1; then
 	done
 	# FIXME: Hardcoded paths, use repos.conf
 	if [ ! -d /var/db/repo/gentoo ] && [ ! -d /var/db/repos/gentoo ]; then
-		for dir in /var/db/repo{,s} /var/db; do
-			if [ -d "${dir}" ]; then
-				if ! [ $(( df --block-size=1G --output=avail "${dir}" | tail -n 1 )) -ge 2 ]; then
-					die "Insufficient filesystem space to download Gentoo Portage repo: 2GB required"
+		# macOS 'df' lacks the below options
+		if [ "$( uname -s )" != 'Darwin' ]; then
+			for dir in /var/db/repo{,s} /var/db; do
+				if [ -d "${dir}" ]; then
+					# FIXME: Figure out best macOS implementation
+					if ! [ $(( df --block-size=1G --output=avail "${dir}" | tail -n 1 )) -ge 2 ]; then
+						die "Insufficient filesystem space to download Gentoo Portage repo: 2GB required"
+					fi
+					break
 				fi
-				break
-			fi
-		done
+			done
+		fi
 		command -v git >/dev/null 2>&1 || die "required binary 'git' missing"
 		note "Creating local Gentoo Portage repo mirror at '/var/db/repo/gentoo' ..."
 		for dir in /var/db/repo; do
-			mkdir -p "${dir}" || die "mkdir() on '${dir}' failed: ${?}"
+			[[ -d "${dir}" ]] || makedir "${dir}"
 		done
 		git clone https://github.com/gentoo/gentoo.git /var/db/repo/gentoo || die "git 'clone' operation failed: ${?}"
 	fi
@@ -204,12 +247,12 @@ if ! command -v portageq >/dev/null 2>&1; then
 		command -v git >/dev/null 2>&1 || die "required binary 'git' missing"
 		note "Creating custom packages repo mirror at '/var/db/repo/srcshelton' ..."
 		for dir in /var/db/repo; do
-			mkdir -p "${dir}" || die "mkdir() on '${dir}' failed: ${?}"
+			[[ -d "${dir}" ]] || makedir "${dir}"
 		done
 		git clone https://github.com/srcshelton/gentoo-ebuilds.git /var/db/repo/srcshelton || die "git 'clone' operation failed: ${?}"
 	fi
 	for dir in /var/cache/portage/dist /var/log/portage /var/cache/portage/pkg; do
-		mkdir -p "${dir}" || die "mkdir() on '${dir}' failed: ${?}"
+		[[ -d "${dir}" ]] || makedir "${dir}"
 	done
 else
 	rc=0
