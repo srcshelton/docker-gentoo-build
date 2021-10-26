@@ -203,7 +203,8 @@ makedir() {
 	fi
 
 	if [[ "$( uname -s )" == 'Darwin' ]] || (( EUID )); then
-		sudo mkdir -p "${dir}" || die "mkdir() on '${dir}' failed: ${?}"
+		sudo mkdir -pm 0755 "${dir}" || die "mkdir() on '${dir}' failed: ${?}"
+		sudo chown ${EUID} "${dir}" || die "chown() on '${dir}' failed: ${?}"
 	else
 		mkdir -p "${dir}" || die "mkdir() on '${dir}' failed: ${?}"
 	fi
