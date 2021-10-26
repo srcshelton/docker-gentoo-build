@@ -25,8 +25,8 @@ NOTIFY_MKDIR=0
 # Set by common/vars.sh
 docker='docker'
 env_name=''
-init_name=''
 stage3_name=''
+init_name=''
 base_name=''
 build_name=''
 environment_filter=''
@@ -64,8 +64,8 @@ IMAGE="${base_name}:latest"
 
 if
 	[ -z "${env_name:-}" ] ||
-	[ -z "${init_name:-}" ] ||
 	[ -z "${stage3_name:-}" ] ||
+	[ -z "${init_name:-}" ] ||
 	[ -z "${base_name:-}" ] ||
 	[ -z "${build_name:-}" ]
 then
@@ -292,7 +292,8 @@ stage3_tag='latest'
 # be 'amd64-nomultilib', which is now no longer being updated.  There are now
 # new 'nomultilib' and 'amd64-nomultilib-openrc' images - while the 32bit image
 # name has changed from 'x86' to 'i686-openrc' and the ARM image names are
-# unchanged for 'openrc', but now have variants with a 'systemd' suffix)
+# unchanged in the case of 'openrc' but now also have variants with a 'systemd'
+# suffix)
 case "${docker_arch}" in
 	'amd64')
 		stage3_tag="${docker_arch}-nomultilib-openrc" ;;
