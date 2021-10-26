@@ -230,7 +230,7 @@ if ! command -v portageq >/dev/null 2>&1; then
 			for dir in /var/db/repo{,s} /var/db; do
 				if [ -d "${dir}" ]; then
 					# FIXME: Figure out best macOS implementation
-					if ! [ $(( df --block-size=1G --output=avail "${dir}" | tail -n 1 )) -ge 2 ]; then
+					if ! [ $(( $( df --block-size=1G --output=avail "${dir}" | tail -n 1 ) )) -ge 2 ]; then
 						die "Insufficient filesystem space to download Gentoo Portage repo: 2GB required"
 					fi
 					break
