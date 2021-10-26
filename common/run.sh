@@ -559,7 +559,7 @@ docker_run() {
 	local -a runargs=()
 	# shellcheck disable=SC2207
 	runargs=(
-		$( [[ "$( uname -s )" != 'Darwin' ]] && (( $( nproc ) > 1 )) && echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))" || : )
+		$( [[ "$( uname -s )" != 'Darwin' ]] && (( $( nproc ) > 1 )) && $docker info 2>&1 | grep -q -- 'cpuset' && echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))" || : )
 		--init
 		--name "${name:-${container_name}}"
 		#--network slirp4netns
