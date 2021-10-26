@@ -51,7 +51,11 @@ else
 	else
 		description="$( grep -E '(model name|Raspberry)' /proc/cpuinfo | sort | tail -n 1 )"
 	fi
-	case "${description}" in
+	if [ -z "${description:-}" ]; then
+		# TODO: Is this a good UID to use (without further checks)?
+		description="$( grep -F 'CPU part' /proc/cpuinfo | sort | tail -n 1 )"
+	fi
+	case "${description:-}" in
 		*': Intel(R) Atom(TM) CPU '*' 330 '*' @ '*)
 			use_cpu_arch='x86'
 			use_cpu_flags="mmx mmxext sse sse2 sse3 ssse3" ;;
@@ -82,7 +86,7 @@ else
 			use_cpu_arch='arm'
 			use_cpu_flags="edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2" ;;
 
-		'Apple M1')
+		*': 0xd07'|'Apple M1')
 			use_cpu_arch='arm'
 			use_cpu_flags="aes crc32 sha1 sha2" ;;
 		*)
