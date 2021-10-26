@@ -49,7 +49,7 @@ else
 	if [ "$( uname -s )" = 'Darwin' ]; then
 		description="$( sysctl -n machdep.cpu.brand_string )"
 	else
-		description="$( grep -E '(model name|Raspberry)' /proc/cpuinfo | sort | tail -n 1 )"
+		description="$( grep -E '(model name|Raspberry)' /proc/cpuinfo | sort | tail -n 1 )" || :
 	fi
 	if [ -z "${description:-}" ]; then
 		# TODO: Is this a good UID to use (without further checks)?
@@ -148,8 +148,16 @@ reset="$( printf '\e[0m' )"
 
 # Export portage job-control variables...
 #
-jobs="$( echo "$( nproc ) 0.75 * p" | dc | cut -d'.' -f 1 )"
-: $(( load = $( nproc ) - 1 ))
+: $(( jobs = $( nproc ) ))
+: $(( load = jobs ))
+if [ $(( jobs )) -ge 2 ]; then
+	if command -v dc >/dev/null 2>&1; then
+		jobs="$( echo "${jobs} 0.75 * p" | dc | cut -d'.' -f 1 )"
+	else
+		: $(( jobs = jobs - 1 ))
+	fi
+	: $(( load = load - 1 ))
+fi
 export JOBS="${jobs}"
 export MAXLOAD="${load}.00"
 unset load jobs
