@@ -374,8 +374,114 @@ docker_resolve() {
 	local prefix="${2:-buildpkg}"
 	local dr_name=''
 
-	if ! [ -x "$( command -v versionsort )" ]; then
-		die "'versionsort' not found - please install package 'app-portage/eix'"
+	if ! {
+		[ -x "$( command -v versionsort )" ] &&
+		[ -x "$( command -v equery )" ]
+	}; then
+		# On non-Gentoo systems we need to build 'eix' (for 'versionsort') and
+		# 'equery' into a container, and then call that to acquire "proper"
+		# package-version handling facilities.
+		# shellcheck disable=SC2086		# shellcheck disable=SC2086		# shellcheck disable=SC2086
+		if
+			$docker ${DOCKER_VARS:-} image ls localhost/gentoo-helper:latest |
+			grep -Eq -- '^(localhost/)?([^.]+\.)?gentoo-helper'
+		then
+			# shellcheck disable=SC2032  # Huh?
+			versionsort() {
+				$docker run \
+						--rm \
+						--name='portage-helper' \
+						--network=host \
+					gentoo-helper versionsort "{@:-}"
+			}
+			export -f versionsort
+			equery() {
+				image='localhost/gentoo-helper:latest' \
+				container_name='gentoo-helper' \
+					docker_run equery "${@:-}"
+			}
+			export -f equery
+		else
+			# Before we have that (and to make building a container for those
+			# tools easier) let's offer a best-effort, albeit limited,
+			# replacement...
+			#
+			versionsort() {
+				if [[ "${1:-}" == '-n' ]]; then
+					shift
+				fi
+				echo "${@:-}" |
+					xargs -n 1 |
+					sed 's/^.*[a-z]-\([0-9].*\)$/\1/' |
+					sort -V
+			}
+			export -f versionsort
+			equery() {
+				local -a args=()
+				local arg='' repopath='' cat='' pkg='' eb=''
+				local slot='' masked='' keyworded=''
+
+				if [ -z "${arch:-}" ]; then
+					docker_setup
+				fi
+
+				args=( "${@:-}" )
+				set --
+				for arg in "${args[@]:-}"; do
+					case "${arg}" in
+						--*) : ;;
+						list) : ;;
+						*) set -- "${@}" "${arg}" ;;
+					esac
+				done
+
+				# Assume we also lack 'portageq' ...
+				repopath='/var/db/repos/gentoo'
+
+				for arg in "${@:-}"; do
+					if [[ "${arg}" == */* ]]; then
+						cat="${arg%/*}"
+						pkg="${arg#*/}"
+					else
+						pkg="${arg}"
+						cat="$(
+							eval ls -1d "${repopath}/*/${pkg}*" |
+								rev |
+								cut -d'/' -f 3 |
+								rev
+						)"
+					fi
+					for eb in $(
+						eval ls -1 "${repopath}/${cat}/${pkg}*" |
+							grep -- '\.ebuild$'
+					); do
+						slot='0.0'
+						masked=' '
+						keyworded=' '
+						# I - Installed
+						# P - In portage tree
+						# O - In overlay
+						if
+							[[ -s "${repopath}/${cat}/${pkg%-[0-9]*}/${eb}" ]]
+						then
+							eval "$(
+								grep 'SLOT=' \
+									"${repopath}/${cat}/${pkg%-[0-9]*}/${eb}"
+							)"
+							slot="${SLOT:-${slot}}"
+							grep -Fq "~${arch}" \
+								"${repopath}/${cat}/${pkg%-[0-9]*}/${eb}" &&
+									keyworded='~'
+						fi
+						echo "[-P-]" \
+							"[${masked}${keyworded}]" \
+							"${cat}/${eb%.ebuild}:${slot}"
+					done
+				done
+
+			}
+			export -f equery
+		fi
 	fi
 
 	print "Resolving name '${dr_package}' ..."
@@ -385,7 +491,8 @@ docker_resolve() {
 	# Portage versions including revisions (and presumably patch-levels) :(
 	#
 	# We need a numeric suffix in order to determine the package name, but
-	# can't add one universally since pkg-1.2-0 has a name of 'pkg-1.2'...
+	# can't add one universally since "pkg-1.2-0" has a name of 'pkg-1.2'
+	# (rather than 'pkg')...
 	dr_name="$( versionsort -n "${dr_package##*[<>=]}" 2>/dev/null )" || dr_name="$( versionsort -n "${dr_package##*[<>=]}-0" 2>/dev/null )"
 	dr_pattern='-~'
 	if [ "${FORCE_KEYWORDS:-}" = '1' ]; then
@@ -411,14 +518,17 @@ docker_resolve() {
 			fi
 		fi
 	fi
+	# shellcheck disable=SC2016
 	dr_package="$(
 		equery --no-pipe --no-color list --portage-tree --overlay-tree "${dr_package}" |
 		grep -- '^\[' |
-		grep -v -- "^\[...\] \[.[${dr_pattern}]\] " |
+		grep -v \
+			-e "^\[...\] \[.[${dr_pattern}]\] " \
+			-e "^\[...\] \[M.]\] " |
 		cut -d']' -f 3- |
 		cut -d' ' -f 2- |
 		cut -d':' -f 1 |
-		xargs -r versionsort |
+		xargs -r -I '{}' bash -c 'versionsort "${@:-}"' _ {} |
 		tail -n 1
 	)" || :
 	if [[ -n "${TMP_KEYWORDS:-}" ]] && [[ -e "${TMP_KEYWORDS}" ]]; then
@@ -559,7 +669,10 @@ docker_run() {
 	local -a runargs=()
 	# shellcheck disable=SC2207
 	runargs=(
-		$( [[ "$( uname -s )" != 'Darwin' ]] && (( $( nproc ) > 1 )) && $docker info 2>&1 | grep -q -- 'cpuset' && echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))" || : )
+		$(
+			# shellcheck disable=SC2015
+			[[ "$( uname -s )" != 'Darwin' ]] && (( $( nproc ) > 1 )) && $docker info 2>&1 | grep -q -- 'cpuset' && echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))" || :
+		)
 		--init
 		--name "${name:-${container_name}}"
 		#--network slirp4netns
@@ -670,7 +783,7 @@ docker_run() {
 			default_pkgdir_path="${PKGDIR_OVERRIDE}"
 		fi
 
-		# shellcheck disable=SC2046,SC2207
+		# shellcheck disable=SC2046,SC2206,SC2207
 		mirrormountpointsro=(
 			# We need write access to be able to update eclasses...
 			#/etc/portage/repos.conf

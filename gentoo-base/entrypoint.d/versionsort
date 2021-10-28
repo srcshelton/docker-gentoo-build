@@ -1,0 +1,41 @@
+#!/bin/sh
+
+case "${1:-}" in
+	eix|eix-[a-z]*|masked-packages|versionsort)
+		export service_cmd="${1}"
+		shift
+		;;
+	ebump|eclean|eclean-dist|eclean-pkg|ekeyword|enalyze|epkginfo|equery|eread|eshowkw|euse|imlate|merge-driver-ekeyword|revdep-rebuild|revdep-rebuild.sh)
+		export service_cmd="${1}"
+		shift
+
+		echo >&2 ' * Setting gentoolkit environment ...'
+
+		if [ -e /etc/portage/repos.conf.host ]; then
+			warn "Mirroring host repos.conf to container ..."
+			if [ -e /etc/portage/repos.conf ]; then
+				if [ -d /etc/portage/repos.conf ]; then
+					for f in /etc/portage/repos.conf/*; do
+						umount -q "${f}" || :
+					done
+				fi
+				umount -q /etc/portage/repos.conf || :
+				rm -rf /etc/portage/repos.conf || :
+
+				[ -e /etc/portage/repos.conf ] && mv /etc/portage/repos.conf /etc/portage/repos.conf.disabled
+			fi
+			if ! cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf; then
+				echo >&2 "Can't copy host repos.conf: ${?}"
+				exit 1
+			fi
+		fi
+
+		eselect python update --if-unset
+		;;
+	*)
+		#echo >&2 "WARN: Unrecognised command '${1:-}' (from '${*:-}'), will default to container CMD (currently 'versionsort')"
+		:
+		;;
+esac
+
+# vi: set syntax=sh:

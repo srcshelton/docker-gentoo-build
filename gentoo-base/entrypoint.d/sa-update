@@ -3,16 +3,23 @@
 # They don't make this easy... sa-update exits with return-code 1 if there are
 # no updates available, so actual errors are identified by running first with
 # '--checkonly' and looking for an exit code of greater than three.
+
+set -e
+
 updated=0
 rc=0
+
 sa-update --checkonly || rc=${?}
+
 if [ $(( rc )) -ge 4 ]; then
 	echo >&2 "sa-update flagged error - aborting"
 	exit ${rc}
+
 elif [ $(( rc )) -ge 2 ]; then
 	echo >&2 "sa-update flagged partial success - attemping to update ..."
 	sa-update -v || :
 	updated=1
+
 elif [ $(( rc )) -eq 1 ]; then
 	if [ -e /.force-update ]; then
 		echo >&2 "sa-update flagged no updates available, but update forced ..."
@@ -20,6 +27,7 @@ elif [ $(( rc )) -eq 1 ]; then
 	else
 		echo >&2 "sa-update flagged no updates available, skipping ..."
 	fi
+
 else # [ $(( rc )) -eq 0 ]; then
 	sa-update -v || exit 1
 	updated=1
@@ -61,20 +69,24 @@ if [ $(( updated )) -eq 1 ]; then
 	#fi
 	gcc-config -f 1
 	# shellcheck disable=SC1091
-	[ -s /etc/profile ] && . /etc/profile
+	if [ -s /etc/profile ]; then
+		. /etc/profile
+	fi
 
 	echo >&2 ' * Compiling SpamAssassin updates ...'
-	sa-compile || exit 1
+	sa-compile
 fi
 
 if [ -s /etc/GeoIP.conf ]; then
 	echo >&2 "Updating GeoIP data ..."
-	geoipupdate -v || exit 1
+	geoipupdate -v
 else
 	echo >&2 "WARN: Configuration missing, not running 'geoipupdate'"
 fi
 
 echo >&2 "SpamAssassin Update & Compilation completed successfully"
-exit 131
+
+#exit 131
+exit 0
 
 # vi: set syntax=sh:

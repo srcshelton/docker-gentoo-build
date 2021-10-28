@@ -15,6 +15,4 @@ if test -e "$rcdir"/plugins/carddav/cronjob/synchronize.php; then
 	php "$rcdir"/plugins/carddav/cronjob/synchronize.php
 fi
 
-exit 0
-
 # vi: set syntax=sh:

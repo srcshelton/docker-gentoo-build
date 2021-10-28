@@ -5,6 +5,4 @@
 
 eselect awk update ifunset
 
-exit 0
-
 # vi: set syntax=sh:

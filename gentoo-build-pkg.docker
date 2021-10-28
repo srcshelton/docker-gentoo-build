@@ -25,8 +25,11 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	exit 0
 fi
 
-if (( EUID )); then
-	die "Please re-run '$( basename "${0}" )' as user 'root'"
+# Support 'core' user for podman+machine Fedora default user...
+if [[ "$( uname -s )" == 'Darwin' ]]; then
+	if (( EUID )) && [[ "$( id -nu )" == 'core' ]]; then
+		die "Please re-run '$( basename "${0}" )' as user 'root'"
+	fi
 fi
 
 # Extract 'entrypoint' argument - all others can be handled by the entrypoint

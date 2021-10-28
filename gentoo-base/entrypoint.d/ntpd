@@ -10,6 +10,4 @@ set -e
 ln -s certs/ca-certificates.crt /etc/ssl/cert.pem
 test -s /etc/ssl/cert.pem
 
-exit 0
-
 # vi: set syntax=sh:

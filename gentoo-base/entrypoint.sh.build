@@ -251,7 +251,12 @@ if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
 	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-${DEFAULT_MAXLOAD}}"
 fi
 
-TUSE='' force_python='' pre_remove='' pre_pkgs='' pre_use='' post_pkgs='' post_use='' rebuild='' post_remove='' change_sysroot=0 no_use=0 rc=0
+TUSE=''
+force_python='' python_target=''
+pre_remove='' pre_pkgs='' pre_use=''
+post_pkgs='' post_use='' post_remove=''
+rebuild=''
+change_sysroot=0 no_use=0 rc=0
 for arg in "${@}"; do
 	#print "Read argument '${arg}'"
 	shift

@@ -1,5 +1,7 @@
 #! /bin/sh
 
+set +u
+
 # shellcheck disable=SC1091
 #[ ! -s /lib/rc/sh/functions.sh ] || . /lib/rc/sh/functions.sh
 [ ! -s /lib/gentoo/functions.sh ] || . /lib/gentoo/functions.sh
@@ -10,6 +12,6 @@ if [ -d /var/www/localhost/htdocs/wordpress ]; then
 	chown -R nobody:lighttpd /var/www/localhost/htdocs/wordpress
 fi
 
-exit 0
+set -u
 
 # vi: set syntax=sh:
