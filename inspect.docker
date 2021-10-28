@@ -84,8 +84,11 @@ if [ -n "${*:-}" ]; then
 	fi
 fi
 
-if (( EUID )); then
-	die "Please re-run '$( basename "${0}" )' as user 'root'"
+# Support 'core' user for podman+machine Fedora default user...
+if [[ "$( uname -s )" == 'Darwin' ]]; then
+	if (( EUID )) && [[ "$( id -nu )" == 'core' ]]; then
+		die "Please re-run '$( basename "${0}" )' as user 'root'"
+	fi
 fi
 
 docker_parse() {
