@@ -528,7 +528,7 @@ docker_resolve() {
 		cut -d']' -f 3- |
 		cut -d' ' -f 2- |
 		cut -d':' -f 1 |
-		xargs -r -I '{}' bash -c 'versionsort "${@:-}"' _ {} |
+		xargs -r -I '{}' bash -c 'printf "%s\n" "$( versionsort "${@:-}" )"' _ {} |
 		tail -n 1
 	)" || :
 	if [[ -n "${TMP_KEYWORDS:-}" ]] && [[ -e "${TMP_KEYWORDS}" ]]; then
