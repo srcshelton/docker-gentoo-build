@@ -127,8 +127,11 @@ if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	fi
 fi
 
-if (( EUID )); then
-	die "Please re-run '$( basename "${0}" )' as user 'root'"
+# Support 'core' user for podman+machine Fedora default user...
+if [[ "$( uname -s )" == 'Darwin' ]]; then
+	if (( EUID )) && [[ "$( id -nu )" == 'core' ]]; then
+		die "Please re-run '$( basename "${0}" )' as user 'root'"
+	fi
 fi
 
 arg=''
@@ -458,10 +461,15 @@ python_target='' etcdir=''
 # the container build environment is the same (... which is reasonable, unless
 # overridden, as they share a common portage tree and therefore base set of
 # python defaults).
-python_target="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
+if type -pf portageq >/dev/null 2>&1; then
+	python_target="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
+	php_targets="$( for t in $( portageq envvar 'PHP_TARGETS' ); do echo "php_targets_${t}"; done | sort -V | tail -n 1 )"
+else
+	# FIXME: Hard-coded
+	python_target='python3_9'
+	php_targets='php_targets_php7-4'
+fi
 print "Building for python version '${python_target}'"
-
-php_targets="$( for t in $( portageq envvar PHP_TARGETS ); do echo "php_targets_${t}"; done | sort -V | tail -n 1 )"
 print "Building for PHP versions '${php_targets}'"
 
 case "${package_name}" in
@@ -523,8 +531,8 @@ case "${package_name}" in
 	*.eix)
 		output "Setting build variables for non-native tools ..."
 		force_python="${python_target}"
-		pre_use="-* build minimal python_single_target_${python_target} python_targets_${python_target} xml"
-		pre_pkgs='dev-lang/python dev-lang/python-exec sys-apps/portage sys-devel/gcc'
+		pre_use="-* build minimal python_single_target_${python_target} python_targets_${python_target} symlink xml"
+		pre_pkgs='dev-lang/python dev-lang/python-exec sys-devel/gcc virtual/linux-sources'
 		with_use="${pre_use}"
 		extra_pkgs='app-eselect/eselect-python app-portage/gentoolkit'
 
@@ -1065,7 +1073,9 @@ case " ${pre_pkgs} " in
 esac
 unset pkg
 
-pre_pkgs="${pre_pkgs:+${pre_pkgs} }net-misc/ethertypes sys-apps/baselayout sys-devel/prelink"
+# prelink no longer has any effect as it can't run against PIE binaries :(
+#pre_pkgs="${pre_pkgs:+${pre_pkgs} }net-misc/ethertypes sys-apps/baselayout sys-devel/prelink"
+pre_pkgs="${pre_pkgs:+${pre_pkgs} }net-misc/ethertypes sys-apps/baselayout"
 
 case " ${extra_pkgs:-} " in
 	*' app-shells/bash '*|*' sys-apps/shadow '*)
@@ -1075,7 +1085,7 @@ esac
 if [ -n "${build_debug:-}" ]; then
 	extra_pkgs="${extra_pkgs:+${extra_pkgs} }dev-util/strace"
 fi
-extra_pkgs="${extra_pkgs:+${extra_pkgs} }sys-devel/prelink"
+#extra_pkgs="${extra_pkgs:+${extra_pkgs} }sys-devel/prelink"
 
 [ -z "${post_use:-}" ] && [ -n "${with_use:-}" ] && post_use="${with_use} lib-only"
 

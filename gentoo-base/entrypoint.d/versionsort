@@ -5,14 +5,14 @@ case "${1:-}" in
 		export service_cmd="${1}"
 		shift
 		;;
-	ebump|eclean|eclean-dist|eclean-pkg|ekeyword|enalyze|epkginfo|equery|eread|eshowkw|euse|imlate|merge-driver-ekeyword|revdep-rebuild|revdep-rebuild.sh)
+	ebump|eclean|eclean-dist|eclean-pkg|ekeyword|enalyze|epkginfo|equery|eread|eshowkw|euse|imlate|merge-driver-ekeyword|revdep-rebuild|revdep-rebuild.sh|show|profile)
 		export service_cmd="${1}"
 		shift
 
-		echo >&2 ' * Setting gentoolkit environment ...'
+		print '* Setting gentoolkit environment ...'
 
 		if [ -e /etc/portage/repos.conf.host ]; then
-			echo >&2 "WARN:  Mirroring host repos.conf to container ..."
+			print "Mirroring host repos.conf to container ..."
 			if [ -e /etc/portage/repos.conf ]; then
 				if [ -d /etc/portage/repos.conf ]; then
 					for f in /etc/portage/repos.conf/*; do
@@ -25,16 +25,34 @@ case "${1:-}" in
 				[ -e /etc/portage/repos.conf ] && mv /etc/portage/repos.conf /etc/portage/repos.conf.disabled
 			fi
 			if ! cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf; then
-				echo >&2 "Can't copy host repos.conf: ${?}"
+				echo >&2 "FATAL: Can't copy host repos.conf: ${?}"
 				exit 1
 			fi
 		fi
 
-		eselect python update --if-unset
+		# eselect always complains about the symlink...
+		eselect profile set 1 >/dev/null 2>&1
+
+		# This should already have been run by entrypoint.sh...
+		#eselect python update --if-unset >/dev/null
+
+		FEATURES="-ipc-sandbox -mount-sandbox -network-sandbox"
+		export FEATURES
+
+		if echo "${service_cmd}" | grep -Fqx -e show -e profile; then
+			#ls -l /etc/portage/
+			#echo
+
+			eselect profile list
+			eselect profile show
+			echo "Current active python interpreter:"
+			eselect python show
+
+			exit 0
+		fi
 		;;
 	*)
-		#echo >&2 "WARN: Unrecognised command '${1:-}' (from '${*:-}'), will default to container CMD (currently 'versionsort')"
-		:
+		print "Unrecognised command '${1:-}' (from '${*:-}'), will default to container CMD (currently 'versionsort')"
 		;;
 esac
 

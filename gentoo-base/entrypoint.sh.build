@@ -163,7 +163,7 @@ savefailed() {
 	# Save failed build logs ...
 	# (e.g. /var/tmp/portage/app-misc/mime-types-9/temp/build.log)
 
-	#[ -n "${trace:-}" ] || set -x
+	#[ -n "${trace:-}" ] || set -o xtrace
 	# shellcheck disable=SC2012 # We can't rely on findutils being present...
 	if [ -n "$( ls -1 "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log 2>/dev/null | head -n 1 )" ]; then
 		mkdir -p "${PORTAGE_LOGDIR}"/failed
@@ -175,7 +175,7 @@ savefailed() {
 			rmdir --parents --ignore-fail-on-non-empty "$( dirname "${file}" )" || :
 		done
 	fi
-	#[ -n "${trace:-}" ] || set +x
+	#[ -n "${trace:-}" ] || set +o xtrace
 } # savefailed
 
 #do_prelink() {

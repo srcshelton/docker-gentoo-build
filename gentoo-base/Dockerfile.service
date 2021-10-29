@@ -195,9 +195,10 @@ RUN if [ -x /usr/bin/eselect ]; then \
     fi
 
 # http://www.gentoo.org/doc/en/prelink-howto.xml
-RUN test -x /usr/sbin/prelink && \
-    /usr/sbin/prelink -av -m -R -f && \
-    /usr/sbin/prelink -p
+RUN if [ -x /usr/sbin/prelink ]; then \
+        /usr/sbin/prelink -av -m -R -f && \
+        /usr/sbin/prelink -p ; \
+    fi
 
 EXPOSE "${service_ports}"
 

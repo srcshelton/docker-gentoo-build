@@ -101,108 +101,15 @@ print() {
 	fi
 } # print
 
+export -f output die error warn note info print
+
+#[ -n "${trace:-}" ] && set -o xtrace
+
 if [[ "$( uname -s )" == 'Darwin' ]]; then
 	readlink() {
 		perl -MCwd=abs_path -le 'print abs_path readlink(shift);' "${2}"
 	}
 fi
-
-# Now we're forced to run with bash to gain arrays, this is no longer
-# necessary!
-#
-#teefail() {
-#	# pipefail doesn't exist in POSIX sh, and getting the exit code from a
-#	# none-leaf pipeline stage is... awkward.
-#	#
-#	# The general approach is:
-#	#((((someprog 3>&- 4>&-; echo $? >&3) | filter >&4) 3>&1) | (read -r xs; exit $xs)) 4>&1
-#	# or
-#	#{ { { { someprog 3>&- 4>&-; echo $? >&3; } | filter >&4; } 3>&1; } | { read -r xs; return $xs; } } 4>&1
-#	#
-#	# ... but we only need to be able to do this for 'tee'.
-#
-#	# Given that POSIX sh also only supports the one single array ${@},
-#	# argument parsing is harder that necessary here too.
-#	#
-#	# Let's assume that the 'tee' arguments will be only either the last
-#	# argument (the output filename) or the last two arguments (any flags
-#	# and the output filename).  Let us also mandate that before this must
-#	# come either '--' or '-- tee'.
-#
-#	# TODO:
-#	# Validate 'tee' command (to allow for other uses, and to ensure there
-#	# isn't another -- in ${@}
-#
-#	# Since POSIX 'sh' doesn't support local variables, run in a sub-shell...
-#	#(
-#		local tf_output=''
-#		local tf_flags=''
-#
-#		local -i tf_arg=${#}
-#		local tf_output
-#		tf_output="$( eval echo "\${${tf_arg}}" )"
-#
-#		local -i tf_separator=0
-#		local tf_value=''
-#		while [ $(( tf_separator )) -eq 0 ] && [ "${tf_arg}" -ne 1 ]; do
-#			: $(( tf_arg = tf_arg - 1 ))
-#			tf_value="$( eval echo "\${${tf_arg}}" )"
-#			case "${tf_value}" in
-#				--)
-#					tf_separator=${tf_arg}
-#					;;
-#				tee)
-#					:
-#					;;
-#				-*)
-#					tf_flags="${tf_flags:+${tf_flags} }${tf_value}"
-#					;;
-#				*)
-#					die "teefail: Error processing argument ${tf_arg} of '${*}' ('${tf_value}')"
-#					;;
-#			esac
-#		done
-#		unset tf_arg
-#		unset tf_value
-#		unset tf_separator
-#
-#		local tf_arg=''
-#		local -i tf_cleared=0
-#		for tf_arg in "${@}"; do
-#			if [ $(( ${tf_cleared:-1} )) -eq 0 ]; then
-#				set --
-#				tf_cleared=1
-#			fi
-#			case "${tf_arg}" in
-#				--)
-#					break
-#					;;
-#				[0-9-]\>\&*)
-#					continue
-#					;;
-#				\>\&[0-9-]*)
-#					continue
-#					;;
-#				*)
-#					#tf_arg="$( echo "${tf_arg}" | sed 's#"#\\"#g' | sed "s#'#\\'#g" )"
-#					set -- "${@}" "${tf_arg}"
-#					;;
-#			esac
-#		done
-#		unset tf_cleared
-#		unset tf_arg
-#
-#		local -i tf_rc=0
-#		local tf_cmd="${1}"
-#		shift
-#
-#		#{ { { { eval "${tf_cmd}" "${@}" 3>&- 4>&- ; echo ${?} >&3 ; } | tee ${tf_flags:-} "${tf_output}" >&4 ; } 3>&1 ; } | { read -r rc; exit ${tf_rc} ; } } 4>&1
-#		# shellcheck disable=SC2086
-#		{ { { { "${tf_cmd}" "${@}" 2>&1 3>&- 4>&- ; echo ${?} >&3 ; } | tee ${tf_flags:-} "${tf_output}" >&4 ; } 3>&1 ; } | { read -r rc; exit ${tf_rc} ; } } 4>&1
-#	#)
-#
-#	return ${?}
-#} # teefail
 
 # Mostly no longer needed, with Dockerfile.env ...
 #
@@ -293,21 +200,21 @@ docker_parse() {
 	else
 		for dp_arg in "${@}"; do
 			if echo "${dp_arg}" | grep -Eq -- '^-(h|-help)$'; then
-				output >&2 "Usage: $( basename "${0}" ) [--name <container name>] [--image <source image>] <package> [emerge_args]"
+				output >&2 "Usage: $( basename -- "${0#-}" ) [--name <container name>] [--image <source image>] <package> [emerge_args]"
 				exit 0
 
 			elif [ "${name}" = '<next>' ]; then
 				name="${dp_arg}"
-				print "Setting container name to '${name}' in $( basename "${0}" )"
+				print "Setting container name to '${name}' in $( basename -- "${0#-}" )"
 
 			elif [ "${image}" = '<next>' ]; then
 				image="${dp_arg}"
-				print "Setting source image to '${image}' in $( basename "${0}" )"
+				print "Setting source image to '${image}' in $( basename -- "${0#-}" )"
 
 			elif echo "${dp_arg}" | grep -Eq -- '^-(n|-name)(=[a-z0-9]+([._-]{1,2}[a-z0-9]+)*)?$'; then
 				if echo "${dp_arg}" | grep -Fq '=' ; then
 					name="$( echo "${dp_arg}" | cut -d'=' -f 2- )"
-					print "Setting container name to '${name}' in $( basename "${0}" )"
+					print "Setting container name to '${name}' in $( basename -- "${0#-}" )"
 				else
 					name='<next>'
 				fi
@@ -315,7 +222,7 @@ docker_parse() {
 			elif echo "${dp_arg}" | grep -Eq -- '^-(i|-image)(=[a-z0-9]+([._-]{1,2}[a-z0-9]+)*)?$'; then
 				if echo "${dp_arg}" | grep -Fq -- '=' ; then
 					image="$( echo "${dp_arg}" | cut -d'=' -f 2- )"
-					print "Setting source image to '${image}' in $( basename "${0}" )"
+					print "Setting source image to '${image}' in $( basename -- "${0#-}" )"
 				else
 					image='<next>'
 				fi
@@ -381,24 +288,51 @@ docker_resolve() {
 		# On non-Gentoo systems we need to build 'eix' (for 'versionsort') and
 		# 'equery' into a container, and then call that to acquire "proper"
 		# package-version handling facilities.
-		# shellcheck disable=SC2086		# shellcheck disable=SC2086		# shellcheck disable=SC2086
+		# shellcheck disable=SC2086
 		if
 			$docker ${DOCKER_VARS:-} image ls localhost/gentoo-helper:latest |
 			grep -Eq -- '^(localhost/)?([^.]+\.)?gentoo-helper'
 		then
 			# shellcheck disable=SC2032  # Huh?
 			versionsort() {
-				$docker run \
-						--rm \
-						--name='portage-helper' \
-						--network=host \
-					gentoo-helper versionsort "{@:-}"
+				local result=''
+				local -i rc=0
+
+				result="$(
+					$docker run \
+							--rm \
+							--name='portage-helper' \
+							--network=host \
+						gentoo-helper versionsort "${@:-}"
+				)" || rc="${?}"
+
+				print "versionsort returned '${result}': ${rc}"
+				echo -n "${result}"
+
+				return "${rc}"
 			}
 			export -f versionsort
+
 			equery() {
-				image='localhost/gentoo-helper:latest' \
-				container_name='gentoo-helper' \
-					docker_run equery "${@:-}"
+				local result=''
+				local -i rc=0
+
+				# We'll execute this container via docker_run rather than
+				# by direct invocation, so that we get all of the necessary
+				# repo directories mounted...
+				result="$(
+					BUILD_CONTAINER=0 \
+					NO_MEMORY_LIMITS=1 \
+					image='' \
+					IMAGE='localhost/gentoo-helper:latest' \
+					container_name='gentoo-helper' \
+						docker_run equery "${@:-}"
+				)" || rc="${?}"
+
+				print "equery returned '${result}': ${?}"
+				echo "${result}"
+
+				return "${rc}"
 			}
 			export -f equery
 		else
@@ -436,7 +370,13 @@ docker_resolve() {
 				done
 
 				# Assume we also lack 'portageq' ...
-				repopath='/var/db/repos/gentoo'
+				if [ -d /var/db/repos ]; then
+					repopath='/var/db/repos/gentoo'
+				elif [ -d /var/db/repo ]; then
+					repopath='/var/db/repo/gentoo'
+				else
+					die "Unable to locate 'gentoo' repo directory"
+				fi
 
 				for arg in "${@:-}"; do
 					if [[ "${arg}" == */* ]]; then
@@ -493,23 +433,25 @@ docker_resolve() {
 	# We need a numeric suffix in order to determine the package name, but
 	# can't add one universally since "pkg-1.2-0" has a name of 'pkg-1.2'
 	# (rather than 'pkg')...
-	dr_name="$( versionsort -n "${dr_package##*[<>=]}" 2>/dev/null )" || dr_name="$( versionsort -n "${dr_package##*[<>=]}-0" 2>/dev/null )"
+	dr_name="$( versionsort -n "${dr_package##*[<>=]}" 2>/dev/null )" || dr_name="$( versionsort -n "${dr_package##*[<>=]}-0" 2>/dev/null || : )"
 	dr_pattern='-~'
 	if [ "${FORCE_KEYWORDS:-}" = '1' ]; then
 		dr_pattern='-'
 	fi
 	# Ensure that ebuilds keyworded for building are checked when confirming
 	# the package to build...
+	sudo mkdir -p /etc/portage/package.accept_keywords 2>/dev/null || :
 	if ! [[ -d /etc/portage/package.accept_keywords ]]; then
 		die "'/etc/portage/package.accept_keywords' must be a directory not a file"
 	else
 		if [[ -e "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords" ]]; then
-			TMP_KEYWORDS="$( mktemp -p /etc/portage/package.accept_keywords/ "$( basename "${0}" ).XXXXXXXX" )"
+			TMP_KEYWORDS="$( sudo mktemp -p /etc/portage/package.accept_keywords/ "$( basename -- "${0#-}" ).XXXXXXXX" )"
 			if ! [[ -e "${TMP_KEYWORDS:-}" ]]; then
 				unset TMP_KEYWORDS
 			else
 				# shellcheck disable=SC2064
-				trap "test -e '${TMP_KEYWORDS:-}' && rm -f '${TMP_KEYWORDS:-}'" SIGHUP SIGINT SIGQUIT
+				trap "test -e '${TMP_KEYWORDS:-}' && sudo rm -f '${TMP_KEYWORDS:-}'" SIGHUP SIGINT SIGQUIT
+				sudo chmod 0666 "${TMP_KEYWORDS}"
 				if [[ -d "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords" ]]; then
 					cat "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords"/* > "${TMP_KEYWORDS}"
 				elif [[ -s "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords" ]]; then
@@ -532,7 +474,7 @@ docker_resolve() {
 		tail -n 1
 	)" || :
 	if [[ -n "${TMP_KEYWORDS:-}" ]] && [[ -e "${TMP_KEYWORDS}" ]]; then
-		rm "${TMP_KEYWORDS}"
+		sudo rm "${TMP_KEYWORDS}"
 		trap - SIGHUP SIGINT SIGQUIT
 		unset TMP_KEYWORDS
 	fi
@@ -545,7 +487,7 @@ docker_resolve() {
 	package="$( echo "${dr_package}" | cut -d':' -f 1 )"
 	package_version="$( versionsort "${package}" )"
 	# shellcheck disable=SC2001 # POSIX sh compatibility
-	package_name="$( echo "${package%-${package_version}}" | sed 's/+/plus/g' )"
+	package_name="$( echo "${package%-"${package_version}"}" | sed 's/+/plus/g' )"
 	# shellcheck disable=SC2001 # POSIX sh compatibility
 	container_name="${prefix}.$( echo "${package_name}" | sed 's|/|.|g' )"
 	export package package_version package_name container_name
@@ -564,7 +506,7 @@ docker_image_exists() {
 	[[ -n "${image:-}" ]] || return 1
 
 	if [[ -n "${version:-}" ]]; then
-		image="${image%-${version}}"
+		image="${image%-"${version}"}"
 	fi
 	if [[ "${image}" =~ : ]]; then
 		version="${image#*:}"
@@ -596,10 +538,27 @@ docker_image_exists() {
 #
 docker_run() {
 	#inherit name container_name
+	#inherit BUILD_CONTAINER NO_BUILD_MOUNTS NO_MEMORY_LIMITS
+	#inherit DOCKER_VARS
+	#inherit PODMAN_MEMORY_RESERVATION PODMAN_MEMORY_LIMIT PODMAN_SWAP_LIMIT
+	#inherit ACCEPT_KEYWORDS ACCEPT_LICENSE DEBUG DEV_MODE DOCKER_CMD_VARS \
+	#	 DOCKER_DEVICES DOCKER_ENTRYPOINT DOCKER_EXTRA_MOUNTS \
+	#	 DOCKER_HOSTNAME DOCKER_INTERACTIVE DOCKER_PRIVILEGED \
+	#	 DOCKER_VOLUMES ECLASS_OVERRIDE EMERGE_OPTS FEATURES \
+	#	 PYTHON_SINGLE_TARGET PYTHON_TARGETS ROOT TERM TRACE USE
+	#inherit ARCH PKGDIR_OVERRIDE PKGDIR
+	#inherit DOCKER_VERBOSE DOCKER_CMD
+	#inherit image IMAGE
 
 	local dr_rm='' dr_id=''
 	local -i rc=0
 	local -i rcc=0
+
+	local BUILD_CONTAINER="${BUILD_CONTAINER-1}"  # Don't substitute if variable is assigned but empty...
+	local NO_BUILD_MOUNTS="${NO_BUILD_MOUNTS:-}"
+	local NO_MEMORY_LIMITS="${NO_MEMORY_LIMITS:-}"
+
+	[ "${BUILD_CONTAINER}" = '1' ] || unset BUILD_CONTAINER
 
 	[ -n "${name:-}" ] || dr_rm='--rm'
 
@@ -619,34 +578,10 @@ docker_run() {
 		$docker ${DOCKER_VARS:-} container rm --volumes "${name:-${container_name}}"
 	trap - INT
 
-	if [ -z "${NO_BUILD_MOUNTS:-}" ]; then
+	if [ -n "${BUILD_CONTAINER:-}" ] && [ -z "${NO_BUILD_MOUNTS:-}" ]; then
 		if [ -d '/etc/openldap/schema' ] && [ -n "${name:-}" ] && [ "${name%-*}" = 'buildsvc' ]; then
 			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/openldap/schema/,destination=/service/etc/openldap/schema"
 		fi
-
-		# Move this logic to the service build script...
-		#
-		#if [[ "${name:-}" =~ ^buildsvc.*\.dev-db\.(mysql|mariadb)- ]]; then
-		#	mkdir -p /etc/mysql
-		#	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/mysql/,destination=/service/etc/mysql"
-		#fi
-		#
-		#if [[ "${name:-}" =~ ^buildsvc.*\.dev-lang\.php- ]]; then
-		#	mkdir -p /etc/php
-		#	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/php/,destination=/service/etc/php"
-		#fi
-		#
-		#if [[ "${name:-}" =~ ^buildsvc.*\.mail-filter\.postgrey- ]]; then
-		#	mkdir -p /etc/postfix
-		#	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/postfix/,destination=/service/etc/postfix"
-		#fi
-		#
-		#if [[ "${name:-}" =~ ^buildsvc.*\.mail-filter\.spamassassin- ]]; then
-		#	mkdir -p /etc/mail/spamassassin /var/lib/spamassassin /usr/share/spamassassin
-		#	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/mail/spamassassin/,destination=/service/etc/mail/spamassassin"
-		#	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/var/lib/spamassassin/,destination=/service/var/lib/spamassassin"
-		#	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/usr/share/spamassassin/,destination=/service/usr/share/spamassassin"
-		#fi
 	fi
 
 	# --privileged is required for portage sandboxing... or alternatively
@@ -659,7 +594,7 @@ docker_run() {
 	# FIXME: Add -tty regardless of DOCKER_INTERACTIVE, so that the
 	# container can access details of the host terminal size
 	# *HOWEVER* this removes the ability to use ctrl+c to interrupt, so
-	# instead hard-code COLUMNS and LINES :(
+	# hard-code COLUMNS and LINES instead :(
 	#
 	# Adding '--init' allows tini to ensure that SIGTERM reaches child
 	# commands, not just the top-level shell process...
@@ -676,19 +611,23 @@ docker_run() {
 		--init
 		--name "${name:-${container_name}}"
 		#--network slirp4netns
-		# Some code such as podman's go code tries to fetch packages from
+		# Some elements such as podman's go code tries to fetch packages from
 		# IPv6-addressable hosts...
 		--network host
 		--pids-limit 1024
 		  ${dr_rm:+--rm}
 		--ulimit nofile=1024:1024
 	)
-	if [ -z "${NO_BUILD_MOUNTS:-}" ]; then
+	if [ -n "${BUILD_CONTAINER:-}" ] && [ -z "${NO_BUILD_MOUNTS:-}" ]; then
 		# We have build-mounts, therefore assume that we're running a
 		# build container...
 		runargs+=(
 			--privileged
 		)
+	else
+		# This shouldn't cause much harm, regardless...
+		FEATURES="${FEATURES:+${FEATURES} }-ipc-sandbox -mount-sandbox -network-sandbox"
+		export FEATURES
 	fi
 	# shellcheck disable=SC2206
 	runargs+=(
@@ -728,13 +667,13 @@ docker_run() {
 			local -i ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
 			local -i changed=0
 			if (( ram < ${PODMAN_MEMORY_LIMIT%g} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
-				echo >&2 "INFO:  Host resources (rounded down to nearest 1GiB):"
-				echo >&2 "         RAM:        ${ram}G"
-				echo >&2 "         Swap:       ${swp}G"
-				echo >&2 "INFO:  Original memory limits:"
-				echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
-				echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
-				echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
+				output >&2 "INFO:  Host resources (rounded down to nearest 1GiB):"
+				output >&2 "         RAM:        ${ram}G"
+				output >&2 "         Swap:       ${swp}G"
+				output >&2 "INFO:  Original memory limits:"
+				output >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
+				output >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
+				output >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
 			fi
 			if (( ram < ${PODMAN_MEMORY_LIMIT%g} )); then
 				PODMAN_MEMORY_RESERVATION="$(( ram - 1 ))g"
@@ -747,11 +686,11 @@ docker_run() {
 				changed=1
 			fi
 			if (( changed )); then
-				echo >&2 "NOTE:  Changed memory limits based on host configuration:"
-				echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
-				echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
-				echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
-				echo >&2
+				output >&2 "NOTE:  Changed memory limits based on host configuration:"
+				output >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
+				output >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
+				output >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
+				output >&2
 			fi
 			unset changed ram swp
 
@@ -794,24 +733,26 @@ docker_run() {
 			#/var/db/repo/srcshelton
 			#/var/db/repo/compat
 		)
-		mirrormountpoints=(
-			#/var/cache/portage/dist
-			"${default_distdir_path:-$( portageq distdir )}"
-			'/var/log/portage'
-		)
+		if [ -n "${BUILD_CONTAINER:-}" ]; then
+			mirrormountpoints=(
+				#/var/cache/portage/dist
+				"${default_distdir_path:-$( portageq distdir )}"
+				'/var/log/portage'
+			)
 
-		if [ -z "${arch:-}" ]; then
-			docker_setup
+			if [ -z "${arch:-}" ]; then
+				docker_setup
+			fi
+
+			#ENV PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
+			#local PKGCACHE="${PKGCACHE:=/var/cache/portage/pkg}"
+			#local PKGHOST="${PKGHOST:=docker}"
+			local PKGDIR="${PKGDIR:=${default_pkgdir_path:-$( portageq pkgdir )}}"
+
+			# Allow use of 'ARCH' variable as an override...
+			print "Using architecture '${ARCH:-${arch}}' ..."
+			mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-${arch}}/docker"
 		fi
-
-		#ENV PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
-		#local PKGCACHE="${PKGCACHE:=/var/cache/portage/pkg}"
-		#local PKGHOST="${PKGHOST:=docker}"
-		local PKGDIR="${PKGDIR:=${default_pkgdir_path:-$( portageq pkgdir )}}"
-
-		# Allow use of 'ARCH' variable as an override...
-		print "Using architecture '${ARCH:-${arch}}' ..."
-		mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-${arch}}/docker"
 		mountpoints['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
 
 		if [ -s "gentoo-base/etc/portage/package.accept_keywords.${ARCH:-${arch}}" ]; then
@@ -909,27 +850,29 @@ docker_run() {
 		# DEBUG:
 		# shellcheck disable=SC2030
 		if [ -n "${DOCKER_VARS:-}" ]; then
-			output "Defined pre-build container images:"
+			output "Defined ${BUILD_CONTAINER:+pre-build} container images:"
 			set -x
 			# shellcheck disable=SC2086
 			eval $docker ${DOCKER_VARS:-} image ls --noheading
 			set +x
-			output "Defined pre-build additional-store container tasks:"
+			output "Defined ${BUILD_CONTAINER:+pre-build} additional-store container tasks:"
 			set -x
 			# shellcheck disable=SC2086
 			eval $docker ${DOCKER_VARS:-} container ps --noheading -a
 			set +x
-			output "Defined pre-build container tasks:"
+			output "Defined ${BUILD_CONTAINER:+pre-build} container tasks:"
 			$docker container ps --noheading -a
 		fi
 
-		print "Starting build container with command '$docker container run ${runargs[*]} ${image:-${IMAGE:-gentoo-build:latest}} ${*}'"
+		image="${image:-${IMAGE:-gentoo-build:latest}}"
+
+		print "Starting ${BUILD_CONTAINER:+build} container with command '$docker container run ${runargs[*]} ${image} ${*}'"
 		# shellcheck disable=SC2086
 		$docker \
 				${DOCKER_VARS:-} \
 			container run \
 				"${runargs[@]}" \
-			"${image:-${IMAGE:-gentoo-build:latest}}" ${@+"${@}"}
+			"${image}" ${@+"${@}"}
 	)
 	rc=${?}
 	# shellcheck disable=SC2031,SC2086
@@ -1040,5 +983,6 @@ else
 	# From release 2.0.0, podman should accept docker 'readonly' attributes
 	docker_readonly='ro=true'
 fi
+export docker docker_readonly  # extra_build_args
 
 # vi: set syntax=sh nowrap:

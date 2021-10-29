@@ -8,7 +8,13 @@ trace=${TRACE:-}
 [ -n "${trace:-}" ] && set -o xtrace
 
 print() {
-	[ -z "${debug:-}" ] || echo >&2 "${*}"
+	if [ -n "${debug:-}" ]; then
+		if [ -n "${*:-}" ]; then
+			echo >&2 "DEBUG: ${*}"
+		else
+			echo >&2
+		fi
+	fi
 }
 
 if [ -z "${service_cmd:-}" ]; then

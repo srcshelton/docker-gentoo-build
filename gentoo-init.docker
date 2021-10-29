@@ -787,6 +787,21 @@ else
 	checkids "${base_name}"
 fi
 
-set +o xtrace
+if ! type -pf portageq >/dev/null 2>&1; then
+	if [[ -x gentoo-build-svc.docker ]]; then
+		#if ! ((
+		#	$docker image ls --noheading \
+		#		"gentoo-helper:latest" 2>/dev/null | wc -l
+		#)); then
+			output " ${blue}*${reset} Building helper for non-Gentoo host systems ..."
+			output
+
+			./gentoo-build-svc.docker eix
+			output " -> ${?}"
+		#fi
+	fi
+fi
+
+[ -n "${trace:-}" ] && set +o xtrace
 
 #popd >/dev/null
