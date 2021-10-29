@@ -7,10 +7,13 @@
 # Exclude vim swapfiles
 **/.*.sw[a-p]
 
+/local.sh
+/portage-cache.tar
+
 # Make host-specific changes to these files as necessary...
 #
-gentoo-base/etc/portage/package.use.build/package.use.local
-common/local.sh
+/gentoo-base/etc/portage/package.use.build/package.use.local
+/common/local.sh
 #
 # ... and then execute
 #
