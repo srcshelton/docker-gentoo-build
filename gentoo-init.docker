@@ -75,17 +75,17 @@ fi
 if [ -n "${*:-}" ]; then
 	if echo " ${*} " | grep -Eq -- ' -(h|-help) '; then
 		output >&2 "Usage: $( basename "${0}" ) [--env] [--stage3] [--init]" \
-			"[[--force] --base] [[--force] --build]"
+			"[[--force] --base] [[--force] --build] [[--force] --helper]"
 		exit 0
 	elif
 		! echo "${*}" |
-		grep -Eq -- '^(\s*--(env|stage3|init|base|build|force)\s*){1,6}$'
+		grep -Eq -- '^(\s*--(env|stage3|init|base|build|helper|force)\s*){1,6}$'
 	then
 		die "Unknown args '${*}'"
 	fi
 
 	if echo " ${*} " | grep -Fq -- ' --force '; then
-		if ! echo " ${*} " | grep -Eq -- ' --(base|build) '; then
+		if ! echo " ${*} " | grep -Eq -- ' --(base|build|helper) '; then
 			die "'--force' is only valid with '--base' or '--build'"
 		fi
 	fi
@@ -114,7 +114,7 @@ fi
 
 docker_setup
 
-cd "${base_dir}" || die "chdir() to '${base_dir}' failed; ${?}"
+pushd "${base_dir}" >/dev/null 2>&1 || die "chdir() to '${base_dir}' failed; ${?}"
 
 checkids() {
 	local name="${1:-}"
@@ -787,21 +787,48 @@ else
 	checkids "${base_name}"
 fi
 
-if ! type -pf portageq >/dev/null 2>&1; then
-	if [[ -x gentoo-build-svc.docker ]]; then
-		#if ! ((
-		#	$docker image ls --noheading \
-		#		"gentoo-helper:latest" 2>/dev/null | wc -l
-		#)); then
-			output " ${blue}*${reset} Building helper for non-Gentoo host systems ..."
-			output
+if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --helper '; then
+	local -i build_helper=1
 
-			./gentoo-build-svc.docker eix
-			output " -> ${?}"
-		#fi
+	if type -pf portageq >/dev/null 2>&1; then
+		# Running on Gentoo...
+
+		if echo " ${*} " | grep -Fq -- ' --helper '; then
+			if echo " ${*} " | grep -Fq -- ' --force '; then
+				warn "Forcing creation of unnecessary helper image on Gentoo platform"
+			else
+				die "Helper image unneeded on Gentoo platform - use '--force' to enable creation"
+			fi
+		else
+			build_helper=0
+		fi
+	fi
+
+	if (( build_helper )); then
+		popd >/dev/null 2>&1 || exit 1
+		if ! [[ -x gentoo-build-svc.docker ]]; then
+			warn "Cannot execute 'gentoo-build-svc.docker' script (in directory '${PWD}') to build non-Gentoo helper image"
+		else
+			#if ! ((
+			#	$docker image ls --noheading \
+			#		"gentoo-helper:latest" 2>/dev/null | wc -l
+			#)); then
+				output " ${blue}*${reset} Building helper for non-Gentoo host systems ..."
+				output
+
+				if echo " ${*} " | grep -Fq -- ' --force '; then
+					./gentoo-build-svc.docker eix --force
+				else
+					./gentoo-build-svc.docker eix
+				fi
+				output " -> ${?}"
+			#fi
+		fi
 	fi
 fi
 
 [ -n "${trace:-}" ] && set +o xtrace
 
 #popd >/dev/null
+
+exit 0
