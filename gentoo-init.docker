@@ -33,6 +33,7 @@ environment_filter=''
 bold=''
 red=''
 blue=''
+#purple=''
 reset=''
 
 # Set by common/run.sh docker_setup()
@@ -494,16 +495,17 @@ if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
 		if [ "${imagesum:-}" != "${sum}" ]; then
 			if echo " ${*} " | grep -Fq -- ' --force '; then
 				output >&2
-				output >&2 "${bold}WARN${reset}:  ${red}entrypoint.sh sum from" \
-					"'${init_name}:latest' image (${imagesum:-<unknown>})" \
-					"does not match file on disk (${sum}) - forcing" \
-					"continuation with existing embedded script ...${reset}"
+				output >&2 "${bold}WARN${reset}:  ${red}'entrypoint.sh'" \
+					"checksum from '${init_name}:latest' image" \
+					"(${imagesum:-<unknown>}) does not match file on disk" \
+					"(${sum}) - forcing continuation with existing embedded" \
+					"script ...${reset}"
 			else
 				output >&2
-				output >&2 "${bold}WARN${reset}:  ${red}entrypoint.sh sum from" \
-					"'${init_name}:latest' image (${imagesum:-<unknown>})" \
-					"does not match file on disk (${sum}) - rebuilding" \
-					"initial image ...${reset}"
+				output >&2 "${bold}WARN${reset}:  ${red}'entrypoint.sh'" \
+					"checksum from '${init_name}:latest' image" \
+					"(${imagesum:-<unknown>}) does not match file on disk" \
+					"(${sum}) - rebuilding initial image ...${reset}"
 				set --
 			fi
 		fi
@@ -788,7 +790,7 @@ else
 fi
 
 if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --helper '; then
-	local -i build_helper=1
+	declare -i build_helper=1
 
 	if type -pf portageq >/dev/null 2>&1; then
 		# Running on Gentoo...

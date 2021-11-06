@@ -114,20 +114,9 @@ fi
 # Mostly no longer needed, with Dockerfile.env ...
 #
 docker_setup() {
-	# The following definitions have been moved to Dockerfile.env:
-	#
-	#export ARCH='amd64'
-	#export PKGHOST='docker'
-	#export PKGCACHE='/var/cache/portage/pkg'
-	#export PKGDIR="${PKGCACHE}/${ARCH}/${PKGHOST}" # /var/cache/portage/pkg/amd64/docker
-	#
-	#export DISTDIR="/var/cache/portage/dist"
-	#export PORT_LOGDIR="/var/log/portage"
-	#
-	#export REPOS="/var/db/repo"
-
 	export -a args=() extra=()
-	export package='' package_version='' package_name='' repo='' name='' container_name='' image="${IMAGE:-gentoo-build:latest}"
+	export package='' package_version='' package_name='' repo=''
+	export name='' container_name='' image="${IMAGE:-gentoo-build:latest}"
 
 	# 'docker_arch' is the 'ARCH' component of Docker's 'platform' string, and
 	# is used to ensure that the correct image is pulled when multi-arch images
@@ -433,7 +422,11 @@ docker_resolve() {
 	# We need a numeric suffix in order to determine the package name, but
 	# can't add one universally since "pkg-1.2-0" has a name of 'pkg-1.2'
 	# (rather than 'pkg')...
-	dr_name="$( versionsort -n "${dr_package##*[<>=]}" 2>/dev/null )" || dr_name="$( versionsort -n "${dr_package##*[<>=]}-0" 2>/dev/null || : )"
+	dr_name="$(
+		versionsort -n "${dr_package##*[<>=]}" 2>/dev/null
+	)" || dr_name="$(
+		versionsort -n "${dr_package##*[<>=]}-0" 2>/dev/null
+	)" || :
 	dr_pattern='-~'
 	if [ "${FORCE_KEYWORDS:-}" = '1' ]; then
 		dr_pattern='-'
@@ -442,7 +435,7 @@ docker_resolve() {
 	# the package to build...
 	sudo mkdir -p /etc/portage/package.accept_keywords 2>/dev/null || :
 	if ! [[ -d /etc/portage/package.accept_keywords ]]; then
-		die "'/etc/portage/package.accept_keywords' must be a directory not a file"
+		die "'/etc/portage/package.accept_keywords' must be a directory"
 	else
 		if [[ -e "${PWD%/}/gentoo-base/etc/portage/package.accept_keywords" ]]; then
 			TMP_KEYWORDS="$( sudo mktemp -p /etc/portage/package.accept_keywords/ "$( basename -- "${0#-}" ).XXXXXXXX" )"
@@ -463,15 +456,15 @@ docker_resolve() {
 	# shellcheck disable=SC2016
 	dr_package="$(
 		equery --no-pipe --no-color list --portage-tree --overlay-tree "${dr_package}" |
-		grep -- '^\[' |
-		grep -v \
-			-e "^\[...\] \[.[${dr_pattern}]\] " \
-			-e "^\[...\] \[M.]\] " |
-		cut -d']' -f 3- |
-		cut -d' ' -f 2- |
-		cut -d':' -f 1 |
-		xargs -r -I '{}' bash -c 'printf "%s\n" "$( versionsort "${@:-}" )"' _ {} |
-		tail -n 1
+			grep -- '^\[' |
+			grep -v \
+				-e "^\[...\] \[.[${dr_pattern}]\] " \
+				-e "^\[...\] \[M.]\] " |
+			cut -d']' -f 3- |
+			cut -d' ' -f 2- |
+			cut -d':' -f 1 |
+			xargs -r -I '{}' bash -c 'printf "%s\n" "$( versionsort "${@:-}" )"' _ {} |
+			tail -n 1
 	)" || :
 	if [[ -n "${TMP_KEYWORDS:-}" ]] && [[ -e "${TMP_KEYWORDS}" ]]; then
 		sudo rm "${TMP_KEYWORDS}"
@@ -606,7 +599,13 @@ docker_run() {
 	runargs=(
 		$(
 			# shellcheck disable=SC2015
-			[[ "$( uname -s )" != 'Darwin' ]] && (( $( nproc ) > 1 )) && $docker info 2>&1 | grep -q -- 'cpuset' && echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))" || :
+			if
+				[[ "$( uname -s )" != 'Darwin' ]] &&
+				(( $( nproc ) > 1 )) &&
+				$docker info 2>&1 | grep -q -- 'cpuset'
+			then
+				echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))"
+			fi
 		)
 		--init
 		--name "${name:-${container_name}}"
@@ -985,4 +984,4 @@ else
 fi
 export docker docker_readonly  # extra_build_args
 
-# vi: set syntax=sh nowrap:
+# vi: set syntax=bash nowrap:
