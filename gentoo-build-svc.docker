@@ -43,6 +43,9 @@ services='
 	opendmarc
 	openntpd
 	php
+	php73
+	php74
+	php80
 	pinfo
 	postfix
 	postgrey
@@ -55,6 +58,10 @@ services='
 	subversion
 	syslog-ng
 	unifi
+	unifi60
+	unifi61
+	unifi62
+	unifi64
 	vim
 	watchdog
 	zxtm
@@ -193,14 +200,19 @@ if [ -n "${installed:-}" ] && [ $(( installed )) -eq 1 ]; then
 		#
 		find /var/db/pkg/container/ -mindepth 2 -maxdepth 2 -type f -name CONTENTS -print |
 			awk -F '/' 'NF-1 { print $(NF-1) }' |
+			sed \
+				-e 's/^php-\([0-9]\).\([0-9]\)\(.*\)$/php\1\2-\1.\2\3/g' \
+				-e 's/^unifi\(-controller\(-bin\)\?\)\?-\([0-9]\).\([0-9]\)\(.*\)$/unifi\3\4-\3.\4\5/g' |
 			sed -r 's/-[0-9][0-9.]*(_p[0-9]+)?(-r[0-9]+)?//'
 
 		# Build list based on present images...
 		#
-		$docker image list --noheading --sort repository --format '{{.Repository}}' 'localhost/service.' |
+		$docker image list --noheading --sort repository --format '{{.Repository}}-{{.Tag}}' 'localhost/service.' |
 			cut -d'.' -f 3- |
-			sort |
-			uniq
+			sed \
+				-e 's/^php-\([0-9]\).\([0-9]\)\(.*\)$/php\1\2-\1.\2\3/g' \
+				-e 's/^unifi\(-controller\(-bin\)\?\)\?-\([0-9]\).\([0-9]\)\(.*\)$/unifi\3\4-\3.\4\5/g' |
+			sed -r 's/-[0-9][0-9.]*(_p[0-9]+)?(-r[0-9]+)?//'
 	)" | sort | uniq )
 fi
 
@@ -227,6 +239,8 @@ for arg in "${@}"; do
 			set -- "${@}" 'man'
 			;;
 		spamassassin*)
+			# The idea here is to ensure that if spamassassin is rebuilt, then
+			# so is spamassassin's updater...
 			if ! grep -qw -- 'spamassassin' <<<"${*:-}"; then
 				set -- "${@}" 'spamassassin'
 			fi
@@ -360,6 +374,12 @@ case "${service:-}" in
 		service='mail-filter/opendmarc' ;;
 	php)
 		service='dev-lang/php' ;;
+	php73)
+		service='=dev-lang/php-7.3*' ;;
+	php74)
+		service='=dev-lang/php-7.4*' ;;
+	php80)
+		service='=dev-lang/php-8.0*' ;;
 	pinfo|info)
 		# Launcher loads running services' /usr/share/info volumes
 		service='app-text/pinfo' ;;
@@ -386,6 +406,14 @@ case "${service:-}" in
 		service='app-admin/syslog-ng' ;;
 	unifi|unifi-controller|unifi-controller-bin)
 		service='net-misc/unifi-controller-bin' ;;
+	unifi60|unifi-controller60|unifi-controller-60|unifi-controller-bin60|unifi-controller-bin-60)
+		service='=net-misc/unifi-controller-bin-6.0*' ;;
+	unifi61|unifi-controller61|unifi-controller-61|unifi-controller-bin61|unifi-controller-bin-61)
+		service='=net-misc/unifi-controller-bin-6.1*' ;;
+	unifi62|unifi-controller62|unifi-controller-62|unifi-controller-bin62|unifi-controller-bin-62)
+		service='=net-misc/unifi-controller-bin-6.2*' ;;
+	unifi64|unifi-controller64|unifi-controller-64|unifi-controller-bin64|unifi-controller-bin-64)
+		service='=net-misc/unifi-controller-bin-6.4*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
@@ -463,11 +491,25 @@ python_target='' etcdir=''
 # python defaults).
 if type -pf portageq >/dev/null 2>&1; then
 	python_target="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
-	php_targets="$( for t in $( portageq envvar 'PHP_TARGETS' ); do echo "php_targets_${t}"; done | sort -V | tail -n 1 )"
+	case "${original_service:-}" in
+		php[0-9][0-9])
+			php_targets="${original_service%[0-9]}-${original_service#php[0-9]}"
+			;;
+		*)
+			php_targets="$( for t in $( portageq envvar 'PHP_TARGETS' ); do echo "php_targets_${t}"; done | sort -V | tail -n 1 )"
+			;;
+	esac
 else
 	# FIXME: Hard-coded
 	python_target='python3_9'
-	php_targets='php_targets_php7-4'
+	case "${original_service:-}" in
+		php[0-9][0-9])
+			php_targets="${original_service%[0-9]}-${original_service#php[0-9]}"
+			;;
+		*)
+			php_targets='php_targets_php7-4'
+			;;
+	esac
 fi
 print "Building for python version '${python_target}'"
 print "Building for PHP versions '${php_targets}'"
@@ -683,8 +725,14 @@ case "${package_name}" in
 		;;
 	*.php)
 		LIB='lib64'
-		PHP_SLOT='php7.4'
-		#PHP_SLOT='php8.0'
+		case "${original_service:-}" in
+			php[0-9][0-9])
+				PHP_SLOT="${original_service%[0-9]}.${original_service#php[0-9]}"
+				;;
+			*)
+				PHP_SLOT="$( for t in $( portageq envvar 'PHP_TARGETS' ); do echo "${t/-/.}"; done | sort -V | tail -n 1 )"
+				;;
+		esac
 		output "Setting build variables for package 'php' ..."
 		# eselect-php-0.9.6+ required for ROOT support
 		pre_pkgs='dev-php/PEAR-PEAR media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6'
@@ -800,7 +848,7 @@ case "${package_name}" in
 		container_cwd='/var/lib/redis'
 		etcdir='redis'
 		;;
-	*.spamassassin)
+	*.spamassassin|*.spamassassin-update)
 		pre_pkgs='sys-apps/help2man acct-group/spamd acct-user/spamd'
 		if [ "${original_service}" = 'spamassassin-update' ] || [ "${original_service}" = 'sa-update' ]; then
 			output "Setting build variables for package 'spamassassin-update' ..."
