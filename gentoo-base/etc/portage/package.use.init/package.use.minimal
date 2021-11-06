@@ -35,5 +35,6 @@ sys-libs/ncurses			 unicode
 # required by sys-apps/busybox-1.31.1-r3[static]
 # required by virtual/dev-manager-0-r2
 virtual/libcrypt			 static-libs
+sys-libs/libxcrypt			 static-libs
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

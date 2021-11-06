@@ -73,12 +73,14 @@ dev-java/gjdoc				 xmldoclet
 dev-java/icedtea			-*
 dev-java/oracle-jdk-bin			-X -javafx headless-awt jce
 dev-java/sun-jdk			 jce
+dev-lang/luajit				 lua52compat
 dev-lang/php				-ldap-sasl -readline bcmath calendar cgi ctype curlwrappers exif flatfile fpm hash iconv imap inifile intl mhash mysqlnd pcntl pdo posix session simplexml soap sockets sqlite2 sqlite3 sysvipc tidy tokenizer truetype wddx xmlreader xmlrpc xmlwriter xslt zip
 dev-lang/python-exec			 native-symlinks
 dev-libs/cyrus-sasl			 srp
 dev-libs/geoip				 city perl-geoipupdate
 dev-libs/glib				-mime
 dev-libs/gmp				 pgo
+dev-libs/jemalloc			 lazy-lock xmalloc
 dev-libs/leveldb			-snappy
 dev-libs/libmemcached			 hsieh
 #dev-libs/libnatspec			-python  # Requires dev-lang/tcl, but only as a DEPEND
@@ -245,6 +247,7 @@ sys-kernel/gentoo-sources		 symlink experimental
 
 # required by sys-apps/busybox
 virtual/libcrypt			 static-libs
+sys-libs/libxcrypt			 static-libs
 
 # required by sys-libs/libunwind-1.2.1-r3[lzma]
 >=app-arch/xz-utils-5.2.4-r2		 static-libs
