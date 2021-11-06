@@ -143,6 +143,7 @@ bold="$( printf '\e[1m' )"
 red="$( printf '\e[31m' )"
 green="$( printf '\e[32m' )"
 blue="$( printf '\e[34m' )"
+purple="$( printf '\e[35m' )"
 # Place 'reset' last to prevent coloured xtrace output!
 reset="$( printf '\e[0m' )"
 
