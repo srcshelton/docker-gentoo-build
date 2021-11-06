@@ -27,7 +27,7 @@ fi
 #	export IMAGE_ROOT="${tmp}"
 #fi
 
-kbuild_opt="${kbuild_opt:---config-from=/proc/config.gz --keep-build --no-patch --clang --llvm-unwind}"
+kbuild_opt="${kbuild_opt:---config-from=config.gz --keep-build --no-patch --clang --llvm-unwind}"
 arg=''
 all=0
 force=0
@@ -36,14 +36,15 @@ pretend=0
 rc=0
 rebuild=0
 rebuildutils=0
+skip=0
 system=0
 update=0
 case " ${*:-} " in
 	*' -h '*|*' --help '*)
 		if [ -d "${basedir}/docker-dell" ]; then
-			echo >&2 "Usage: $( basename "${0}" ) [--rebuild-utilities] [--rebuild-images [--force] [--all]] [--update-pkgs] [--update-system [--pretend]]"
+			echo >&2 "Usage: $( basename "${0}" ) [--rebuild-utilities] [--rebuild-images [--skip-build] [--force] [--all]] [--update-pkgs] [--update-system [--pretend]]"
 		else
-			echo >&2 "Usage: $( basename "${0}" ) [--rebuild-images [--force] [--all]] [--update-pkgs] [--update-system [--pretend]]"
+			echo >&2 "Usage: $( basename "${0}" ) [--rebuild-images [--skip-build] [--force] [--all]] [--update-pkgs] [--update-system [--pretend]]"
 		fi
 		echo >&2
 		echo >&2 "       kernel build options: kbuild_opt='${kbuild_opt}'"
@@ -59,6 +60,9 @@ for arg in ${@+"${@}"}; do
 		--rebuild-images)
 			rebuild=1
 			haveargs=1
+			;;
+		--skip-build)
+			skip=1
 			;;
 		--update-pkgs)
 			update=1
@@ -90,6 +94,32 @@ if [ $(( haveargs )) -eq 0 ]; then
 	system=1
 	# For safety
 	pretend=1
+fi
+if [ $(( rebuild )) -ne 1 ]; then
+	if [ $(( skip )) -eq 1 ]; then
+		echo >&2 "WARN:  Option '--skip-build' is only valid with '--rebuild-images'"
+		skip=0
+	fi
+	if [ $(( force )) -eq 1 ]; then
+		echo >&2 "WARN:  Option '--force' is only valid with '--rebuild-images'"
+		force=0
+	fi
+	if [ $(( all )) -eq 1 ]; then
+		echo >&2 "WARN:  Option '--all' is only valid with '--rebuild-images'"
+		all=0
+	fi
+else  # if [ $(( rebuild )) -eq 1 ]; then
+	if [ $(( skip )) -eq 1 ]; then
+		if [ "$( $docker image ls -n 'localhost/gentoo-build' | wc -l )" = '0' ]; then
+			echo >&2 "WARN:  Option '--skip-build' is only valid with a pre-existing 'build' image"
+			echo >&2 "WARN:  Ignoring '--skip-build' and generating new image(s)"
+			skip=0
+		fi
+	fi
+fi
+if [ $(( pretend )) -eq 1 ] && [ $(( system )) -ne 1 ]; then
+	echo >&2 "WARN:  Option '--pretend' is only valid with '--update-system'"
+	pretend=0
 fi
 
 if [ $(( $( id -u ) )) -ne 0 ]; then
@@ -126,7 +156,7 @@ fi
 if [ "${rebuild:-0}" = '1' ]; then
 	mkdir -p log
 
-	if "${basedir}"/docker-gentoo-build/gentoo-init.docker; then
+	if [ $(( skip )) ] || "${basedir}"/docker-gentoo-build/gentoo-init.docker; then
 		forceflag=''
 		if ! [ $(( force )) -eq 0 ]; then
 			forceflag='--force'
