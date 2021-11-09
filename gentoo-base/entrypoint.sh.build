@@ -79,60 +79,6 @@ check() {
 	return ${crc}
 } # check
 
-pkg_remove() {
-	stage="${1:-}" ; shift
-	remove="${*:-}"
-
-	(
-		for ROOT in $( echo "${ROOT:-}" '/' | xargs -n 1 | sort | uniq ); do
-			export ROOT="${ROOT:-/}"
-			export LC_ALL='C'
-
-			[ -d "${ROOT}" ] || continue
-
-			echo
-			echo " * Removing specified ${stage:+${stage} }packages '${remove}' from root '${ROOT}'..."
-
-			# shellcheck disable=SC2086
-			emerge \
-					--ignore-default-opts \
-					--color=y \
-					--depclean \
-					--verbose=n \
-					--verbose-conflicts \
-				${remove}
-			# emerge --depclean exits with code zero even if removal
-			# doesn't succeed :(
-			# shellcheck disable=SC2086
-			checkmissing ${remove} ||
-				emerge \
-						--ignore-default-opts \
-						--color=y \
-						--rage-clean \
-						--verbose=n \
-						--verbose-conflicts \
-					${remove}
-			# shellcheck disable=SC2086
-			checkmissing ${remove} || exit ${?}
-			#emerge --depclean -v
-			for pkg in ${remove}; do
-				rm -vr "${ROOT%/}/var/db/pkg/"*"/${pkg}"* 2>/dev/null ||
-				rm -vr "${ROOT%/}/var/db/pkg/${pkg}"* 2>/dev/null || :
-				if [ -e "${ROOT%/}/var/lib/portage/world" ]; then
-					str="$( echo "${pkg}" | sed 's|/|\\/|g' )"
-					if sed -i "/${str}/ d" "${ROOT%/}/var/lib/portage/world"; then
-						print "Manually removed '${pkg}' from world profile"
-					else
-						warn "Failed to remove '${pkg}' from world profile (or package already removed)"
-					fi
-					unset str
-				fi
-			done
-			unset pkg
-		done
-	)
-} # pkg_remove
-
 checkmissing() {
 	# Check that packages passed in as arguments have been removed
 	#
@@ -158,6 +104,62 @@ checkmissing() {
 
 	return 0
 } # checkmissing
+
+pkg_remove() {
+	stage="${1:-}" ; shift
+	remove="${*:-}"
+
+	(
+		for ROOT in $( echo "${ROOT:-}" '/' | xargs -n 1 | sort | uniq ); do
+			export ROOT="${ROOT:-/}"
+			export LC_ALL='C'
+
+			[ -d "${ROOT}" ] || continue
+
+			echo
+			echo " * Removing specified ${stage:+${stage} }packages '${remove}' from root '${ROOT}'..."
+
+			# shellcheck disable=SC2086
+			emerge \
+					--ignore-default-opts \
+					--color=y \
+					--verbose=n \
+					--verbose-conflicts \
+					--with-bdeps=n \
+					--with-bdeps-auto=n \
+				--depclean ${remove}
+			# emerge --depclean exits with code zero even if removal
+			# doesn't succeed :(
+			# shellcheck disable=SC2086
+			checkmissing ${remove} ||
+				emerge \
+						--ignore-default-opts \
+						--color=y \
+						--verbose=n \
+						--verbose-conflicts \
+						--with-bdeps=n \
+						--with-bdeps-auto=n \
+					--rage-clean ${remove}
+			# shellcheck disable=SC2086
+			checkmissing ${remove} || exit ${?}
+			#emerge --depclean -v
+			for pkg in ${remove}; do
+				rm -vr "${ROOT%/}/var/db/pkg/"*"/${pkg}"* 2>/dev/null ||
+				rm -vr "${ROOT%/}/var/db/pkg/${pkg}"* 2>/dev/null || :
+				if [ -e "${ROOT%/}/var/lib/portage/world" ]; then
+					str="$( echo "${pkg}" | sed 's|/|\\/|g' )"
+					if sed -i "/${str}/ d" "${ROOT%/}/var/lib/portage/world"; then
+						print "Manually removed '${pkg}' from world profile"
+					else
+						warn "Failed to remove '${pkg}' from world profile (or package already removed)"
+					fi
+					unset str
+				fi
+			done
+			unset pkg
+		done
+	)
+} # pkg_remove
 
 savefailed() {
 	# Save failed build logs ...
@@ -252,7 +254,7 @@ if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
 fi
 
 TUSE=''
-force_python='' python_target=''
+force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
 post_pkgs='' post_use='' post_remove=''
 rebuild=''
@@ -475,34 +477,6 @@ opts='--tree'
 # shellcheck disable=SC2015
 printf ' %s ' "${*}" | grep -Fq -- ' --nodeps ' && opts='' || :
 
-#if [ -e /.docker-build-started ]; then
-#	echo " * Container has previously run, dropping to shell ..."
-#	echo
-#
-#	if [ -z "${1:-}" ]; then
-#		print "Would have run default 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y \"${package}\"'${USE:+ with USE='${USE}'}"
-#	elif [ -z "${post_pkgs:-}" ]; then
-#		print "Would have run 'exec emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
-#	else
-#		print "Would have run 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
-#		print "Would have run 'exec emerge ${opts:+${opts} }--jobs=1 --quiet-build=n --buildpkg=y --usepkg=y ${post_pkgs}'${post_use:+ with USE='${post_use}'}"
-#	fi
-#
-#	# FIXME: At this point, we either exit immediately, or get stuck
-#	#        reading input but doing nothing until killed from another
-#	#        shell... but why?!
-#
-#	set -o xtrace
-#	if [ -x /bin/bash ]; then
-#		exec /bin/bash
-#	else
-#		exec /bin/sh
-#	fi
-#	set +o xtrace
-#else
-#	touch /.docker-build-started
-#fi
-
 if [ -n "${ECLASS_OVERRIDE:-}" ]; then
 	echo
 	warn "Applying eclass override for repo '${ECLASS_OVERRIDE}' ..."
@@ -590,14 +564,14 @@ if [ -n "${pre_pkgs:-}" ]; then
 		# shellcheck disable=SC2086
 		if ! emerge \
 				--ignore-default-opts \
-				${parallel} \
+				  ${parallel} \
 				--binpkg-changed-deps=y \
 				--binpkg-respect-use=y \
 				--buildpkg=y \
 				--color=y \
 				--keep-going=y \
 				--quiet-build=y \
-				${opts:-} \
+				  ${opts:-} \
 				--usepkg=y \
 				--verbose=y \
 				--verbose-conflicts \
@@ -615,12 +589,12 @@ if [ -n "${pre_pkgs:-}" ]; then
 			# shellcheck disable=SC2086
 			if ! emerge \
 					--ignore-default-opts \
-					${parallel} \
+					  ${parallel} \
 					--buildpkg=n \
 					--color=y \
 					--keep-going=y \
 					--quiet-build=y \
-					${opts:-} \
+					  ${opts:-} \
 					--usepkg=n \
 					--verbose=y \
 					--verbose-conflicts \
@@ -715,7 +689,7 @@ fi
 	# shellcheck disable=SC2086,SC2046
 	if ! emerge \
 			--ignore-default-opts \
-			${parallel} \
+			  ${parallel} \
 			--binpkg-changed-deps=y \
 			--binpkg-respect-use=y \
 			--buildpkg=y \
@@ -724,7 +698,7 @@ fi
 			--rebuild-if-new-slot=y \
 			--quiet-build=y \
 			--update \
-			${opts:-} \
+			  ${opts:-} \
 			--usepkg=y \
 			--verbose=y \
 			--verbose-conflicts \
@@ -753,7 +727,7 @@ if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
 	fi
 	[ -d "${ROOT}"/etc/env.d/gcc ] && gcc-config 1
 	[ -d "${ROOT}"/etc/env.d/binutils ] && command -v binutils-config >/dev/null 2>&1 && binutils-config 1
-	# shellcheck disable=SC1090
+	# shellcheck disable=SC1091
 	[ -s "${ROOT}"/etc/profile ] && . "${ROOT}"/etc/profile
 fi
 
@@ -830,10 +804,17 @@ case "${1:-}" in
 		echo
 		unset info
 
-		print "Running default 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y \"${package}\"'"
+		print "Running default 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n \"${package}\"'"
 
 		# shellcheck disable=SC2086
-		LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y "${package}" || rc=${?}
+		LC_ALL='C' FEATURES='-fail-clean' emerge \
+				  ${parallel} \
+				  ${opts} \
+				--buildpkg=y \
+				--usepkg=y \
+				--with-bdeps=n \
+				--with-bdeps-auto=n \
+			"${package}" || rc=${?}
 		;;
 	*)
 		# Extract first package, to pass to check() below...
@@ -906,9 +887,17 @@ case "${1:-}" in
 						echo " * Building single package '${arg}' from '${*}' ..."
 						echo
 						# shellcheck disable=SC2016
-						print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
+						print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
 						# shellcheck disable=SC2086
-						LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y ${flags:-} "${arg}" || rc=${?}
+						LC_ALL='C' FEATURES='-fail-clean' emerge \
+								  ${parallel} \
+								  ${opts} \
+								--buildpkg=y \
+								--usepkg=y \
+								--with-bdeps=n \
+								--with-bdeps-auto=n \
+								  ${flags:-} \
+							"${arg}" || rc=${?}
 						;;
 				esac
 			done
@@ -921,9 +910,17 @@ case "${1:-}" in
 					echo " * Building first package '${arg}' of '${*}' ..."
 					echo
 					# shellcheck disable=SC2016
-					print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${flags:+${flags} }${first}'${USE:+ with USE='${USE}'}"
+					print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${flags:+${flags} }${first}'${USE:+ with USE='${USE}'}"
 					# shellcheck disable=SC2086
-					LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y ${flags:-} "${first}" || rc=${?}
+					LC_ALL='C' FEATURES='-fail-clean' emerge \
+							  ${parallel} \
+							  ${opts} \
+							--buildpkg=y \
+							--usepkg=y \
+							--with-bdeps=n \
+							--with-bdeps-auto=n \
+							  ${flags:-} \
+						"${first}" || rc=${?}
 			fi
 
 		else # ! echo " ${EMERGE_OPTS:-} " | grep -Eq -- ' --single(-build)? '; then
@@ -931,9 +928,16 @@ case "${1:-}" in
 			# same time (and potentially in parallel)
 			#
 			# shellcheck disable=SC2016
-			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${*}'${USE:+ with USE='${USE}'}"
+			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${*}'${USE:+ with USE='${USE}'}"
 			# shellcheck disable=SC2086
-			LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y "${@}" || rc=${?}
+			LC_ALL='C' FEATURES='-fail-clean' emerge \
+					  ${parallel} \
+					  ${opts} \
+					--buildpkg=y \
+					--usepkg=y \
+					--with-bdeps=n \
+					--with-bdeps-auto=n \
+				"${@}" || rc=${?}
 		fi
 
 		if [ -n "${post_pkgs:-}" ]; then
@@ -960,12 +964,28 @@ case "${1:-}" in
 			echo
 			unset info
 
-			#print "Running 'emerge ${opts:+${opts} }--jobs=1 --quiet-build=n --buildpkg=y --usepkg=y ${post_pkgs}'${USE:+ with USE='${USE}'}"
+			#print "Running 'emerge ${opts:+${opts} }--jobs=1 --quiet-build=n --buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${post_pkgs}'${USE:+ with USE='${USE}'}"
+			#LC_ALL='C' FEATURES='-fail-clean' emerge \
+			#		  ${opts} \
+			#		--jobs=1 \
+			#		--quiet-build=n \
+			#		--buildpkg=y \
+			#		--usepkg=y \
+			#		--with-bdeps=n \
+			#		--with-bdeps-auto=n \
+			#	${post_pkgs} || rc=${?}
+
 			# shellcheck disable=SC2016
-			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y ${post_pkgs}'${USE:+ with USE='${USE}'}"
-			#LC_ALL='C' FEATURES='-fail-clean' emerge ${opts} --jobs=1 --quiet-build=n --buildpkg=y --usepkg=y ${post_pkgs} || rc=${?}
+			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${post_pkgs}'${USE:+ with USE='${USE}'}"
 			# shellcheck disable=SC2086
-			LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y ${post_pkgs} || rc=${?}
+			LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
+					  ${parallel} \
+					  ${opts} \
+					--buildpkg=y \
+					--usepkg=y \
+					--with-bdeps=n \
+					--with-bdeps-auto=n \
+				${post_pkgs} || rc=${?}
 		fi
 
 		if [ -n "${rebuild:-}" ]; then
@@ -1003,14 +1023,29 @@ case "${1:-}" in
 							# shellcheck disable=SC2016
 							print "Running build-dependencies 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
 							# shellcheck disable=SC2086
-							LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y --with-bdeps=y ${flags:-} ${arg} || rc=${?}
+							LC_ALL='C' FEATURES='-fail-clean' emerge \
+									  ${parallel} \
+									  ${opts} \
+									--buildpkg=y \
+									--usepkg=y \
+									--with-bdeps=y \
+									  ${flags:-} \
+								${arg} || rc=${?}
 
 							# ... then install again without '--usepkg':
 							#
 							# shellcheck disable=SC2016
 							print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
 							# shellcheck disable=SC2086
-							LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n ${flags:-} ${arg} || rc=${?}
+							LC_ALL='C' FEATURES='-fail-clean' emerge \
+									  ${parallel} \
+									  ${opts} \
+									--buildpkg=y \
+									--usepkg=n \
+									--with-bdeps=n \
+									--with-bdeps-auto=n \
+									  ${flags:-} \
+								${arg} || rc=${?}
 							;;
 					esac
 				done
@@ -1020,14 +1055,27 @@ case "${1:-}" in
 				# shellcheck disable=SC2016
 				print "Running build-dependencies 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y ${rebuild}'${USE:+ with USE='${USE}'}"
 				# shellcheck disable=SC2086
-				LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=y --with-bdeps=y ${rebuild} || rc=${?}
+				LC_ALL='C' FEATURES='-fail-clean' emerge \
+						  ${parallel} \
+						  ${opts} \
+						--buildpkg=y \
+						--usepkg=y \
+						--with-bdeps=y \
+					${rebuild} || rc=${?}
 
 				# ... then install again without '--usepkg':
 				#
 				# shellcheck disable=SC2016
 				print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n ${rebuild}'${USE:+ with USE='${USE}'}"
 				# shellcheck disable=SC2086
-				LC_ALL='C' FEATURES='-fail-clean' emerge ${parallel} ${opts} --buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n ${rebuild} || rc=${?}
+				LC_ALL='C' FEATURES='-fail-clean' emerge \
+						  ${parallel} \
+						  ${opts} \
+						--buildpkg=y \
+						--usepkg=n \
+						--with-bdeps=n \
+						--with-bdeps-auto=n \
+					${rebuild} || rc=${?}
 			fi
 		fi
 		;;
@@ -1044,11 +1092,12 @@ fi
 
 #do_prelink
 
-#ls -1d /var/db/pkg/*/* | cut -d'/' -f 5-6 > "${ROOT:-}"/builddeps.txt
-find /var/db/pkg/ -type d -mindepth 2 -maxdepth 2 -print | sed 's|^.*/var/db/pkg/||' > "${ROOT:-}"/builddeps.txt
+find /var/db/pkg/ -type d -mindepth 2 -maxdepth 2 -print |
+	sed 's|^.*/var/db/pkg/||' > /builddeps.txt
+
 if [ -n "${ROOT:-}" ] && [ "${ROOT:-}" != '/' ]; then
-	#ls -1d "${ROOT}"/var/db/pkg/*/* | rev | cut -d'/' -f 1-3 | rev | cut -d'/' -f 1-2 > "${ROOT}"/servicedeps.txt
-	find "${ROOT}/var/db/pkg/" -type d -mindepth 2 -maxdepth 2 -print | sed 's|^.*/var/db/pkg/||' > "${ROOT:-}"/builddeps.txt
+	find "${ROOT}/var/db/pkg/" -type d -mindepth 2 -maxdepth 2 -print |
+		sed 's|^.*/var/db/pkg/||' > "${ROOT:-}"/builddeps.txt
 fi
 
 exit ${rc}
