@@ -600,6 +600,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 	(
 		# Add '@preserved-rebuild' for potential outdated stage3 base-images...
 		post='dev-util/pkgconf sys-libs/glibc @preserved-rebuild sys-apps/portage'
+		post_use='multiarch native-extensions ssp'
 		if command -v portageq >/dev/null 2>&1; then
 			portageq get_repos / | grep -Fq -- 'srcshelton' &&
 				post+=' sys-apps/gentoo-functions::srcshelton'
@@ -613,6 +614,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 		export DOCKER_CMD_VARS="--env ARCH=${arch:-${ARCH}}"
 		docker_run \
 				--post-pkgs="${post}" \
+				--post-use="${post_use}" \
 				--usepkg=y \
 				--with-bdeps-auto=n \
 				--with-bdeps=n \
