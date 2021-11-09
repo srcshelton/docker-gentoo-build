@@ -16,6 +16,11 @@ else
 	exit 1
 fi
 
+if [ $(( $( id -u ) )) -ne 0 ]; then
+	echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
+	exit 1
+fi
+
 docker='docker'
 if command -v podman >/dev/null 2>&1; then
 	docker='podman'
@@ -122,11 +127,6 @@ if [ $(( pretend )) -eq 1 ] && [ $(( system )) -ne 1 ]; then
 	pretend=0
 fi
 
-if [ $(( $( id -u ) )) -ne 0 ]; then
-	echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
-	exit 1
-fi
-
 [ -z "${trace:-}" ] || set -o xtrace
 
 export TRACE="${CTRACE:-}" # Optinally enable child tracing
@@ -156,7 +156,7 @@ fi
 if [ "${rebuild:-0}" = '1' ]; then
 	mkdir -p log
 
-	if [ $(( skip )) ] || "${basedir}"/docker-gentoo-build/gentoo-init.docker; then
+	if [ $(( skip )) -ne 0 ] || "${basedir}"/docker-gentoo-build/gentoo-init.docker; then
 		forceflag=''
 		if ! [ $(( force )) -eq 0 ]; then
 			forceflag='--force'
