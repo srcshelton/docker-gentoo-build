@@ -167,6 +167,7 @@ net-misc/ntp				-snmp openntpd
 net-misc/openssh			-X509 hpn ldns skey
 net-misc/rsync				 system-zlib
 net-misc/scponly			-sftp logging passwd quota scp wildcards
+net-misc/whois				 xcrypt
 net-nds/openldap			-slp overlays pbkdf2 sha2
 net-p2p/bitcoind			 bitcoin_policy_cpfp bitcoin_policy_cltv bitcoin_policy_dcmp bitcoin_policy_rbf bitcoin_policy_spamfilter knots ljr logrotate upnp
 # move net-misc/openvpn net-vpn/openvpn
@@ -246,8 +247,8 @@ sys-kernel/gentoo-sources		 symlink experimental
 >=sys-libs/zlib-1.2.11			 minizip
 
 # required by sys-apps/busybox
-virtual/libcrypt			 static-libs
-sys-libs/libxcrypt			 static-libs
+#virtual/libcrypt			 static-libs
+#sys-libs/libxcrypt			 static-libs
 
 # required by sys-libs/libunwind-1.2.1-r3[lzma]
 >=app-arch/xz-utils-5.2.4-r2		 static-libs
