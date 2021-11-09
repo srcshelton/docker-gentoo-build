@@ -20,6 +20,10 @@ unset -v ARCH
 # Even though we want a minimal set of flags during this stage, gcc's flags are
 # significant since they'll affect the compiler facilities available to all
 # packages built later...
+#
+# N.B. USE='graphite' pulls-in dev-libs/isl which we don't want for host
+#      packages, but is reasonable for build-containers.
+#
 # FIXME: Source these flags from package.use
 gcc_use="-fortran graphite nptl openmp pch sanitize ssp vtv zstd"
 
@@ -42,6 +46,8 @@ print() {
 	fi
 } # print
 
+# POSIX sh doesn't support 'export -f'...
+format_fn_code="$( cat <<'EOF'
 format() {
 	# Pad $variable to $padding trailing spaces
 	#
@@ -59,6 +65,10 @@ format() {
 		cat - | grep -- "^${variable}=" | cut -d'"' -f 2 | fmt -w $(( ${COLUMNS:-80} - ( padding + 3 ) )) | sed "s/^/   ${spaces}/ ; 1 s/^\s\+//"
 	)"
 } # format
+EOF
+)"
+export format_fn_code
+eval "${format_fn_code}"
 
 check() {
 	# Check that a given package (with build result code $crc) is actually installed
@@ -268,7 +278,7 @@ echo
 			--with-bdeps=n \
 			--unmerge \
 		'virtual/dev-manager'
-	# shellcheck disable=SC2086
+	# shellcheck disable=SC2046,SC2086
 	emerge \
 			--ignore-default-opts \
 			--color=y \
@@ -430,7 +440,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		# shellcheck disable=SC1091
 		[ -s /etc/profile ] && { . /etc/profile || : ; }
 	done
-	rm -r "/usr/${oldchost}" "/usr/bin/${oldchost}"*
+	rm -r "/usr/${oldchost:?}" "/usr/bin/${oldchost:?}"*
 	#find /bin/ /sbin/ /usr/bin/ /usr/sbin/ /usr/libexec/ /usr/local/ -name "*${oldchost}*" -exec ls -Fhl --color=always {} +
 	#find /usr/ -mindepth 1 -maxdepth 1 -name "*${oldchost}*" -exec ls -dFhl --color=always {} +
 	grep -l "${oldchost}" /etc/env.d/0*gcc* /etc/env.d/0*binutils* | xargs -r rm
@@ -688,8 +698,8 @@ export USE="${USE:+${USE} }${use_essential} nptl"
 
 info="$( LC_ALL='C' emerge --info --verbose )"
 echo
-echo 'Resolved build variables for @system:'
-echo '------------------------------------'
+echo 'Resolved build variables for initial packages:'
+echo '---------------------------------------------'
 echo
 echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
 echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
@@ -802,6 +812,32 @@ echo
 		export ROOT
 		export SYSROOT="${ROOT}"
 		export PORTAGE_CONFIGROOT="${SYSROOT}"
+
+		eval "${format_fn_code}"
+
+		info="$( LC_ALL='C' emerge --info --verbose )"
+		echo
+		echo 'Resolved build variables for @system:'
+		echo '------------------------------------'
+		echo
+		echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
+		echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+		echo "PORTAGE_CONFIGROOT  = $( echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2- )"
+		echo
+		echo "${info}" | format 'FEATURES'
+		echo "${info}" | format 'ACCEPT_LICENSE'
+		echo "${info}" | format 'ACCEPT_KEYWORDS'
+		echo "${info}" | format 'USE'
+		echo "MAKEOPTS            = $( echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2- )"
+		echo
+		echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
+		echo
+		echo "DISTDIR             = $( echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2- )"
+		echo "PKGDIR              = $( echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2- )"
+		echo "PORTAGE_LOGDIR      = $( echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2- )"
+		echo
+		unset info
+
 		# shellcheck disable=SC2086
 		emerge \
 				--ignore-default-opts \
@@ -923,13 +959,20 @@ unset info
 export PATH="${path}"
 unset path
 
+# Keep environment tidy - multi-line function definitions in the environment
+# will break 'environment.sh' variable-passing below, and lead to difficult
+# to diagnose build failures!
+unset format_fn_code
+
 # Save environment for later docker stages...
 printf "#FILTER: '%s'\n\n" "${environment_filter}" > "${ROOT}"/usr/libexec/environment.sh
 export -p |
-		grep -- '=' |
-		grep -Ev -- "${environment_filter}" | \
+		grep -E -- '^(declare -x|export) .*=' |
+		grep -Ev -- "${environment_filter%)=}|format_fn_code)=" | \
 		sed -r 's/\s+/ /g ; s/^(export [a-z][a-z0-9_]+=")\s+/\1/i' | \
-		grep -v -e '^export [a-z_]' -e '=""$' \
+		grep -v \
+				-e '^export [a-z_]' \
+				-e '=""$' \
 	>> "${ROOT}"/usr/libexec/environment.sh
 test -e "${ROOT}"/usr/libexec/environment.sh || warn "'${ROOT%/}/usr/libexec/environment.sh' does not exist"
 test -s "${ROOT}"/usr/libexec/environment.sh || warn "'${ROOT%/}/usr/libexec/environment.sh' is empty"
@@ -1111,4 +1154,4 @@ esac
 
 #[ -n "${trace:-}" ] && set +o xtrace
 
-# vi: set syntax=sh sw=4 ts=4:
+# vi: set colorcolumn=80 syntax=sh sw=4 ts=4:
