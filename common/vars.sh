@@ -65,6 +65,9 @@ else
 		*': Intel(R) Core(TM) i5-24'*' CPU @ '*)
 			use_cpu_arch='x86'
 			use_cpu_flags="aes avx mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3" ;;
+		*': Intel(R) Xeon(R) CPU E5-'*' v2 @ '*)
+			use_cpu_arch='x86'
+			use_cpu_flags="aes avx f16c mmx pclmul popcnt rdrand sse sse2 sse4_1 sse4_2 ssse3" ;;
 		*': Intel(R) Xeon(R) CPU E3-'*' v5 @ '*)
 			use_cpu_arch='x86'
 			use_cpu_flags="aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sse sse2 sse3 sse4_1 sse4_2 ssse3" ;;
