@@ -6,12 +6,21 @@ export LANG=C
 export LC_ALL=C
 
 declare MACHINE='podman'
-declare -i init=0 xfer=0
+declare -i init=0 xfer=0 cores=4
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
         readlink() {
                 perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
         }
+
+		case "$( sysctl -n machdep.cpu.brand_string )" in
+			'Apple M1')
+				cores="$(( $( sysctl -n machdep.cpu.core_count ) / 2 ))" ;;
+			'Intel'*)
+				cores="$( sysctl -n machdep.cpu.core_count )" ;;
+		esac
+else
+	cores="$( grep 'cpu cores' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' )"
 fi
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
@@ -19,8 +28,11 @@ declare arg=''
 for arg in "${@:-}"; do
 	case "${arg:-}" in
 		-h|--help)
-			echo "Usage: $( basename "${0}" ) [--machine=<name>] [--init] [--transfer-cache]"
+			echo "Usage: $( basename "${0}" ) [--machine=<name>] [--cores=<${cores}>] [--init] [--transfer-cache]"
 			exit 0
+			;;
+		-c|--cores)
+			cores="${arg#*-}"
 			;;
 		-i|--init)
 			init=1
@@ -41,7 +53,7 @@ if ! [[ -f ~/.ssh/id_ed25519 && -s ~/.ssh/id_ed25519 ]]; then
 fi
 
 if ! podman machine list | grep -q -- "^${MACHINE}"; then
-	podman machine init --cpus 4 --disk-size 25 -m $(( 12 * 1024 )) "${MACHINE}"
+	podman machine init --cpus "${cores}" --disk-size 25 -m $(( 12 * 1024 )) "${MACHINE}"
 fi
 if ! podman machine list | grep -q -- "^${MACHINE}.*Currently running"; then
 	podman machine start "${MACHINE}"
@@ -87,7 +99,7 @@ if ! (( init || xfer )); then
 	podman machine ssh "${MACHINE}"
 else
 	if (( init )); then
-		time podman machine ssh "${MACHINE}" '/var/home/core/src/docker-gentoo-build/gentoo-init.docker --helper'
+		time podman machine ssh "${MACHINE}" '/var/home/core/src/docker-gentoo-build/gentoo-init.docker'
 	fi
 	if (( xfer )); then
 		podman machine ssh "${MACHINE}" 'cd /var/cache && tar -cvpf - portage' > portage-cache.tar
