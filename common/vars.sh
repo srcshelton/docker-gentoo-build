@@ -40,21 +40,24 @@ fi
 #
 environment_filter='^(declare -x|export) (COLUMNS|EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?|LINES|LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)='
 
+use_cpu_arch="$( uname -m | cut -c 1-3 | sed 's/aar/arm/' )"
 if command -v cpuid2cpuflags >/dev/null 2>&1; then
-	#cpuid2cpuflags | cut -d':' -f 2- | sed 's/ / cpu_flags_x86_/g'
-	#use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- | sed 's/ / cpu_flags_x86_/g' )"
-	use_cpu_arch="$( uname -m | cut -c 1-3 | sed 's/aar/arm/' )"
 	use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- )"
 else
 	if [ "$( uname -s )" = 'Darwin' ]; then
 		description="$( sysctl -n machdep.cpu.brand_string )"
 	else
-		description="$( grep -E '(model name|Raspberry)' /proc/cpuinfo | sort | tail -n 1 )" || :
+		description="$(
+			grep -E '(model name|Raspberry)' /proc/cpuinfo |
+			sort |
+			tail -n 1
+		)" || :
 	fi
 	if [ -z "${description:-}" ]; then
 		# TODO: Is this a good UID to use (without further checks)?
 		description="$( grep -F 'CPU part' /proc/cpuinfo | sort | tail -n 1 )"
 	fi
+
 	case "${description:-}" in
 		*': Intel(R) Atom(TM) CPU '*' 330 '*' @ '*)
 			use_cpu_arch='x86'
@@ -100,31 +103,37 @@ else
 					GenuineIntel)
 						echo >&2 "Attempting to auto-discover CPU '${description}' capabilities..."
 						use_cpu_arch='x86'
-						use_cpu_flags=''
 
-						# FIXME: Hard-coded /var/db/repo/gentoo...
-						while read -r line; do
-							echo "${line}" | grep -q -- ' - ' || continue
+						if
+							[ -f /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc ] &&
+							[ -s /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc ]
+						then
+							use_cpu_flags=''
 
-							flag="$( echo "${line}" | awk -F' - ' '{ print $1 }' )"
-							if echo "${line}" | grep "^${flag} - " | grep -Fq -- '[' ; then
-								count=2
-								while true; do
-									extra="$( echo "${line}" | awk -F'[' "{ print \$${count} }" | cut -d']' -f 1 )"
-									if [ -n "${extra:-}" ]; then
-										flag="${flag}|${extra}"
-									else
-										break
-									fi
-									: $(( count = count + 1 ))
-								done
-								unset extra count
-							fi
-							use_cpu_flags="${use_cpu_flags:-}$( grep -E -- '^(Features|flags)' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' | grep -Eq -- "${flag}" && echo " ${flag}" | cut -d'|' -f 1 )"
-						done < /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc
+							# FIXME: Hard-coded /var/db/repo/gentoo...
+							while read -r line; do
+								echo "${line}" | grep -q -- ' - ' || continue
 
-						use_cpu_flags="${use_cpu_flags# }"
-						echo >&2 "Auto-discovered CPU feature-flags '${use_cpu_flags}'"
+								flag="$( echo "${line}" | awk -F' - ' '{ print $1 }' )"
+								if echo "${line}" | grep "^${flag} - " | grep -Fq -- '[' ; then
+									count=2
+									while true; do
+										extra="$( echo "${line}" | awk -F'[' "{ print \$${count} }" | cut -d']' -f 1 )"
+										if [ -n "${extra:-}" ]; then
+											flag="${flag}|${extra}"
+										else
+											break
+										fi
+										: $(( count = count + 1 ))
+									done
+									unset extra count
+								fi
+								use_cpu_flags="${use_cpu_flags:-}$( grep -E -- '^(Features|flags)' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' | grep -Eq -- "${flag}" && echo " ${flag}" | cut -d'|' -f 1 )"
+							done < /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc
+
+							use_cpu_flags="${use_cpu_flags# }"
+							echo >&2 "Auto-discovered CPU feature-flags '${use_cpu_flags}'"
+						fi
 						;;
 				esac
 			fi

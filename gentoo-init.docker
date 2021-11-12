@@ -309,6 +309,9 @@ if ! command -v portageq >/dev/null 2>&1; then
 		[[ -d "${dir}" ]] || makedir "${dir}"
 	done
 	unset dir
+
+	# Flags may have changed...
+	[ ! -s common/vars.sh ] || . common/vars.sh
 else
 	rc=0
 	while read -r repo; do
