@@ -67,7 +67,7 @@ else
 			use_cpu_flags="aes avx mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3" ;;
 		*': Intel(R) Xeon(R) CPU E5-'*' v2 @ '*)
 			use_cpu_arch='x86'
-			use_cpu_flags="aes avx f16c mmx pclmul popcnt rdrand sse sse2 sse4_1 sse4_2 ssse3" ;;
+			use_cpu_flags="aes avx f16c mmx mmxext pclmul popcnt rdrand sse sse2 sse4_1 sse4_2 ssse3" ;;
 		*': Intel(R) Xeon(R) CPU E3-'*' v5 @ '*)
 			use_cpu_arch='x86'
 			use_cpu_flags="aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sse sse2 sse3 sse4_1 sse4_2 ssse3" ;;
@@ -93,7 +93,46 @@ else
 			use_cpu_arch='arm'
 			use_cpu_flags="aes crc32 sha1 sha2" ;;
 		*)
-			echo >&2 "Unknown CPU '$( echo "${description}" | cut -d':' -f 2- | sed 's/^\s*// ; s/\s*$//' )' and 'cpuid2cpuflags' not installed - not enabling model-specific CPU flags" ;;
+			description="$( echo "${description}" | cut -d':' -f 2- | sed 's/^\s*// ; s/\s*$//' )"
+			vendor="$( grep -- '^vendor_id' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' )"
+			if [ -r /proc/cpuinfo ]; then
+				case "${vendor}" in
+					GenuineIntel)
+						echo >&2 "Attempting to auto-discover CPU '${description}' capabilities..."
+						use_cpu_arch='x86'
+						use_cpu_flags=''
+
+						# FIXME: Hard-coded /var/db/repo/gentoo...
+						while read -r line; do
+							echo "${line}" | grep -q -- ' - ' || continue
+
+							flag="$( echo "${line}" | awk -F' - ' '{ print $1 }' )"
+							if echo "${line}" | grep "^${flag} - " | grep -Fq -- '[' ; then
+								count=2
+								while true; do
+									extra="$( echo "${line}" | awk -F'[' "{ print \$${count} }" | cut -d']' -f 1 )"
+									if [ -n "${extra:-}" ]; then
+										flag="${flag}|${extra}"
+									else
+										break
+									fi
+									: $(( count = count + 1 ))
+								done
+								unset extra count
+							fi
+							use_cpu_flags="${use_cpu_flags:-}$( grep -E -- '^(Features|flags)' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' | grep -Eq -- "${flag}" && echo " ${flag}" | cut -d'|' -f 1 )"
+						done < /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc
+
+						use_cpu_flags="${use_cpu_flags# }"
+						echo >&2 "Auto-discovered CPU feature-flags '${use_cpu_flags}'"
+						;;
+				esac
+			fi
+
+			if [ -z "${use_cpu_flags:-}" ]; then
+				echo >&2 "Unknown CPU '${description}' and 'cpuid2cpuflags' not installed - not enabling model-specific CPU flags"
+			fi
+			;;
 	esac
 fi
 if [ -n "${use_cpu_flags:-}" ]; then
