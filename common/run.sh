@@ -640,7 +640,7 @@ docker_run() {
 		  ${PYTHON_SINGLE_TARGET:+--env PYTHON_SINGLE_TARGET}
 		  ${PYTHON_TARGETS:+--env PYTHON_TARGETS}
 		  #${DOCKER_INTERACTIVE:+--env COLUMNS="$( tput cols 2>/dev/null )" --env LINES="$( tput lines 2>/dev/null )"}
-		--env COLUMNS="$( tput cols 2>/dev/null )" --env LINES="$( tput lines 2>/dev/null )"
+		--env COLUMNS="$( tput cols 2>/dev/null || echo '80' )" --env LINES="$( tput lines 2>/dev/null || echo '24' )"
 		  ${DEBUG:+--env DEBUG}
 		  # FIXME: DEV_MODE currently hard-codes entrypoint.sh.build ...
 		  ${DEV_MODE:+--env DEV_MODE --volume "${PWD%/}/gentoo-base/entrypoint.sh.build:/usr/libexec/entrypoint.sh:ro"}
