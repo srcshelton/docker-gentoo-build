@@ -57,7 +57,11 @@ if ! podman machine list | grep -q -- "^${MACHINE}"; then
 fi
 if ! podman machine list | grep -q -- "^${MACHINE}.*Currently running"; then
 	podman machine start "${MACHINE}"
-	sleep 5
+	until [[ "$( podman machine list --noheading --format '{{.Name}} {{.LastUp}}' )" =~ ^${MACHINE}\*?\ Currently\ running$ ]]; do
+		printf '.'
+		sleep 0.1
+	done
+	echo
 fi
 
 if [[ -s ~/.ssh/authorized_keys ]] && grep -Fq -- "$( < ~/.ssh/"${MACHINE}.pub" )" ~/.ssh/authorized_keys; then
@@ -93,7 +97,7 @@ for f in 'local.sh' 'portage-cache.tar'; do
 	fi
 done
 
-podman machine ssh "${MACHINE}" 'test -s /var/home/core/portage-cache.tar && sudo mkdir -p /var/cache && sudo tar -xpf /var/home/core/portage-cache.tar -C /var/cache/ && sudo chown core:root /var/cache/portage && sudo chmod ug+rwX /var/cache/portage || :'
+podman machine ssh "${MACHINE}" 'mkdir -p /var/cache ; test -s /var/home/core/portage-cache.tar && sudo tar -xpf /var/home/core/portage-cache.tar -C /var/cache/ || : ; sudo chown core:root /var/cache/portage && sudo chmod ug+rwX /var/cache/portage'
 
 if ! (( init || xfer )); then
 	podman machine ssh "${MACHINE}"
