@@ -8,17 +8,34 @@ debug="${DEBUG:-}"
 # With 'debug' enabled, set 'DEBUG_EXTRA_ARGS' to pass additional arguments
 # to 'podman build'...
 
+#inherit python_target_override
+
 if [[ -n "${BASH_VERSINFO[0]:-}" ]] && (( BASH_VERSINFO[0] < 4 )); then
-	echo >&2 "FATAL: bash-4.0.0 or later is required to run this script - on macOS, try 'brew install bash'"
+	echo >&2 "FATAL: bash-4.0.0 or later is required to run this script - on" \
+		"macOS, try 'brew install bash'"
 	exit 1
 fi
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
 	readlink() {
 		perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
-	}
+	}  # readlink
 fi
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+
+# Support 'core' user for podman+machine Fedora default user...
+if [[ "$( uname -s )" == 'Darwin' ]]; then
+	if (( EUID )) && [[ "$( id -nu )" == 'core' ]]; then
+		die "Please re-run '$( basename "${0}" )' as user 'root'"
+	fi
+fi
+
+if [ -n "${python_target_override:-}" ]; then
+	[[ "${python_target_override}" =~ ^python[[:digit:]]_[[:digit:]]+$ ]] ||
+		die "python_target_override value '${python_target_override}'" \
+			"doesn't appear to be a valid python version" \
+			"(matching 'pythonX_Y', e.g. 'python3_9')"
+fi
 
 NOTIFY_MKDIR=0
 
@@ -41,6 +58,8 @@ docker_arch=''
 arch=''
 
 native=''
+build_helper=0
+force=0
 
 # use_pypy & use_pypy_use are defined in common/vars.sh
 use_pypy_pre=''
@@ -50,13 +69,18 @@ use_pypy_post=''
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
 
+if ! $docker --version >/dev/null 2>&1; then
+	die "'$docker' failed to execute: ${?}"
+elif ! $docker image build --help | grep -Fq -- '--platform'; then
+	die "'$docker image build' lacks '--platform' support (try podman-3.x or" \
+		"later)"
+fi
+
 [ -n "${base_dir:-}" ]
 [ -d "${base_dir}" ]
 [ -e "${base_dir}"/Dockerfile.env ]
 [ -e "${base_dir}"/Dockerfile.init ]
 [ -e "${base_dir}"/Dockerfile.build ]
-
-[ -d log ] || mkdir log
 
 # shellcheck disable=SC2034
 IMAGE="${base_name}:latest"
@@ -80,42 +104,41 @@ if [ -n "${*:-}" ]; then
 		exit 0
 	elif
 		! echo "${*}" |
-		grep -Eq -- '^(\s*--(env|stage3|init|base|build|helper|force)\s*){1,6}$'
+		grep -Eq -- '^(\s*--(env|stage3|init|base|build|helper|force|force-helper)\s*){1,7}$'
 	then
 		die "Unknown args '${*}'"
 	fi
 
 	if echo " ${*} " | grep -Fq -- ' --force '; then
 		if ! echo " ${*} " | grep -Eq -- ' --(base|build|helper) '; then
-			die "'--force' is only valid with '--base' or '--build'"
+			die "'--force' is only valid with '--base', '--build', or" \
+				"'--helper'"
 		fi
 	fi
 fi
 
-# Support 'core' user for podman+machine Fedora default user...
-if [[ "$( uname -s )" == 'Darwin' ]]; then
-	if (( EUID )) && [[ "$( id -nu )" == 'core' ]]; then
-		die "Please re-run '$( basename "${0}" )' as user 'root'"
-	fi
-fi
-
-if ! $docker --version >/dev/null 2>&1; then
-	die "'$docker' failed to execute: ${?}"
-elif ! $docker image build --help | grep -Fq -- '--platform'; then
-	die "'$docker image build' lacks '--platform' support (try podman-3.x or" \
-		"later)"
-fi
-
-if [ -n "${python_target_override:-}" ]; then
-	[[ "${python_target_override}" =~ ^python[[:digit:]]_[[:digit:]]+$ ]] ||
-		die "python_target_override value '${python_target_override}'" \
-			"doesn't appear to be a valid python version" \
-			"(matching 'pythonX_Y', e.g. 'python3_9')"
-fi
+declare -a args=()
+for arg in "${@:-}"; do
+	case "${arg:-}" in
+		*helper)
+			build_helper=1
+			;;
+		--force)
+			force=1
+			;;
+		*)
+			args+=( "${arg}" )
+			;;
+	esac
+done
+set -- "${args[@]:-}"
+unset args arg
 
 docker_setup
 
-pushd "${base_dir}" >/dev/null 2>&1 || die "chdir() to '${base_dir}' failed; ${?}"
+[ -d log ] || mkdir -p log
+pushd "${base_dir}" >/dev/null 2>&1 ||
+	die "chdir() to '${base_dir}' failed; ${?}"
 
 checkids() {
 	local name="${1:-}"
@@ -172,7 +195,10 @@ checkids() {
 						--format='{{.Config.Labels.stage3_from}}' \
 					"${repo}${name}:${tag:-latest}" 2>/dev/null
 			)" || :
-			stage3_src_id="$( echo "${stage3_src_id:-}" | awk -F':' '{ print $NF }' )"
+			stage3_src_id="$(
+				echo "${stage3_src_id:-}" |
+				awk -F':' '{ print $NF }'
+			)"
 
 			# Does our upstream stage3 ID match that encoded in our stage3?
 			if [ "${stage3_id}" != "${stage3_src_id:-}" ]; then
@@ -186,7 +212,7 @@ checkids() {
 
 	# This is a warning rather than an error, so...
 	return 0
-} # checkids
+}  # checkids
 
 makedir() {
 	local dir="${1:-}"
@@ -196,9 +222,11 @@ makedir() {
 	if ! (( NOTIFY_MKDIR )) && (( EUID )); then
 		NOTIFY_MKDIR=1
 
-		info "In order to run on a non-gentoo system, we need to create several system"
+		info "In order to run on a non-gentoo system, we need to create" \
+			"several system"
 		info "directories."
-		info "You may be now prompted to enter your password in order to authenticate"
+		info "You may be now prompted to enter your password in order to" \
+			"authenticate"
 		info "with superuser credentials and allow for this to proceed:"
 	fi
 
@@ -210,7 +238,7 @@ makedir() {
 	fi
 
 	info " * ${dir}"
-} # makedir
+}  # makedir
 
 # Check for environment sanity...
 if ! command -v portageq >/dev/null 2>&1; then
@@ -220,10 +248,13 @@ if ! command -v portageq >/dev/null 2>&1; then
 	for dir in /etc/portage/repos.conf; do
 		[[ -d "${dir}" ]] || makedir "${dir}"
 	done
+	unset dir
 	for cfg in DEFAULT.conf gentoo.conf srcshelton.conf; do
 		[ -s /etc/portage/repos.conf/${cfg} ] ||
 			cp -v etc/portage/repos.conf/${cfg} /etc/portage/repos.conf/
 	done
+	unset cfg
+
 	# FIXME: Hardcoded paths, use repos.conf
 	if [ ! -d /var/db/repo/gentoo ] && [ ! -d /var/db/repos/gentoo ]; then
 		# macOS 'df' lacks the below options
@@ -231,52 +262,79 @@ if ! command -v portageq >/dev/null 2>&1; then
 			for dir in /var/db/repo{,s} /var/db; do
 				if [ -d "${dir}" ]; then
 					# FIXME: Figure out best macOS implementation
-					if ! [ $(( $( df --block-size=1G --output=avail "${dir}" | tail -n 1 ) )) -ge 2 ]; then
-						die "Insufficient filesystem space to download Gentoo Portage repo: 2GB required"
+					if ! [ $(( $(
+						df --block-size=1G --output=avail "${dir}" |
+						tail -n 1
+					) )) -ge 2 ]; then
+						die "Insufficient filesystem space to download" \
+							"Gentoo Portage repo: 2GB required"
 					fi
 					break
 				fi
 			done
+			unset dir
 		fi
 		command -v git >/dev/null 2>&1 || die "required binary 'git' missing"
-		note "Creating local Gentoo Portage repo mirror at '/var/db/repo/gentoo' ..."
+		note "Creating local Gentoo Portage repo mirror at" \
+			"'/var/db/repo/gentoo' ..."
+
 		# shellcheck disable=SC2043
 		for dir in /var/db/repo; do
 			[[ -d "${dir}" ]] || makedir "${dir}"
 		done
-		git clone https://github.com/gentoo/gentoo.git /var/db/repo/gentoo || die "git 'clone' operation failed: ${?}"
+		unset dir
+
+		git clone https://github.com/gentoo/gentoo.git /var/db/repo/gentoo ||
+			die "git 'clone' operation failed: ${?}"
 	fi
+
 	if [ ! -d /var/db/repo/srcshelton ] && [ ! -d /var/db/repos/srcshelton ]; then
 		command -v git >/dev/null 2>&1 || die "required binary 'git' missing"
-		note "Creating custom packages repo mirror at '/var/db/repo/srcshelton' ..."
+		note "Creating custom packages repo mirror at" \
+			"'/var/db/repo/srcshelton' ..."
+
 		# shellcheck disable=SC2043
 		for dir in /var/db/repo; do
 			[[ -d "${dir}" ]] || makedir "${dir}"
 		done
-		git clone https://github.com/srcshelton/gentoo-ebuilds.git /var/db/repo/srcshelton || die "git 'clone' operation failed: ${?}"
+		unset dir
+
+		git clone \
+				https://github.com/srcshelton/gentoo-ebuilds.git \
+				/var/db/repo/srcshelton ||
+			die "git 'clone' operation failed: ${?}"
 	fi
+
 	for dir in /var/cache/portage/dist /var/log/portage /var/cache/portage/pkg; do
 		[[ -d "${dir}" ]] || makedir "${dir}"
 	done
+	unset dir
 else
 	rc=0
-	while read -r r; do
+	while read -r repo; do
 		# FIXME: Discover default rather than assuming 'gentoo'?
-		[ "${r}" == 'gentoo' ] && continue
-		while read -r d; do
-			if [ -d "${d}"/eclass ]; then
+		[ "${repo}" == 'gentoo' ] && continue
+
+		while read -r dir; do
+			if [ -d "${dir}"/eclass ]; then
 				grep -hR eclass /etc/portage/repos.conf |
 						sed 's/#.*//' |
 						grep '^eclass-overrides' |
 						cut -d '=' -f 2- |
-						grep -Fqw -- "${r}" &&
+						grep -Fqw -- "${repo}" &&
 					continue
-				warn "ebuild repo '${r}' contains class overrides, but portage isn't configured to allow their use"
-				warn "Add/update 'eclass-overrides = ${r}' in /etc/portage/repos.conf"
+				warn "ebuild repo '${repo}' contains class overrides, but" \
+					"portage isn't configured to allow their use"
+				warn "Add/update 'eclass-overrides = ${repo}' in" \
+					"/etc/portage/repos.conf"
 				rc=1
 			fi
-		done < <( portageq get_repo_path "${EROOT:-/}" "${r}" )
+		done < <( portageq get_repo_path "${EROOT:-/}" "${repo}" )
+		unset dir
+
 	done < <( portageq get_repos "${EROOT:-/}" | xargs -n 1 )
+	unset repo
+
 	(( rc )) && sleep 5
 fi
 
@@ -476,6 +534,10 @@ fi
 
 # Create initial image from Gentoo stage3 ...
 #
+# N.B. The first block below is executed if we DON'T have '--init' as an
+#      argument, but may clear the command-line parameters so that the 'init'
+#      block below that IS executed.
+#
 if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
 	# Executed individually, `$docker image ls` and `grep` both succeed.
 	# With 'pipefail' disabled, the following test does the right thing.
@@ -493,7 +555,7 @@ if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
 				"${init_name}:latest" 2>/dev/null
 		)" || :
 		if [ "${imagesum:-}" != "${sum}" ]; then
-			if echo " ${*} " | grep -Fq -- ' --force '; then
+			if (( force )); then
 				output >&2
 				output >&2 "${bold}WARN${reset}:  ${red}'entrypoint.sh'" \
 					"checksum from '${init_name}:latest' image" \
@@ -791,14 +853,12 @@ else
 	checkids "${base_name}"
 fi
 
-if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --helper '; then
-	declare -i build_helper=1
-
+if [ -z "${*:-}" ] || (( build_helper )) || echo " ${*} " | grep -Fq -- ' --force-helper '; then
 	if type -pf portageq >/dev/null 2>&1; then
 		# Running on Gentoo...
 
-		if echo " ${*} " | grep -Fq -- ' --helper '; then
-			if echo " ${*} " | grep -Fq -- ' --force '; then
+		if (( build_helper )); then
+			if (( force )) || echo " ${*} " | grep -Fq -- ' --force-helper '; then
 				warn "Forcing creation of unnecessary helper image on Gentoo platform"
 			else
 				die "Helper image unneeded on Gentoo platform - use '--force' to enable creation"
@@ -820,7 +880,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --helper '; then
 				output " ${blue}*${reset} Building helper for non-Gentoo host systems ..."
 				output
 
-				if echo " ${*} " | grep -Fq -- ' --force '; then
+				if (( force )) || echo " ${*} " | grep -Fq -- ' --force-helper '; then
 					./gentoo-build-svc.docker eix --force
 				else
 					./gentoo-build-svc.docker eix
@@ -836,3 +896,5 @@ fi
 #popd >/dev/null
 
 exit 0
+
+# vi: set foldmarker=()\ {,}\ \ #\  foldmethod=marker syntax=bash:
