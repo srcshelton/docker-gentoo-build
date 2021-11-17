@@ -535,7 +535,7 @@ if [ -n "${pre_pkgs:-}" ]; then
 	echo " * Building specified pre-installation packages '${pre_pkgs}' ..."
 	(
 		if [ -n "${pre_use:-}" ]; then
-			if ! printf '%s' " ${pre_use} " | grep -Fq -- ' -* '; then
+			if ! printf ' %s ' "${pre_use}" | grep -Fq -- ' -* '; then
 				pre_use="${USE:+${USE} }${pre_use}"
 			fi
 			if [ -n "${use_essential:-}" ] && echo "${pre_use}" | grep -Fq -- "${use_essential}"; then
@@ -543,8 +543,14 @@ if [ -n "${pre_pkgs:-}" ]; then
 			else
 				USE="${pre_use} ${use_essential}"
 			fi
-			export USE
 		fi
+		if
+			echo " ${pre_pkgs} " |
+			grep -P ' ([=<>!~][=!]?)?(sys-devel/)?gcc(-[0-9.r-]+)?[*]?(:(?:[*]|[0-9.]*)=?)? '
+		then
+			USE="${USE:+${USE} }${use_essential_gcc}"
+		fi
+		export USE
 		export ROOT='/'
 		export FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
 		export LC_ALL='C'
@@ -1104,4 +1110,4 @@ exit ${rc}
 
 #[ -n "${trace:-}" ] && set +o xtrace
 
-# vi: set syntax=sh sw=4 ts=4:
+# vi: set colorcolumn=80 sw=4 syntax=sh ts=4:

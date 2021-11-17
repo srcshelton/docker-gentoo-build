@@ -208,6 +208,7 @@ if [ -n "${installed:-}" ] && [ $(( installed )) -eq 1 ]; then
 		# Build list based on present images...
 		#
 		$docker image list --noheading --sort repository --format '{{.Repository}}-{{.Tag}}' 'localhost/service.' |
+			grep -vx -- 'localhost/service.www-servers.web-content-latest' |
 			cut -d'.' -f 3- |
 			sed \
 				-e 's/^php-\([0-9]\).\([0-9]\)\(.*\)$/php\1\2-\1.\2\3/g' \
@@ -968,7 +969,7 @@ case "${package_name}" in
 		# shellcheck disable=SC2034
 		ECLASS_OVERRIDE='unifi'  # consumed in common/run.sh
 
-		gcc_use="-fortran -graphite nptl openmp pch sanitize ssp vtv zstd"
+		gcc_use="${use_essential_gcc/ graphite / -graphite }"
 		# Look for "build" gcc USE-flags in package.use only (or use defaults above) ...
 		if [ -s /etc/portage/package.use/package.use ]; then
 			gcc_use="$(
@@ -1361,3 +1362,5 @@ fi
 #set +o xtrace
 
 exit ${rc}
+
+# vi: set colorcolumn=80 syntax=bash:

@@ -17,16 +17,6 @@ environment_filter='__ENVFILTER__'
 arch="${ARCH}"
 unset -v ARCH
 
-# Even though we want a minimal set of flags during this stage, gcc's flags are
-# significant since they'll affect the compiler facilities available to all
-# packages built later...
-#
-# N.B. USE='graphite' pulls-in dev-libs/isl which we don't want for host
-#      packages, but is reasonable for build-containers.
-#
-# FIXME: Source these flags from package.use
-gcc_use="-fortran graphite nptl openmp pch sanitize ssp vtv zstd"
-
 die() {
 	printf >&2 'FATAL: %s\n' "${*:-Unknown error}"
 	exit 1
@@ -621,7 +611,7 @@ do
 
 	(
 		USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
-		USE="${USE} ${gcc_use}"
+		USE="${USE} ${use_essential_gcc}"
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 		export LC_ALL='C'
@@ -797,7 +787,7 @@ echo
 	# dev-libs/icu is needed for circular dependencies on icu -> python -> sqlite -> icu
 	# libarchive is a frequent dependency, and so quicker to pull-in here
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
-	USE="${USE:+${USE} }${gcc_use}"
+	USE="${USE:+${USE} }${use_essential_gcc}"
 	if
 		  echo " ${USE} " | grep -q -- ' -nptl ' ||
 		! echo " ${USE} " | grep -q -- ' nptl '

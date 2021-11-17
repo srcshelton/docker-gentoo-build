@@ -65,6 +65,7 @@ force=0
 use_pypy_pre=''
 use_pypy_pre_use=''
 use_pypy_post=''
+use_pypy_post_remove=''
 
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
@@ -415,6 +416,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 			--build-arg MAIL_MTA="${mail_mta:-}" \
 			--build-arg SET_TERM="${TERM:-}" \
 			--build-arg SET_USE_ESSENTIAL="${use_essential:-}" \
+			--build-arg SET_USE_ESSENTIAL_GCC="${use_essential_gcc:-}" \
 			--compress \
 			--file 'Dockerfile.env' \
 			${debug:+--loglevel 3 ${DEBUG_EXTRA_ARGS:-}} \
@@ -803,10 +805,11 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 			eval $docker ${DOCKER_VARS:-} container rm -v "${name}"
 		fi
 		docker_run \
-				${use_pypy_pre:+--pre-pkgs="${use_pypy_pre}"} \
-				${use_pypy_pre_use:+--pre-use="${use_pypy_pre_use}"} \
+				  ${use_pypy_pre:+--pre-pkgs="${use_pypy_pre}"} \
+				  ${use_pypy_pre_use:+--pre-use="${use_pypy_pre_use}"} \
 				--post-pkgs="app-arch/tar${use_pypy_post:+ ${use_pypy_post}}" \
 				--post-use="-* ${use_essential:-} xattr ${use_pypy_post_use:-}" \
+				  ${use_pypy_post_remove:+--post-remove="${use_pypy_post_remove}"} \
 				--update \
 				--usepkg=y \
 				--with-bdeps-auto=n \
@@ -817,8 +820,8 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 					"python_single_target_${python_target}" \
 					"python_targets_${python_target}" \
 					"${use_pypy_use:+python_targets_pypy3 ${use_pypy_use:-}}" \
-					"graphite nptl openmp pch sanitize ssp vtv zstd"
-				)" \
+					"${use_essential_gcc:-}"
+				  )" \
 			sys-devel/gcc sys-apps/sed dev-libs/icu dev-util/pkgconf sys-libs/libeudev \
 			@system \
 			${use_pypy:+sys-apps/portage ${use_pypy:-}} 2>&1 |

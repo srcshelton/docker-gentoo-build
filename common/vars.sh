@@ -101,7 +101,7 @@ else
 			if [ -r /proc/cpuinfo ]; then
 				case "${vendor}" in
 					GenuineIntel)
-						echo >&2 "Attempting to auto-discover CPU '${description}' capabilities..."
+						#echo >&2 "Attempting to auto-discover CPU '${description}' capabilities..."
 						use_cpu_arch='x86'
 
 						if
@@ -174,6 +174,16 @@ fi
 #
 use_essential="asm ipv6 ithreads mdev nptl threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
 
+# Even though we often want a minimal set of flags, gcc's flags are significant
+# since they may affect the compiler facilities available to all packages built
+# later...
+#
+# N.B. USE='graphite' pulls-in dev-libs/isl which we don't want for host
+#      packages, but is reasonable for build-containers.
+#
+# FIXME: Source these flags from package.use
+use_essential_gcc="-fortran graphite nptl openmp pch sanitize ssp vtv zstd"
+
 case "$( uname -m )" in
 	x86_64|i686)
 		# Enable pypy support for Portage accleration of ~35%!
@@ -185,6 +195,7 @@ case "$( uname -m )" in
 			use_pypy="${use_pypy} dev-python/pypy3-exe-bin"
 			use_pypy_use="${use_pypy_use} low-memory"
 		fi
+		use_pypy_post_remove="dev-lang/python:2.7"
 		;;
 esac
 
@@ -253,4 +264,4 @@ if [ -f common/local.sh ]; then
 	export JOBS MAXJOBS TMPDIR
 fi
 
-# vi: set nowrap sw=4 ts=4:
+# vi: set colorcolumn=80 nowrap sw=4 ts=4:
