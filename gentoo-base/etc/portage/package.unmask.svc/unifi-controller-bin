@@ -7,5 +7,6 @@
 dev-db/mongodb::unifi
 dev-python/typing::unifi
 dev-python/cheetah::unifi
+dev-python/snowball-stemmer::unifi
 
 # vi: set syntax=gentoo-package-mask:

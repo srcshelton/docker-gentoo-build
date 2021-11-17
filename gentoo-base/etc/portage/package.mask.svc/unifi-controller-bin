@@ -6,7 +6,7 @@ dev-util/meson
 >dev-db/mongodb-4.0.22
 >dev-java/java-config-2.2.0-r4
 >dev-libs/boost-1.72.0-r1
->dev-python/certifi-10001
+<dev-python/certifi-10001
 >dev-python/cheetah-2.4.4-r1
 >dev-python/markdown-3.1.1-r1
 >dev-python/pyyaml-5.3.1

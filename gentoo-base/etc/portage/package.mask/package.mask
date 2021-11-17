@@ -20,4 +20,8 @@ virtual/udev
 sys-apps/gentoo-functions::gentoo
 <sys-apps/gentoo-functions-0.13
 
+# dev-python/certifi has been renumbered to a lower version (2999, 3021) whilst
+# old unifi ebuilds still require the python2.7-compatible version 10001 :(
+>=dev-python/certifi-10001::gentoo
+
 # vi: set colorcolumn=80 syntax=gentoo-package-mask:
