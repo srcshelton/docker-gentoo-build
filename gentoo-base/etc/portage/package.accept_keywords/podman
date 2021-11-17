@@ -33,8 +33,9 @@
 #~app-emulation/podman-3.3.1				 **
 #~app-emulation/podman-3.4.0_rc1			 **
 #~app-emulation/podman-3.4.0_rc2			 **
-~app-emulation/podman-3.4.0				 **
+#~app-emulation/podman-3.4.0				 **
 ~app-emulation/podman-3.4.1				 **
+~app-emulation/podman-3.4.2				 **
 
 #~app-emulation/buildah-1.16.0				 **
 #~app-emulation/buildah-1.16.1				 **
