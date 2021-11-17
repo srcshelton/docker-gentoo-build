@@ -66,9 +66,9 @@ for arg in "${@}"; do
 done
 
 if [ -z "${args:-}" ] && [ -n "${rebuild:-}" ]; then
-	# We only need to specify one package, as the rebuild logic will pull-in
-	# each original package prior to recompilling it
-	set -- "${rebuild% *}" "${@}"
+	# We only need to specify one package, as the rebuild logic will
+	# pull-in each original package prior to recompiling it...
+	set -- "${rebuild%% *}" "${@}"
 fi
 
 DOCKER_EXTRA_MOUNTS=''
