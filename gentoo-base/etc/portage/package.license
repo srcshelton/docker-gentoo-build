@@ -24,7 +24,7 @@
 #sys-apps/util-linux			 BSD-4 public-domain
 app-arch/bzip2				 BZIP2
 app-crypt/libb2				 CC0-1.0
-dev-python/certifi			 CC0-1.0
+dev-python/certifi			 CC0-1.0 MPL-2.0
 dev-util/gtk-doc-am			 FDL-1.1
 app-text/sgml-common			 FDL-1.1+
 sys-devel/gcc				 FDL-1.3+
@@ -84,15 +84,12 @@ sys-libs/libcxx				 Apache-2.0-with-LLVM-exceptions
 sys-libs/llvm-libunwind			 Apache-2.0-with-LLVM-exceptions
 
 
-# required by dev-python/setuptools
-dev-python/certifi			 MPL-2.0
-
 # required by service sys-libs/glibc-2.32-r6[gd]
 media-libs/gd				 HPND IJG gd
 
+# required by x11-libs/pango-1.42.4-r2
 # required by media-libs/harfbuzz-2.7.2
 media-libs/harfbuzz			 Old-MIT icu
-dev-libs/gobject-introspection-common	 HPND
 
 
 # Service packages:
@@ -185,7 +182,6 @@ dev-python/typing			 PSF-2
 dev-util/boost-build			 Boost-1.0
 dev-util/cmake				 CMake
 #dev-util/gdbus-codegen			 LGPL-2+
-media-libs/libjpeg-turbo		 IJG ZLIB
 
 # required by service net-misc/zxtm
 container/zxtm				 Pulse
@@ -195,8 +191,6 @@ dev-python/pillow			 HPND
 #sys-fs/udisks				 LGPL-2+
 sys-libs/libsmbios			 OSL-2.0
 x11-libs/pango				 FTL
-# required by x11-libs/pango-1.42.4-r2
-media-libs/harfbuzz			 Old-MIT icu
 # required by dev-python/pygobject-3.36.1-r1
 # required by dev-libs/gobject-introspection-1.64.1-r1
 dev-libs/gobject-introspection-common	 HPND
