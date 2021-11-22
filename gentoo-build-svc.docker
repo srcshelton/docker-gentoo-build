@@ -975,7 +975,7 @@ case "${package_name}" in
 			gcc_use="$(
 				sed 's/#.*$//' /etc/portage/package.use/package.use |
 				tr -s '[:space:]' |
-				grep -E '^\s?([<>=~]=?)?sys-devel/gcc' |
+				grep -E -- '^\s?([<>=~]=?)?sys-devel/gcc' |
 				cut -f 2- |
 				xargs -n 1 echo |
 				sort |
@@ -1093,7 +1093,7 @@ case " ${pre_pkgs} " in
 esac
 case " ${pre_pkgs} " in
 	*' sys-devel/gcc '*)
-		pre_use="-lib-only${pre_use:+ ${pre_use}}"
+		pre_use="-lib-only${pre_use:+ ${pre_use}}${use_essential_gcc:+ ${use_essential_gcc}}"
 		post_use="lib-only${post_use:+ ${post_use}}"
 		if [ -n "${post_pkgs:-}" ]; then
 			warn "sys-devel/gcc needs to be rebuilt (without dependencies) but 'post_pkgs' is non-empty... suggest moving 'post_pkgs' to 'extra_pkgs'"
@@ -1245,8 +1245,8 @@ else
 	output >&2
 
 	trap '' INT
-	$docker container stop "${container_prefix}-${container_name}" 2>/dev/null || :
-	$docker container rm --volumes "${container_prefix}-${container_name}" 2>/dev/null || :
+	$docker container stop "${container_prefix}-${container_name}" >/dev/null || :
+	$docker container rm --volumes "${container_prefix}-${container_name}" >/dev/null || :
 	trap - INT
 
 	build_use=''
@@ -1303,7 +1303,7 @@ fi
 unset images
 
 trap '' INT
-$docker container rm --volumes "${container_prefix}-${container_name}" 2>/dev/null || :
+$docker container rm --volumes "${container_prefix}-${container_name}" >/dev/null || :
 trap - INT
 
 cd "${base_dir}" || die "chdir() to '${base_dir}' failed: ${?}"
