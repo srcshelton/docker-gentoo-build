@@ -20,11 +20,11 @@ unset -v ARCH
 die() {
 	printf >&2 'FATAL: %s\n' "${*:-Unknown error}"
 	exit 1
-} # die
+}  # die
 
 warn() {
 	[ -z "${*:-}" ] && echo || printf >&2 'WARN:  %s\n' "${*}"
-} # warn
+}  # warn
 
 print() {
 	if [ -n "${DEBUG:-}" ]; then
@@ -34,7 +34,7 @@ print() {
 			printf >&2 'DEBUG: %s\n' "${*}"
 		fi
 	fi
-} # print
+}  # print
 
 # POSIX sh doesn't support 'export -f'...
 format_fn_code="$( cat <<'EOF'
@@ -54,7 +54,7 @@ format() {
 	printf "${string}" "${variable}" "$(
 		cat - | grep -- "^${variable}=" | cut -d'"' -f 2 | fmt -w $(( ${COLUMNS:-80} - ( padding + 3 ) )) | sed "s/^/   ${spaces}/ ; 1 s/^\s\+//"
 	)"
-} # format
+}  # format
 EOF
 )"
 export format_fn_code
@@ -89,7 +89,7 @@ check() {
 
 	# shellcheck disable=SC2086
 	return ${crc}
-} # check
+}  # check
 
 [ -n "${environment_filter:-}" ] || die "'environment_filter' not inherited from docker environment"
 
@@ -589,9 +589,12 @@ unset src_cwd
 # dependencies, and so require prior package installation directly into the
 # stage3 environment...
 #
-# (For some reason, sys-apps/gentoo-functions::gentoo is very sticky)
+# (... and busybox is struggling with libxcrypt, so we'll throw that in here
+# too!)
 #
 for pkg in \
+		'sys-libs/libxcrypt' \
+		'virtual/libcrypt' \
 		'sys-libs/libcap' \
 		'sys-process/audit' \
 		'dev-perl/libintl-perl' \
@@ -612,6 +615,11 @@ do
 	(
 		USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
 		USE="${USE} ${use_essential_gcc}"
+		case "${pkg}" in
+			*libcrypt|*libxcrypt)
+				USE="${USE} static-libs"
+				;;
+		esac
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 		export LC_ALL='C'
@@ -722,7 +730,7 @@ features_libeudev=1
 
 # sys-apps/help2man with USE 'nls' requires Locale-gettext, which depends on sys-apps/help2man;
 # sys-libs/libcap can USE pam, which requires libcap ...
-pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext app-editors/vim'
+pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
 pkg_initial_use='-nls -pam -perl -python'
 pkg_exclude=''
 if [ -n "${features_libeudev}" ]; then
@@ -740,6 +748,11 @@ if [ -n "${pkg_initial:-}" ]; then
 			#set -x
 			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 			export USE="${pkg_initial_use}${use_essential:+ ${use_essential}}"
+			case "${pkg}" in
+				*libcrypt|*libxcrypt)
+					USE="${USE} static-libs"
+					;;
+			esac
 			export LC_ALL='C'
 			for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
 				export ROOT
@@ -1144,4 +1157,4 @@ esac
 
 #[ -n "${trace:-}" ] && set +o xtrace
 
-# vi: set colorcolumn=80 syntax=sh sw=4 ts=4:
+# vi: set colorcolumn=80 foldmarker=()\ {,}\ \ #\  foldmethod=marker syntax=sh sw=4 ts=4:
