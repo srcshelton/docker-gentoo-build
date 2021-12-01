@@ -205,11 +205,11 @@ RUN ln -s /proc/self/mounts /etc/mtab ; \
         "${ZEUSHOME}/runzeus.sh"
 
 # linter ignore=SC2174
-RUN for d in empty log run; do \
+RUN for d in 'empty' 'log' 'run'; do \
         mkdir -pm 0755 "/var/${d}/" ; \
     done && \
     if [ -n "${fs_name:-}" ]; then \
-        for d in log run; do \
+        for d in 'log' 'run'; do \
             mkdir -pm 0755 "/var/${d}/${fs_name}/" ; \
         done ; \
     fi

@@ -1,5 +1,8 @@
 #! /bin/sh
 
+#debug="${DEBUG:-}"
+trace="${TRACE:-}"
+
 # Copied from vars.sh - it's not worth running the whole script just for these!
 bold="$( printf '\e[1m' )"
 red="$( printf '\e[31m' )"
@@ -8,11 +11,14 @@ blue="$( printf '\e[34m' )"
 purple="$( printf '\e[35m' )"
 # Place 'reset' last to prevent coloured xtrace output!
 reset="$( printf '\e[0m' )"
+export bold red green blue purple reset
 
 colour=1
 image=''
 labels=0
 value=''
+
+[ $(( trace )) -ne 0 ] && set -o xtrace
 
 for arg in "${@:-}"; do
 	case "${arg}" in
@@ -90,12 +96,11 @@ if [ $(( labels )) -ne 0 ]; then
 			-e 's/ ([A-Za-z][A-Za-z0-9._-]*):/\n\1: /g' \
 			$(
 				if [ $(( colour )) -ne 0 ] ; then
-					echo "| sed 's/^/${purple}/ ; s/: /${reset}: /' \\"
+					printf "| sed 's/^/%s/ ; s/: /%s: /'" "${purple}" "${reset}"
 					# shellcheck disable=SC2030,SC2031
 					if [ -n "${value:-}" ]; then
 						echo "| sed -e '/${value}.*: /s/${value}/${value}${purple}/' -e 's/${value}/${bold}${red}${value}${reset}/g'"
 					fi
-					echo
 				fi
 			)"
 else
@@ -107,12 +112,11 @@ else
 			-e 's/ ([A-Za-z][A-Za-z0-9._-]*)=/\n\1=/g' \
 			$(
 				if [ $(( colour )) -ne 0 ] ; then
-					echo "| sed 's/^/${purple}/ ; s/=/${reset}: /' \\"
+					printf "| sed 's/^/%s/ ; s/=/%s: /'" "${purple}" "${reset}"
 					# shellcheck disable=SC2030,SC2031
 					if [ -n "${value:-}" ]; then
 						echo "| sed -e '/${value}.*: /s/${value}/${value}${purple}/' -e 's/${value}/${bold}${red}${value}${reset}/g'"
 					fi
-					echo
 				fi
 			)"
 fi

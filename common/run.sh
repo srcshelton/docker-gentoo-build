@@ -288,10 +288,10 @@ docker_resolve() {
 				local -i rc=0
 
 				result="$(
-					$docker run \
+					$docker container run \
 							--rm \
 							--name='portage-helper' \
-							--network=host \
+							--network=none \
 						gentoo-helper versionsort "${@:-}"
 				)" || rc="${?}"
 
@@ -564,11 +564,13 @@ docker_run() {
 
 	trap '' INT
 	# shellcheck disable=SC2086
-	$docker ${DOCKER_VARS:-} container ps | grep -qw -- "${name:-${container_name}}$" &&
-		$docker ${DOCKER_VARS:-} container stop --time 2 "${name:-${container_name}}"
+	$docker ${DOCKER_VARS:-} container ps --noheading |
+			grep -qw -- "${name:-${container_name}}$" &&
+		$docker ${DOCKER_VARS:-} container stop --time 2 "${name:-${container_name}}" >/dev/null
 	# shellcheck disable=SC2086
-	$docker ${DOCKER_VARS:-} container ps -a | grep -qw -- "${name:-${container_name}}$" &&
-		$docker ${DOCKER_VARS:-} container rm --volumes "${name:-${container_name}}"
+	$docker ${DOCKER_VARS:-} container ps --noheading -a |
+			grep -qw -- "${name:-${container_name}}$" &&
+		$docker ${DOCKER_VARS:-} container rm --volumes "${name:-${container_name}}" >/dev/null
 	trap - INT
 
 	if [ -n "${BUILD_CONTAINER:-}" ] && [ -z "${NO_BUILD_MOUNTS:-}" ]; then
@@ -875,7 +877,12 @@ docker_run() {
 	)
 	rc=${?}
 	# shellcheck disable=SC2031,SC2086
-	if dr_id="$( $docker ${DOCKER_VARS:-} container ps -a | grep -- "\s${name:-${container_name}}$" | awk '{ prnt $1 }' )" && [ -n "${dr_id:-}" ]; then
+	if
+		dr_id="$( $docker ${DOCKER_VARS:-} container ps --noheading -a |
+				grep -- "\s${name:-${container_name}}$" |
+				awk '{ prnt $1 }' )" &&
+			[ -n "${dr_id:-}" ]
+	then
 		rcc=$( $docker ${DOCKER_VARS:-} container inspect --format='{{.State.ExitCode}}' "${dr_id}" ) || :
 	fi
 
@@ -921,19 +928,19 @@ docker_prune() {
 
 	trap '' INT
 	# shellcheck disable=SC2031,SC2086
-	$docker ${DOCKER_VARS:-} container ps |
+	$docker ${DOCKER_VARS:-} container ps --noheading |
 		rev |
 		cut -d' ' -f 1 |
 		rev |
 		grep -- '_' |
-		xargs -r $docker ${DOCKER_VARS:-} container stop --time 2
+		xargs -r $docker ${DOCKER_VARS:-} container stop --time 2 >/dev/null
 	# shellcheck disable=SC2031,SC2086
-	$docker ${DOCKER_VARS:-} container ps -a |
+	$docker ${DOCKER_VARS:-} container ps --noheading -a |
 		rev |
 		cut -d' ' -f 1 |
 		rev |
 		grep -- '_' |
-		xargs -r $docker ${DOCKER_VARS:-} container rm --volumes
+		xargs -r $docker ${DOCKER_VARS:-} container rm --volumes >/dev/null
 
 	# shellcheck disable=SC2031,SC2086
 	$docker ${DOCKER_VARS:-} image ls |

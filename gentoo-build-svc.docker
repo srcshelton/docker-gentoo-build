@@ -1245,8 +1245,8 @@ else
 	output >&2
 
 	trap '' INT
-	$docker container stop "${container_prefix}-${container_name}" >/dev/null || :
-	$docker container rm --volumes "${container_prefix}-${container_name}" >/dev/null || :
+	$docker container stop "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -v 'no such container' || :
+	$docker container rm --volumes "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -v 'no such container' || :
 	trap - INT
 
 	build_use=''

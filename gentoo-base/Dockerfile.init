@@ -31,7 +31,7 @@ ARG environment_filter
 
 LABEL maintainer="stuart@shelton.me"
 LABEL Description="Deploy gentoo base-image and build binary package(s) for named Portage atom"
-LABEL Notices="To build certain packages, such a glibc, this container must be started with '--cap-add SYS_PTRACE'"
+LABEL Notices="To build certain packages, such as sys-libs/glibc, this container must be started with '--cap-add SYS_PTRACE'"
 
 LABEL stage3_from="${stage3_image}:${stage3_id}"
 LABEL entrypoint_sum="${entrypoint_sum}"
