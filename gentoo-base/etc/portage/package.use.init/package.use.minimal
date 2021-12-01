@@ -22,6 +22,7 @@ dev-lang/python				 ssl xml
 dev-lang/python-exec			 native-symlinks
 dev-util/pkgconf			 pkg-config
 sys-apps/busybox			 mdev static
+sys-apps/grep				 pcre
 sys-apps/help2man			-nls
 sys-apps/kmod				 tools
 sys-apps/portage			-rsync-verify
