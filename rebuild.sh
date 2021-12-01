@@ -6,15 +6,22 @@ trace=${TRACE:-}
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
-basedir=''
-if [ -d docker-gentoo-build ]; then
-	basedir='.'
-elif [ -d ../docker-gentoo-build ]; then
+basedir='.'
+if [ -d ../docker-gentoo-build ]; then
 	basedir='..'
-else
-	echo >&2 "FATAL: Cannot locate container build tools"
-	exit 1
 fi
+for script in \
+	gentoo-build-kernel \
+	gentoo-build-pkg \
+	gentoo-build-svc \
+	gentoo-init
+do
+	if ! [ -x "${script}.docker" ]; then
+		echo >&2 "FATAL: Cannot locate container build tools"
+		exit 1
+	fi
+done
+unset script
 
 if [ $(( $( id -u ) )) -ne 0 ]; then
 	echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
@@ -33,10 +40,11 @@ fi
 #fi
 
 kbuild_opt="${kbuild_opt:---config-from=config.gz --keep-build --no-patch --clang --llvm-unwind}"
-arg=''
 all=0
+arg=''
 force=0
 haveargs=0
+pkgcache=0
 pretend=0
 rc=0
 rebuild=0
@@ -46,11 +54,11 @@ system=0
 update=0
 case " ${*:-} " in
 	*' -h '*|*' --help '*)
+		printf >&2 'Usage: %s ' "$( basename "${0}" )"
 		if [ -d "${basedir}/docker-dell" ]; then
-			echo >&2 "Usage: $( basename "${0}" ) [--rebuild-utilities] [--rebuild-images [--skip-build] [--force] [--all]] [--update-pkgs] [--update-system [--pretend]]"
-		else
-			echo >&2 "Usage: $( basename "${0}" ) [--rebuild-images [--skip-build] [--force] [--all]] [--update-pkgs] [--update-system [--pretend]]"
+			printf >&2 '[--rebuild-utilities] '
 		fi
+		echo >&2 "[--rebuild-images [--skip-build] [--force] [--all]] [--init-pkg-cache] [--update-pkgs] [--update-system [--pretend]]"
 		echo >&2
 		echo >&2 "       kernel build options: kbuild_opt='${kbuild_opt}'"
 		exit 0
@@ -82,6 +90,10 @@ for arg in ${@+"${@}"}; do
 			;;
 		-f|--force)
 			force=1
+			;;
+		-i|--init-pkg-cache)
+			pkgcache=1
+			haveargs=1
 			;;
 		-p|--pretend)
 			pretend=1
@@ -133,8 +145,10 @@ export TRACE="${CTRACE:-}" # Optinally enable child tracing
 
 if [ "${rebuildutils:-0}" = '1' ]; then
 	if ! [ -d "${basedir}/docker-dell" ]; then
-		echo >&2 "FATAL: docker-dell tools not found on this system"
-		exit 1
+		if [ $(( haveargs )) -ne 0 ]; then
+			echo >&2 "FATAL: docker-dell tools not found on this system"
+			exit 1
+		fi
 	else
 		mkdir -p log
 
@@ -156,7 +170,7 @@ fi
 if [ "${rebuild:-0}" = '1' ]; then
 	mkdir -p log
 
-	if [ $(( skip )) -ne 0 ] || "${basedir}"/docker-gentoo-build/gentoo-init.docker; then
+	if [ $(( skip )) -ne 0 ] || ./gentoo-init.docker; then
 		forceflag=''
 		if ! [ $(( force )) -eq 0 ]; then
 			forceflag='--force'
@@ -165,22 +179,131 @@ if [ "${rebuild:-0}" = '1' ]; then
 		if ! [ $(( all )) -eq 0 ]; then
 			selection='--all'
 		fi
-		"${basedir}"/docker-gentoo-build/gentoo-build-svc.docker \
+		./gentoo-build-svc.docker \
 				${forceflag:+${forceflag} --rebuild} \
 				"${selection}" ||
 			: $(( rc = rc + ${?} ))
-		if [ -x "${basedir}"/docker-gentoo-build/gentoo-web/gentoo-build-web.docker ]; then
-			"${basedir}"/docker-gentoo-build/gentoo-web/gentoo-build-web.docker \
+		if [ -x gentoo-web/gentoo-build-web.docker ]; then
+			./gentoo-web/gentoo-build-web.docker \
 					${forceflag} ||
 				: $(( rc = rc + ${?} ))
 		fi
 		# shellcheck disable=SC2086
-		"${basedir}"/docker-gentoo-build/gentoo-build-kernel.docker \
+		./gentoo-build-kernel.docker \
 				${kbuild_opt:-} ||
 			: $(( rc = rc + ${?} ))
 	else
 		: $(( rc = rc + ${?} ))
 	fi
+fi
+
+if [ "${pkgcache:-0}" = '1' ]; then
+	# Build binary packages for 'init' stage installations (which aren't built
+	# with --buildpkgs=y because at this stage we've not built our own compiler
+	# or libraries)...
+
+	(
+		use=''
+		image=''
+
+		for image in 'localhost/gentoo-stage3' 'localhost/gentoo-init'; do
+			if [ "$( $docker image ls -n "${image}" | wc -l )" = '0' ]; then
+				eval "$(
+					$docker container run \
+							--rm \
+							--entrypoint /bin/sh \
+							--name 'buildpkg.stage3.read' \
+							--network none \
+						${image} -c 'cat /usr/libexec/stage3.info'
+				)"
+				if [ -n "${USE:-}" ]; then
+					use="${USE} symlink"
+					for flag in ${use}; do
+						case "${flag}" in
+							readline|nls|static-libs|zstd)
+								continue ;;
+						esac
+						USE="${USE:+${USE} }${flag}"
+					done
+					break
+				fi
+			fi
+		done
+		if [ -z "${USE:-}" ]; then
+			# shellcheck disable=SC1091
+			. ./common/vars.sh
+			use="
+				acl
+				bzip2
+				crypt
+				extra-filters
+				graphite
+				jit
+				lzma
+				nptl
+				openmp
+				pch python
+				  python_single_target_${python_default_target:-python3_9}
+				  python_targets_${python_default_target:-python3_9}
+				sanitize ssl ssp symlink
+				vtv
+				xml
+			"
+			USE=''
+			for flag in ${use}; do
+				USE="${USE:+${USE} }${flag}"
+			done
+		fi
+		unset image
+		use="${USE}"
+		USE="-* ${use}"
+		export USE
+
+		USE="-* ${use} nls readline static-libs zstd"
+		./gentoo-build-pkg.docker 2>&1 \
+					--buildpkg=y \
+					--name 'buildpkg.cache' \
+					--usepkg=y \
+					--with-bdeps=n \
+				virtual/libc \
+				app-editors/vim \
+				dev-libs/libxml2 \
+				sys-apps/gawk \
+				sys-devel/bc \
+				sys-devel/gcc \
+				sys-libs/libxcrypt |
+			tee log/buildpkg.cache.log
+
+		USE="-* ${use} static-libs"
+		./gentoo-build-pkg.docker 2>&1 \
+					--buildpkg=y \
+					--name 'buildpkg.cache' \
+					--usepkg=y \
+					--with-bdeps=n \
+				virtual/libc \
+				app-arch/bzip2 \
+				app-arch/xz-utils \
+				dev-lang/python \
+				dev-libs/libsodium \
+				dev-perl/List-MoreUtils \
+				sys-apps/baselayout \
+				sys-apps/busybox \
+				sys-apps/portage \
+				sys-kernel/gentoo-sources |
+			tee -a log/buildpkg.cache.log
+
+		USE="-* ${use} nls"
+		./gentoo-build-pkg.docker 2>&1 \
+					--buildpkg=y \
+					--name 'buildpkg.cache' \
+					--usepkg=y \
+					--with-bdeps=n \
+				virtual/libc \
+				app-arch/cpio \
+				dev-libs/elfutils |
+			tee -a log/buildpkg.cache.log
+	)
+	: $(( rc = rc + ${?} ))
 fi
 
 if [ "${update:-0}" = '1' ]; then
@@ -197,7 +320,7 @@ if [ "${update:-0}" = '1' ]; then
 
 	# shellcheck disable=SC2046
 	#USE="-natspec pkg-config" \
-	#stdbuf -o0 "${basedir}"/docker-gentoo-build/gentoo-build-pkg.docker \
+	#stdbuf -o0 "./gentoo-build-pkg.docker \
 	#		--buildpkg=y \
 	#		--emptytree \
 	#		--usepkg=y \
@@ -229,21 +352,21 @@ if [ "${update:-0}" = '1' ]; then
 	fi
 	# shellcheck disable=SC2046
 	USE="-lib-only -natspec pkg-config ${gcc_use}" \
-	"${basedir}"/docker-gentoo-build/gentoo-build-pkg.docker \
-			--buildpkg=y \
-			--emptytree \
-			--usepkg=y \
-			--with-bdeps=y \
-		$(
-			for pkg in /var/db/pkg/*/*; do
-				pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
-				if echo "${pkg}" | grep -Eq '^container/|/pkgconfig-'; then
-					continue
-				fi
-				echo ">=${pkg}"
-			done
-		) --name 'buildpkg.hostpkgs.update' 2>&1 |
-	tee log/buildpkg.hostpkgs.update.log
+	./gentoo-build-pkg.docker \
+				--buildpkg=y \
+				--emptytree \
+				--usepkg=y \
+				--with-bdeps=y \
+			$(
+				for pkg in /var/db/pkg/*/*; do
+					pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
+					if echo "${pkg}" | grep -Eq '^container/|/pkgconfig-'; then
+						continue
+					fi
+					echo ">=${pkg}"
+				done
+			) --name 'buildpkg.hostpkgs.update' 2>&1 |
+		tee log/buildpkg.hostpkgs.update.log
 	: $(( rc = rc + ${?} ))
 
 	trap '' INT
@@ -268,7 +391,7 @@ if [ "${update:-0}" = '1' ]; then
 			)"
 		fi
 		USE="${gcc_use}" \
-		"${basedir}"/docker-gentoo-build/gentoo-build-pkg.docker \
+		./gentoo-build-pkg.docker \
 				--buildpkg=y \
 				--usepkg=y \
 				--with-bdeps=y \
@@ -327,3 +450,5 @@ fi
 
 # shellcheck disable=SC2086
 exit ${rc}
+
+# vi: set colorcolumn=80:
