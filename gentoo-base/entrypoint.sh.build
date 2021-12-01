@@ -14,11 +14,11 @@ DEFAULT_MAXLOAD='__MAXLOAD__'
 die() {
 	printf >&2 'FATAL: %s\n' "${*:-Unknown error}"
 	exit 1
-} # die
+}  # die
 
 warn() {
 	[ -z "${*:-}" ] && echo || printf >&2 'WARN:  %s\n' "${*}"
-} # warn
+}  # warn
 
 print() {
 	if [ -n "${DEBUG:-}" ]; then
@@ -28,7 +28,7 @@ print() {
 			printf >&2 'DEBUG: %s\n' "${*}"
 		fi
 	fi
-} # print
+}  # print
 
 format() {
 	# Pad $variable to $padding trailing spaces
@@ -46,7 +46,7 @@ format() {
 	printf "${string}" "${variable}" "$(
 		cat - | grep -- "^${variable}=" | cut -d'"' -f 2 | fmt -w $(( ${COLUMNS:-80} - ( padding + 3 ) )) | sed "s/^/   ${spaces}/ ; 1 s/^\s\+//"
 	)"
-} # format
+}  # format
 
 check() {
 	# Check that a given package (with build result code $crc) is actually installed
@@ -77,7 +77,7 @@ check() {
 
 	# shellcheck disable=SC2086
 	return ${crc}
-} # check
+}  # check
 
 checkmissing() {
 	# Check that packages passed in as arguments have been removed
@@ -103,7 +103,7 @@ checkmissing() {
 	fi
 
 	return 0
-} # checkmissing
+}  # checkmissing
 
 pkg_remove() {
 	stage="${1:-}" ; shift
@@ -159,7 +159,7 @@ pkg_remove() {
 			unset pkg
 		done
 	)
-} # pkg_remove
+}  # pkg_remove
 
 savefailed() {
 	# Save failed build logs ...
@@ -178,7 +178,7 @@ savefailed() {
 		done
 	fi
 	#[ -n "${trace:-}" ] || set +o xtrace
-} # savefailed
+}  # savefailed
 
 #do_prelink() {
 #	# http://www.gentoo.org/doc/en/prelink-howto.xml
@@ -189,7 +189,7 @@ savefailed() {
 #	[ -e /etc/prelink.cache] && rm /etc/prelink.cache
 #
 #	/usr/sbin/prelink -av ${PRELINK_OPTS}
-#} # prelink
+#}  # prelink
 
 if [ -n "${DEV_MODE:-}" ]; then
 	cat <<EOF
@@ -252,6 +252,25 @@ fi
 if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
 	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-${DEFAULT_MAXLOAD}}"
 fi
+
+#for f in $( grep -Rl collision log/docker.*.log ); do
+#		sed '\x1b\[[0-9;]*m//g' "${f}" |
+#		awk -v p=0 '/Detected file collision\(s\):$/ { p = 2 } ; /^ \* $/ { p = p - 1 } ; ( 1 == p ) { print $2 }'
+#done |
+#	xargs -rn 1 dirname |
+#	sed 's|/c.i-php.\../|/*/| ; s|/spamassassin/|/*/| ; s|$|/*|' |
+#	sort |
+#	uniq
+COLLISION_IGNORE="${COLLISION_IGNORE:-/lib/modules/*}
+	/service/bin/*
+	/service/etc/php/*/ext-active/*
+	/service/sbin/*
+	/service/usr/bin/*
+	/service/usr/share/*/*
+	/service/var/lib/*/*
+	/var/lib/portage/home/*
+"
+export COLLISION_IGNORE
 
 TUSE=''
 force_python=''
@@ -638,7 +657,7 @@ fi
 #time (
 (
 	export ROOT='/service'
-	export FEATURES='-fail-clean'
+	export FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
 	export USE="-* lib-only make-symlinks timezone-tools"
 	export LC_ALL='C'
 	export VERY_BRAVE_OR_VERY_DUMB='yes'  # for busybox
@@ -690,7 +709,7 @@ fi
 
 	echo
 	echo " * Packages to install: ${service_pkgs}"
-	echo " * Packages to exclude: ${pre_remove:-}"
+	echo " * Packages to exclude: ${pre_remove:-<none>}"
 
 	# shellcheck disable=SC2086,SC2046
 	if ! emerge \
@@ -839,6 +858,14 @@ case "${1:-}" in
 		fi
 		echo
 
+		if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ] && [ -n "${COLLISION_IGNORE:-}" ]; then
+			COLLISION_IGNORE="${COLLISION_IGNORE} $( echo "${COLLISION_IGNORE}" | sed "s|${ROOT%/}||g" )"
+		fi
+		COLLISION_IGNORE="$( echo "${COLLISION_IGNORE}" | xargs -r printf '%s ' )"
+		COLLISION_IGNORE="${COLLISION_IGNORE% }"
+		echo "DEBUG: COLLISION_IGNORE environment variable is '${COLLISION_IGNORE}'"
+		export COLLISION_IGNORE
+
 		info="$( LC_ALL='C' emerge --info --verbose )"
 		echo
 		if [ -z "${post_pkgs:-}" ]; then
@@ -853,6 +880,7 @@ case "${1:-}" in
 		echo "${info}" | format 'FEATURES'
 		echo "${info}" | format 'ACCEPT_LICENSE'
 		echo "${info}" | format 'USE'
+		echo "${info}" | format 'COLLISION_IGNORE'
 		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 		echo "${info}" | format 'PYTHON_TARGETS'
 		#echo
@@ -1110,4 +1138,4 @@ exit ${rc}
 
 #[ -n "${trace:-}" ] && set +o xtrace
 
-# vi: set colorcolumn=80 sw=4 syntax=sh ts=4:
+# vi: set colorcolumn=80 foldmarker=()\ {,}\ \ #\  foldmethod=marker syntax=sh sw=4 ts=4:
