@@ -23,11 +23,6 @@ do
 done
 unset script
 
-if [ $(( $( id -u ) )) -ne 0 ]; then
-	echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
-	exit 1
-fi
-
 docker='docker'
 if command -v podman >/dev/null 2>&1; then
 	docker='podman'
@@ -64,6 +59,12 @@ case " ${*:-} " in
 		exit 0
 		;;
 esac
+
+if [ $(( $( id -u ) )) -ne 0 ]; then
+	echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
+	exit 1
+fi
+
 for arg in ${@+"${@}"}; do
 	case "${arg:-}" in
 		--rebuild-utilities)
