@@ -6,7 +6,7 @@
 # release. Bug 718326. Removal whenever it becomes an issue.
 #
 # Debian base their package on f46159b (currently HEAD) and
-# this works up to at least python39...
+# this works up to at least python3_9...
 >mail-filter/pyzor-1.0.0-r1
 
 # vi: set syntax=gentoo-package-mask:
