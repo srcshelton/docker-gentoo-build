@@ -863,7 +863,6 @@ case "${1:-}" in
 		fi
 		COLLISION_IGNORE="$( echo "${COLLISION_IGNORE}" | xargs -r printf '%s ' )"
 		COLLISION_IGNORE="${COLLISION_IGNORE% }"
-		echo "DEBUG: COLLISION_IGNORE environment variable is '${COLLISION_IGNORE}'"
 		export COLLISION_IGNORE
 
 		info="$( LC_ALL='C' emerge --info --verbose )"
