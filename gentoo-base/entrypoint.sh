@@ -190,6 +190,23 @@ fi
 # shellcheck disable=SC2166
 [ -s "${PKGDIR}"/Packages -a -d "${PKGDIR}"/virtual ] || warn "'${PKGDIR}/Packages' or '${PKGDIR}/virtual' are missing - package cache appears invalid"
 
+env | grep -F -- 'DIR=' | cut -d'=' -f 2- | while read -r d; do
+	if ! [ -d "${d}" ]; then
+		warn "Creating missing directory '${d}' ..."
+		mkdir -p "${d}" || die "mkdir() on '${d}' failed: ${?}"
+	fi
+	if [ "$( stat -Lc '%G' "${d}" )" != 'portage' ]; then
+		warn "Resetting permissions on '${d}' ..."
+		if chgrp "${d}" portage 2>/dev/null; then
+			chmod ug+rwx "${d}" || die "chmod() on '${d}' failed: ${?}"
+		else
+			chmod ugo+rwx "${d}" || die "chmod() on '${d}' failed: ${?}"
+		fi
+	fi
+done
+
+touch "${PKGDIR}/Packages" || die "Unable to write to file '${PKGDIR}/Packages': ${?}"
+
 info="$( LC_ALL='C' emerge --info --verbose )"
 echo
 echo 'Resolved build variables for stage3:'
