@@ -9,16 +9,18 @@ declare MACHINE='podman'
 declare -i init=0 xfer=0 cores=4
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
-        readlink() {
-                perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
-        }
+	readlink() {
+		perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
+	}
 
-		case "$( sysctl -n machdep.cpu.brand_string )" in
-			'Apple M1')
-				cores="$(( $( sysctl -n machdep.cpu.core_count ) / 2 ))" ;;
-			'Intel'*)
-				cores="$( sysctl -n machdep.cpu.core_count )" ;;
-		esac
+	case "$( sysctl -n machdep.cpu.brand_string )" in
+		'Apple M1 Pro'|'Apple M1 Max')
+			cores="$(( $( sysctl -n machdep.cpu.core_count ) - 2 ))" ;;
+		'Apple M1')
+			cores="$(( $( sysctl -n machdep.cpu.core_count ) / 2 ))" ;;
+		'Intel'*)
+			cores="$( sysctl -n machdep.cpu.core_count )" ;;
+	esac
 else
 	cores="$( grep 'cpu cores' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' )"
 fi

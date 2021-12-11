@@ -92,7 +92,7 @@ else
 			use_cpu_arch='arm'
 			use_cpu_flags="edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2" ;;
 
-		*': 0xd07'|'Apple M1')
+		*': 0xd07'|'Apple M1'*)
 			use_cpu_arch='arm'
 			use_cpu_flags="aes crc32 sha1 sha2" ;;
 		*)
