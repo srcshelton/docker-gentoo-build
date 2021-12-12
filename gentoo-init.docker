@@ -697,8 +697,13 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
 
 	# shellcheck disable=SC2086
 	trap '' INT
-	$docker container commit "${base_name#*/}" "${base_name}:latest" 2>&1 |
-		tee -a ../log/"docker.${base_name#*/}.log"
+	if ! command -v buildah >/dev/null 2>&1; then
+		$docker container commit "${base_name#*/}" "${base_name}:latest" 2>&1 |
+			tee -a ../log/"docker.${base_name#*/}.log"
+	else
+		buildah commit --squash "${base_name#*/}" "${base_name}:latest" 2>&1 |
+			tee -a ../log/"docker.${base_name#*/}.log"
+	fi
 	$docker container rm --volumes "${base_name#*/}" 2>&1 |
 		tee -a ../log/"docker.${base_name#*/}.log"
 	trap - INT
@@ -742,9 +747,9 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 		"${build_name}-root:latest" 2>/dev/null |
 	grep -Eq -- "^(localhost/)?${build_name}-root\s+latest\s" && {
 		# shellcheck disable=SC2140
-		$docker image rm \
+		$docker \
 				${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} \
-			"${build_name}-root:latest"
+			image rm "${build_name}-root:latest"
 	} || :
 	trap - INT
 
@@ -760,20 +765,29 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 		python_target="${python_default_target:-}"
 	fi
 
+	# With the addition of the '--squash-all' parameter, we should end up
+	# with chained 'env', 'stage3', 'init', and 'base' images; a unified
+	# 'build' pre-image with one layer on top for the post-'container
+	# build' changes which are committed below (as 'build') - and then
+	# services are re-squashed when 'gentoo-build'-svc.docker invokes
+	# 'Dockerfile.*service' to produce the service-container image.
+	#
 	# shellcheck disable=SC2086,SC2140
-	$docker image build \
-			${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} \
-			--platform "linux/${docker_arch}" \
-			--build-arg env_id="${env_id}" \
-			--build-arg environment_filter="${environment_filter}" \
-			--compress \
-			--file 'Dockerfile.build' \
-			${debug:+--loglevel 3 ${DEBUG_EXTRA_ARGS:-}} \
-			--network none \
-			--no-cache \
-			--tag "${build_name}-root:latest" \
-		. 2>&1 | tee ../log/"docker.${build_name#*/}.log"
-			#--network slirp4netns \
+	$docker ${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} \
+			image build \
+					--build-arg env_id="${env_id}" \
+					--build-arg environment_filter="${environment_filter}" \
+					--compress \
+					--file 'Dockerfile.build' \
+					${debug:+--loglevel 3 ${DEBUG_EXTRA_ARGS:-}} \
+					--network none \
+					--no-cache \
+					--platform "linux/${docker_arch}" \
+					--squash-all \
+					--tag "${build_name}-root:latest" \
+				. 2>&1 |
+		tee ../log/"docker.${build_name#*/}.log"
+					#--network slirp4netns \
 
 	(
 		# dev-libs/icu is needed for circular dependencies on
@@ -835,20 +849,29 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	output
 	trap '' INT
 	# shellcheck disable=SC2031,SC2086,SC2140
-	$docker \
-			${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
-		container commit "${build_name#*/}" "${build_name}:latest" |
-	tee -a ../log/"docker.${build_name#*/}.log"
+	if ! command -v buildah >/dev/null 2>&1; then
+		$docker \
+					${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
+				container commit "${build_name#*/}" "${build_name}:latest" |
+			tee -a ../log/"docker.${build_name#*/}.log"
+	else
+		buildah \
+					${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
+				commit \
+						--squash \
+					"${build_name#*/}" "${build_name}:latest" |
+			tee -a ../log/"docker.${build_name#*/}.log"
+	fi
 	# shellcheck disable=SC2031,SC2086,SC2140
 	$docker \
-			${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
-		container rm --volumes "${build_name#*/}" |
-	tee -a ../log/"docker.${build_name#*/}.log"
+				${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
+			container rm --volumes "${build_name#*/}" |
+		tee -a ../log/"docker.${build_name#*/}.log"
 	# shellcheck disable=SC2031,SC2086,SC2140
 	$docker \
-			${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
-		image rm "${build_name}-root:latest" |
-	tee -a ../log/"docker.${build_name#*/}.log"
+				${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
+			image rm "${build_name}-root:latest" |
+		tee -a ../log/"docker.${build_name#*/}.log"
 	output " -> ${?}"
 	trap - INT
 

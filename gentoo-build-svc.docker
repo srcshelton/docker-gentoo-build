@@ -8,6 +8,7 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 build_name=''
 base_dir=''
 #use_essential=''
+use_essential_gcc=''
 docker='docker'
 docker_readonly=''
 environment_filter=''
@@ -64,6 +65,7 @@ services='
 	unifi64
 	vim
 	watchdog
+	xmrig
 	zxtm
 '
 installed=0
@@ -420,6 +422,8 @@ case "${service:-}" in
 		service='app-editors/vim' ;;
 	watchdog)
 		service='sys-apps/watchdog' ;;
+	xmrig)
+		service='net-misc/xmrig' ;;
 	zxtm)
 		zxtm_service_version="$( curl -s https://registry.hub.docker.com/v1/repositories/pulsesecure/vtm/tags | jq -r .[].name | grep -v -- 'latest' | sort -V | tail -n 1 )"
 		service="net-misc/zxtm-init-scripts-${zxtm_service_version}"
@@ -1055,6 +1059,11 @@ case "${package_name}" in
 
 		container_cmd='/usr/sbin/watchdog'
 		;;
+	*.xmrig)
+		output "Setting build variables for package 'xmrig' ..."
+
+		container_cmd='/usr/bin/xmrig'
+		;;
 	*.zxtm)
 		ZEUSHOME='/opt/zeus'
 		output "Setting build variables for package 'zxtm' ..."
@@ -1246,7 +1255,7 @@ else
 
 	trap '' INT
 	$docker container stop "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -v 'no such container' || :
-	$docker container rm --volumes "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -v 'no such container' || :
+	$docker container rm --volumes "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -Fv -- 'no such container' || :
 	trap - INT
 
 	build_use=''
@@ -1289,6 +1298,10 @@ else
 	[ "${rc}" = '0' ] || exit 1
 
 	# podman is fragile :(
+	#
+	# ... more to the point, if we use 'buildah commit --squash' here then the
+	# next-stage build fails after the ROOT filesystem contents have been
+	# copied across when running 'test -s /usr/libexec/environment.sh'!?
 	trap '' INT
 	$docker container commit \
 			"${container_prefix}-${container_name}" \
@@ -1303,7 +1316,7 @@ fi
 unset images
 
 trap '' INT
-$docker container rm --volumes "${container_prefix}-${container_name}" >/dev/null || :
+$docker container rm --volumes "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -Fv -- 'no such container' || :
 trap - INT
 
 cd "${base_dir}" || die "chdir() to '${base_dir}' failed: ${?}"
@@ -1321,30 +1334,36 @@ output >&2
 output >&2 " ${blue}*${reset} Building ${package_name}:${package_version} (${container_cmd}) service image ..."
 output >&2
 
+# With the addition of the '--squash-all' parameter, the 'build' image is
+# re-squashed when 'gentoo-build'-svc.docker invokes 'Dockerfile.*service' to
+# produce the service-container image.
+#
 # shellcheck disable=SC2001  # POSIX sh compatibility
-$docker image build \
-		--build-arg image_name="${container_prefix}-${package_name}" \
-		--build-arg service_name="$( echo "${package_name}" | sed 's|\.|/|' )" \
-		--build-arg service_name_short="$( echo "${package_name}" | sed 's|\.|/|' | cut -d'/' -f 2- )" \
-		--build-arg service_version="${package_version}" \
-		--build-arg service_ports="${ports}" \
-		--build-arg service_user="${user}" \
-		--build-arg service_group="${group}" \
-		--build-arg service_cmd="${container_cmd}" \
-		  ${container_cwd:+--build-arg service_cwd="${container_cwd}"} \
-		  ${fs_name:+--build-arg service_fs_name="${fs_name}"} \
-		--build-arg environment_filter="${environment_filter}" \
-		--build-arg smtp_smarthost="${mail_mta}" \
-		--build-arg smtp_domain="${mail_domain}" \
-		  ${zxtm_service_version:+--build-arg zxtm_service_version="${zxtm_service_version}"} \
-		  ${ZEUSHOME:+--build-arg ZEUSHOME="${ZEUSHOME}"} \
-		--build-arg SET_TERM="${TERM}" \
-		--compress \
-		--file "${file}" \
-		${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
-		--tag "service.${package_name}:${package_version}" \
-	.  2>&1 | tee ../log/"docker.service.${container_name}.log"
-		#--network slirp4netns \
+$docker ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
+		image build \
+				--build-arg SET_TERM="${TERM}" \
+				  ${ZEUSHOME:+--build-arg ZEUSHOME="${ZEUSHOME}"} \
+				--build-arg environment_filter="${environment_filter}" \
+				--build-arg image_name="${container_prefix}-${package_name}" \
+				--build-arg service_cmd="${container_cmd}" \
+				  ${container_cwd:+--build-arg service_cwd="${container_cwd}"} \
+				  ${fs_name:+--build-arg service_fs_name="${fs_name}"} \
+				--build-arg service_group="${group}" \
+				--build-arg service_name="$( echo "${package_name}" | sed 's|\.|/|' )" \
+				--build-arg service_name_short="$( echo "${package_name}" | sed 's|\.|/|' | cut -d'/' -f 2- )" \
+				--build-arg service_ports="${ports}" \
+				--build-arg service_user="${user}" \
+				--build-arg service_version="${package_version}" \
+				--build-arg smtp_domain="${mail_domain}" \
+				--build-arg smtp_smarthost="${mail_mta}" \
+				  ${zxtm_service_version:+--build-arg zxtm_service_version="${zxtm_service_version}"} \
+				--compress \
+				--file "${file}" \
+				--squash-all \
+				--tag "service.${package_name}:${package_version}" \
+			.  2>&1 |
+	tee ../log/"docker.service.${container_name}.log"
+			#--network slirp4netns \
 rc=${?}
 output " -> ${rc}"
 

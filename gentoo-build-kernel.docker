@@ -432,16 +432,38 @@ if ! [ "$( $docker image list "${container_name%-${package_version}}.${compiler}
 			output " -> ${?}"
 		}
 
+		# It would be nice if we could squash the image layers here to produce
+		# a unified image in response to 'commit', but without an additional
+		# 'container build' operation (which may be viable, as building a
+		# kernel on a pre-existing image requires the definition of many less
+		# environment-variables than when invoking 'emerge' to build
+		# packages) - but even this way, we end up with the base-layer,
+		# ultimate build layer, and above kernel layer - which should result in
+		# kernel source images being the only things depending on stale
+		# build-images...
+		#
+		# Update: While 'podman build' can't squash image layers when
+		#         committing containers, it appears that 'buildah commit' can!
+		#
 		time {
 			trap '' INT
-			$docker container commit \
-					"${container_name}-${compiler}" \
-					"${container_name%-${package_version}}.${compiler}:${package_version}" \
-					${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} 2>&1 |
-				tee -a "log/docker.${container_name}.log"
+			if ! command -v buildah >/dev/null 2>&1; then
+				$docker ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
+						container commit \
+							"${container_name}-${compiler}" \
+							"${container_name%-${package_version}}.${compiler}:${package_version}" 2>&1 |
+					tee -a "log/docker.${container_name}.log"
+			else
+				buildah ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
+						commit \
+								--squash \
+							"${container_name}-${compiler}" \
+							"${container_name%-${package_version}}.${compiler}:${package_version}" 2>&1 |
+					tee -a "log/docker.${container_name}.log"
+			fi
+			output " -> ${?}"
 			$docker container rm --volumes "${container_name}-${compiler}" 2>&1 |
 				tee -a "log/docker.${container_name}-${compiler}.log"
-			output " -> ${?}"
 			trap - INT
 		}
 	)
