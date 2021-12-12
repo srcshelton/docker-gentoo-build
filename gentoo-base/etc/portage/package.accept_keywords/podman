@@ -34,8 +34,10 @@
 #~app-emulation/podman-3.4.0_rc1			 **
 #~app-emulation/podman-3.4.0_rc2			 **
 #~app-emulation/podman-3.4.0				 **
-~app-emulation/podman-3.4.1				 **
+#~app-emulation/podman-3.4.1				 **
 ~app-emulation/podman-3.4.2				 **
+#~app-emulation/podman-3.4.3				 **
+~app-emulation/podman-3.4.4				 **
 
 #~app-emulation/buildah-1.16.0				 **
 #~app-emulation/buildah-1.16.1				 **
@@ -94,8 +96,9 @@
 #~app-emulation/runc-1.0.0_rc94				 **  # CVE-2021-30465
 #~app-emulation/runc-1.0.0_rc95				 **
 #~app-emulation/runc-1.0.0				 **
-~app-emulation/runc-1.0.1				 **
+#~app-emulation/runc-1.0.1				 **
 ~app-emulation/runc-1.0.2				 **
+~app-emulation/runc-1.0.3				 **
 
 #~app-emulation/containers-storage-1.27.0		 **
 #~app-emulation/containers-storage-1.28.0		 **
@@ -131,8 +134,9 @@
 #~app-emulation/conmon-2.0.26				 **
 #~app-emulation/conmon-2.0.27				 **
 #~app-emulation/conmon-2.0.28				 **
-~app-emulation/conmon-2.0.29				 **
+#~app-emulation/conmon-2.0.29				 **
 ~app-emulation/conmon-2.0.30				 **
+~app-emulation/conmon-2.0.31				 **
 
 # originally required by app-emulation/podman-1.9.3[rootless]
 #~app-emulation/slirp4netns-1.1.4			 **
