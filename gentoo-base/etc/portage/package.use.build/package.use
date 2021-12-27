@@ -51,9 +51,11 @@ app-benchmarks/bootchart2		-X
 app-crypt/gnupg				-ssl ecc idea mta
 #app-crypt/gpgme			-python  # Requires dev-lang/swig, but only as a BDEPEND
 app-editors/vim				-cscope -sound terminal vim-pager
-app-emulation/crun			-criu bpf
+# move app-emulation/crun app-containers/crun
+app-containers/crun			-criu bpf
 # move app-emulation/libpod app-emulation/podman
-app-emulation/podman			-fuse -rootless
+# move app-emulation/podman app-containers/podman
+app-containers/podman			-fuse -rootless
 # move app-admin/eselect-php app-eselect/eselect-php
 app-eselect/eselect-php			 fpm
 app-misc/screen				 multiuser
@@ -196,7 +198,7 @@ sys-apps/openrc				 compat  # newnet
 sys-apps/pciutils			-zlib dns
 sys-apps/portage			-rsync-verify
 sys-apps/smartmontools			 update_drivedb update-drivedb
-sys-apps/usbutils			-python experimental
+sys-apps/usbutils			 experimental
 sys-apps/util-linux			 magic tty-helpers
 sys-auth/opie				-server
 sys-auth/pambase			-passwdqc pwquality  # mktemp

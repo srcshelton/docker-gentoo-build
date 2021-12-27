@@ -1,73 +1,76 @@
 
-#~app-emulation/catatonit-0.1.5				 **
-~app-emulation/catatonit-0.1.6				 **
-~app-emulation/catatonit-0.1.7				 **
+# move app-emulation/catatonit app-containers/catatonit
+#~app-containers/catatonit-0.1.5			 **
+~app-containers/catatonit-0.1.6				 **
+~app-containers/catatonit-0.1.7				 **
 
-#~app-emulation/podman-2.0.6				 **
-#~app-emulation/podman-2.1.0				 **
-#~app-emulation/podman-2.1.1				 **
-#~app-emulation/podman-2.2.0_rc1			 **
-#~app-emulation/podman-2.2.0_rc2			 **
-#~app-emulation/podman-2.2.0				 **
-#~app-emulation/podman-2.2.1				 **
-#~app-emulation/podman-3.0.0				 **
-#~app-emulation/podman-3.0.1				 **
-#~app-emulation/podman-3.1.0_rc1			 **
-#~app-emulation/podman-3.1.0_rc2			 **
-#~app-emulation/podman-3.1.0				 **
-#~app-emulation/podman-3.1.0-r1				 **
-#~app-emulation/podman-3.1.1				 **
-#~app-emulation/podman-3.1.2				 **
-#~app-emulation/podman-3.2.0_rc1			 **
-#~app-emulation/podman-3.2.0_rc2			 **
-#~app-emulation/podman-3.2.0_rc3			 **
-#~app-emulation/podman-3.2.0				 **
-#~app-emulation/podman-3.2.1				 **
-#~app-emulation/podman-3.2.2				 **
-#~app-emulation/podman-3.2.3				 **
-#~app-emulation/podman-3.2.9999				 **
-#~app-emulation/podman-3.3.0_rc1			 **
-#~app-emulation/podman-3.3.0_rc2			 **
-#~app-emulation/podman-3.3.0_rc3			 **
-#~app-emulation/podman-3.3.0				 **
-#~app-emulation/podman-3.3.1				 **
-#~app-emulation/podman-3.4.0_rc1			 **
-#~app-emulation/podman-3.4.0_rc2			 **
-#~app-emulation/podman-3.4.0				 **
-#~app-emulation/podman-3.4.1				 **
-~app-emulation/podman-3.4.2				 **
-#~app-emulation/podman-3.4.3				 **
-~app-emulation/podman-3.4.4				 **
+# move app-emulation/podman app-containers/podman
+#~app-containers/podman-2.0.6				 **
+#~app-containers/podman-2.1.0				 **
+#~app-containers/podman-2.1.1				 **
+#~app-containers/podman-2.2.0_rc1			 **
+#~app-containers/podman-2.2.0_rc2			 **
+#~app-containers/podman-2.2.0				 **
+#~app-containers/podman-2.2.1				 **
+#~app-containers/podman-3.0.0				 **
+#~app-containers/podman-3.0.1				 **
+#~app-containers/podman-3.1.0_rc1			 **
+#~app-containers/podman-3.1.0_rc2			 **
+#~app-containers/podman-3.1.0				 **
+#~app-containers/podman-3.1.0-r1			 **
+#~app-containers/podman-3.1.1				 **
+#~app-containers/podman-3.1.2				 **
+#~app-containers/podman-3.2.0_rc1			 **
+#~app-containers/podman-3.2.0_rc2			 **
+#~app-containers/podman-3.2.0_rc3			 **
+#~app-containers/podman-3.2.0				 **
+#~app-containers/podman-3.2.1				 **
+#~app-containers/podman-3.2.2				 **
+#~app-containers/podman-3.2.3				 **
+#~app-containers/podman-3.2.9999			 **
+#~app-containers/podman-3.3.0_rc1			 **
+#~app-containers/podman-3.3.0_rc2			 **
+#~app-containers/podman-3.3.0_rc3			 **
+#~app-containers/podman-3.3.0				 **
+#~app-containers/podman-3.3.1				 **
+#~app-containers/podman-3.4.0_rc1			 **
+#~app-containers/podman-3.4.0_rc2			 **
+#~app-containers/podman-3.4.0				 **
+#~app-containers/podman-3.4.1				 **
+~app-containers/podman-3.4.2				 **
+#~app-containers/podman-3.4.3				 **
+~app-containers/podman-3.4.4				 **
 
-#~app-emulation/buildah-1.16.0				 **
-#~app-emulation/buildah-1.16.1				 **
-#~app-emulation/buildah-1.16.2				 **
-#~app-emulation/buildah-1.16.3				 **
-#~app-emulation/buildah-1.16.4				 **
-#~app-emulation/buildah-1.16.7				 **
-#~app-emulation/buildah-1.16.8				 **
-#~app-emulation/buildah-1.17.0				 **
-#~app-emulation/buildah-1.17.1				 **
-#~app-emulation/buildah-1.17.2				 **
-#~app-emulation/buildah-1.18.0				 **
-#~app-emulation/buildah-1.19.0				 **
-#~app-emulation/buildah-1.19.3				 **
-#~app-emulation/buildah-1.19.4				 **
-#~app-emulation/buildah-1.19.6				 **
-#~app-emulation/buildah-1.19.8				 **
-#~app-emulation/buildah-1.19.9				 **
-#~app-emulation/buildah-1.20.0				 **
-#~app-emulation/buildah-1.20.1				 **
-#~app-emulation/buildah-1.21.0				 **
-#~app-emulation/buildah-1.21.1				 **
-#~app-emulation/buildah-1.21.2				 **
-#~app-emulation/buildah-1.21.3				 **
-#~app-emulation/buildah-1.22.0				 **
-#~app-emulation/buildah-1.22.1				 **
-#~app-emulation/buildah-1.22.2				 **
-#~app-emulation/buildah-1.22.3				 **
-~app-emulation/buildah-1.23.0				 **
-~app-emulation/buildah-1.23.1				 **
+# move app-emulation/buildah app-containers/buildah
+#~app-containers/buildah-1.16.0				 **
+#~app-containers/buildah-1.16.1				 **
+#~app-containers/buildah-1.16.2				 **
+#~app-containers/buildah-1.16.3				 **
+#~app-containers/buildah-1.16.4				 **
+#~app-containers/buildah-1.16.7				 **
+#~app-containers/buildah-1.16.8				 **
+#~app-containers/buildah-1.17.0				 **
+#~app-containers/buildah-1.17.1				 **
+#~app-containers/buildah-1.17.2				 **
+#~app-containers/buildah-1.18.0				 **
+#~app-containers/buildah-1.19.0				 **
+#~app-containers/buildah-1.19.3				 **
+#~app-containers/buildah-1.19.4				 **
+#~app-containers/buildah-1.19.6				 **
+#~app-containers/buildah-1.19.8				 **
+#~app-containers/buildah-1.19.9				 **
+#~app-containers/buildah-1.20.0				 **
+#~app-containers/buildah-1.20.1				 **
+#~app-containers/buildah-1.21.0				 **
+#~app-containers/buildah-1.21.1				 **
+#~app-containers/buildah-1.21.2				 **
+#~app-containers/buildah-1.21.3				 **
+#~app-containers/buildah-1.22.0				 **
+#~app-containers/buildah-1.22.1				 **
+#~app-containers/buildah-1.22.2				 **
+#~app-containers/buildah-1.22.3				 **
+~app-containers/buildah-1.23.0				 **
+~app-containers/buildah-1.23.1				 **
 
 #~net-misc/cni-plugins-0.8.7				 **
 #~net-misc/cni-plugins-0.9.0				 **
@@ -75,80 +78,85 @@
 ~net-misc/cni-plugins-1.0.0				 **
 ~net-misc/cni-plugins-1.0.1				 **
 
-#~app-emulation/crun-0.14.1				 **
-#~app-emulation/crun-0.15				 **
-#~app-emulation/crun-0.15.1				 **
-#~app-emulation/crun-0.16				 **
-#~app-emulation/crun-0.17				 **
-#~app-emulation/crun-0.18				 **
-#~app-emulation/crun-0.19				 **
-#~app-emulation/crun-0.19.1				 **
-#~app-emulation/crun-0.20				 **
-#~app-emulation/crun-0.20.1				 **
-#~app-emulation/crun-0.21				 **
-#~app-emulation/crun-1.0				 **
-#~app-emulation/crun-1.1				 **
-#~app-emulation/crun-1.2				 **
-~app-emulation/crun-1.3					 **
-~app-emulation/crun-1.4					 **
+# move app-emulation/crun app-containers/crun
+#~app-containers/crun-0.14.1				 **
+#~app-containers/crun-0.15				 **
+#~app-containers/crun-0.15.1				 **
+#~app-containers/crun-0.16				 **
+#~app-containers/crun-0.17				 **
+#~app-containers/crun-0.18				 **
+#~app-containers/crun-0.19				 **
+#~app-containers/crun-0.19.1				 **
+#~app-containers/crun-0.20				 **
+#~app-containers/crun-0.20.1				 **
+#~app-containers/crun-0.21				 **
+#~app-containers/crun-1.0				 **
+#~app-containers/crun-1.1				 **
+#~app-containers/crun-1.2				 **
+~app-containers/crun-1.3				 **
+~app-containers/crun-1.4				 **
 
-#~app-emulation/runc-1.0.0_rc92				 **
-#~app-emulation/runc-1.0.0_rc93				 **
-#~app-emulation/runc-1.0.0_rc94				 **  # CVE-2021-30465
-#~app-emulation/runc-1.0.0_rc95				 **
-#~app-emulation/runc-1.0.0				 **
-#~app-emulation/runc-1.0.1				 **
-~app-emulation/runc-1.0.2				 **
-~app-emulation/runc-1.0.3				 **
-~app-emulation/runc-1.1.0_rc1				 **
+# move app-emulation/runc app-containers/runc
+#~app-containers/runc-1.0.0_rc92			 **
+#~app-containers/runc-1.0.0_rc93			 **
+#~app-containers/runc-1.0.0_rc94			 **  # CVE-2021-30465
+#~app-containers/runc-1.0.0_rc95			 **
+#~app-containers/runc-1.0.0				 **
+#~app-containers/runc-1.0.1				 **
+~app-containers/runc-1.0.2				 **
+~app-containers/runc-1.0.3				 **
+~app-containers/runc-1.1.0_rc1				 **
 
-#~app-emulation/containers-storage-1.27.0		 **
-#~app-emulation/containers-storage-1.28.0		 **
-#~app-emulation/containers-storage-1.28.1		 **
-#~app-emulation/containers-storage-1.29.0		 **
-#~app-emulation/containers-storage-1.30.0		 **
-#~app-emulation/containers-storage-1.30.1		 **
-#~app-emulation/containers-storage-1.30.2		 **
-#~app-emulation/containers-storage-1.30.3		 **
-#~app-emulation/containers-storage-1.31.1		 **
-#~app-emulation/containers-storage-1.31.2		 **
-#~app-emulation/containers-storage-1.31.3		 **
-#~app-emulation/containers-storage-1.32.0		 **
-#~app-emulation/containers-storage-1.32.1		 **
-#~app-emulation/containers-storage-1.32.2		 **
-#~app-emulation/containers-storage-1.32.3		 **
-#~app-emulation/containers-storage-1.33.0		 **
-#~app-emulation/containers-storage-1.33.1		 **
-#~app-emulation/containers-storage-1.33.2		 **
-#~app-emulation/containers-storage-1.34.0		 **
-#~app-emulation/containers-storage-1.34.1		 **
-#~app-emulation/containers-storage-1.35.0		 **
-~app-emulation/containers-storage-1.36.0		 **
-~app-emulation/containers-storage-1.37.0		 **
+# move app-emulation/containers-storage app-containers/containers-storage
+#~app-containers/containers-storage-1.27.0		 **
+#~app-containers/containers-storage-1.28.0		 **
+#~app-containers/containers-storage-1.28.1		 **
+#~app-containers/containers-storage-1.29.0		 **
+#~app-containers/containers-storage-1.30.0		 **
+#~app-containers/containers-storage-1.30.1		 **
+#~app-containers/containers-storage-1.30.2		 **
+#~app-containers/containers-storage-1.30.3		 **
+#~app-containers/containers-storage-1.31.1		 **
+#~app-containers/containers-storage-1.31.2		 **
+#~app-containers/containers-storage-1.31.3		 **
+#~app-containers/containers-storage-1.32.0		 **
+#~app-containers/containers-storage-1.32.1		 **
+#~app-containers/containers-storage-1.32.2		 **
+#~app-containers/containers-storage-1.32.3		 **
+#~app-containers/containers-storage-1.33.0		 **
+#~app-containers/containers-storage-1.33.1		 **
+#~app-containers/containers-storage-1.33.2		 **
+#~app-containers/containers-storage-1.34.0		 **
+#~app-containers/containers-storage-1.34.1		 **
+#~app-containers/containers-storage-1.35.0		 **
+~app-containers/containers-storage-1.36.0		 **
+~app-containers/containers-storage-1.37.0		 **
 
 # originally required by app-emulation/podman-1.9.3
-#~app-emulation/conmon-2.0.20				 **
-#~app-emulation/conmon-2.0.21				 **
-#~app-emulation/conmon-2.0.22				 **
-#~app-emulation/conmon-2.0.23				 **
-#~app-emulation/conmon-2.0.24				 **
-#~app-emulation/conmon-2.0.25				 **
-#~app-emulation/conmon-2.0.26				 **
-#~app-emulation/conmon-2.0.27				 **
-#~app-emulation/conmon-2.0.28				 **
-#~app-emulation/conmon-2.0.29				 **
-~app-emulation/conmon-2.0.30				 **
-~app-emulation/conmon-2.0.31				 **
+# move app-emulation/conmon app-containers/conmon
+#~app-containers/conmon-2.0.20				 **
+#~app-containers/conmon-2.0.21				 **
+#~app-containers/conmon-2.0.22				 **
+#~app-containers/conmon-2.0.23				 **
+#~app-containers/conmon-2.0.24				 **
+#~app-containers/conmon-2.0.25				 **
+#~app-containers/conmon-2.0.26				 **
+#~app-containers/conmon-2.0.27				 **
+#~app-containers/conmon-2.0.28				 **
+#~app-containers/conmon-2.0.29				 **
+~app-containers/conmon-2.0.30				 **
+~app-containers/conmon-2.0.31				 **
 
 # originally required by app-emulation/podman-1.9.3[rootless]
-#~app-emulation/slirp4netns-1.1.4			 **
-#~app-emulation/slirp4netns-1.1.6			 **
-#~app-emulation/slirp4netns-1.1.7			 **
-#~app-emulation/slirp4netns-1.1.8			 **
-#~app-emulation/slirp4netns-1.1.9			 **
-#~app-emulation/slirp4netns-1.1.10			 **
-~app-emulation/slirp4netns-1.1.11			 **
-~app-emulation/slirp4netns-1.1.12			 **
+# move app-emulation/slirp4netns app-containers/slirp4netns
+#~app-containers/slirp4netns-1.1.4			 **
+#~app-containers/slirp4netns-1.1.6			 **
+#~app-containers/slirp4netns-1.1.7			 **
+#~app-containers/slirp4netns-1.1.8			 **
+#~app-containers/slirp4netns-1.1.9			 **
+#~app-containers/slirp4netns-1.1.10			 **
+~app-containers/slirp4netns-1.1.11			 **
+~app-containers/slirp4netns-1.1.12			 **
 ~net-libs/libslirp-4.3.1				 **
 
 # originally required by app-emulation/podman-1.9.3[fuse]
@@ -160,20 +168,21 @@
 ~sys-fs/fuse-overlayfs-1.7.1				 **
 
 # originally required by app-emulation/podman-2.0.0_rc7
-#~app-emulation/catatonit-0.1.5				 **
+#~app-containers/catatonit-0.1.5			 **
 
 # originally required by app-emulation/buildah-1.15.0
-#~app-emulation/skopeo-1.1.1				 **
-#~app-emulation/skopeo-1.2.0				 **
-#~app-emulation/skopeo-1.2.1				 **
-#~app-emulation/skopeo-1.2.2				 **
-#~app-emulation/skopeo-1.2.3				 **
-#~app-emulation/skopeo-1.3.0				 **
-#~app-emulation/skopeo-1.3.1				 **
-#~app-emulation/skopeo-1.4.0				 **
-#~app-emulation/skopeo-1.4.1				 **
-#~app-emulation/skopeo-1.5.0				 **
-~app-emulation/skopeo-1.5.1				 **
-~app-emulation/skopeo-1.5.2				 **
+# move app-emulation/skopeo app-containers/skopeo
+#~app-containers/skopeo-1.1.1				 **
+#~app-containers/skopeo-1.2.0				 **
+#~app-containers/skopeo-1.2.1				 **
+#~app-containers/skopeo-1.2.2				 **
+#~app-containers/skopeo-1.2.3				 **
+#~app-containers/skopeo-1.3.0				 **
+#~app-containers/skopeo-1.3.1				 **
+#~app-containers/skopeo-1.4.0				 **
+#~app-containers/skopeo-1.4.1				 **
+#~app-containers/skopeo-1.5.0				 **
+~app-containers/skopeo-1.5.1				 **
+~app-containers/skopeo-1.5.2				 **
 
 # vi: set syntax=gentoo-package-keywords:

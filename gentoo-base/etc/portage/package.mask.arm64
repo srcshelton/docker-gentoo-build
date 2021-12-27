@@ -8,7 +8,7 @@
 
 # lxc-1.1.0 and later require sys-process/criu, which fails on arm
 #>=sys-process/criu-1.5-r2
-#>=app-emulation/lxc-1.1.0
+#>=app-containers/lxc-1.1.0
 
 # cmake fails on filesystems without xattr support...
 =dev-util/cmake-2.8.12.2
