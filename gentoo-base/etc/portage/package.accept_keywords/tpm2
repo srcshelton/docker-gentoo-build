@@ -1,7 +1,7 @@
 
 =app-crypt/tpm2-abrmd-2.4.0					~amd64
 =app-crypt/tpm2-pkcs11-1.6.0					~amd64
-=app-crypt/tpm2-tools-5.1.1-r1					~amd64
+=app-crypt/tpm2-tools-5.2					~amd64
 =app-crypt/tpm2-tss-3.1.0					~amd64
 =app-crypt/tpm2-tss-engine-1.1.0				~amd64
 
