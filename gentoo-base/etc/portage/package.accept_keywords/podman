@@ -157,6 +157,7 @@
 #~app-containers/slirp4netns-1.1.10			 **
 ~app-containers/slirp4netns-1.1.11			 **
 ~app-containers/slirp4netns-1.1.12			 **
+#~app-containers/slirp4netns-1.2.0_beta0		 **
 ~net-libs/libslirp-4.3.1				 **
 
 # originally required by app-emulation/podman-1.9.3[fuse]
