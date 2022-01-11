@@ -4,7 +4,7 @@
 # The version used by the upstream Gentoo stage3 image must also be unmasked,
 # otherwise python-exec will fail to build...
 #
-python_targets_pypy3
+#python_targets_pypy3
 python_targets_python3_6
 python_targets_python3_7
 python_targets_python3_8
