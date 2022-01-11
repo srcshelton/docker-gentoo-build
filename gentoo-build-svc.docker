@@ -987,7 +987,7 @@ case "${package_name}" in
 			)"
 		fi
 
-		masked_packages='sys-apps/file sys-apps/util-linux' # sys-apps/portage
+		masked_packages='sys-apps/util-linux' # sys-apps/file sys-apps/portage
 		export L10N='en'
 		export CFLAGS="${CFLAGS:+${CFLAGS} }-w"  # mongodb is *really* noisy...
 		pre_use="headless-awt ${gcc_use}"
@@ -1063,6 +1063,7 @@ case "${package_name}" in
 		output "Setting build variables for package 'xmrig' ..."
 
 		container_cmd='/usr/bin/xmrig'
+		etcdir='xmrig'
 		;;
 	*.zxtm)
 		ZEUSHOME='/opt/zeus'
