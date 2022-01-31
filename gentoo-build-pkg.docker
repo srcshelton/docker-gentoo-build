@@ -8,18 +8,6 @@ trace=${TRACE:-}
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
-if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	output >&2 "Usage: $( basename "${0}" ) <category/package_name [portage_atom...]> [--rebuild='<portage_atom...>'] [--force-keywords]"
-	exit 0
-fi
-
-# Support 'core' user for podman+machine Fedora default user...
-if [[ "$( uname -s )" == 'Darwin' ]]; then
-	if (( EUID )) && [[ "$( id -nu )" == 'core' ]]; then
-		die "Please re-run '$( basename "${0}" )' as user 'root'"
-	fi
-fi
-
 build_name=''
 docker_readonly=''
 
@@ -31,6 +19,18 @@ export IMAGE
 
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh
+
+if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
+	output >&2 "Usage: $( basename "${0}" ) <category/package_name [portage_atom...]> [--rebuild='<portage_atom...>'] [--force-keywords]"
+	exit 0
+fi
+
+# Support 'core' user for podman+machine Fedora default user...
+if [[ "$( uname -s )" == 'Darwin' ]]; then
+	if (( EUID )) && [[ "$( id -nu )" == 'core' ]]; then
+		die "Please re-run '$( basename "${0}" )' as user 'root'"
+	fi
+fi
 
 # Extract 'entrypoint' argument - all others can be handled by the entrypoint
 # script within the container itself...
