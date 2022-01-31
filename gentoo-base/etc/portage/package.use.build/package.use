@@ -102,8 +102,10 @@ dev-python/pygobject			-X
 dev-python/pyyaml			 libyaml
 dev-scheme/guile			 discouraged elisp networking
 dev-util/cmake				-server
->=dev-util/ltrace-0.7.91_p195		-elfutils unwind
+#>=dev-util/ltrace-0.7.91_p195		-elfutils unwind
+dev-util/ltrace				-unwind
 dev-util/pkgconf			 pkg-config
+dev-util/strace				-unwind elfutils
 dev-vcs/git-lfs				 doc
 dev-vcs/subversion			 ctypes-python
 gnome-base/librsvg			-vala
@@ -185,6 +187,7 @@ sys-apps/file				-python
 sys-apps/hal				 disk-partition
 sys-apps/help2man			-nls  # Requires dev-perl/Locale-gettext, but then can't find it in many cases :(
 sys-apps/hwids				 usb
+sys-apps/hwloc				-svg
 sys-apps/ipmitool			 openipmi
 sys-apps/irqbalance			-numa
 sys-apps/kmod				 lzma
@@ -206,7 +209,8 @@ sys-auth/pam_mobile_otp			 manager
 sys-block/parted			 device-mapper
 sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
 sys-cluster/galera			 garbd
-sys-devel/clang				 system-cxx-headers
+sys-devel/clang				 default-compiler-rt default-libcxx default-lld llvm-libunwind system-cxx-headers
+sys-devel/clang-runtime			 compiler-rt libcxx openmp
 #sys-devel/gcc				 go mudflap
 # gccgo from gcc-6.4.0 tries to include a deprecated glibc header, ustat.h, and fails.
 #~sys-devel/gcc-6.4.0			-go
@@ -219,12 +223,15 @@ sys-fs/btrfs-progs			-python
 sys-fs/cryptsetup			-static dynamic
 sys-fs/lvm2				-lvm1 -static -static-libs -thin
 sys-fs/udev				-extras action_modeswitch edd hwdb keymap
+sys-libs/compiler-rt			 clang
+sys-libs/compiler-rt-sanitizers		 clang
 sys-libs/cracklib			-python
 sys-libs/gdbm				 berkdb
 sys-libs/glibc				-gd nscd
 #sys-libs/libcap-ng			-python  # Requires dev-lang/swig, but only as a DEPEND
 sys-libs/libseccomp			-python  # Requires static-libs
-sys-libs/ncurses			 trace  # unicode
+sys-libs/ncurses			 trace unicode
+sys-libs/libomp				 hwloc offload ompt
 sys-libs/timezone-data			 leaps_timezone right_timezone
 sys-power/powertop			-X
 #sys-process/audit			-python  # Requires dev-lang/swig, but only as a DEPEND
@@ -255,11 +262,11 @@ virtual/libcrypt			 static-libs
 sys-libs/libxcrypt			 static-libs
 
 # required by sys-libs/libunwind-1.2.1-r3[lzma]
->=app-arch/xz-utils-5.2.4-r2		 static-libs
+#>=app-arch/xz-utils-5.2.4-r2		 static-libs
 
 # required by sys-libs/libunwind-1.5.0[zlib]
 # required by dev-util/strace-5.8
->=sys-libs/zlib-1.2.11-r2		 static-libs
+#>=sys-libs/zlib-1.2.11-r2		 static-libs
 
 # requires Java AWT/JNI components
 >=media-libs/libjpeg-turbo-2.0.3	-java

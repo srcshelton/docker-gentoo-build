@@ -81,6 +81,7 @@ sys-libs/compiler-rt			 Apache-2.0-with-LLVM-exceptions
 sys-libs/compiler-rt-sanitizers		 Apache-2.0-with-LLVM-exceptions
 sys-libs/libcxxabi			 Apache-2.0-with-LLVM-exceptions
 sys-libs/libcxx				 Apache-2.0-with-LLVM-exceptions
+sys-libs/libomp				 Apache-2.0-with-LLVM-exceptions
 sys-libs/llvm-libunwind			 Apache-2.0-with-LLVM-exceptions
 
 
