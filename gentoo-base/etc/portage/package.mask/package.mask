@@ -2,14 +2,20 @@
 # dev-db/mariadb-10.4 blocks dev-db/mariadb-10.5
 <dev-db/mariadb-10.5
 
-# virtual/modutils may try to pull-in sys-apps/moduitls, which is for 2.4.x
-# kernels and will fail to compile against more recent sources.  The required
-# is actually sys-apps/kmod.
-sys-apps/modutils
+# dev-db/mariadb-10.5.12 and later suffer from data-corruption issues :(
+~dev-db/mariadb-10.5.12
+~dev-db/mariadb-10.5.13
+~container/mariadb-10.5.12::container
+~container/mariadb-10.5.13::container
 
 # Having migrated to mariadb, block mysql
 <virtual/mysql-5.6
 dev-db/mysql
+
+# virtual/modutils may try to pull-in sys-apps/moduitls, which is for 2.4.x
+# kernels and will fail to compile against more recent sources.  The required
+# package is actually sys-apps/kmod.
+sys-apps/modutils
 
 # We prefer busybox 'mdev' and a lightweight alternative to 'udev':
 # https://wiki.gentoo.org/wiki/Mdev
