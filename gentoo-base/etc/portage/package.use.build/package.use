@@ -200,6 +200,7 @@ sys-apps/net-tools			 hostname  # conflicts sys-apps/coreutils[hostname]
 sys-apps/openrc				 compat  # newnet
 sys-apps/pciutils			-zlib dns
 sys-apps/portage			-rsync-verify
+sys-apps/shadow				 su
 sys-apps/smartmontools			 update_drivedb update-drivedb
 sys-apps/usbutils			 experimental
 sys-apps/util-linux			 magic tty-helpers
