@@ -206,7 +206,7 @@ case "${package_version}" in
 				patch="${patch:+${patch} }https://lore.kernel.org/linux-btrfs/206d121e2e2b609ffe31217e6d90bfabe1c4e121.1616066404.git.fdmanana@suse.com/raw" ;;
 		esac
 		;;
-	5.15.*)
+	5.15.*|5.16.*)
 		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15%2B.patch' ;;
 	'')
 		: ;;
