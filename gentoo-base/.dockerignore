@@ -1,1 +1,4 @@
-.*.swp
+# Ignore vim swapfiles...
+.*.sw[a-p]
+
+# vi: set syntax=cfg:
