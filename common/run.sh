@@ -459,7 +459,7 @@ docker_resolve() {
 			grep -- '^\[' |
 			grep -v \
 				-e "^\[...\] \[.[${dr_pattern}]\] " \
-				-e "^\[...\] \[M.]\] " |
+				-e "^\[...\] \[M.\] " |
 			cut -d']' -f 3- |
 			cut -d' ' -f 2- |
 			cut -d':' -f 1 |
