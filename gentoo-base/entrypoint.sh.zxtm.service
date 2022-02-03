@@ -79,16 +79,38 @@ if [[ "${ZEUS_EULA:-}" != 'accept' ]]; then
 	exit 1
 fi
 
+if ! [[ -L "${zeushome}"/zxtm/conf ]]; then
+	plog FATAL "Filesystem object '${zeushome}/zxtm/conf' should be a symbolic link, but is actually of type $( stat --format='%F' "${zeushome}"/zxtm/conf 2>/dev/null || echo 'missing' )"
+	echo >&2
+	echo >&2 "Filesystem contents of '${zeushome}/zxtm':"
+	ls -l "${zeushome}"/zxtm/ >&2
+	echo >&2
+	exit 1
+fi
+
 if [[ -s "${zeushome}"/zxtm/conf/users ]] && grep -q -- password "${zeushome}"/zxtm/conf/users; then
 	rm -f "${zeushome}"/zconfig.txt
 	skipsetup=1
 fi
 
 # Configure vTM on the first run of this instance
+#
+# N.B. If the image is screwed-up and ${zeushome}/zxtm/conf is not a symlink
+#      pointing to conf_A in the same directory, the steps below fail with:
+#
+#        FATAL: No value supplied in replay file, perhaps you need to re-record?
+#        ERROR: Configuring vTM failed, retry: 6
+#        FATAL: Failed to configure vTM
+#
+# TODO: Investigate whether this is a result of the incorrect status of 'conf',
+#       or whether the process below is now bit-rotten...
+#
 if (( ! skipsetup )) && [[ ! -f "${zeushome}"/.docker.done ]]; then
 	plog INFO 'Container first run: STARTING'
 
-	# Install additional packages if ZEUS_PACKAGES is set. It should be set to a list of ubuntu packages
+	# Install additional packages if ZEUS_PACKAGES is set.
+	# It should be set to a list of ubuntu packages
+	#
 	#if [[ -n "${ZEUS_PACKAGES:-}" ]]; then
 	#	plog INFO "Installing packages: ${ZEUS_PACKAGES} ..."
 	#
@@ -123,11 +145,11 @@ if (( ! skipsetup )) && [[ ! -f "${zeushome}"/.docker.done ]]; then
 	fi
 
 	cat <<-EOF >> "${zeushome}"/zconfig.txt
-		accept-license=${ZEUS_EULA}
-		admin!password=${ZEUS_PASS}
-		Zeus::ZInstall::Common::get_password:Please choose a password for the admin server=${ZEUS_PASS}
-		Zeus::ZInstall::Common::get_password:Re-enter=${ZEUS_PASS}
-		zxtm!license_key=${ZEUS_LIC}
+		accept-license=${ZEUS_EULA:-}
+		admin!password=${ZEUS_PASS:-}
+		Zeus::ZInstall::Common::get_password:Please choose a password for the admin server=${ZEUS_PASS:-}
+		Zeus::ZInstall::Common::get_password:Re-enter=${ZEUS_PASS:-}
+		zxtm!license_key=${ZEUS_LIC:-}
 	EOF
 
 	if [[ -n "${ZEUS_CLUSTER_NAME:-}" ]]; then

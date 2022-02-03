@@ -58,6 +58,8 @@ FROM "localhost/${image_name}:${service_version}" AS base
 ARG ROOT
 ARG environment_filter
 
+ARG ZEUSHOME
+
 
 RUN test -s /usr/libexec/environment.sh
 
@@ -77,6 +79,9 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             exit 1 ; \
         } || :
 #RUN printf >&2 " * 'service' stage propagated environment:\n\n%s\n\n" "$( < "${ROOT}"/usr/libexec/environment.sh )"
+
+# Ensure nothing from the base image screws up the ultimate combined image...
+RUN rm -rf "${ZEUSHOME}"
 
 
 # -----------------------------------------------------------------------------
@@ -114,17 +119,15 @@ ENV ZEUS_COMMUNITY_EDITION="yes"
 ENV ZEUS_EULA="accept"
 
 
-# Copy ZXTM/PS VTM into the current image
-# ... fails if performed later?!
-COPY --from=zxtm /usr/local/zeus "${ZEUSHOME}/"
-COPY entrypoint.sh.zxtm.service "${ZEUSHOME}/runzeus.sh"
-
 # Copy the installed tree into the current image
 #
 COPY --from=base "${ROOT}" /
 RUN test -s /usr/libexec/environment.sh
 
-ENV ROOT="/"
+# Copy ZXTM/PS VTM into the current image
+COPY --from=zxtm /usr/local/zeus "${ZEUSHOME}/"
+COPY entrypoint.sh.zxtm.service "${ZEUSHOME}/runzeus.sh"
+RUN test -L "${ZEUSHOME}/zxtm/conf"
 
 COPY --from=base /etc/group /etc/
 #COPY --from=base /etc/gshadow /etc/ # Doesn't exist in source image
