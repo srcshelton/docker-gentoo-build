@@ -76,7 +76,7 @@ fi
 tab="$( printf '\t' )"
 
 # The 'inspect' command works with containers (and container IDs) too...
-if [ "$( "${docker}" image ls -n "${image}" | wc -l )" != '1' ]; then
+if [ "$( "${docker}" image list --noheading "${image}" | wc -l )" -gt '1' ]; then
 	echo >&2 "WARN:  Cannot determine unique image '${image}'"
 	#exit 1
 fi
@@ -89,7 +89,7 @@ fi
 #	sed -r 's/ ([A-Za-z][A-Za-z0-9_-]*)=/\n\1=/g' ; echo
 
 if [ $(( labels )) -ne 0 ]; then
-	"${docker}" image inspect -f '{{ .Config.Labels }}' "${image}" |
+	"${docker}" image inspect --format '{{ .Config.Labels }}' "${image}" |
 		eval "sed -r  \
 			-e 's/^map\[(.*)\]$/\1/' \
 			-e 's/^([A-Za-z][A-Za-z0-9._-]*):/\1: /' \
@@ -104,7 +104,7 @@ if [ $(( labels )) -ne 0 ]; then
 				fi
 			)"
 else
-	"${docker}" image inspect -f '{{ .Config.Env }}' "${image}" |
+	"${docker}" image inspect --format '{{ .Config.Env }}' "${image}" |
 		tr "${tab}" ' ' |
 		tr -s '[:space:]' |
 		eval "sed -r \
