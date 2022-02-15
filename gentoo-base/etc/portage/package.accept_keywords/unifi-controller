@@ -14,5 +14,6 @@
 #~container/unifi-controller-6.1.71			~amd64
 #~container/unifi-controller-6.2.26			~amd64
 #~container/unifi-controller-6.4.54			~amd64
+#~container/unifi-controller-6.5.55			~amd64
 
 # vi: set syntax=gentoo-package-keywords:
