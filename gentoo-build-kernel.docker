@@ -18,6 +18,32 @@ declare -ir build_space_reqiured=750
 declare -ir temp_space_required=2800
 declare -ir graph_space_required=8500
 
+declare microcode=''
+declare microcode_blob=''
+if grep 'vendor_id' /proc/cpuinfo | awk '{ print $3 }' | grep -iqm 1 'intel'; then
+	microcode='sys-firmware/intel-microcode'
+	microcode_blob='intel'
+elif grep 'vendor_id' /proc/cpuinfo | awk '{ print $3 }' | grep -iqm 1 'amd'; then
+	case "$( grep -Fm 1 "cpu family" /proc/cpuinfo | cut -d':' -f 2- | awk '{ print $1 }' )" in
+		16|17|18|20)
+			microcode_blob='amd-ucode/microcode_amd.bin'
+			;;
+		21)
+			microcode_blob='amd-ucode/microcode_amd_fam15h.bin'
+			;;
+		22)
+			microcode_blob='amd-ucode/microcode_amd_fam16h.bin'
+			;;
+		23)
+			microcode_blob='amd-ucode/microcode_amd_fam17h.bin amd/amd_sev_fam17h_model0xh.sbin amd/amd_sev_fam17h_model3xh.sbin'
+			;;
+		25)
+			microcode_blob='amd-ucode/microcode_amd_fam19h.bin amd/amd_sev_fam19h_model0xh.sbin'
+			;;
+	esac
+fi
+readonly microcode microcode_blob
+
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
 
@@ -390,7 +416,7 @@ else
 fi
 [ -n "${DOCKER_EXTRA_MOUNTS:-}" ] && export DOCKER_EXTRA_MOUNTS
 
-if ! [ "$( $docker image list "${container_name%-${package_version}}.${compiler}:${package_version}" | wc -l )" = '2' ]; then
+if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compiler}:${package_version}" | wc -l )" = '2' ]; then
 	(
 		ACCEPT_LICENSE="linux-fw-redistributable no-source-code"
 		USE="-lib-only extra-filters firmware hostname lzma symlink threads zlib${compiler_USE:+ ${compiler_USE}}"
@@ -399,11 +425,6 @@ if ! [ "$( $docker image list "${container_name%-${package_version}}.${compiler}
 		name="${container_name}-${compiler}"
 		image="${IMAGE}"
 		export name image
-
-		microcode=''
-		if grep 'vendor_id' /proc/cpuinfo | awk '{ print $3 }' | grep -iqm 1 'intel'; then
-			microcode='sys-firmware/intel-microcode'
-		fi
 
 		# shellcheck disable=SC2086,SC2154
 		time {
@@ -451,14 +472,14 @@ if ! [ "$( $docker image list "${container_name%-${package_version}}.${compiler}
 				$docker ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
 						container commit \
 							"${container_name}-${compiler}" \
-							"${container_name%-${package_version}}.${compiler}:${package_version}" 2>&1 |
+							"${container_name%"-${package_version}"}.${compiler}:${package_version}" 2>&1 |
 					tee -a "log/docker.${container_name}.log"
 			else
 				buildah ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
 						commit \
 								--squash \
 							"${container_name}-${compiler}" \
-							"${container_name%-${package_version}}.${compiler}:${package_version}" 2>&1 |
+							"${container_name%"-${package_version}"}.${compiler}:${package_version}" 2>&1 |
 					tee -a "log/docker.${container_name}.log"
 			fi
 			output " -> ${?}"
@@ -608,6 +629,18 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	fi ;
 	mkdir -p ../build ;
 	[ "${clean_lto}" = '1' ] && find ../build/ -name '*.lto.o' -delete ;
+	if [ -n "${microcode_blob:-}" ]; then
+		echo
+		echo "Required microcode update files:"
+		echo
+		if [ "${microcode_blob}" = 'intel' ]; then
+			iucode_tool -S -l /lib/firmware/intel-ucode/*
+		else
+			echo "${microcode_blob}"
+		fi
+		echo
+		[ -f ../build/.config ] && [ -s ../build/.config ] && grep -Fm 1 'CONFIG_EXTRA_FIRMWARE' ../build/.config 2>/dev/null && echo
+	fi
 	echo "Configuration changes from '.config':" ;
 	make ${kernel_make_opts[@]} listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
 	success=0 ;
@@ -655,7 +688,7 @@ time {
 	#DOCKER_DEVICES="--device=/dev/tty --device=/dev/tty0" \
 	TERM="${TERM:-}" \
 	DOCKER_HOSTNAME="$( hostname )-build" \
-	image="${container_name%-${package_version}}.${compiler}:${package_version}" \
+	image="${container_name%"-${package_version}"}.${compiler}:${package_version}" \
 	docker_run \
 			-c "${DOCKER_SCRIPT}" \
 		2>&1 | tee -a "log/docker.${container_name}-${compiler}.log"
