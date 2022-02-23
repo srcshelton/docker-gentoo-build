@@ -44,8 +44,9 @@
 #~app-containers/podman-4.0.0_rc1			 **
 #~app-containers/podman-4.0.0_rc2			 **
 #~app-containers/podman-4.0.0_rc3			 **
-~app-containers/podman-4.0.0_rc4			 **
+#~app-containers/podman-4.0.0_rc4			 **
 ~app-containers/podman-4.0.0_rc5			 **
+~app-containers/podman-4.0.0				 **
 
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				 **
@@ -81,8 +82,9 @@
 #~app-containers/buildah-1.23.1-r1			 **
 #~app-containers/buildah-1.23.2				 **
 #~app-containers/buildah-1.23.3				 **
-~app-containers/buildah-1.24.0				 **
+#~app-containers/buildah-1.24.0				 **
 ~app-containers/buildah-1.24.1				 **
+~app-containers/buildah-1.24.2				 **
 
 #~net-misc/cni-plugins-0.8.7				 **
 #~net-misc/cni-plugins-0.9.0				 **
@@ -205,7 +207,8 @@
 #~app-containers/skopeo-1.4.1				 **
 #~app-containers/skopeo-1.5.0				 **
 #~app-containers/skopeo-1.5.1				 **
-~app-containers/skopeo-1.5.2				 **
+#~app-containers/skopeo-1.5.2				 **
 ~app-containers/skopeo-1.6.0				 **
+~app-containers/skopeo-1.6.1				 **
 
 # vi: set syntax=gentoo-package-keywords:
