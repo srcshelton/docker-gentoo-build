@@ -477,7 +477,7 @@ docker_resolve() {
 	fi
 	dr_package="${dr_name}-${dr_package}"
 
-	package="$( echo "${dr_package}" | cut -d':' -f 1 )"
+	package="$( echo "${dr_package}" | cut -d':' -f 1 | sed 's/^~//' )"
 	package_version="$( versionsort "${package}" )"
 	# shellcheck disable=SC2001 # POSIX sh compatibility
 	package_name="$( echo "${package%-"${package_version}"}" | sed 's/+/plus/g' )"
