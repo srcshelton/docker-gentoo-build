@@ -3,10 +3,16 @@
 <dev-db/mariadb-10.5
 
 # dev-db/mariadb-10.5.12 and later suffer from data-corruption issues :(
-~dev-db/mariadb-10.5.12
-~dev-db/mariadb-10.5.13
-~container/mariadb-10.5.12::container
-~container/mariadb-10.5.13::container
+#
+# Update: It appears that mariadb-10.5.10-r2 and earlier could do something
+# they had no issue with but which is simply incompatible with later releases,
+# even of 10.5.x.  These persist in 10.6.5-r1, so rather than masking it looks
+# as if a backup/restore is needed to upgrade past 10.5.10-r2 :(
+#
+#~dev-db/mariadb-10.5.12
+#~dev-db/mariadb-10.5.13
+#~container/mariadb-10.5.12::container
+#~container/mariadb-10.5.13::container
 
 # Having migrated to mariadb, block mysql
 <virtual/mysql-5.6

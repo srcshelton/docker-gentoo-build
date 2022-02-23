@@ -484,7 +484,8 @@ else
 fi
 
 # from common/vars.sh:
-#use_essential="asm curl_ssl_openssl ipv6 ithreads mdev nptl openssl ssl threads tls-heartbeat zlib ${use_cpu_flags}"
+#use_essential="asm ipv6 ithreads mdev nptl threads tls-heartbeat zlib ${use_cpu_flags}"
+#use_essential_gcc="-fortran graphite nptl openmp pch sanitize ssp vtv zstd"
 
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
@@ -658,8 +659,10 @@ case "${package_name}" in
 	*.mariadb)
 		output "Setting build variables for package 'mariadb' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc'
-		# To run ebuild 'pkg_config' function within container ...
-		extra_pkgs="app-shells/bash dev-db/mysqltuner"
+		# app-shells/bash needed to run ebuild 'pkg_config' function within container
+		# sys-libs/glibc needed to provide locale data
+		# sys-libs/timezone-data needed to provide time-zone data for new installations ...
+		extra_pkgs="app-shells/bash dev-db/mysqltuner sys-libs/glibc sys-libs/timezone-data"
 
 		ports='3306/tcp 4444/tcp 4567/tcp 4568/tcp' # 4444, 4567-8 for Galera SST
 		user='mysql'
@@ -698,8 +701,8 @@ case "${package_name}" in
 		#extra_pkgs='mail-mta/msmtp'
 
 		ports='8893/tcp'
-		#user='milter'
-		#group='milter'
+		#user='opendmarc'
+		#group='opendmarc'
 		container_cmd='/usr/sbin/opendmarc'
 		#container_cmd='/usr/sbin/opendmarc-reportstats'
 		etcdir='opendmarc'
@@ -753,7 +756,7 @@ case "${package_name}" in
 		#	libcap_flags='pam'
 		#	zx_utils_flags='static-libs'
 		#	libpcre2_flags='jit'
-		#	USE="-* curl_ssl_openssl python_targets_${python_target}" \
+		#	USE="-* curl_ssl_openssl openssl ssl python_targets_${python_target}" \
 		#		"${libpcre2_flags}" \
 		#		"${zx_utils_flags}" \
 		#		"${libcap_flags}" \
@@ -945,7 +948,14 @@ case "${package_name}" in
 		'
 
 		ports='6276/udp 6276/tcp 6277/udp 6277/tcp'  # razor/dcc
-		container_cmd='/usr/sbin/spampd.pl'
+		if [ "$(
+				printf '2.61\n%s' "${package_version:-}" |
+				sort -V
+		)" = '2.61' ]; then
+			container_cmd='/usr/sbin/spampd'
+		else
+			container_cmd='/usr/sbin/spampd.pl'
+		fi
 		;;
 	*.subversion)
 		output "Setting build variables for package 'svnserve' ..."
@@ -1233,14 +1243,32 @@ if [ -e "${base_dir:+${base_dir}/}etc/portage/package.mask.${arch:-}" ]; then
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.${arch},destination=/etc/portage/package.mask/${arch}${docker_readonly:+,${docker_readonly}}"
 fi
 
+# package.mask
+if [ -s "${base_dir:+${base_dir}/}etc/portage/package.mask/${package_name#*.}" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.mask/${package_name#*.}" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask/${package_name#*.}' to '/etc/portage/package.mask/${package_name#*.}' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask/${package_name#*.},destination=/etc/portage/package.mask/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
+elif [ -s "${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask' to '/etc/portage/package.mask/package.mask' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
+elif [ -s "${base_dir:+${base_dir}/}etc/portage/package.mask" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.mask" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask' to '/etc/portage/package.mask/package.mask' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
+else
+	note "No 'package.mask' override found in '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask/'"
+fi
+if [ -e "${base_dir:+${base_dir}/}etc/portage/package.mask.${arch:-}" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.${arch}' to '/etc/portage/package.mask/${arch}' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.${arch},destination=/etc/portage/package.mask/${arch}${docker_readonly:+,${docker_readonly}}"
+fi
+
 # package.use.svc
 if [ -s "${base_dir:+${base_dir}/}etc/portage/package.use.svc/${package_name#*.}" ]; then
-	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/package.use.header' to '/etc/portage/package.mask/package.use.override/package.use.header' ..."
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/package.use.header' to '/etc/portage/package.use/package.use.override/package.use.header' ..."
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/package.use.header,destination=/etc/portage/package.use.override/package.use.header${docker_readonly:+,${docker_readonly}}"
 	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/${package_name#*.}' to '/etc/portage/package.use.override/${package_name#*.}' ..."
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/${package_name#*.},destination=/etc/portage/package.use.override/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
 elif [ -s "${base_dir:+${base_dir}/}etc/portage/package.use.svc/package.use.header" ]; then
-	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/package.use.header' to '/etc/portage/package.mask/package.use.override/package.use' ..."
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/package.use.header' to '/etc/portage/package.use/package.use.override/package.use' ..."
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/package.use.header,destination=/etc/portage/package.use.override/package.use${docker_readonly:+,${docker_readonly}}"
 else
 	note "No 'package.use' override found in '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/'"
