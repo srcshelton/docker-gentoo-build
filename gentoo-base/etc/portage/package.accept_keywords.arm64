@@ -14,6 +14,7 @@
 #=sys-apps/raspberrypi-utilities-armv6-1.20210928	~arm
 #=sys-apps/raspberrypi-utilities-armv6-1.20211007	~arm
 #=sys-apps/raspberrypi-utilities-armv6-1.20211029	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20211118	~arm
 =sys-boot/raspberrypi-firmware-1.20210303		~arm64
 =sys-boot/raspberrypi-firmware-1.20210430		~arm64
 =sys-boot/raspberrypi-firmware-1.20210527		~arm64
@@ -23,8 +24,11 @@
 =sys-boot/raspberrypi-firmware-1.20210928		~arm64
 =sys-boot/raspberrypi-firmware-1.20211007		~arm64
 =sys-boot/raspberrypi-firmware-1.20211029		~arm64
-=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p9	~arm64
-=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p10	~arm64
+=sys-boot/raspberrypi-firmware-1.20211118		~arm64
+=sys-boot/raspberrypi-firmware-1.20220118		~arm64
+=sys-boot/raspberrypi-firmware-1.20220120		~arm64
+#=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p9	~arm64
+#=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p10	~arm64
 =sys-firmware/raspberrypi-wifi-ucode-20190114.1_p11	~arm64
 =sys-kernel/raspberrypi-image-5.10.17_p20210303-r1	~arm64
 =sys-kernel/raspberrypi-image-5.10.17_p20210430-r1	~arm64
@@ -35,6 +39,9 @@
 =sys-kernel/raspberrypi-image-5.10.63_p20210928-r1	~arm64
 =sys-kernel/raspberrypi-image-5.10.63_p20211007-r1	~arm64
 =sys-kernel/raspberrypi-image-5.10.63_p20211029-r1	~arm64
+=sys-kernel/raspberrypi-image-5.10.63_p20211118-r1	~arm64
+=sys-kernel/raspberrypi-image-5.10.92_p20220118-r1	~arm64
+=sys-kernel/raspberrypi-image-5.10.92_p20220120-r1	~arm64
 =sys-kernel/raspberrypi-sources-5.10.17_p20210303-r1	~arm64
 =sys-kernel/raspberrypi-sources-5.10.17_p20210430-r1	~arm64
 =sys-kernel/raspberrypi-sources-5.10.17_p20210527-r1	~arm64
@@ -44,6 +51,9 @@
 =sys-kernel/raspberrypi-sources-5.10.63_p20210928	~arm64
 =sys-kernel/raspberrypi-sources-5.10.63_p20211007	~arm64
 =sys-kernel/raspberrypi-sources-5.10.63_p20211029	~arm64
+=sys-kernel/raspberrypi-sources-5.10.63_p20211118	~arm64
+=sys-kernel/raspberrypi-sources-5.10.92_p20220118	~arm64
+=sys-kernel/raspberrypi-sources-5.10.92_p20220120	~arm64
 
 # arm64 is currently not well-keyworded, so match specific 'arm' stable
 # packages in order to build an equivalent base-system, with the intent that
@@ -52,31 +62,24 @@
 
 =sys-apps/fakeroot-1.25.3-r1				~arm64
 
-#=app-admin/syslog-ng-3.30.1-r2				~arm64
-=container/syslog-ng-3.30.1-r2				~arm64
-
 =app-admin/webapp-config-1.55-r2			~arm64
 =app-crypt/libb2-0.98.1-r3				~arm64
 =app-misc/colordiff-1.0.19				~arm64
 =app-misc/splitvt-1.6.6-r3				 **
-=app-portage/portage-utils-0.92				~arm64
 =app-vim/vim-spell-en-20060123-r1			~arm64
 =dev-perl/IPC-ShareLite-0.170.0-r2			~arm64
 =dev-util/ltrace-0.7.91_p195				~arm64
 =mail-client/mailx-8.1.2.20180807			~arm64
 =mail-client/mailx-support-20060102-r2			~arm64
 =net-libs/libnetfilter_conntrack-1.0.8			~arm64
-=net-misc/ndisc6-1.0.3					~arm64
-=net-misc/usbip-4.13-r1					 **
+~net-misc/usbip-5.15					 **
 =sys-apps/haveged-1.9.14-r1				~arm64
 =sys-apps/i2c-tools-4.2					~arm64
+=sys-apps/kexec-tools-2.0.22				~arm64
 =sys-apps/memtester-4.5.1				~arm64
 =sys-apps/mlocate-0.26-r3				~arm64
 =sys-apps/watchdog-5.16					~arm64
-=sys-devel/prelink-20151030-r1				~arm64
-=sys-devel/prelink-99999999				 **
 =sys-libs/zlib-1.2.11-r4				~arm64
-=sys-process/audit-3.0					~arm64
 =virtual/man-0-r4					~arm64
 
 # vi: set syntax=gentoo-package-keywords:
