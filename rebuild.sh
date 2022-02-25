@@ -189,10 +189,25 @@ if [ "${rebuild:-0}" = '1' ]; then
 					${forceflag} ||
 				: $(( rc = rc + ${?} ))
 		fi
-		# shellcheck disable=SC2086
-		./gentoo-build-kernel.docker \
-				${kbuild_opt:-} ||
-			: $(( rc = rc + ${?} ))
+
+		# Don't impose memory limits on hosts with <8GB RAM, linux
+		# won't build (with clang) on 4GB hosts :(
+		ram=$(( $(
+			grep -m 1 'MemTotal:' /proc/meminfo |
+				awk '{ print $2 }'
+		) / 1024 / 1024 ))
+		if [ $(( ram )) -lt 7 ]; then
+			# shellcheck disable=SC2086
+			NO_MEMORY_LIMITS=1 ./gentoo-build-kernel.docker \
+					${kbuild_opt:-} ||
+				: $(( rc = rc + ${?} ))
+		else
+			# shellcheck disable=SC2086
+			./gentoo-build-kernel.docker \
+					${kbuild_opt:-} ||
+				: $(( rc = rc + ${?} ))
+		fi
+		unset ram
 	else
 		: $(( rc = rc + ${?} ))
 	fi
@@ -418,7 +433,6 @@ if [ "${system:-0}" = '1' ]; then
 		pretend=''
 	fi
 
-	# shellcheck disable=SC2086
 	emerge \
 			--binpkg-respect-use=y \
 			--color=n \
@@ -443,13 +457,12 @@ if [ "${system:-0}" = '1' ]; then
 			--verbose-conflicts \
 			--verbose=y \
 			--with-bdeps=n \
-			${pretend:-}
+			${pretend:+'--pretend'}
 	: $(( rc = rc + ${?} ))
 fi
 
 [ -n "${trace:-}" ] && set +o xtrace
 
-# shellcheck disable=SC2086
-exit ${rc}
+exit "${rc}"
 
 # vi: set colorcolumn=80:
