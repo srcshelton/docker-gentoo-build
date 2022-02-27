@@ -45,8 +45,9 @@
 #~app-containers/podman-4.0.0_rc2			 **
 #~app-containers/podman-4.0.0_rc3			 **
 #~app-containers/podman-4.0.0_rc4			 **
-~app-containers/podman-4.0.0_rc5			 **
+#~app-containers/podman-4.0.0_rc5			 **
 ~app-containers/podman-4.0.0				 **
+~app-containers/podman-4.0.1				 **
 
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				 **
@@ -89,8 +90,9 @@
 #~net-misc/cni-plugins-0.8.7				 **
 #~net-misc/cni-plugins-0.9.0				 **
 #~net-misc/cni-plugins-0.9.1				 **
-~net-misc/cni-plugins-1.0.0				 **
+#~net-misc/cni-plugins-1.0.0				 **
 ~net-misc/cni-plugins-1.0.1				 **
+~net-misc/cni-plugins-1.1.0				 **
 
 # move app-emulation/crun app-containers/crun
 #~app-containers/crun-0.14.1				 **
