@@ -27,8 +27,8 @@ sys-apps/help2man			-nls
 sys-apps/kmod				 tools
 sys-apps/portage			-rsync-verify
 #sys-apps/shadow			-pam  cracklib  # Python dependencies are fragile...
-sys-apps/shadow				-cracklib -su pam  # conflicts sys-apps/util-linux[su]
-sys-apps/util-linux			 pam su  # conflicts sys-apps/shadow[su]
+sys-apps/shadow				-cracklib -su -pam  # conflicts sys-apps/util-linux[su]
+sys-apps/util-linux			-pam -su  # conflicts sys-apps/shadow[su]
 #sys-auth/pambase			-passwdqc  pwquality  # Has many dependencies, python ones are fragile...
 sys-auth/pambase			 passwdqc -pwquality
 sys-apps/texinfo			 standalone

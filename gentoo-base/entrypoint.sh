@@ -748,7 +748,7 @@ features_libeudev=1
 # sys-apps/help2man with USE 'nls' requires Locale-gettext, which depends on sys-apps/help2man;
 # sys-libs/libcap can USE pam, which requires libcap ...
 pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
-pkg_initial_use='-nls -pam -perl -python'
+pkg_initial_use='-nls -pam -perl -python -su'
 pkg_exclude=''
 if [ -n "${features_libeudev}" ]; then
 	pkg_initial="${pkg_initial:+${pkg_initial} }sys-libs/libeudev virtual/libudev"
