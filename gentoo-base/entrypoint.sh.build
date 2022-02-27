@@ -127,7 +127,7 @@ pkg_remove() {
 					--verbose-conflicts \
 					--with-bdeps=n \
 					--with-bdeps-auto=n \
-				--depclean ${remove}
+				--depclean ${remove} || :
 			# emerge --depclean exits with code zero even if removal
 			# doesn't succeed :(
 			# shellcheck disable=SC2086
@@ -139,13 +139,13 @@ pkg_remove() {
 						--verbose-conflicts \
 						--with-bdeps=n \
 						--with-bdeps-auto=n \
-					--rage-clean ${remove}
+					--rage-clean ${remove} || :
 			# shellcheck disable=SC2086
 			checkmissing ${remove} || exit ${?}
 			#emerge --depclean -v
 			for pkg in ${remove}; do
 				rm -vr "${ROOT%/}/var/db/pkg/"*"/${pkg}"* 2>/dev/null ||
-				rm -vr "${ROOT%/}/var/db/pkg/${pkg}"* 2>/dev/null || :
+					rm -vr "${ROOT%/}/var/db/pkg/${pkg}"* 2>/dev/null || :
 				if [ -e "${ROOT%/}/var/lib/portage/world" ]; then
 					str="$( echo "${pkg}" | sed 's|/|\\/|g' )"
 					if sed -i "/${str}/ d" "${ROOT%/}/var/lib/portage/world"; then
@@ -1120,7 +1120,7 @@ savefailed
 check ${rc} "${package}"
 
 if [ -n "${post_remove:-}" ]; then
-	pkg_remove 'pre-installation' "${post_remove}"
+	pkg_remove 'post-installation' "${post_remove}"
 fi
 
 #do_prelink
