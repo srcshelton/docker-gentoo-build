@@ -1238,10 +1238,6 @@ elif [ -s "${base_dir:+${base_dir}/}etc/portage/package.mask.svc" ] && ! [ -d "$
 else
 	note "No 'package.mask' override found in '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc/'"
 fi
-if [ -e "${base_dir:+${base_dir}/}etc/portage/package.mask.${arch:-}" ]; then
-	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.${arch}' to '/etc/portage/package.mask/${arch}' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.${arch},destination=/etc/portage/package.mask/${arch}${docker_readonly:+,${docker_readonly}}"
-fi
 
 # package.mask
 if [ -s "${base_dir:+${base_dir}/}etc/portage/package.mask/${package_name#*.}" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.mask/${package_name#*.}" ]; then
