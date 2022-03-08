@@ -3,6 +3,7 @@
 dev-util/meson
 
 # Mask ebuilds beyond what we've pinned...
+>app-arch/snappy-1.1.9
 >dev-db/mongodb-4.0.22
 >dev-java/java-config-2.2.0-r4
 >dev-libs/boost-1.72.0-r1
