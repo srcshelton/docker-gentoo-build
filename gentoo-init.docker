@@ -7,6 +7,7 @@ trace="${TRACE:-}"
 debug="${DEBUG:-}"
 # With 'debug' enabled, set 'DEBUG_EXTRA_ARGS' to pass additional arguments
 # to 'podman build'...
+#DEBUG_EXTRA_ARGS=''
 
 #inherit python_target_override
 
@@ -30,45 +31,45 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 	fi
 fi
 
-if [ -n "${python_target_override:-}" ]; then
+if [[ -n "${python_target_override:-}" ]]; then
 	[[ "${python_target_override}" =~ ^python[[:digit:]]_[[:digit:]]+$ ]] ||
 		die "python_target_override value '${python_target_override}'" \
 			"doesn't appear to be a valid python version" \
 			"(matching 'pythonX_Y', e.g. 'python3_9')"
 fi
 
-NOTIFY_MKDIR=0
+declare -i NOTIFY_MKDIR=0
 
 # Set by common/vars.sh
-docker='docker'
-env_name=''
-stage3_name=''
-init_name=''
-base_name=''
-build_name=''
-environment_filter=''
-bold=''
-red=''
-blue=''
-#purple=''
-reset=''
+declare docker='docker'
+declare env_name=''
+declare stage3_name=''
+declare init_name=''
+declare base_name=''
+declare build_name=''
+declare environment_filter=''
+declare bold=''
+declare red=''
+declare blue=''
+#declare purple=''
+declare reset=''
 
 # Set by common/run.sh docker_setup()
-docker_arch=''
-arch=''
+declare docker_arch=''
+declare arch=''
 
-native=''
-build_helper=0
-force=0
+declare native=''
+declare -i build_helper=0
+declare -i force=0
 
 # use_pypy & use_pypy_use are defined in common/vars.sh
-use_pypy_pre=''
-use_pypy_pre_use=''
-use_pypy_post=''
-use_pypy_post_remove=''
+declare use_pypy_pre=''
+declare use_pypy_pre_use=''
+declare use_pypy_post=''
+declare use_pypy_post_remove=''
 
 # shellcheck disable=SC1091
-[ ! -s common/vars.sh ] || . common/vars.sh
+[[ ! -s common/vars.sh ]] || . common/vars.sh
 
 if ! $docker --version >/dev/null 2>&1; then
 	die "'$docker' failed to execute: ${?}"
@@ -77,41 +78,40 @@ elif ! $docker image build --help | grep -Fq -- '--platform'; then
 		"later)"
 fi
 
-[ -n "${base_dir:-}" ]
-[ -d "${base_dir}" ]
-[ -e "${base_dir}"/Dockerfile.env ]
-[ -e "${base_dir}"/Dockerfile.init ]
-[ -e "${base_dir}"/Dockerfile.build ]
+[[ -n "${base_dir:-}" ]]
+[[ -d "${base_dir}" ]]
+[[ -e "${base_dir}"/Dockerfile.env ]]
+[[ -e "${base_dir}"/Dockerfile.init ]]
+[[ -e "${base_dir}"/Dockerfile.build ]]
 
 # shellcheck disable=SC2034
 IMAGE="${base_name}:latest"
 # shellcheck disable=SC1091
-[ -s common/run.sh ] && . common/run.sh
+[[ -s common/run.sh ]] && . common/run.sh
 
 if
-	[ -z "${env_name:-}" ] ||
-	[ -z "${stage3_name:-}" ] ||
-	[ -z "${init_name:-}" ] ||
-	[ -z "${base_name:-}" ] ||
-	[ -z "${build_name:-}" ]
+	[[ -z "${env_name:-}" ]] ||
+	[[ -z "${stage3_name:-}" ]] ||
+	[[ -z "${init_name:-}" ]] ||
+	[[ -z "${base_name:-}" ]] ||
+	[[ -z "${build_name:-}" ]]
 then
 	die "Image names not correctly set in '$( pwd )/common/vars.sh'"
 fi
 
-if [ -n "${*:-}" ]; then
-	if echo " ${*} " | grep -Eq -- ' -(h|-help) '; then
+if [[ -n "${*:-}" ]]; then
+	if grep -Eq -- ' -(h|-help) ' <<<" ${*} "; then
 		output >&2 "Usage: $( basename "${0}" ) [--env] [--stage3] [--init]" \
 			"[[--force] --base] [[--force] --build] [[--force] --helper]"
 		exit 0
 	elif
-		! echo "${*}" |
-		grep -Eq -- '^(\s*--(env|stage3|init|base|build|helper|force|force-helper)\s*){1,7}$'
+		! grep -Eq -- '^(\s*--(env|stage3|init|base|build|helper|force|force-helper)\s*){1,7}$' <<<"${*}"
 	then
 		die "Unknown args '${*}'"
 	fi
 
-	if echo " ${*} " | grep -Fq -- ' --force '; then
-		if ! echo " ${*} " | grep -Eq -- ' --(base|build|helper) '; then
+	if grep -Fq -- ' --force ' <<<" ${*} "; then
+		if ! grep -Eq -- ' --(base|build|helper) ' <<<" ${*} "; then
 			die "'--force' is only valid with '--base', '--build', or" \
 				"'--helper'"
 		fi
@@ -137,7 +137,7 @@ unset args arg
 
 docker_setup
 
-[ -d log ] || mkdir -p log
+[[ -d log ]] || mkdir -p log
 pushd "${base_dir}" >/dev/null 2>&1 ||
 	die "chdir() to '${base_dir}' failed; ${?}"
 
@@ -148,14 +148,14 @@ checkids() {
 	#inherit docker stage3_name env_id bold reset red
 	local repo='' images='' stage3_env_id='' stage3_src_id=''
 
-	if [ -z "${name}" ]; then
+	if [[ -z "${name:-}" ]]; then
 		error "Image name not set"
 		return 1
 	fi
 	if false \
-		|| [ -z "${docker:-}" ] \
-		|| [ -z "${stage3_name:-}" ] \
-		|| [ -z "${env_id:-}" ] \
+		|| [[ -z "${docker:-}" ]] \
+		|| [[ -z "${stage3_name:-}" ]] \
+		|| [[ -z "${env_id:-}" ]] \
 
 	then
 		error "Required global variable not set"
@@ -163,7 +163,7 @@ checkids() {
 	fi
 
 	local relation="inherited by"
-	if [ "${name#*/}" = "${stage3_name#*/}" ]; then
+	if [[ "${name#*/}" == "${stage3_name#*/}" ]]; then
 		relation="about to be linked to"
 	fi
 
@@ -174,7 +174,7 @@ checkids() {
 	images="$( $docker image ls --noheading \
 		"${repo}${name}:${tag:-latest}" 2>/dev/null
 	)"
-	if echo "${images}" | grep -Eq -- "^(localhost/)?${name}"; then
+	if grep -Eq -- "^(localhost/)?${name}" <<<"${images}"; then
 		stage3_env_id="$(
 			$docker image inspect \
 					--format='{{.Config.Labels.envrionment_from}}' \
@@ -183,14 +183,14 @@ checkids() {
 		stage3_env_id="$( echo "${stage3_env_id:-}" | cut -d':' -f 2- )"
 
 		# Does our current 'gentoo-env' ID match that encoded in our stage3?
-		if [ "${env_id}" != "${stage3_env_id:-}" ]; then
+		if [[ "${env_id}" != "${stage3_env_id:-}" ]]; then
 			output >&2 "${bold:-}WARN${reset:-}:  ${red:-}" \
 				"The current 'environment' image (${env_id}) differs from" \
 				"that used to build the '${name}' image (${stage3_env_id:-})" \
 				"${relation} this stage${reset:-}"
 		fi
 
-		if [ -n "${stage3_id:-}" ]; then
+		if [[ -n "${stage3_id:-}" ]]; then
 			stage3_src_id="$(
 				$docker image inspect \
 						--format='{{.Config.Labels.stage3_from}}' \
@@ -202,7 +202,7 @@ checkids() {
 			)"
 
 			# Does our upstream stage3 ID match that encoded in our stage3?
-			if [ "${stage3_id}" != "${stage3_src_id:-}" ]; then
+			if [[ "${stage3_id}" != "${stage3_src_id:-}" ]]; then
 				output >&2 "${bold:-}WARN${reset:-}:  ${red:-}" \
 					"The upstream 'stage3' image (${stage3_id}) differs from" \
 					"that used to build the '${name}' image" \
@@ -251,22 +251,26 @@ if ! command -v portageq >/dev/null 2>&1; then
 	done
 	unset dir
 	for cfg in DEFAULT.conf gentoo.conf srcshelton.conf; do
-		[ -s /etc/portage/repos.conf/${cfg} ] ||
+		[[ -s /etc/portage/repos.conf/${cfg} ]] ||
 			cp -v etc/portage/repos.conf/${cfg} /etc/portage/repos.conf/
 	done
 	unset cfg
 
+	declare -i private_gentoo_clone=0
+	declare repo_path_gentoo='/var/db/repo/gentoo'
+	declare repo_path_srcshelton='/var/db/repo/srcshelton'
+
 	# FIXME: Hardcoded paths, use repos.conf
-	if [ ! -d /var/db/repo/gentoo ] && [ ! -d /var/db/repos/gentoo ]; then
+	if [[ ! -d "${repo_path_gentoo}" ]] && [[ ! -d /var/db/repos/gentoo ]]; then
 		# macOS 'df' lacks the below options
-		if [ "$( uname -s )" != 'Darwin' ]; then
+		if [[ "$( uname -s )" != 'Darwin' ]]; then
 			for dir in /var/db/repo{,s} /var/db; do
-				if [ -d "${dir}" ]; then
+				if [[ -d "${dir}" ]]; then
 					# FIXME: Figure out best macOS implementation
-					if ! [ $(( $(
+					if (( $(
 						df --block-size=1G --output=avail "${dir}" |
 						tail -n 1
-					) )) -ge 2 ]; then
+					) < 2 )); then
 						die "Insufficient filesystem space to download" \
 							"Gentoo Portage repo: 2GB required"
 					fi
@@ -275,52 +279,106 @@ if ! command -v portageq >/dev/null 2>&1; then
 			done
 			unset dir
 		fi
-		command -v git >/dev/null 2>&1 || die "required binary 'git' missing"
-		note "Creating local Gentoo Portage repo mirror at" \
-			"'/var/db/repo/gentoo' ..."
 
-		# shellcheck disable=SC2043
-		for dir in /var/db/repo; do
+		command -v git >/dev/null 2>&1 || die "required binary 'git' missing"
+
+		note "Creating local Gentoo Portage repo mirror at" \
+			"'${repo_path_gentoo}' ..."
+
+		# shellcheck disable=SC2043,SC2066
+		for dir in "$( dirname "${repo_path_gentoo}" )"; do
 			[[ -d "${dir}" ]] || makedir "${dir}"
 		done
 		unset dir
 
-		git clone https://github.com/gentoo/gentoo.git /var/db/repo/gentoo ||
+		git clone https://github.com/gentoo/gentoo.git "${repo_path_gentoo}" ||
 			die "git 'clone' operation failed: ${?}"
+
+		private_gentoo_clone=1
+
+	elif [[ -d /var/db/repos/gentoo ]]; then
+		repo_path_gentoo='/var/db/repos/gentoo'
 	fi
 
-	if [ ! -d /var/db/repo/srcshelton ] && [ ! -d /var/db/repos/srcshelton ]; then
+	if [[ ! -d "${repo_path_srcshelton}" ]] && [[ ! -d /var/db/repos/srcshelton ]]; then
 		command -v git >/dev/null 2>&1 || die "required binary 'git' missing"
-		note "Creating custom packages repo mirror at" \
-			"'/var/db/repo/srcshelton' ..."
 
-		# shellcheck disable=SC2043
-		for dir in /var/db/repo; do
+		note "Creating custom packages repo mirror at" \
+			"'${repo_path_srcshelton}' ..."
+
+		# shellcheck disable=SC2043,SC2066
+		for dir in "$( dirname "${repo_path_srcshelton}" )"; do
 			[[ -d "${dir}" ]] || makedir "${dir}"
 		done
 		unset dir
 
 		git clone \
 				https://github.com/srcshelton/gentoo-ebuilds.git \
-				/var/db/repo/srcshelton ||
+				"${repo_path_srcshelton}" ||
 			die "git 'clone' operation failed: ${?}"
+
+	elif [[ -d /var/db/repos/srcshelton ]]; then
+		repo_path_srcshelton='/var/db/repos/srcshelton'
 	fi
+
+	declare ref=''
+	if
+		[[ -s "${repo_path_srcshelton}/.portage_commit" ]] &&
+		ref="$( < "${repo_path_srcshelton}/.portage_commit" )" &&
+		[[ -n "${ref:-}" ]]
+	then
+		pushd "${repo_path_gentoo}" >/dev/null 2>&1
+		declare head=''
+		head="$( git rev-parse HEAD )"
+		if [[ "${ref}" == "${head:-}" ]]; then
+			note "Local Gentoo Portage repo mirror is in sync with custom" \
+				"packages repo at commit '${ref:0:7}'"
+		elif git rev-parse -q --verify "${ref}^{commit}" >/dev/null 2>&1; then
+			info "Local Gentoo Portage repo mirror is currently at commit" \
+				"'${head:0:7}' but can be reverted to custom packages repo" \
+				"target commit '${ref:0:7}'"
+			if (( private_gentoo_clone )); then
+				if git reset --hard "${ref}"; then
+					info "Local Gentoo Portage repo mirror is now in sync" \
+						"with custom packages repo at commit '${ref:0:7}'"
+				else
+					error "Unable to reset local Gentoo Portage repo mirror" \
+						"to commit '${ref:0:7}': ${?}"
+				fi
+			else
+				warn "Not changing local Gentoo Portage repo mirror contents" \
+					"for potentailly shared clone"
+			fi
+		else
+			error "Custom packages target commit '${ref:0:7}' does not exist" \
+				"in local Gentoo Portage repo mirror - mirror out of date?"
+		fi
+		unset head
+		popd >/dev/null 2>&1
+	fi
+	unset ref
 
 	for dir in /var/cache/portage/dist /var/log/portage /var/cache/portage/pkg; do
 		[[ -d "${dir}" ]] || makedir "${dir}"
 	done
 	unset dir
 
+	unset private_gentoo_clone repo_path_gentoo repo_path_srcshelton
+
 	# Flags may have changed...
-	[ ! -s common/vars.sh ] || . common/vars.sh
-else
-	rc=0
+	# shellcheck disable=SC1091
+	[[ ! -s common/vars.sh ]] || . common/vars.sh
+
+else # command -v portageq >/dev/null 2>&1; then
+
+	declare -i rc=0
+
 	while read -r repo; do
 		# FIXME: Discover default rather than assuming 'gentoo'?
-		[ "${repo}" == 'gentoo' ] && continue
+		[[ "${repo}" == 'gentoo' ]] && continue
 
 		while read -r dir; do
-			if [ -d "${dir}"/eclass ]; then
+			if [[ -d "${dir}"/eclass ]]; then
 				grep -hR eclass /etc/portage/repos.conf |
 						sed 's/#.*//' |
 						grep '^eclass-overrides' |
@@ -340,6 +398,42 @@ else
 	unset repo
 
 	(( rc )) && sleep 5
+
+	# FIXME: Discover default rather than assuming 'gentoo'?
+	declare repo_path_gentoo=''
+	declare repo_path_srcshelton=''
+	declare ref=''
+	repo_path_gentoo="$(
+		portageq get_repo_path "${EROOT:-/}" 'gentoo' >/dev/null 2>&1
+	)"
+	repo_path_srcshelton="$(
+		portageq get_repo_path "${EROOT:-/}" 'srcshelton' >/dev/null 2>&1
+	)"
+	if
+		[[ -n "${repo_path_gentoo:-}" && -d "${repo_path_gentoo}" ]] &&
+		[[ -n "${repo_path_srcshelton:-}" && -d "${repo_path_srcshelton}" ]] &&
+		[[ -s "${repo_path_srcshelton}/.portage_commit" ]] &&
+		ref="$( < "${repo_path_srcshelton}/.portage_commit" )" &&
+		[[ -n "${ref:-}" ]]
+	then
+		pushd "${repo_path_gentoo}" >/dev/null 2>&1
+		declare head=''
+		head="$( git rev-parse HEAD )"
+		if [[ "${ref}" == "${head:-}" ]]; then
+			note "Local Gentoo Portage repo mirror is in sync with custom" \
+				"packages repo at commit '${ref:0:7}'"
+		elif git rev-parse -q --verify "${ref}^{commit}" >/dev/null 2>&1; then
+			warn "Local Gentoo Portage repo mirror is currently at commit" \
+				"'${head:0:7}' but can be reverted to custom packages repo" \
+				"target commit '${ref:0:7}'"
+		else
+			error "Custom packages target commit '${ref:0:7}' does not exist" \
+				"in local Gentoo Portage repo mirror - mirror out of date?"
+		fi
+		unset head
+		popd >/dev/null 2>&1
+	fi
+	unset ref repo_path_srcshelton repo_path_gentoo
 fi
 
 # 'cut' separately to emulate 'pipefail' when using /bin/sh
@@ -347,6 +441,7 @@ fi
 # (... which we aren't any longer - but pipefail does seem to cause some
 # unexpected behaviour)
 #
+declare sum=''
 sum="$( sha1sum entrypoint.sh )"
 sum="$( echo "${sum}" | cut -d' ' -f 1 )"
 
@@ -387,11 +482,11 @@ local_stage3_id="$(
 		"${stage3_name}:latest" 2>/dev/null
 )" || :
 
-[ -n "${trace:-}" ] && set -o xtrace
+[[ -n "${trace:-}" ]] && set -o xtrace
 
 # Create empty stage with shared environment variables ...
 #
-if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
+if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 	output
 	output " ${blue}*${reset} Creating image '${env_name}:latest' ..."
 	output
@@ -427,7 +522,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --env '; then
 		. 2>&1 | tee ../log/"docker.${env_name#*/}.log"
 	output " -> ${?}"
 
-	[ "${*:-}" = '--env' ] && exit 0
+	[[ "${*:-}" = '--env' ]] && exit 0
 
 	env_id="$( $docker image ls --noheading \
 			--format='{{.ID}}' \
@@ -444,8 +539,8 @@ stage3_image="$(
 	cut -d'"' -f 2
 )"
 
-if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
-	if [ -z "${env_id:-}" ]; then
+if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
+	if [[ -z "${env_id:-}" ]]; then
 		die "Environment stage not found - please run" \
 			"'$( basename "${0}" ) --env'"
 	fi
@@ -458,25 +553,25 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 	# We have to 'pull' manually, or else this stage fails ...
 	rc=0
 	trap '' INT
-	if [ "${stage3_tag}" = 'latest' ]; then
+	if [[ "${stage3_tag}" = 'latest' ]]; then
 		if
 			$docker image pull --help |
-			grep -Fq -- '--platform'
+				grep -Fq -- '--platform'
 		then
 			$docker image pull "${stage3_image}:latest" \
-				--platform "linux/${docker_arch}"
+					--platform "linux/${docker_arch}"
 		elif
 			$docker image pull --help |
-			grep -Fq -- '--override-arch'
+				grep -Fq -- '--override-arch'
 		then
 			$docker image pull "${stage3_image}:latest" \
-				--override-arch "${docker_arch}"
+					--override-arch "${docker_arch}"
 		elif
 			$docker image pull --help |
-			grep -Fq -- '--arch'
+				grep -Fq -- '--arch'
 		then
 			$docker image pull "${stage3_image}:latest" \
-				--arch "${docker_arch}"
+					--arch "${docker_arch}"
 		else
 			die "Could not determine method to retrieve" \
 				"non-native architecture with" \
@@ -486,7 +581,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 		$docker image pull "${stage3_image}:${stage3_tag}" || rc=${?}
 	fi
 	trap - INT
-	[ $(( rc )) -eq 0 ] ||
+	[[ $(( rc )) -eq 0 ]] ||
 		die "'$docker image pull' failed to retrieve image '${stage3_image}:latest' for architecture '${docker_arch}'"
 	stage3_id="$(
 		$docker image ls --noheading \
@@ -518,7 +613,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --stage3 '; then
 		. 2>&1 | tee ../log/"docker.${stage3_name#*/}.log"
 	output " -> ${?}"
 
-	[ "${*:-}" = '--stage3' ] && exit 0
+	[[ "${*:-}" == '--stage3' ]] && exit 0
 
 	local_stage3_id="$(
 		$docker image ls --noheading \
@@ -543,7 +638,7 @@ fi
 #      argument, but may clear the command-line parameters so that the 'init'
 #      block below that IS executed.
 #
-if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
+if [[ -n "${*:-}" ]] && ! grep -Fq -- ' --init ' <<<" ${*} "; then
 	# Executed individually, `$docker image ls` and `grep` both succeed.
 	# With 'pipefail' disabled, the following test does the right thing.
 	# However, with pipefail set the statement is interpreted to have
@@ -553,13 +648,13 @@ if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
 		$docker image ls --noheading \
 			"${init_name}" 2>/dev/null
 	)"
-	if echo "${images}" | grep -Eq -- "^(localhost/)?${init_name}"; then
+	if grep -Eq -- "^(localhost/)?${init_name}" <<<"${images}"; then
 		imagesum="$(
 			$docker image inspect \
 					--format='{{.Config.Labels.entrypoint_sum}}' \
 				"${init_name}:latest" 2>/dev/null
 		)" || :
-		if [ "${imagesum:-}" != "${sum}" ]; then
+		if [[ "${imagesum:-}" != "${sum}" ]]; then
 			if (( force )); then
 				output >&2
 				output >&2 "${bold}WARN${reset}:  ${red}'entrypoint.sh'" \
@@ -583,8 +678,8 @@ if [ -n "${*:-}" ] && ! echo " ${*} " | grep -Fq -- ' --init '; then
 	fi
 fi
 
-if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --init '; then
-	if [ -z "${local_stage3_id:-}" ]; then
+if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
+	if [[ -z "${local_stage3_id:-}" ]]; then
 		die "Updated Gentoo stage 3 image '${stage3_name}:latest'" \
 			"not found - please execute '$(
 				basename "${0}"
@@ -630,12 +725,12 @@ fi
 # Launch initial image and run entrypoint script to install root @system, then
 # snapshot the result to create a base image ...
 #
-if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --base '; then
+if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 	images="$(
 		$docker image ls --noheading \
 			"${init_name}" 2>/dev/null
 	)"
-	if ! echo "${images}" | grep -Eq -- "^(localhost/)?${init_name#*/}"; then
+	if ! grep -Eq -- "^(localhost/)?${init_name#*/}" <<<"${images}"; then
 		die "Initial stage not found - please execute '$(
 			basename "${0}"
 		) --init'"
@@ -718,12 +813,12 @@ fi
 
 # Ensure that @system is correctly installed to ROOT=/ and snapshot result as
 # build image.
-if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
+if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	images="$(
 		$docker image ls --noheading \
 			"${base_name}" 2>/dev/null
 	)"
-	if ! echo "${images}" | grep -Eq -- "^(localhost/)?${base_name}"; then
+	if ! grep -Eq -- "^(localhost/)?${base_name}" <<<"${images}"; then
 		die "Base stage not found - please execute '$(
 			basename "${0}"
 		) --base'"
@@ -761,7 +856,7 @@ if [ -z "${*:-}" ] || echo " ${*} " | grep -Fq -- ' --build '; then
 	if command -v portageq >/dev/null 2>&1; then
 		python_target="${python_target_override:-$( portageq envvar 'PYTHON_SINGLE_TARGET' )}"
 	fi
-	if [ -z "${python_target:-}" ]; then
+	if [[ -z "${python_target:-}" ]]; then
 		python_target="${python_default_target:-}"
 	fi
 
@@ -882,12 +977,12 @@ else
 	checkids "${base_name}"
 fi
 
-if [ -z "${*:-}" ] || (( build_helper )) || echo " ${*} " | grep -Fq -- ' --force-helper '; then
+if [[ -z "${*:-}" ]] || (( build_helper )) || grep -Fq -- ' --force-helper ' <<<" ${*} "; then
 	if type -pf portageq >/dev/null 2>&1; then
 		# Running on Gentoo...
 
 		if (( build_helper )); then
-			if (( force )) || echo " ${*} " | grep -Fq -- ' --force-helper '; then
+			if (( force )) || grep -Fq -- ' --force-helper ' <<<" ${*} "; then
 				warn "Forcing creation of unnecessary helper image on Gentoo platform"
 			else
 				die "Helper image unneeded on Gentoo platform - use '--force' to enable creation"
@@ -909,7 +1004,7 @@ if [ -z "${*:-}" ] || (( build_helper )) || echo " ${*} " | grep -Fq -- ' --forc
 				output " ${blue}*${reset} Building helper for non-Gentoo host systems ..."
 				output
 
-				if (( force )) || echo " ${*} " | grep -Fq -- ' --force-helper '; then
+				if (( force )) || grep -Fq -- ' --force-helper ' <<<" ${*} "; then
 					./gentoo-build-svc.docker eix --force
 				else
 					./gentoo-build-svc.docker eix
@@ -920,9 +1015,9 @@ if [ -z "${*:-}" ] || (( build_helper )) || echo " ${*} " | grep -Fq -- ' --forc
 	fi
 fi
 
-[ -n "${trace:-}" ] && set +o xtrace
+[[ -n "${trace:-}" ]] && set +o xtrace
 
-#popd >/dev/null
+popd >/dev/null
 
 exit 0
 
