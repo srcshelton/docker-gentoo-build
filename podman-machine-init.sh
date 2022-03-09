@@ -65,6 +65,10 @@ if ! podman machine list | grep -q -- "^${MACHINE}.*Currently running"; then
 		printf '.'
 		sleep 0.1
 	done
+	until podman machine ssh "${MACHINE}" 'true'; do
+		printf '.'
+		sleep 0.1
+	done
 	echo
 fi
 
