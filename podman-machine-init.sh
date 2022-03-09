@@ -14,6 +14,8 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 	}
 
 	case "$( sysctl -n machdep.cpu.brand_string )" in
+		'Apple M1 Ultra')
+			cores="$(( $( sysctl -n machdep.cpu.core_count ) - 4 ))" ;;
 		'Apple M1 Pro'|'Apple M1 Max')
 			cores="$(( $( sysctl -n machdep.cpu.core_count ) - 2 ))" ;;
 		'Apple M1')
