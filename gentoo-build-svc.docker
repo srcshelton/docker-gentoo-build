@@ -22,7 +22,8 @@ mail_mta='localhost'
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
 
-services='
+declare -a services=()
+services=(
 	bitlbee
 	captive-portal
 	dcc
@@ -50,6 +51,7 @@ services='
 	pinfo
 	postfix
 	postgrey
+	pound
 	powertop
 	privoxy
 	redis
@@ -69,7 +71,7 @@ services='
 	watchdog
 	xmrig
 	zxtm
-'
+)
 installed=0
 tools=0
 all=0
@@ -122,7 +124,7 @@ if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2
 	output >&2 "Known services:"
 	s=''
-	for s in ${services}; do
+	for s in "${services[@]}"; do
 		output >&2 "  ${s}"
 	done
 	unset s
@@ -268,7 +270,7 @@ done
 if [ -n "${service_list:-}" ] && [ $(( service_list )) -eq 1 ]; then
 	list=''
 	for arg in "${@}"; do
-		if echo " ${services} " | grep -wq -- "${arg}"; then
+		if echo " ${services[*]} " | grep -wq -- "${arg}"; then
 			list="${list:+${list} }${arg}"
 		else
 			error "Service '${arg}' not known"
@@ -282,7 +284,7 @@ if [ -n "${service_list:-}" ] && [ $(( service_list )) -eq 1 ]; then
 	# process what we believe to be all services (as a result) with the 'all'
 	# logic :|
 	#
-	services="${list}"
+	IFS=" " read -r -a services <<<"${list}"
 	service=''
 	all=1
 fi
@@ -291,7 +293,7 @@ if [ -n "${all:-}" ] && [ $(( all )) -eq 1 ]; then
 	# Prevent recursion on 'all'...
 	if ! [ "${service:-}" = 'all' ]; then
 		c=0 s='' f=''
-		for s in ${services}; do
+		for s in "${services[@]}"; do
 			output >&2
 			output >&2 " ${red}*${reset} Examining service '${s}' [${rc}/${c}] ..."
 			output >&2
@@ -393,6 +395,8 @@ case "${service:-}" in
 	postgrey|postgray)
 		#service='mail-filter/postgrey::container'  # 1.36-r1 and prior didn't use account packages
 		service='mail-filter/postgrey' ;;
+	pound)
+		service='www-servers/pound' ;;
 	powertop)
 		service='sys-power/powertop' ;;
 	privoxy)
@@ -834,6 +838,13 @@ case "${package_name}" in
 		container_cmd='/usr/sbin/postgrey'
 		# Not a typo!
 		etcdir='postfix'
+		;;
+	*.pound)
+		output "Setting build variables for package 'pound' ..."
+
+		#ports='8888/tcp'
+		container_cmd='/usr/sbin/pound'
+		etcdir='pound'
 		;;
 	*.powertop)
 		output "Setting build variables for package 'powertop' ..."
