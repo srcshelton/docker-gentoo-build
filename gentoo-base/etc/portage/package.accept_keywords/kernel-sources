@@ -1,12 +1,14 @@
 
-# Current stable package is gentoo-sources-5.10.100
-~sys-kernel/gentoo-sources-5.10.103			~amd64 ~x86
+# Current stable package is gentoo-sources-5.10.109
+~sys-kernel/gentoo-sources-5.10.110			~amd64 ~x86
 
-# Current stable package is gentoo-sources-5.15.23
-~sys-kernel/gentoo-sources-5.15.26			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-5.15.32-r1
+~sys-kernel/gentoo-sources-5.15.33			~amd64 ~arm ~arm64 ~x86
 
-~sys-kernel/gentoo-sources-5.16.12			~amd64 ~arm ~arm64 ~x86
-#~sys-kernel/vanilla-sources-5.16.12			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-5.16.19			~amd64 ~arm ~arm64 ~x86
+
+~sys-kernel/gentoo-sources-5.17.2			~amd64 ~arm ~arm64 ~x86
+#~sys-kernel/vanilla-sources-5.17.2			~amd64 ~arm ~arm64 ~x86
 
 # Additional kernel-modules
 #~net-firewall/xtables-addons-3.18			~amd64 ~arm ~arm64 ~x86
