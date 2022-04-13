@@ -78,6 +78,7 @@ all=0
 rebuild=''
 force=''
 build_debug=''
+alt_log=''
 
 # Temporarily throw away all other arguments to try to get a set of parameters
 # we can use to perform a manual service build (... which is largely deprecated
@@ -455,12 +456,19 @@ docker_resolve "${service%::*}" "${container_prefix}"
 container_name="$( echo "${package}" | sed 's|/|.|' )"
 # shellcheck disable=SC2001 # POSIX sh compatibility
 package_name="$( echo "${package_name}" | sed 's|/|.|' )"
-[ "${package_name:-}" = 'net-misc.zxtm-init-scripts' ] && package_name='net-misc.zxtm'
-if [ "${package_name:-}" = 'mail-filter.spamassassin' ]; then
-	if [ "${original_service}" = 'spamassassin-update' ] || [  "${original_service}" = 'sa-update' ]; then
-		package_name='mail-filter.spamassassin-update'
-	fi
-fi
+
+case "${package_name}" in
+	'net-misc.zxtm-init-scripts')
+		package_name='net-misc.zxtm' ;;
+	'mail-filter.spamassassin')
+		if [ "${original_service}" = 'spamassassin-update' ] || [  "${original_service}" = 'sa-update' ]; then
+			pkgname='mail-filter.spamassassin-update'
+			alt_log="${pkgname}${container_name#"${package_name}"}"
+			package_name="${pkgname}"
+			unset pkgname
+		fi
+		;;
+esac
 export container_name package_name
 echo "${service}" | grep -Fq -- '::' && repo="${service#*::}"
 
@@ -1319,21 +1327,22 @@ else
 	name="${container_prefix}-${container_name}" \
 	image="${IMAGE}" \
 	docker_run \
-			${pre_remove:+--pre-remove="${pre_remove}"} \
-			${force_python:+--force-python="${force_python}"} \
-			${pre_pkgs:+--pre-pkgs="${pre_pkgs}"} \
-			${pre_use:+--pre-use="${pre_use}"} \
-			${with_use:+--with-use="${with_use}"} \
-			${post_pkgs:+--post-pkgs="${post_pkgs}"} \
-			${post_use:+--post-use="${post_use}"} \
-			${rebuild:+--rebuild="=${package}"} \
-			${post_remove:+--post-remove="${post_remove}"} \
-			--no-package-use \
-			--usepkg=y \
-			--with-bdeps=n \
-			--with-bdeps-auto=n \
-		"=${package}${repo:+::${repo}}" ${extra_pkgs:-} \
-	2>&1 | tee log/"docker.${container_prefix}-${container_name}.log"
+					${pre_remove:+--pre-remove="${pre_remove}"} \
+					${force_python:+--force-python="${force_python}"} \
+					${pre_pkgs:+--pre-pkgs="${pre_pkgs}"} \
+					${pre_use:+--pre-use="${pre_use}"} \
+					${with_use:+--with-use="${with_use}"} \
+					${post_pkgs:+--post-pkgs="${post_pkgs}"} \
+					${post_use:+--post-use="${post_use}"} \
+					${rebuild:+--rebuild="=${package}"} \
+					${post_remove:+--post-remove="${post_remove}"} \
+					--no-package-use \
+					--usepkg=y \
+					--with-bdeps=n \
+					--with-bdeps-auto=n \
+				"=${package}${repo:+::${repo}}" ${extra_pkgs:-} \
+			2>&1 |
+		tee log/"docker.${container_prefix}-${alt_log:-${container_name}}.log"
 	rc=${?}
 	output " -> ${rc}"
 
@@ -1346,9 +1355,10 @@ else
 	# copied across when running 'test -s /usr/libexec/environment.sh'!?
 	trap '' INT
 	$docker container commit \
-			"${container_prefix}-${container_name}" \
-			"${container_prefix}-${package_name}:${package_version}" \
-		2>&1 | tee -a log/"docker.${container_prefix}-${container_name}.log"
+				"${container_prefix}-${container_name}" \
+				"${container_prefix}-${package_name}:${package_version}" \
+			2>&1 |
+		tee -a log/"docker.${container_prefix}-${alt_log:-${container_name}}.log"
 	rc=${?}
 	trap - INT
 	output " -> ${rc}"
@@ -1404,7 +1414,7 @@ $docker ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
 				--squash-all \
 				--tag "service.${package_name}:${package_version}" \
 			.  2>&1 |
-	tee ../log/"docker.service.${container_name}.log"
+	tee ../log/"docker.service.${alt_log:-${container_name}}.log"
 			#--network slirp4netns \
 rc=${?}
 output " -> ${rc}"
