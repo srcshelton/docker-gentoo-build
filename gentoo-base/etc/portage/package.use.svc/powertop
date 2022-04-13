@@ -3,4 +3,4 @@
 
 #sys-power/powertop			 nls unicode -X
 
-# vi: set nowrap syntax=gentoo-package-use:
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

@@ -2,4 +2,4 @@
 #sys-apps/man-db			 berkdb +gdbm +manpager nls +seccomp (-selinux) static-libs (zlib)
 sys-apps/man-db				 gdbm manpager nls seccomp
 
-# vi: set nowrap syntax=gentoo-package-use:
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

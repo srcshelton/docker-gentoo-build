@@ -8,4 +8,4 @@ net-firewall/iptables			 conntrack netlink nftables pcap
 #sys-apps/iproute2			 atm berkdb caps elf +iptables (ipv6) minimal selinux
 sys-apps/iproute2			 caps iptables
 
-# vi: set nowrap syntax=gentoo-package-use:
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

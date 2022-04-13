@@ -41,6 +41,4 @@ virtual/mta				 no-mta
 # dependency required by net-libs/gnutls-3.6.15
 #dev-libs/nettle			 gmp
 
-
-# vi: set nowrap syntax=gentoo-package-use:
-
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

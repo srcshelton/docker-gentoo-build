@@ -15,5 +15,4 @@ mail-filer/maildrop			 dovecot fam
 
 virtual/mta				 postfix
 
-# vi: set nowrap syntax=gentoo-package-use:
-
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

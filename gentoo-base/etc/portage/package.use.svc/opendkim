@@ -9,4 +9,4 @@ mail-filter/opendkim			 berkdb libevent opendbx querycache stats unbound
 net-dns/unbound				 dnscrypt ecdsa ecs
 #mail-filter/libmilter			(ipv6) poll
 
-# vi: set nowrap syntax=gentoo-package-use:
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

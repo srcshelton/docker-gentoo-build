@@ -2,4 +2,4 @@
 #net-misc/dhcp				+client (ipv6) kernel_linux ldap (-selinux) +server (ssl) systemd vim-syntax
 net-misc/dhcp				-client server
 
-# vi: set nowrap syntax=gentoo-package-use:
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

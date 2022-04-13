@@ -57,4 +57,4 @@ dev-libs/libusb				 udev
 # required by dev-lang/rust-1.47.0-r2
 net-misc/curl				 http2
 
-# vi: set nowrap syntax=gentoo-package-use:
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
