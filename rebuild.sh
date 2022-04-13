@@ -249,20 +249,17 @@ if [ "${pkgcache:-0}" = '1' ]; then
 			# shellcheck disable=SC1091
 			. ./common/vars.sh
 			use="
+				${use_essential_gcc}
 				acl
 				bzip2
 				crypt
 				extra-filters
-				graphite
 				jit
 				lzma
-				nptl
-				openmp
-				pch python
+				python
 				  python_single_target_${python_default_target:-python3_9}
 				  python_targets_${python_default_target:-python3_9}
-				sanitize ssl ssp symlink
-				vtv
+				ssl symlink
 				xml
 			"
 			USE=''
@@ -275,7 +272,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 		USE="-* ${use}"
 		export USE
 
-		USE="-* ${use} nls readline static-libs zstd"
+		USE="-* ${use} nls readline static-libs zstd" \
 		./gentoo-build-pkg.docker 2>&1 \
 					--buildpkg=y \
 					--name 'buildpkg.cache' \
@@ -290,7 +287,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 				sys-libs/libxcrypt |
 			tee log/buildpkg.cache.log
 
-		USE="-* ${use} static-libs"
+		USE="-* ${use} static-libs" \
 		./gentoo-build-pkg.docker 2>&1 \
 					--buildpkg=y \
 					--name 'buildpkg.cache' \
@@ -308,7 +305,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 				sys-kernel/gentoo-sources |
 			tee -a log/buildpkg.cache.log
 
-		USE="-* ${use} nls"
+		USE="-* ${use} nls" \
 		./gentoo-build-pkg.docker 2>&1 \
 					--buildpkg=y \
 					--name 'buildpkg.cache' \
@@ -317,6 +314,16 @@ if [ "${pkgcache:-0}" = '1' ]; then
 				virtual/libc \
 				app-arch/cpio \
 				dev-libs/elfutils |
+			tee -a log/buildpkg.cache.log
+
+		USE="-* pam tools" \
+		./gentoo-build-pkg.docker 2>&1 \
+					--buildpkg=y \
+					--name 'buildpkg.cache' \
+					--usepkg=y \
+					--with-bdeps=n \
+				virtual/libc \
+				sys-libs/libcap |
 			tee -a log/buildpkg.cache.log
 	)
 	: $(( rc = rc + ${?} ))
@@ -353,9 +360,14 @@ if [ "${update:-0}" = '1' ]; then
 	#stdbuf -i0 -o0 awk 'BEGIN { RS = null ; ORS = "\n\n" } 1' |
 	#tee log/buildpkg.hostpkgs.update.log
 
-	gcc_use="-fortran -graphite nptl openmp pch sanitize ssp vtv zstd"
 	# Look for "build" gcc USE-flags in package.use only (or use defaults above) ...
-	if [ -s /etc/portage/package.use/package.use ]; then
+	if ! [ -s /etc/portage/package.use/package.use ]; then
+		if [ -z "${use_essential_gcc:-}" ]; then
+			# shellcheck disable=SC1091
+			. ./common/vars.sh
+		fi
+		gcc_use="${use_essential_gcc/ graphite / -graphite }"
+	else
 		gcc_use="$(
 			sed 's/#.*$//' /etc/portage/package.use/package.use |
 			tr -s '[:space:]' |
@@ -376,7 +388,7 @@ if [ "${update:-0}" = '1' ]; then
 			$(
 				for pkg in /var/db/pkg/*/*; do
 					pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
-					if echo "${pkg}" | grep -Eq '^container/|/pkgconfig-'; then
+					if echo "${pkg}" | grep -Eq '^container/|/pkgconfig-|/-MERGING-'; then
 						continue
 					fi
 					echo ">=${pkg}"
@@ -392,7 +404,7 @@ if [ "${update:-0}" = '1' ]; then
 	trap - INT
 
 	if [ $(( rc )) -eq 0 ]; then
-		gcc_use="-* lib-only nptl"
+		gcc_use="-* lib-only nptl openmp"
 		# ... and look for "host" gcc USE-flags in host.use only (or use defaults)
 		# FIXME: What about package.use.local?
 		if [ -s /etc/portage/package.use/host.use ]; then
