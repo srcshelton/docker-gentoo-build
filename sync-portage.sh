@@ -5,12 +5,17 @@ set -u
 find_seq() {
 	local file="${1:-}"
 
+	#if ! [[ -e "${file}" ]]; then
+	#	printf '%s' "${file}"
+	#	return 0
+	#fi
+
 	[[ -n "${file:-}" ]] || return 1
 
 	path="$( dirname "${file}" )"
 	name="$( basename "${file}" )"
 
-	local -i counter=1
+	local -i counter=0
 
 	while [[ -e "$( printf '%s/._cfg%04d_%s' "${path}" ${counter} "${name}" )" ]]; do
 		(( counter++ ))
