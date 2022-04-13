@@ -14,7 +14,7 @@
 */*					-ldap -lua libatomic libedit libffi libidn2 libwww lighttpd lz4 lzma lzo
 */*					 mariadb mbox mdev memcached mmap mpfr mysql mysqli
 */*					 ncurses network nfs nls nntp nptl
-*/*					-openmp odbc openssl
+*/*					 odbc openmp openssl
 */*					-pango -policykit pcre perl php python
 */*					 readline rpc
 */*					-samba -sasl -slang -smartcard -source -startup-notification sctp
@@ -210,18 +210,20 @@ sys-auth/pam_mobile_otp			 manager
 sys-block/parted			 device-mapper
 sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
 sys-cluster/galera			 garbd
+sys-devel/bc				-libedit
 sys-devel/clang				 default-compiler-rt default-libcxx default-lld llvm-libunwind system-cxx-headers
-sys-devel/clang-runtime			 compiler-rt libcxx openmp
+sys-devel/clang-runtime			 compiler-rt libcxx
 #sys-devel/gcc				 go mudflap
 # gccgo from gcc-6.4.0 tries to include a deprecated glibc header, ustat.h, and fails.
 #~sys-devel/gcc-6.4.0			-go
-sys-devel/gcc				-fortran -graphite openmp pch sanitize ssp vtv zstd  # graphite has a runtime dependency on dev-libs/isl
+sys-devel/gcc				-fortran -graphite pch sanitize ssp vtv zstd  # graphite has a runtime dependency on dev-libs/isl
 sys-devel/gettext			 cvs git
 sys-devel/llvm				 clang llvm-gcc udis86
 # move sys-apps/microcode-data sys-firmware/intel-microcode
 sys-firmware/intel-microcode		 hostonly split-ucode
 sys-fs/btrfs-progs			-python
 sys-fs/cryptsetup			-static dynamic
+sys-fs/e2fsprogs			 tools
 sys-fs/lvm2				-lvm1 -static -static-libs -thin
 sys-fs/udev				-extras action_modeswitch edd hwdb keymap
 sys-libs/compiler-rt			 clang

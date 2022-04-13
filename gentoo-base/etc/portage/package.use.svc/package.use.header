@@ -4,7 +4,7 @@
 
 # Keep the following in sync with common/vars.sh
 */*					-* asm ipv6 ithreads mdev nptl threads tls-heartbeat zlib
-#*/*					 graphite openmp pch sanitize ssp vtv zstd
+#*/*					-fortran graphite (nptl) openmp pch sanitize ssp vtv zstd
 
 */*					 openssl ssl
 

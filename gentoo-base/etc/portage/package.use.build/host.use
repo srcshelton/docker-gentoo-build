@@ -25,7 +25,7 @@ net-misc/dhcp				-* client ipv6 ssl vim-syntax
 #sys-apps/portage			-rsync-verify native-extensions
 
 # -lib-only
-#sys-devel/gcc				-* nptl lib-only
+#sys-devel/gcc				-* nptl lib-only openmp
 
 # Avoid udev/eudev dependencies when using busybox mdev
 sys-apps/busybox			 mdev

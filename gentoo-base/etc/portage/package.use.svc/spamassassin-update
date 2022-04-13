@@ -14,7 +14,8 @@ mail-filter/spamassassin		 sa-update
 
 sys-apps/busybox			-make-symlinks
 #sys-apps/coreutils			 gmp
-sys-devel/gcc				-lib-only
+# Keep the following in sync with common/vars.sh
+sys-devel/gcc				-lib-only -fortran graphite openmp pch sanitize ssp vtv zstd
 sys-devel/gcc-config			 native-symlinks
 sys-devel/binutils-config		 native-symlinks
 
@@ -23,5 +24,4 @@ app-crypt/gnupg				-ssl
 # dependency required by net-libs/gnutls-3.6.15
 #dev-libs/nettle			 gmp
 
-# vi: set nowrap syntax=gentoo-package-use:
-
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
