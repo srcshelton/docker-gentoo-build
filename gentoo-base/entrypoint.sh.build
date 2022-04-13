@@ -180,6 +180,8 @@ savefailed() {
 	#[ -n "${trace:-}" ] || set +o xtrace
 }  # savefailed
 
+# Prelink is no longer supported :(
+#
 #do_prelink() {
 #	# http://www.gentoo.org/doc/en/prelink-howto.xml
 #	PRELINK_OPTS='-mRf'
@@ -253,14 +255,14 @@ if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
 	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-${DEFAULT_MAXLOAD}}"
 fi
 
-#for f in $( grep -Rl collision log/docker.*.log ); do
+#for f in $( grep -Rl -- 'collision' log/docker.*.log ); do
 #		sed '\x1b\[[0-9;]*m//g' "${f}" |
-#		awk -v p=0 '/Detected file collision\(s\):$/ { p = 2 } ; /^ \* $/ { p = p - 1 } ; ( 1 == p ) { print $2 }'
+#			awk -v p=0 '/Detected file collision\(s\):$/ { p = 2 } ; /^ \* $/ { p = p - 1 } ; ( 1 == p ) { print $2 }'
 #done |
 #	xargs -rn 1 dirname |
-#	sed 's|/c.i-php.\../|/*/| ; s|/spamassassin/|/*/| ; s|$|/*|' |
-#	sort |
-#	uniq
+#		sed 's|/c.i-php.\../|/*/| ; s|/spamassassin/|/*/| ; s|$|/*|' |
+#		sort |
+#		uniq
 COLLISION_IGNORE="${COLLISION_IGNORE:-/lib/modules/*}
 	/service/bin/*
 	/service/etc/php/*/ext-active/*
@@ -503,16 +505,16 @@ if [ -n "${ECLASS_OVERRIDE:-}" ]; then
 	(
 		for ROOT in $( echo '/' "${ROOT:-}" | xargs -n 1 | sort | uniq ); do
 			if [ -e "${ROOT%/}/etc/portage/repos.conf" ]; then
-				if grep -qR '^\s*eclass-overrides' "${ROOT%/}/etc/portage/repos.conf"; then
+				if grep -qR -- '^\s*eclass-overrides' "${ROOT%/}/etc/portage/repos.conf"; then
 					echo "INFO:  Adding eclass override '${ECLASS_OVERRIDE}' to repos.conf for installation root '${ROOT}' ..."
 					if [ -f "${ROOT%/}/etc/portage/repos.conf" ]; then
 						sed -e "/^\s*eclass-overrides/ s/\(\s*$\|\s*#.*$\)/ ${ECLASS_OVERRIDE}\1/" \
-							-i "${ROOT%/}/etc/portage/repos.conf" ||
-						die "Failed to update '${ROOT%/}/etc/portage/repos.conf': ${?}"
+								-i "${ROOT%/}/etc/portage/repos.conf" ||
+							die "Failed to update '${ROOT%/}/etc/portage/repos.conf': ${?}"
 					elif [ -f "${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf" ]; then
 						sed -e "/^\s*eclass-overrides/ s/\(\s*$\|\s*#.*$\)/ ${ECLASS_OVERRIDE}\1/" \
-							-i "${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf" ||
-						die "Failed to update '${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf': ${?}"
+								-i "${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf" ||
+							die "Failed to update '${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf': ${?}"
 					else
 						die "Could not find repo configuration file to update for installation root '${ROOT}'"
 					fi
@@ -520,19 +522,19 @@ if [ -n "${ECLASS_OVERRIDE:-}" ]; then
 					echo "Setting eclass override '${ECLASS_OVERRIDE}' in repos.conf for installation root '${ROOT}' ..."
 					if [ -f "${ROOT%/}/etc/portage/repos.conf" ]; then
 						printf '\neclass-overrides = %s\n' "${ECLASS_OVERRIDE}" \
-							>> "${ROOT%/}/etc/portage/repos.conf" ||
-						die "Failed to update '${ROOT%/}/etc/portage/repos.conf': ${?}"
+								>> "${ROOT%/}/etc/portage/repos.conf" ||
+							die "Failed to update '${ROOT%/}/etc/portage/repos.conf': ${?}"
 					elif [ -f "${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf" ]; then
 						printf '\neclass-overrides = %s\n' "${ECLASS_OVERRIDE}" \
-							>> "${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf" ||
-						die "Failed to update '${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf': ${?}"
+								>> "${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf" ||
+							die "Failed to update '${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf': ${?}"
 					else
 						die "Could not find repo configuration file to update for installation root '${ROOT}'"
 					fi
 				fi
 				{
 					echo "Active overrides:"
-					grep -HR '^\s*eclass-overrides' "${ROOT%/}/etc/portage/repos.conf/"
+					grep -HR -- '^\s*eclass-overrides' "${ROOT%/}/etc/portage/repos.conf/"
 				} | sed 's/^/       /'
 			else
 				warn "Could not find repo configuration for installation root '${ROOT}'"
@@ -565,7 +567,7 @@ if [ -n "${pre_pkgs:-}" ]; then
 		fi
 		if
 			echo " ${pre_pkgs} " |
-			grep -P ' ([=<>!~][=!]?)?(sys-devel/)?gcc(-[0-9.r-]+)?[*]?(:(?:[*]|[0-9.]*)=?)? '
+				grep -P -- ' ([=<>!~][=!]?)?(sys-devel/)?gcc(-[0-9.r-]+)?[*]?(:(?:[*]|[0-9.]*)=?)? '
 		then
 			USE="${USE:+${USE} }${use_essential_gcc}"
 		fi
@@ -658,7 +660,7 @@ fi
 (
 	export ROOT='/service'
 	export FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
-	export USE="-* lib-only make-symlinks timezone-tools"
+	export USE="-* lib-only make-symlinks openmp timezone-tools"
 	export LC_ALL='C'
 	export VERY_BRAVE_OR_VERY_DUMB='yes'  # for busybox
 
@@ -919,6 +921,12 @@ case "${1:-}" in
 						echo
 						echo " * Building single package '${arg}' from '${*}' ..."
 						echo
+						(
+						if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
+							warn "Activating sys-devel/gcc work-arounds ..."
+							gcc_use="${use_essential_gcc/ graphite / -graphite }"
+							USE="${USE:+${USE//lib-only} }-lib-only nls ${gcc_use}"
+						fi
 						# shellcheck disable=SC2016
 						print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
 						# shellcheck disable=SC2086
@@ -930,7 +938,8 @@ case "${1:-}" in
 								--with-bdeps=n \
 								--with-bdeps-auto=n \
 								  ${flags:-} \
-							"${arg}" || rc=${?}
+							"${arg}"
+						) || rc=${?}
 						;;
 				esac
 			done
@@ -942,6 +951,12 @@ case "${1:-}" in
 					echo
 					echo " * Building first package '${arg}' of '${*}' ..."
 					echo
+					(
+					if echo " ${first} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
+							warn "Activating sys-devel/gcc work-arounds ..."
+							gcc_use="${use_essential_gcc/ graphite / -graphite }"
+							USE="${USE:+${USE//lib-only} }-lib-only nls ${gcc_use}"
+					fi
 					# shellcheck disable=SC2016
 					print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${flags:+${flags} }${first}'${USE:+ with USE='${USE}'}"
 					# shellcheck disable=SC2086
@@ -953,13 +968,20 @@ case "${1:-}" in
 							--with-bdeps=n \
 							--with-bdeps-auto=n \
 							  ${flags:-} \
-						"${first}" || rc=${?}
+						"${first}"
+					) || rc=${?}
 			fi
 
 		else # ! echo " ${EMERGE_OPTS:-} " | grep -Eq -- ' --single(-build)? '; then
+			(
 			# We're not performing single-builds, so build everything at the
 			# same time (and potentially in parallel)
 			#
+			if echo " ${*} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
+					warn "Activating sys-devel/gcc work-arounds ..."
+					gcc_use="${use_essential_gcc/ graphite / -graphite }"
+					USE="${USE:+${USE//lib-only} }-lib-only nls ${gcc_use}"
+			fi
 			# shellcheck disable=SC2016
 			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${*}'${USE:+ with USE='${USE}'}"
 			# shellcheck disable=SC2086
@@ -970,7 +992,8 @@ case "${1:-}" in
 					--usepkg=y \
 					--with-bdeps=n \
 					--with-bdeps-auto=n \
-				"${@}" || rc=${?}
+				"${@}"
+			) || rc=${?}
 		fi
 
 		if [ -n "${post_pkgs:-}" ]; then
@@ -1051,8 +1074,14 @@ case "${1:-}" in
 							echo " * Building single package '${arg}' from '${rebuild} ..."
 							echo
 
+							(
 							# Reinstall package first to maximise dependency re-use...
 							#
+							if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
+								warn "Activating sys-devel/gcc work-arounds ..."
+								gcc_use="${use_essential_gcc/ graphite / -graphite }"
+								USE="${USE:+${USE//lib-only} }-lib-only nls ${gcc_use}"
+							fi
 							# shellcheck disable=SC2016
 							print "Running build-dependencies 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
 							# shellcheck disable=SC2086
@@ -1063,7 +1092,8 @@ case "${1:-}" in
 									--usepkg=y \
 									--with-bdeps=y \
 									  ${flags:-} \
-								${arg} || rc=${?}
+								${arg}
+							) || rc=${?}
 
 							# ... then install again without '--usepkg':
 							#
@@ -1083,8 +1113,14 @@ case "${1:-}" in
 					esac
 				done
 			else
+				(
 				# Reinstall package first to maximise dependency re-use...
 				#
+				if echo " ${rebuild} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
+						warn "Activating sys-devel/gcc work-arounds ..."
+						gcc_use="${use_essential_gcc/ graphite / -graphite }"
+						USE="${USE:+${USE//lib-only} }-lib-only nls ${gcc_use}"
+				fi
 				# shellcheck disable=SC2016
 				print "Running build-dependencies 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y ${rebuild}'${USE:+ with USE='${USE}'}"
 				# shellcheck disable=SC2086
@@ -1094,7 +1130,8 @@ case "${1:-}" in
 						--buildpkg=y \
 						--usepkg=y \
 						--with-bdeps=y \
-					${rebuild} || rc=${?}
+					${rebuild}
+				) || rc=${?}
 
 				# ... then install again without '--usepkg':
 				#
