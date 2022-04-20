@@ -126,7 +126,7 @@ RUN test -s /usr/libexec/environment.sh
 
 # Copy ZXTM/PS VTM into the current image
 COPY --from=zxtm /usr/local/zeus "${ZEUSHOME}/"
-COPY entrypoint.sh.zxtm.service "${ZEUSHOME}/runzeus.sh"
+COPY entrypoint.sh.service.zxtm "${ZEUSHOME}/runzeus.sh"
 RUN test -L "${ZEUSHOME}/zxtm/conf"
 
 COPY --from=base /etc/group /etc/
