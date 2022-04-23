@@ -40,6 +40,9 @@
 #~app-containers/podman-3.4.2				 **
 #~app-containers/podman-3.4.3				 **
 #~app-containers/podman-3.4.4				 **
+#~app-containers/podman-3.4.5				 **
+#~app-containers/podman-3.4.6				 **
+#~app-containers/podman-3.4.7				 **
 # podman-4.0.0 applies breaking changes to the podman state database
 #~app-containers/podman-4.0.0_rc1			 **
 #~app-containers/podman-4.0.0_rc2			 **
@@ -85,6 +88,7 @@
 #~app-containers/buildah-1.23.1-r1			 **
 #~app-containers/buildah-1.23.2				 **
 #~app-containers/buildah-1.23.3				 **
+#~app-containers/buildah-1.23.4				 **
 #~app-containers/buildah-1.24.0				 **
 #~app-containers/buildah-1.24.1				 **
 #~app-containers/buildah-1.24.2				 **
@@ -99,6 +103,10 @@
 #~net-misc/cni-plugins-1.0.1				 **
 ~net-misc/cni-plugins-1.1.0				 **
 ~net-misc/cni-plugins-1.1.1				 **
+
+~app-containers/netavark-1.0.2				 **
+
+~app-containers/aardvark-dns-1.0.2			 **
 
 # move app-emulation/crun app-containers/crun
 #~app-containers/crun-0.14.1				 **
@@ -147,6 +155,7 @@
 #~app-containers/containers-storage-1.31.1		 **
 #~app-containers/containers-storage-1.31.2		 **
 #~app-containers/containers-storage-1.31.3		 **
+#~app-containers/containers-storage-1.31.4		 **
 #~app-containers/containers-storage-1.32.0		 **
 #~app-containers/containers-storage-1.32.1		 **
 #~app-containers/containers-storage-1.32.2		 **
@@ -159,7 +168,12 @@
 #~app-containers/containers-storage-1.35.0		 **
 #~app-containers/containers-storage-1.36.0		 **
 #~app-containers/containers-storage-1.36.1		 **
+# ~app-containers/containers-storage-1.36.2 was never released...
+#~app-containers/containers-storage-1.36.3		 **
+#~app-containers/containers-storage-1.36.4		 **
 #~app-containers/containers-storage-1.37.0		 **
+#~app-containers/containers-storage-1.37.1		 **
+#~app-containers/containers-storage-1.37.2		 **
 #~app-containers/containers-storage-1.38.0		 **
 #~app-containers/containers-storage-1.38.1		 **
 #~app-containers/containers-storage-1.38.2		 **
