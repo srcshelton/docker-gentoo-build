@@ -23,6 +23,8 @@
 #app-arch/libarchive			 BSD-4 public-domain
 #sys-apps/util-linux			 BSD-4 public-domain
 app-arch/bzip2				 BZIP2
+app-containers/aardvark-dns		 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Unlicense ZLIB
+app-containers/netavark			 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boost-1.0 Unlicense ZLIB
 app-crypt/libb2				 CC0-1.0
 dev-python/certifi			 CC0-1.0 MPL-2.0
 dev-util/gtk-doc-am			 FDL-1.1
