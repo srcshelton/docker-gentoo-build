@@ -2,6 +2,12 @@
 
 set -eu
 
+# Are we really POSIX sh?  If not, this might still work...
+if set -o | grep -q -- 'pipefail'; then
+	# shellcheck disable=SC3040
+	set -o pipefail
+fi
+
 trace=${TRACE:-}
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
@@ -239,6 +245,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 							readline|nls|static-libs|zstd)
 								continue ;;
 						esac
+						# shellcheck disable=SC2030
 						USE="${USE:+${USE} }${flag}"
 					done
 					break
@@ -366,7 +373,10 @@ if [ "${update:-0}" = '1' ]; then
 			# shellcheck disable=SC1091
 			. ./common/vars.sh
 		fi
-		gcc_use="${use_essential_gcc/ graphite / -graphite }"
+		gcc_use="$(
+			echo " ${use_essential_gcc} " |
+				sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
+		)"
 	else
 		gcc_use="$(
 			sed 's/#.*$//' /etc/portage/package.use/package.use |
@@ -379,22 +389,27 @@ if [ "${update:-0}" = '1' ]; then
 		)"
 	fi
 	# shellcheck disable=SC2046
-	USE="-lib-only -natspec pkg-config ${gcc_use}" \
-	./gentoo-build-pkg.docker \
-				--buildpkg=y \
-				--emptytree \
-				--usepkg=y \
-				--with-bdeps=y \
-			$(
-				for pkg in /var/db/pkg/*/*; do
-					pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
-					if echo "${pkg}" | grep -Eq '^container/|/pkgconfig-|/-MERGING-'; then
-						continue
-					fi
-					echo ">=${pkg}"
-				done
-			) --name 'buildpkg.hostpkgs.update' 2>&1 |
-		tee log/buildpkg.hostpkgs.update.log
+	(
+		# shellcheck disable=SC2030,SC2031
+		export USE="-lib-only -natspec pkg-config ${gcc_use}"
+		{
+			./gentoo-build-pkg.docker \
+						--buildpkg=y \
+						--emptytree \
+						--usepkg=y \
+						--with-bdeps=y \
+					$(
+						for pkg in /var/db/pkg/*/*; do
+							pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
+							if echo "${pkg}" | grep -Eq '^container/|/pkgconfig-|/-MERGING-'; then
+								continue
+							fi
+							echo ">=${pkg}"
+						done
+					) --name 'buildpkg.hostpkgs.update' 2>&1 ||
+				exit ${?}
+		} | tee log/buildpkg.hostpkgs.update.log
+	)
 	: $(( rc = rc + ${?} ))
 
 	trap '' INT
@@ -418,14 +433,19 @@ if [ "${update:-0}" = '1' ]; then
 				uniq
 			)"
 		fi
-		USE="${gcc_use}" \
-		./gentoo-build-pkg.docker \
-				--buildpkg=y \
-				--usepkg=y \
-				--with-bdeps=y \
-				--name 'buildpkg.hostpkgs.gcc.update' \
-			sys-devel/gcc 2>&1 |
-		tee log/buildpkg.hostpkgs.gcc.update.log
+		(
+			# shellcheck disable=SC2031
+			export USE="${gcc_use}"
+			{
+				./gentoo-build-pkg.docker \
+							--buildpkg=y \
+							--usepkg=y \
+							--with-bdeps=y \
+							--name 'buildpkg.hostpkgs.gcc.update' \
+						sys-devel/gcc 2>&1 ||
+					exit ${?}
+			} | tee log/buildpkg.hostpkgs.gcc.update.log
+		)
 		: $(( rc = rc + ${?} ))
 
 		trap '' INT
@@ -446,30 +466,30 @@ if [ "${system:-0}" = '1' ]; then
 	fi
 
 	emerge \
-			--binpkg-respect-use=y \
-			--color=n \
-			--deep \
-			--newuse \
-			--pretend \
-			--tree \
-			--update \
-			--usepkg=y \
-			--verbose-conflicts \
-			--verbose=y \
-			--with-bdeps=n \
-		@world |
-	grep -E '^\[binary\s+U[[:space:]~]+\]\s+' |
-	cut -d']' -f 2- |
-	sed 's/^\s\+// ; s/^/=/' |
-	cut -d' ' -f 1 |
-	xargs -r emerge \
-			--binpkg-respect-use=y \
-			--tree \
-			--usepkg=y \
-			--verbose-conflicts \
-			--verbose=y \
-			--with-bdeps=n \
-			${pretend:+'--pretend'}
+				--binpkg-respect-use=y \
+				--color=n \
+				--deep \
+				--newuse \
+				--pretend \
+				--tree \
+				--update \
+				--usepkg=y \
+				--verbose-conflicts \
+				--verbose=y \
+				--with-bdeps=n \
+			@world |
+		grep -E '^\[binary\s+U[[:space:]~]+\]\s+' |
+		cut -d']' -f 2- |
+		sed 's/^\s\+// ; s/^/=/' |
+		cut -d' ' -f 1 |
+		xargs -r emerge \
+					--binpkg-respect-use=y \
+					--tree \
+					--usepkg=y \
+					--verbose-conflicts \
+					--verbose=y \
+					--with-bdeps=n \
+					${pretend:+'--pretend'}
 	: $(( rc = rc + ${?} ))
 fi
 
