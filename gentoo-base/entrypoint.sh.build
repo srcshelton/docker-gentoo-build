@@ -853,6 +853,11 @@ case "${1:-}" in
 		done
 
 		echo
+
+		if echo " ${*} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
+			warn "Adding post-package entry 'net-misc/curl' due to presence of app-containers/netavark ..."
+			post_pkgs="${post_pkgs:+${post_pkgs} }net-misc/curl"
+		fi
 		if [ -z "${post_pkgs:-}" ]; then
 			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages ..."
 		else
@@ -924,8 +929,12 @@ case "${1:-}" in
 						(
 						if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
 							warn "Activating sys-devel/gcc work-arounds ..."
-							gcc_use="${use_essential_gcc/ graphite / -graphite }"
-							USE="${USE:+${USE//lib-only} }-lib-only nls ${gcc_use}"
+							gcc_use="$( echo " ${use_essential_gcc} " | sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//' )"
+							USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / -lib-only / ; s/^ //' )"}nls ${gcc_use}"
+						fi
+						if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
+							warn "Activating app-containers/netavark work-arounds ..."
+							USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
 						fi
 						# shellcheck disable=SC2016
 						print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
@@ -949,13 +958,17 @@ case "${1:-}" in
 			#
 			if [ -n "${first:-}" ] && echo " ${EMERGE_OPTS} " | grep -Eq -- ' --swap(-build)? '; then
 					echo
-					echo " * Building first package '${arg}' of '${*}' ..."
+					echo " * Building first package '${first}' of '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' ..."
 					echo
 					(
 					if echo " ${first} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
-							warn "Activating sys-devel/gcc work-arounds ..."
-							gcc_use="${use_essential_gcc/ graphite / -graphite }"
-							USE="${USE:+${USE//lib-only} }-lib-only nls ${gcc_use}"
+						warn "Activating sys-devel/gcc work-arounds ..."
+						gcc_use="$( echo " ${use_essential_gcc} " | sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//' )"
+						USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / -lib-only / ; s/^ //' )"}nls ${gcc_use}"
+					fi
+					if echo " ${first} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
+						warn "Activating app-containers/netavark work-arounds ..."
+						USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
 					fi
 					# shellcheck disable=SC2016
 					print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${flags:+${flags} }${first}'${USE:+ with USE='${USE}'}"
@@ -978,9 +991,13 @@ case "${1:-}" in
 			# same time (and potentially in parallel)
 			#
 			if echo " ${*} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
-					warn "Activating sys-devel/gcc work-arounds ..."
-					gcc_use="${use_essential_gcc/ graphite / -graphite }"
-					USE="${USE:+${USE//lib-only} }-lib-only nls ${gcc_use}"
+				warn "Activating sys-devel/gcc work-arounds ..."
+				gcc_use="$( echo " ${use_essential_gcc} " | sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//' )"
+				USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / -lib-only / ; s/^ //' )"}nls ${gcc_use}"
+			fi
+			if echo " ${*} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
+				warn "Activating app-containers/netavark work-arounds ..."
+				USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
 			fi
 			# shellcheck disable=SC2016
 			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${*}'${USE:+ with USE='${USE}'}"
@@ -1079,8 +1096,12 @@ case "${1:-}" in
 							#
 							if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
 								warn "Activating sys-devel/gcc work-arounds ..."
-								gcc_use="${use_essential_gcc/ graphite / -graphite }"
-								USE="${USE:+${USE//lib-only} }-lib-only nls ${gcc_use}"
+								gcc_use="$( echo " ${use_essential_gcc} " | sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//' )"
+								USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / -lib-only / ; s/^ //' )"}nls ${gcc_use}"
+							fi
+							if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
+								warn "Activating app-containers/netavark work-arounds ..."
+								USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
 							fi
 							# shellcheck disable=SC2016
 							print "Running build-dependencies 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
@@ -1112,14 +1133,18 @@ case "${1:-}" in
 							;;
 					esac
 				done
-			else
+			else # [ -z "${EMERGE_OPTS:-}" ] || ! echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-rebuild)? '; then
 				(
 				# Reinstall package first to maximise dependency re-use...
 				#
 				if echo " ${rebuild} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
-						warn "Activating sys-devel/gcc work-arounds ..."
-						gcc_use="${use_essential_gcc/ graphite / -graphite }"
-						USE="${USE:+${USE//lib-only} }-lib-only nls ${gcc_use}"
+					warn "Activating sys-devel/gcc work-arounds ..."
+					gcc_use="$( echo " ${use_essential_gcc} " | sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//' )"
+					USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / -lib-only / ; s/^ //' )"}nls ${gcc_use}"
+				fi
+				if echo " ${rebuild} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
+					warn "Activating app-containers/netavark work-arounds ..."
+					USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
 				fi
 				# shellcheck disable=SC2016
 				print "Running build-dependencies 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y ${rebuild}'${USE:+ with USE='${USE}'}"
@@ -1162,11 +1187,11 @@ fi
 
 #do_prelink
 
-find /var/db/pkg/ -type d -mindepth 2 -maxdepth 2 -print |
+find /var/db/pkg/ -mindepth 2 -maxdepth 2 -type d -print |
 	sed 's|^.*/var/db/pkg/||' > /builddeps.txt
 
 if [ -n "${ROOT:-}" ] && [ "${ROOT:-}" != '/' ]; then
-	find "${ROOT}/var/db/pkg/" -type d -mindepth 2 -maxdepth 2 -print |
+	find "${ROOT}/var/db/pkg/" -mindepth 2 -maxdepth 2 -type d -print |
 		sed 's|^.*/var/db/pkg/||' > "${ROOT:-}"/builddeps.txt
 fi
 
