@@ -742,6 +742,7 @@ docker_run() {
 			mirrormountpoints=(
 				#/var/cache/portage/dist
 				"${default_distdir_path:-$( portageq distdir )}"
+				'/etc/portage/savedconfig'
 				'/var/log/portage'
 			)
 
