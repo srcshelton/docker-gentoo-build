@@ -53,6 +53,7 @@
 #~app-containers/podman-4.0.1				 **
 ~app-containers/podman-4.0.2				 **
 ~app-containers/podman-4.0.3				 **
+#~app-containers/podman-4.1.0_rc1			 **
 
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				 **
@@ -127,8 +128,9 @@
 #~app-containers/crun-1.4				 **
 #~app-containers/crun-1.4.1				 **
 #~app-containers/crun-1.4.2				 **
-~app-containers/crun-1.4.3				 **
+#~app-containers/crun-1.4.3				 **
 ~app-containers/crun-1.4.4				 **
+~app-containers/crun-1.4.5				 **
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -177,8 +179,9 @@
 #~app-containers/containers-storage-1.38.0		 **
 #~app-containers/containers-storage-1.38.1		 **
 #~app-containers/containers-storage-1.38.2		 **
-~app-containers/containers-storage-1.38.3		 **
+#~app-containers/containers-storage-1.38.3		 **
 ~app-containers/containers-storage-1.39.0		 **
+~app-containers/containers-storage-1.40.0		 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
@@ -205,9 +208,11 @@
 #~app-containers/slirp4netns-1.1.8			 **
 #~app-containers/slirp4netns-1.1.9			 **
 #~app-containers/slirp4netns-1.1.10			 **
-~app-containers/slirp4netns-1.1.11			 **
+#~app-containers/slirp4netns-1.1.11			 **
 ~app-containers/slirp4netns-1.1.12			 **
 #~app-containers/slirp4netns-1.2.0_beta0		 **
+#~app-containers/slirp4netns-1.2.0_rc0			 **
+~app-containers/slirp4netns-1.2.0			 **
 #~net-libs/libslirp-4.3.1				 **
 
 # originally required by app-emulation/podman-1.9.3[fuse]
