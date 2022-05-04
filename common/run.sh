@@ -590,6 +590,9 @@ docker_run() {
 	# PTRACE capability is required to build glibc (but as-of podman-2.0.0
 	# it is not permissible to specify capabilities with '--privileged')
 	#
+	# Update: As-of podman-4.1.0, it is now possible to use '--privileged' and
+	# add a capability in the same invocation!
+	#
 	# FIXME: Add -tty regardless of DOCKER_INTERACTIVE, so that the
 	# container can access details of the host terminal size
 	# *HOWEVER* this removes the ability to use ctrl+c to interrupt, so
@@ -600,6 +603,7 @@ docker_run() {
 	#
 	# We're now running under bash, so can use arrays to make this so much
 	# nicer!
+	#
 	local -a runargs=()
 	# shellcheck disable=SC2207
 	runargs=(
