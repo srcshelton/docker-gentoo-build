@@ -279,59 +279,65 @@ if [ "${pkgcache:-0}" = '1' ]; then
 		USE="-* ${use}"
 		export USE
 
-		USE="-* ${use} nls readline static-libs zstd" \
-		./gentoo-build-pkg.docker 2>&1 \
-					--buildpkg=y \
-					--name 'buildpkg.cache' \
-					--usepkg=y \
-					--with-bdeps=n \
-				virtual/libc \
-				app-editors/vim \
-				dev-libs/libxml2 \
-				sys-apps/gawk \
-				sys-devel/bc \
-				sys-devel/gcc \
-				sys-libs/libxcrypt |
-			tee log/buildpkg.cache.log
+		rc=0
 
-		USE="-* ${use} static-libs" \
-		./gentoo-build-pkg.docker 2>&1 \
-					--buildpkg=y \
-					--name 'buildpkg.cache' \
-					--usepkg=y \
-					--with-bdeps=n \
-				virtual/libc \
-				app-arch/bzip2 \
-				app-arch/xz-utils \
-				dev-lang/python \
-				dev-libs/libsodium \
-				dev-perl/List-MoreUtils \
-				sys-apps/baselayout \
-				sys-apps/busybox \
-				sys-apps/portage \
-				sys-kernel/gentoo-sources |
-			tee -a log/buildpkg.cache.log
+		{
+			USE="-* ${use} nls readline static-libs zstd" \
+			./gentoo-build-pkg.docker 2>&1 \
+						--buildpkg=y \
+						--name 'buildpkg.cache' \
+						--usepkg=y \
+						--with-bdeps=n \
+					virtual/libc \
+					app-editors/vim \
+					dev-libs/libxml2 \
+					sys-apps/gawk \
+					sys-devel/bc \
+					sys-devel/gcc \
+					sys-libs/libxcrypt ||
+				: $(( rc = rc + 1 ))
 
-		USE="-* ${use} nls" \
-		./gentoo-build-pkg.docker 2>&1 \
-					--buildpkg=y \
-					--name 'buildpkg.cache' \
-					--usepkg=y \
-					--with-bdeps=n \
-				virtual/libc \
-				app-arch/cpio \
-				dev-libs/elfutils |
-			tee -a log/buildpkg.cache.log
+			USE="-* ${use} static-libs" \
+			./gentoo-build-pkg.docker 2>&1 \
+						--buildpkg=y \
+						--name 'buildpkg.cache' \
+						--usepkg=y \
+						--with-bdeps=n \
+					virtual/libc \
+					app-arch/bzip2 \
+					app-arch/xz-utils \
+					dev-lang/python \
+					dev-libs/libsodium \
+					dev-perl/List-MoreUtils \
+					sys-apps/baselayout \
+					sys-apps/busybox \
+					sys-apps/portage \
+					sys-kernel/gentoo-sources ||
+				: $(( rc = rc + 1 ))
 
-		USE="-* pam tools" \
-		./gentoo-build-pkg.docker 2>&1 \
-					--buildpkg=y \
-					--name 'buildpkg.cache' \
-					--usepkg=y \
-					--with-bdeps=n \
-				virtual/libc \
-				sys-libs/libcap |
-			tee -a log/buildpkg.cache.log
+			USE="-* ${use} nls" \
+			./gentoo-build-pkg.docker 2>&1 \
+						--buildpkg=y \
+						--name 'buildpkg.cache' \
+						--usepkg=y \
+						--with-bdeps=n \
+					virtual/libc \
+					app-arch/cpio \
+					dev-libs/elfutils ||
+				: $(( rc = rc + 1 ))
+
+			USE="-* pam tools" \
+			./gentoo-build-pkg.docker 2>&1 \
+						--buildpkg=y \
+						--name 'buildpkg.cache' \
+						--usepkg=y \
+						--with-bdeps=n \
+					virtual/libc \
+					sys-libs/libcap ||
+				: $(( rc = rc + 1 ))
+		} | tee log/buildpkg.cache.log
+
+		[ $(( rc )) -eq 0 ] || exit ${rc}
 	)
 	: $(( rc = rc + ${?} ))
 fi
@@ -465,31 +471,38 @@ if [ "${system:-0}" = '1' ]; then
 		pretend=''
 	fi
 
-	emerge \
-				--binpkg-respect-use=y \
-				--color=n \
-				--deep \
-				--newuse \
-				--pretend \
-				--tree \
-				--update \
-				--usepkg=y \
-				--verbose-conflicts \
-				--verbose=y \
-				--with-bdeps=n \
-			@world |
-		grep -E '^\[binary\s+U[[:space:]~]+\]\s+' |
-		cut -d']' -f 2- |
-		sed 's/^\s\+// ; s/^/=/' |
-		cut -d' ' -f 1 |
-		xargs -r emerge \
+	if output="$(
+		emerge \
+					--binpkg-changed-deps=y \
 					--binpkg-respect-use=y \
+					--color=n \
+					--deep \
+					--newuse \
+					--pretend \
 					--tree \
+					--update \
 					--usepkg=y \
 					--verbose-conflicts \
 					--verbose=y \
 					--with-bdeps=n \
-					${pretend:+'--pretend'}
+				@world
+	)"; then
+		echo "${output}" |
+			grep -E '^\[binary\s+U[[:space:]~]+\]\s+' |
+			cut -d']' -f 2- |
+			sed 's/^\s\+// ; s/^/=/' |
+			cut -d' ' -f 1 |
+			xargs -r emerge \
+						--binpkg-changed-deps=y \
+						--binpkg-respect-use=y \
+						--oneshot \
+						--tree \
+						--usepkg=y \
+						--verbose-conflicts \
+						--verbose=y \
+						--with-bdeps=n \
+						${pretend:+'--pretend'}
+	fi
 	: $(( rc = rc + ${?} ))
 fi
 
