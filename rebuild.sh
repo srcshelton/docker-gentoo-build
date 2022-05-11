@@ -52,6 +52,7 @@ rebuild=0
 rebuildutils=0
 skip=0
 system=0
+tools=1
 update=0
 case " ${*:-} " in
 	*' -h '*|*' --help '*)
@@ -59,7 +60,7 @@ case " ${*:-} " in
 		if [ -d "${basedir}/docker-dell" ]; then
 			printf >&2 '[--rebuild-utilities] '
 		fi
-		echo >&2 "[--rebuild-images [--skip-build] [--force] [--all]] [--init-pkg-cache] [--update-pkgs] [--update-system [--pretend]]"
+		echo >&2 "[--rebuild-images [--skip-build] [--no-tools] [--force] [--all]] [--init-pkg-cache] [--update-pkgs] [--update-system [--pretend]]"
 		echo >&2
 		echo >&2 "       kernel build options: kbuild_opt='${kbuild_opt}'"
 		exit 0
@@ -83,6 +84,9 @@ for arg in ${@+"${@}"}; do
 			;;
 		--skip-build)
 			skip=1
+			;;
+		--no-tools)
+			tools=0
 			;;
 		--update-pkgs)
 			update=1
@@ -182,13 +186,16 @@ if [ "${rebuild:-0}" = '1' ]; then
 		if ! [ $(( force )) -eq 0 ]; then
 			forceflag='--force'
 		fi
-		selection='--installed'
+		selection='--services installed'
+		if ! [ $(( tools )) -eq 0 ]; then
+			selection="${selection} tools"
+		fi
 		if ! [ $(( all )) -eq 0 ]; then
-			selection='--all'
+			selection='--services all'
 		fi
 		./gentoo-build-svc.docker \
 				${forceflag:+${forceflag} --rebuild} \
-				"${selection}" ||
+				${selection} ||
 			: $(( rc = rc + ${?} ))
 		if [ -x gentoo-web/gentoo-build-web.docker ]; then
 			./gentoo-web/gentoo-build-web.docker \
