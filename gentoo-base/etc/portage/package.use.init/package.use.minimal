@@ -32,6 +32,7 @@ sys-apps/util-linux			-pam -su  # conflicts sys-apps/shadow[su]
 #sys-auth/pambase			-passwdqc  pwquality  # Has many dependencies, python ones are fragile...
 sys-auth/pambase			 passwdqc -pwquality
 sys-apps/texinfo			 standalone
+sys-libs/glibc				 clone3
 sys-libs/ncurses			 unicode
 
 # required by sys-apps/busybox-1.31.1-r3[static]

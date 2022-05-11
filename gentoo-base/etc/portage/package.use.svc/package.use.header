@@ -20,3 +20,4 @@
 
 dev-lang/python-exec			 native-symlinks
 dev-util/pkgconf			 pkg-config
+sys-libs/glibc				 clone3
