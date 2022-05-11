@@ -51,9 +51,11 @@
 #~app-containers/podman-4.0.0_rc5			 **
 #~app-containers/podman-4.0.0				 **
 #~app-containers/podman-4.0.1				 **
-~app-containers/podman-4.0.2				 **
+#~app-containers/podman-4.0.2				 **
 ~app-containers/podman-4.0.3				 **
 #~app-containers/podman-4.1.0_rc1			 **
+#~app-containers/podman-4.1.0_rc2			 **
+~app-containers/podman-4.1.0				 **
 
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				 **
@@ -94,8 +96,10 @@
 #~app-containers/buildah-1.24.1				 **
 #~app-containers/buildah-1.24.2				 **
 #~app-containers/buildah-1.24.3				 **
-~app-containers/buildah-1.25.0				 **
+#~app-containers/buildah-1.25.0				 **
 ~app-containers/buildah-1.25.1				 **
+#~app-containers/buildah-1.26.0				 **
+~app-containers/buildah-1.26.1				 **
 
 #~net-misc/cni-plugins-0.8.7				 **
 #~net-misc/cni-plugins-0.9.0				 **
@@ -105,9 +109,14 @@
 ~net-misc/cni-plugins-1.1.0				 **
 ~net-misc/cni-plugins-1.1.1				 **
 
+# rust build dependencies for netavark/aardvark-dns
+=dev-util/cargo-ebuild-0.5.1				~amd64
+
 ~app-containers/netavark-1.0.2				 **
+~app-containers/netavark-1.0.3				 **
 
 ~app-containers/aardvark-dns-1.0.2			 **
+~app-containers/aardvark-dns-1.0.3			 **
 
 # move app-emulation/crun app-containers/crun
 #~app-containers/crun-0.14.1				 **
@@ -180,8 +189,10 @@
 #~app-containers/containers-storage-1.38.1		 **
 #~app-containers/containers-storage-1.38.2		 **
 #~app-containers/containers-storage-1.38.3		 **
-~app-containers/containers-storage-1.39.0		 **
-~app-containers/containers-storage-1.40.0		 **
+#~app-containers/containers-storage-1.39.0		 **
+#~app-containers/containers-storage-1.40.0		 **
+~app-containers/containers-storage-1.40.1		 **
+~app-containers/containers-storage-1.40.2		 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
@@ -245,7 +256,8 @@
 #~app-containers/skopeo-1.5.2				 **
 #~app-containers/skopeo-1.6.0				 **
 #~app-containers/skopeo-1.6.1				 **
-~app-containers/skopeo-1.6.2				 **
+#~app-containers/skopeo-1.6.2				 **
 ~app-containers/skopeo-1.7.0				 **
+~app-containers/skopeo-1.8.0				 **
 
 # vi: set syntax=gentoo-package-keywords:
