@@ -11,7 +11,7 @@
 */*					-introspection icu idn inotify iodbc ipv6 ithreads
 */*					-java javascript jemalloc json
 */*					-kerberos
-*/*					-ldap -lua libatomic libedit libffi libidn2 libwww lighttpd lz4 lzma lzo
+*/*					-libedit -ldap -lua libatomic libffi libidn2 libwww lighttpd lz4 lzma lzo
 */*					 mariadb mbox mdev memcached mmap mpfr mysql mysqli
 */*					 ncurses network nfs nls nntp nptl
 */*					 odbc openmp openssl
@@ -76,7 +76,7 @@ dev-java/icedtea			-*
 dev-java/oracle-jdk-bin			-X -javafx headless-awt jce
 dev-java/sun-jdk			 jce
 dev-lang/luajit				 lua52compat
-dev-lang/php				-ldap-sasl -readline bcmath calendar cgi ctype curlwrappers exif flatfile fpm hash iconv imap inifile intl mhash mysqlnd pcntl pdo posix session simplexml soap sockets sqlite2 sqlite3 sysvipc tidy tokenizer truetype wddx xmlreader xmlrpc xmlwriter xslt zip
+dev-lang/php				-ldap-sasl bcmath calendar cgi ctype curlwrappers exif flatfile fpm hash iconv imap inifile intl mhash mysqlnd pcntl pdo posix session simplexml soap sockets sqlite2 sqlite3 sysvipc tidy tokenizer truetype wddx xmlreader xmlrpc xmlwriter xslt zip # -readline
 dev-lang/python-exec			 native-symlinks
 dev-lang/ruby				-jemalloc jit  # Fails to compile with jemalloc support
 dev-libs/cyrus-sasl			 srp
@@ -88,8 +88,8 @@ dev-libs/leveldb			-snappy
 dev-libs/libmemcached			 hsieh
 #dev-libs/libnatspec			-python  # Requires dev-lang/tcl, but only as a DEPEND
 dev-libs/libnl				 utils
-dev-libs/libpcre			-readline
-dev-libs/libpcre2			-readline
+#dev-libs/libpcre			-readline
+#dev-libs/libpcre2			-readline
 dev-libs/libsecp256k1			 endomorphism  # ecdh experimental
 dev-libs/libxml2			 test
 dev-libs/oniguruma			 combination-explosion-check crnl-as-line-terminator
@@ -151,7 +151,7 @@ net-dns/bind				-geoip -idn -mysql -odbc dnstap filter-aaaa lmdb nslint rpz
 net-dns/bind-tools			-gssapi -idn pkcs11
 net-dns/unbound				 dnscrypt dnstap ecs
 net-firewall/iptables			-extensions -imq -l7filter conntrack netlink nftables pcap xlate
-net-firewall/nftables			-readline xtables
+net-firewall/nftables			 xtables # -readline
 net-fs/cifs-utils			-acl -ads -caps caps-ng creds upcall
 net-fs/nfs-utils			 junction nfsdcld nfsidmap nfsv41
 net-fs/samba				-avahi async automount ldb libclamav oav quota quotas smbsharemodes smbtav2 swat winbind
@@ -210,7 +210,7 @@ sys-auth/pam_mobile_otp			 manager
 sys-block/parted			 device-mapper
 sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
 sys-cluster/galera			 garbd
-sys-devel/bc				-libedit
+#sys-devel/bc				-libedit
 sys-devel/clang				 default-compiler-rt default-libcxx default-lld llvm-libunwind system-cxx-headers
 sys-devel/clang-runtime			 compiler-rt libcxx
 #sys-devel/gcc				 go mudflap
