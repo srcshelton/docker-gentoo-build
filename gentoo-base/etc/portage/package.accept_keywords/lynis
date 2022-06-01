@@ -5,6 +5,7 @@
 #~app-forensics/lynis-3.0.3-r2				~amd64 ~arm ~arm64 ~x86
 #~app-forensics/lynis-3.0.4				~amd64 ~arm ~arm64 ~x86
 #~app-forensics/lynis-3.0.6				~amd64 ~arm ~arm64 ~x86
-~app-forensics/lynis-3.0.7				~amd64 ~arm ~arm64 ~x86
+#~app-forensics/lynis-3.0.7				~amd64 ~arm ~arm64 ~x86
+~app-forensics/lynis-3.0.8				~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:
