@@ -1,6 +1,6 @@
 # USE flag adjustments for more minimal host deployment
 
-*/*					 PYTHON_TARGETS: -* python3_9
+*/*					 PYTHON_TARGETS: -* python3_10
 
 # bzip2 natspec unicode
 app-arch/unzip				-* bzip2 unicode

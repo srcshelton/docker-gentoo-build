@@ -3,23 +3,23 @@
 #*/*					-* asm ipv6 ithreads mdev nptl threads tls-heartbeat zlib ${use_cpu_flags}  # from 'use_essential'
 */*					-*
 
-*/*					 PYTHON_TARGETS: -* python3_9
-*/*					 PYTHON_SINGLE_TARGET: -* python3_9
+*/*					 PYTHON_TARGETS: -* python3_10
+*/*					 PYTHON_SINGLE_TARGET: -* python3_10
 #
 # For some reason, despite the identical base-images, some hosts need this?!
 #
 # (I suspect there is a difference caused by the presence or absence of binary
 #  packages...)
-#=dev-python/setuptools-50.3.0		 PYTHON_TARGETS: -* python3_8 python3_9
-#=dev-python/certifi-10001-r1		 PYTHON_TARGETS: -* python3_8 python3_9
-#=dev-python/setuptools_scm-4.1.2-r1	 PYTHON_TARGETS: -* python3_8 python3_9
+#=dev-python/setuptools-50.3.0		 PYTHON_TARGETS: -* python3_9 python3_10
+#=dev-python/certifi-10001-r1		 PYTHON_TARGETS: -* python3_9 python3_10
+#=dev-python/setuptools_scm-4.1.2-r1	 PYTHON_TARGETS: -* python3_9 python3_10
 
 app-arch/libarchive			-lz4 acl bzip2 e2fsprogs expat iconv lzma lzo nettle threads xattr zlib zstd
 app-arch/tar				 xattr
 app-arch/xz-utils			 extra-filters nls static-libs threads
 dev-lang/perl				 ithreads
-dev-lang/python				 ssl xml
 dev-lang/python-exec			 native-symlinks
+dev-lang/python				 ssl xml
 dev-util/pkgconf			 pkg-config
 sys-apps/busybox			 mdev static
 sys-apps/grep				 pcre
@@ -28,10 +28,10 @@ sys-apps/kmod				 tools
 sys-apps/portage			-rsync-verify
 #sys-apps/shadow			-pam  cracklib  # Python dependencies are fragile...
 sys-apps/shadow				-cracklib -su -pam  # conflicts sys-apps/util-linux[su]
+sys-apps/texinfo			 standalone
 sys-apps/util-linux			-pam -su  # conflicts sys-apps/shadow[su]
 #sys-auth/pambase			-passwdqc  pwquality  # Has many dependencies, python ones are fragile...
 sys-auth/pambase			 passwdqc -pwquality
-sys-apps/texinfo			 standalone
 sys-libs/glibc				 clone3
 sys-libs/ncurses			 unicode
 

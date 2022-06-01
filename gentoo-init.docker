@@ -35,7 +35,7 @@ if [[ -n "${python_target_override:-}" ]]; then
 	[[ "${python_target_override}" =~ ^python[[:digit:]]_[[:digit:]]+$ ]] ||
 		die "python_target_override value '${python_target_override}'" \
 			"doesn't appear to be a valid python version" \
-			"(matching 'pythonX_Y', e.g. 'python3_9')"
+			"(matching 'pythonX_Y', e.g. 'python3_10')"
 fi
 
 declare -i NOTIFY_MKDIR=0

@@ -262,6 +262,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 		if [ -z "${USE:-}" ]; then
 			# shellcheck disable=SC1091
 			. ./common/vars.sh
+			python_single_target="${python_default_target%% *}"
 			use="
 				${use_essential_gcc}
 				acl
@@ -271,8 +272,8 @@ if [ "${pkgcache:-0}" = '1' ]; then
 				jit
 				lzma
 				python
-				  python_single_target_${python_default_target:-python3_9}
-				  python_targets_${python_default_target:-python3_9}
+				  python_single_target_${python_single_target:-python3_10}
+				  python_targets_${python_default_target:-python3_10}
 				ssl symlink
 				xml
 			"

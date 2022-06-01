@@ -10,10 +10,8 @@
 
 */*					 LUA_SINGLE_TARGET: luajit
 */*					 LUA_TARGETS: luajit
-*/*					 PYTHON_SINGLE_TARGET: python3_9
-*/*					 PYTHON_TARGETS: python3_9
-#*/*					 PYTHON_SINGLE_TARGET: python3_10
-#*/*					 PYTHON_TARGETS: python3_10
+*/*					 PYTHON_SINGLE_TARGET: python3_10
+*/*					 PYTHON_TARGETS: python3_10
 */*					 PHP_TARGETS: php7-4
 #*/*					 PHP_TARGETS: php8-0
 */*					 CURL_SSL: openssl
