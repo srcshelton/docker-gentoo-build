@@ -135,6 +135,9 @@ dev-vcs/subversion			 Subversion FSFAP unicode
 
 # required by service mail-filter/opendkim
 mail-filter/opendkim			 Sendmail-Open-Source
+app-text/ghostscript-gpl	     	 AGPL-3 CPL-1.0
+media-libs/jbig2dec			 AGPL-3
+media-libs/tiff				 libtiff
 #net-dns/dnssec-root			 public-domain
 
 # required by service mail-filter/spamassassin
