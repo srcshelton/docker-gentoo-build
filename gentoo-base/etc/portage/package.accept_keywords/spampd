@@ -2,4 +2,12 @@
 # perl updates break stable spampd
 =mail-filter/spampd-2.42				~amd64 ~arm ~arm64 ~x86
 
+# Only remaining version is masked :(
+=dev-perl/Crypt-OpenSSL-ECDSA-0.100.0			~amd64 ~arm ~arm64 ~x86
+
+# required by dev-perl/MaxMind-DB-Reader-1.0.14
+# required by dev-perl/GeoIP2
+=dev-perl/Data-Printer-1.0.4				~amd64 ~arm ~arm64 ~x86
+=dev-perl/MooX-StrictConstructor-0.11.0			~amd64 ~arm ~arm64 ~x86
+
 # vi: set syntax=gentoo-package-keywords:
