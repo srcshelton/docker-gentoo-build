@@ -297,7 +297,6 @@ if [ "${pkgcache:-0}" = '1' ]; then
 						--usepkg=y \
 						--with-bdeps=n \
 					virtual/libc \
-					app-editors/vim \
 					dev-libs/libxml2 \
 					sys-apps/gawk \
 					sys-devel/bc \
@@ -329,8 +328,12 @@ if [ "${pkgcache:-0}" = '1' ]; then
 						--name 'buildpkg.cache' \
 						--usepkg=y \
 						--with-bdeps=n \
+						--with-pkg-use='sys-apps/net-tools hostname' \
+						--with-pkg-use='sys-apps/coreutils -hostname' \
 					virtual/libc \
 					app-arch/cpio \
+					app-editors/vim-core \
+					app-editors/vim \
 					dev-libs/elfutils ||
 				: $(( rc = rc + 1 ))
 

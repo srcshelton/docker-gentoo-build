@@ -213,7 +213,7 @@ fi
 # shellcheck disable=SC2015,SC1091
 [ -s /usr/libexec/environment.sh ] &&
 	. /usr/libexec/environment.sh ||
-		die "FATAL: gentoo-build:entrypoint.sh Unable to source '/usr/libexec/environment.sh': ${?}"
+		die "gentoo-build:entrypoint.sh Unable to source '/usr/libexec/environment.sh': ${?}"
 
 if command -v env-update >/dev/null 2>&1; then
 	LC_ALL='C' env-update
@@ -274,12 +274,12 @@ COLLISION_IGNORE="${COLLISION_IGNORE:-/lib/modules/*}
 "
 export COLLISION_IGNORE
 
-TUSE=''
+TUSE='' pkg_use_pkg='' pkg_use_use=''
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
 post_pkgs='' post_use='' post_remove=''
 rebuild=''
-change_sysroot=0 no_use=0 rc=0
+change_sysroot=0 pkg_use=0 no_use=0 rc=0
 for arg in "${@}"; do
 	#print "Read argument '${arg}'"
 	shift
@@ -334,6 +334,19 @@ for arg in "${@}"; do
 			TUSE="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
 			continue
 			;;
+		--with-pkg-use=*)
+			pkg_use=1
+			pkg_use_use="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			pkg_use_pkg="$( echo "${pkg_use_use:-}" | cut -d' ' -f 1 )"
+			pkg_use_use="$( echo "${pkg_use_use:-}" | cut -d' ' -f 2- )"
+			if [ -z "${pkg_use_pkg:-}" ] || [ -z "${pkg_use_use:-}" ]; then
+				die "Unable to extract package and USE flags from '${arg}'"
+			fi
+			mkdir -p /etc/portage/package.use
+			printf '%s %s\n' "${pkg_use_pkg}" "${pkg_use_use}" >> "/etc/portage/package.use/$( echo "${pkg_use_pkg}" | cut -d'/' -f 2- )"
+			unset pkg_use_pkg pkg_use_use
+			continue
+			;;
 		*)
 			set -- "${@}" "${arg}"
 			;;
@@ -357,10 +370,13 @@ if [ -e /etc/portage/repos.conf.host ]; then
 	cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf || die "Can't copy host repos.conf: ${?}"
 fi
 
-if [ ${no_use} -eq 1 ]; then
+if [ $(( no_use )) -ne 0 ]; then
 	# My suspicion is that package.use contents are interfering with
 	# environment USE flags...
 	if [ -e /etc/portage/package.use ]; then
+		if [ $(( pkg_use )) -ne 0 ]; then
+			warn "'--with-pkg-use' option will be overridden by '--no-package-use'"
+		fi
 		echo
 		warn "Removing default '/etc/portage/package.use' settings"
 		mv /etc/portage/package.use /etc/portage/package.use.disabled
@@ -551,6 +567,60 @@ fi
 if [ -n "${force_python:-}" ]; then
 	pre_pkgs="${pre_pkgs:+${pre_pkgs} }dev-lang/python:$( echo "${force_python}" | sed 's/^python// ; s/_/./' )"
 fi
+# Now that we have a patched app-portage/elt-patches which respects ROOT
+# directory settings, this package should no longer need a specific pre-build
+# step (although the code can remain present but commented until this is proven
+# unequivocably):
+#
+#if
+#	echo " ${pre_pkgs:-} ${*:-} ${post_pkgs:-} " |
+#		grep -Pq -- ' ([=<>!~][=!]?)?(sys-devel/)?gcc(-[0-9.r-]+)?[*]?(:(?:[*]|[0-9.]*)=?)? '
+#then
+#	(
+#		pre_pkgs_pkgs='>=app-portage/elt-patches-20170815'
+#		echo
+#		echo " * Building required pre-installation packages '${pre_pkgs_pkgs}' ..."
+#
+#		for ROOT in '/' '/service'; do
+#			export ROOT
+#			export FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
+#			export LC_ALL='C'
+#
+#			info="$( emerge --info --verbose )"
+#			echo
+#			echo 'Resolved build variables for pre-installation packages:'
+#			echo '------------------------------------------------------'
+#			echo
+#			echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
+#			echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+#			echo "${info}" | format 'FEATURES'
+#			echo "${info}" | format 'USE'
+#			unset info
+#
+#			# shellcheck disable=SC2086
+#			if ! emerge \
+#					--ignore-default-opts \
+#					  ${parallel} \
+#					--binpkg-changed-deps=y \
+#					--binpkg-respect-use=y \
+#					--buildpkg=y \
+#					--color=y \
+#					--keep-going=y \
+#					--quiet-build=y \
+#					  ${opts:-} \
+#					--usepkg=y \
+#					--verbose=y \
+#					--verbose-conflicts \
+#					--with-bdeps=n \
+#					--with-bdeps-auto=n \
+#				${pre_pkgs_pkgs}
+#			then
+#				savefailed
+#				exit 1
+#			fi
+#		done
+#	)
+#fi
 if [ -n "${pre_pkgs:-}" ]; then
 	echo
 	echo " * Building specified pre-installation packages '${pre_pkgs}' ..."
@@ -567,8 +637,9 @@ if [ -n "${pre_pkgs:-}" ]; then
 		fi
 		if
 			echo " ${pre_pkgs} " |
-				grep -P -- ' ([=<>!~][=!]?)?(sys-devel/)?gcc(-[0-9.r-]+)?[*]?(:(?:[*]|[0-9.]*)=?)? '
+				grep -Pq -- ' ([=<>!~][=!]?)?(sys-devel/)?gcc(-[0-9.r-]+)?[*]?(:(?:[*]|[0-9.]*)=?)? '
 		then
+			# shellcheck disable=SC2154
 			USE="${USE:+${USE} }${use_essential_gcc}"
 		fi
 		export USE
