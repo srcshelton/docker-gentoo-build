@@ -1,85 +1,46 @@
 #! /usr/bin/env bash
 
-if [[ -z "${NO_MEMORY_LIMITS:-}" ]]; then
-	# Tiny
-	#: "${PODMAN_MEMORY_RESERVATION:=256m}"
-	#: "${PODMAN_MEMORY_LIMIT:=512m}"
-	#: "${PODMAN_SWAP_LIMIT:=1g}"
-	# Small
-	#: "${PODMAN_MEMORY_RESERVATION:=512m}"
-	#: "${PODMAN_MEMORY_LIMIT:=1g}"
-	#: "${PODMAN_SWAP_LIMIT:=2g}"
-	# Medium
-	#: "${PODMAN_MEMORY_RESERVATION:=1g}"
-	#: "${PODMAN_MEMORY_LIMIT:=2g}"
-	#: "${PODMAN_SWAP_LIMIT:=4g}"
-	# Large
-	: "${PODMAN_MEMORY_RESERVATION:=2g}"
-	: "${PODMAN_MEMORY_LIMIT:=4g}"
-	: "${PODMAN_SWAP_LIMIT:=8g}"
-	# Extra-Large
-	#: "${PODMAN_MEMORY_RESERVATION:=4g}"
-	#: "${PODMAN_MEMORY_LIMIT:=8g}"
-	#: "${PODMAN_SWAP_LIMIT:=16g}"
-
-	declare -i swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) + 16 ) / 1024 / 1024 ))
-	declare -i ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
-	declare -i changed=0
-	if (( ram < ${PODMAN_MEMORY_LIMIT%g} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
-		echo >&2 "INFO:  Host resources (rounded down to nearest 1GiB):"
-		echo >&2 "         RAM:        ${ram}G"
-		echo >&2 "         Swap:       ${swp}G"
-		echo >&2 "INFO:  Original memory limits:"
-		echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
-		echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
-		echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
-	fi
-	if (( ram < ${PODMAN_MEMORY_LIMIT%g} )); then
-		PODMAN_MEMORY_RESERVATION="$(( ram - 1 ))g"
-		PODMAN_MEMORY_LIMIT="$(( ram ))g"
-		PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
-		changed=1
-	fi
-	if (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
-		PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
-		changed=1
-	fi
-	if (( changed )); then
-		echo >&2 "NOTE:  Changed memory limits based on host configuration:"
-		echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
-		echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
-		echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
-		echo >&2
-	fi
-	unset changed ram swp
-fi
-
-#debug="${DEBUG:-}"
-trace="${TRACE:-}"
-
 set -eu
+set -o pipefail
+
+# shellcheck disable=SC2034
+declare debug="${DEBUG:-}"
+declare trace="${TRACE:-}"
 
 [ -n "${trace:-}" ] && set -o xtrace
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
-build_name=''
+# Set by common/vars.sh
+declare build_name=''
 
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
 
-IMAGE="${build_name}:latest"
+export IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh >/dev/null
+
+export mount=''
 
 # Provide a '--name' to prevent the container being removed on exit.
 
 # Useful use-cases:
-#for s in $( podman image ls | grep '^localhost.*service' | cut -d'/' -f 2- | sed 's/\s\+/:/g' | cut -d':' -f 1-2 ); do ./inspect.docker --remove --image "${s}" 'ls -d /var/db/pkg/*/*systemd* /var/db/pkg/*/*udev*'; done
+#for s in $(
+#	podman image ls |
+#		grep '^localhost.*service' |
+#		cut -d'/' -f 2- |
+#		sed 's/\s\+/:/g' |
+#		cut -d':' -f 1-2
+#); do
+#	./inspect.docker --remove --image "${s}" \
+#		'ls -d /var/db/pkg/*/*systemd* /var/db/pkg/*/*udev*'
+#done
 
 if [ -n "${*:-}" ]; then
 	if echo " ${*} " | grep -Eq -- ' -(h|-help) '; then
-		output >&2 "Usage: $( basename "${0}" ) --image=<image> [--name=<name>] [--remove] [commands]"
+		output >&2 "Usage: $( basename "${0}" ) --image=<image>" \
+			"[--name=<name>] [--remove] [--mount=<...>] [commands]"
 		exit 0
 	fi
 fi
@@ -94,12 +55,15 @@ fi
 docker_parse() {
 	local arg=''
 
-	for arg in "${@}"; do
+	for arg in "${@:-}"; do
 		if [ "${name}" = '<next>' ]; then
 			export name="${arg}"
 
 		elif [ "${image}" = '<next>' ]; then
 			export image="${arg}"
+
+		elif [ "${mount}" = '<next>' ]; then
+			export mount="${arg}"
 
 		elif echo "${arg}" | grep -Eq -- '^-(n|-name)(=[a-z0-9]+([._-]{1,2}[a-z0-9]+)*)?$'; then
 			if echo "${arg}" | grep -Fq -- '=' ; then
@@ -117,6 +81,14 @@ docker_parse() {
 				image='<next>'
 			fi
 
+		elif echo "${arg}" | grep -Eq -- '^-(m|-mount)(=)?(:.*)?$'; then
+			if echo "${arg}" | grep -Fq -- '=' ; then
+				mount="$( echo "${arg}" | cut -d'=' -f 2- )"
+				export mount
+			else
+				mount='<next>'
+			fi
+
 		elif echo "${arg}" | grep -Eq -- '^-(r|-rm|-remove)$'; then
 			rm=1
 
@@ -127,18 +99,18 @@ docker_parse() {
 	done
 	if [ "${name}" = '<next>' ]; then
 		export name=''
-	else
-		:
 	fi
 	if [ "${image}" = '<next>' ]; then
 		export image=''
-	else
-		:
+	fi
+	if [ "${mount}" = '<next>' ]; then
+		export mount=''
 	fi
 
 	unset arg
-} # docker_parse
+}  # docker_parse
 
+# shellcheck disable=SC2120
 docker_run() {
 	local -a mirrormountpoints=()
 	local -a mirrormountpointsro=()
@@ -154,8 +126,18 @@ docker_run() {
 	#${arr[@]+"${arr[@]}"}
 	(( 0 == ${#args[@]} )) && args=( 'sh' )
 
+	# shellcheck disable=SC2207
 	runargs=(
-		$( [[ "$( uname -s )" != 'Darwin' ]] && (( $( nproc ) > 1 )) && $docker info 2>&1 | grep -q -- 'cpuset' && echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))" || : )
+		$(
+			if
+				[[ "$( uname -s )" != 'Darwin' ]] &&
+					(( $( nproc ) > 1 )) &&
+					$docker info 2>&1 |
+						grep -q -- 'cpuset'
+			then
+				echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))"
+			fi
+		)
 		--init
 		--name "${name}"
 		--privileged
@@ -199,7 +181,7 @@ docker_run() {
 		default_pkgdir_path="${PKGDIR_OVERRIDE}"
 	fi
 
-	# shellcheck disable=SC2046,SC2207
+	# shellcheck disable=SC2046,SC2206,SC2207
 	mirrormountpointsro=(
 		# We need write access to be able to update eclasses...
 		#/etc/portage/repos.conf
@@ -282,6 +264,13 @@ docker_run() {
 		sleep 5
 	fi
 
+	runargs+=( --mount 'type=tmpfs,destination=/run,ro=false,tmpfs-size=10M,tmpfs-mode=0755' )
+
+	if [[ -n "${mount:-}" ]]; then
+		print "Adding command line mount option '--mount ${mount}' ..."
+		runargs+=( --mount "${mount}" )
+	fi
+
 	unset src mp
 
 	if [ -n "${DOCKER_VERBOSE:-}" ]; then
@@ -354,44 +343,97 @@ docker_run() {
 
 	# shellcheck disable=SC2086
 	return ${runrc}
-} # docker_run
+}  # docker_run
 
 docker_trap() {
 	trap '' INT
 	podman ${@+"${@}"}
 	trap - INT
-} # docker-trap
+}  # docker-trap
 
-if command -v podman >/dev/null 2>&1; then
-	docker='podman'
-	docker_readonly='ro=true'
-	#extra_build_args='--format docker'
-fi
+main() {
+	if [[ -z "${NO_MEMORY_LIMITS:-}" ]]; then
+		# Tiny
+		#: "${PODMAN_MEMORY_RESERVATION:=256m}"
+		#: "${PODMAN_MEMORY_LIMIT:=512m}"
+		#: "${PODMAN_SWAP_LIMIT:=1g}"
+		# Small
+		#: "${PODMAN_MEMORY_RESERVATION:=512m}"
+		#: "${PODMAN_MEMORY_LIMIT:=1g}"
+		#: "${PODMAN_SWAP_LIMIT:=2g}"
+		# Medium
+		#: "${PODMAN_MEMORY_RESERVATION:=1g}"
+		#: "${PODMAN_MEMORY_LIMIT:=2g}"
+		#: "${PODMAN_SWAP_LIMIT:=4g}"
+		# Large
+		: "${PODMAN_MEMORY_RESERVATION:=2g}"
+		: "${PODMAN_MEMORY_LIMIT:=4g}"
+		: "${PODMAN_SWAP_LIMIT:=8g}"
+		# Extra-Large
+		#: "${PODMAN_MEMORY_RESERVATION:=4g}"
+		#: "${PODMAN_MEMORY_LIMIT:=8g}"
+		#: "${PODMAN_SWAP_LIMIT:=16g}"
 
-rm=''
+		local -i swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) + 16 ) / 1024 / 1024 ))
+		local -i ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
+		local -i changed=0
+		if (( ram < ${PODMAN_MEMORY_LIMIT%g} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
+			echo >&2 "INFO:  Host resources (rounded down to nearest 1GiB):"
+			echo >&2 "         RAM:        ${ram}G"
+			echo >&2 "         Swap:       ${swp}G"
+			echo >&2 "INFO:  Original memory limits:"
+			echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
+			echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
+			echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
+		fi
+		if (( ram < ${PODMAN_MEMORY_LIMIT%g} )); then
+			PODMAN_MEMORY_RESERVATION="$(( ram - 1 ))g"
+			PODMAN_MEMORY_LIMIT="$(( ram ))g"
+			PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+			changed=1
+		fi
+		if (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
+			PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+			changed=1
+		fi
+		if (( changed )); then
+			echo >&2 "NOTE:  Changed memory limits based on host configuration:"
+			echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
+			echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
+			echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
+			echo >&2
+		fi
+		unset changed ram swp
+	fi
 
-docker_setup
-docker_parse ${@+"${@}"}
+	declare rm=''
 
-image="${image:-${IMAGE}}"
-# shellcheck disable=SC2001 # POSIX sh compatibility
-name="${name:-$( echo "${image}" | sed 's|[:/]|_|g' )-inspect}"
+	docker_setup
+	docker_parse ${@+"${@}"}
 
-if [ -n "${rm:-}" ]; then
-	docker_trap rm --volumes "${name}" 2>/dev/null || :
-fi
+	image="${image:-${IMAGE}}"
+	# shellcheck disable=SC2001 # POSIX sh compatibility
+	name="${name:-$( echo "${image}" | sed 's|[:/]|_|g' )-inspect}"
 
-rc=0
+	if [ -n "${rm:-}" ]; then
+		docker_trap rm --volumes "${name}" 2>/dev/null || :
+	fi
 
-output >&2 "Launching container '${name}' from image '${image}' ..."
+	local -i rc=0
 
-#set -o xtrace
-docker_run || rc=${?}
+	output >&2 "Launching container '${name}' from image '${image}' ..."
 
-#if [ -n "${rm:-}" ]; then
-#	docker_trap rm --volumes "${name}"
-#fi
+	#set -o xtrace
+	docker_run || rc=${?}
 
-exit ${rc}
+	#if [ -n "${rm:-}" ]; then
+	#	docker_trap rm --volumes "${name}"
+	#fi
 
-# vi: set syntax=sh:
+	return ${rc}
+}  # main
+
+main "${@:-}"
+exit ${?}
+
+# vi: set colorcolumn=80 foldmarker=()\ {,}\ \ #\  foldmethod=marker syntax=bash:
