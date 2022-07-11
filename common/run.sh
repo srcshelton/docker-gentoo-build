@@ -47,12 +47,12 @@ output() {
 	else
 		echo -e "${*:-}"
 	fi
-} # output
+}  # output
 
 die() {
 	output >&2 "FATAL: ${*:-Unknown error}"
 	exit 1
-} # die
+}  # die
 
 error() {
 	if [ -z "${*:-}" ]; then
@@ -61,7 +61,7 @@ error() {
 		output >&2 "ERROR: ${*}"
 	fi
 	return 1
-} # error
+}  # error
 
 warn() {
 	if [ -z "${*:-}" ]; then
@@ -69,7 +69,7 @@ warn() {
 	else
 		output >&2 "WARN:  ${*}"
 	fi
-} # warn
+}  # warn
 
 note() {
 	if [ -z "${*:-}" ]; then
@@ -77,7 +77,7 @@ note() {
 	else
 		output >&2 "NOTE:  ${*}"
 	fi
-} # note
+}  # note
 
 info() {
 	if [ -z "${*:-}" ]; then
@@ -85,7 +85,7 @@ info() {
 	else
 		output "INFO:  ${*}"
 	fi
-} # info
+}  # info
 
 print() {
 	if [ -n "${DEBUG:-}" ]; then
@@ -99,7 +99,7 @@ print() {
 	#else
 	#	return 1
 	fi
-} # print
+}  # print
 
 export -f output die error warn note info print
 
@@ -108,7 +108,7 @@ export -f output die error warn note info print
 if [[ "$( uname -s )" == 'Darwin' ]]; then
 	readlink() {
 		perl -MCwd=abs_path -le 'print abs_path readlink(shift);' "${2}"
-	}
+	}  # readlink
 fi
 
 # Mostly no longer needed, with Dockerfile.env ...
@@ -174,7 +174,7 @@ docker_setup() {
 	esac
 
 	return 0
-} # docker_setup
+}  # docker_setup
 
 # Sets image, name, package, extra, and args based on arguments
 #
@@ -261,7 +261,7 @@ docker_parse() {
 	unset dp_arg
 
 	return 0
-} # docker_parse
+}  # docker_parse
 
 # Validates package and sets container
 #
@@ -299,7 +299,7 @@ docker_resolve() {
 				echo -n "${result}"
 
 				return "${rc}"
-			}
+			}  # versionsort
 			export -f versionsort
 
 			equery() {
@@ -322,7 +322,7 @@ docker_resolve() {
 				echo "${result}"
 
 				return "${rc}"
-			}
+			}  # equery
 			export -f equery
 		else
 			# Before we have that (and to make building a container for those
@@ -337,7 +337,7 @@ docker_resolve() {
 					xargs -n 1 |
 					sed 's/^.*[a-z]-\([0-9].*\)$/\1/' |
 					sort -V
-			}
+			}  # versionsort
 			export -f versionsort
 			equery() {
 				local -a args=()
@@ -407,8 +407,7 @@ docker_resolve() {
 							"${cat}/${eb%.ebuild}:${slot}"
 					done
 				done
-
-			}
+			}  # equery
 			export -f equery
 		fi
 	fi
@@ -494,7 +493,7 @@ docker_resolve() {
 	unset dr_package
 
 	return 0
-} # docker_resolve
+}  # docker_resolve
 
 docker_image_exists() {
 	image="${1:-${package}}"
@@ -529,7 +528,7 @@ docker_image_exists() {
 		awk '{ print $3 }'
 
 	return 0
-} # docker_image_exists
+}  # docker_image_exists
 
 # Launches container
 #
@@ -921,7 +920,7 @@ docker_run() {
 
 	# shellcheck disable=SC2086
 	return ${rc}
-} # docker_run
+}  # docker_run
 
 # Invokes container launch with package-build arguments
 #
@@ -935,7 +934,7 @@ docker_build_pkg() {
 	docker_run "=${package}${repo:+::${repo}}" ${extra[@]+"${extra[@]}"} ${args[@]+"${args[@]}"}
 
 	return ${?}
-} # docker_build_pkg
+}  # docker_build_pkg
 
 # Garbage collect
 #
@@ -970,7 +969,7 @@ docker_prune() {
 	trap - INT
 
 	return 0
-} # docker_prune
+}  # docker_prune
 
 # Default entrypoint
 #
@@ -986,7 +985,7 @@ docker_build() {
 	#docker_prune
 
 	return ${?}
-} # docker_build
+}  # docker_build
 
 if ! echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	if [ -n "${IMAGE:-}" ]; then
@@ -1011,4 +1010,4 @@ else
 fi
 export docker docker_readonly  # extra_build_args
 
-# vi: set syntax=bash nowrap:
+# vi: set colorcolumn=80 foldmarker=()\ {,}\ \ #\  foldmethod=marker syntax=bash nowrap:
