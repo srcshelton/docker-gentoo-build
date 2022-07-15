@@ -14,6 +14,63 @@
 #=dev-python/certifi-10001-r1		 PYTHON_TARGETS: -* python3_9 python3_10
 #=dev-python/setuptools_scm-4.1.2-r1	 PYTHON_TARGETS: -* python3_9 python3_10
 
+# Maintian python3_9 support until stage3 Container Image has been upgraded:
+#
+# base packages:
+app-crypt/gpgme				 PYTHON_TARGETS: python3_9 python3_10
+app-portage/gemato			 PYTHON_TARGETS: python3_9 python3_10
+dev-lang/python-exec			 PYTHON_TARGETS: python3_9 python3_10
+dev-lang/python-exec-conf		 PYTHON_TARGETS: python3_9 python3_10
+dev-libs/libxml2			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/PySocks			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/appdirs			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/certifi			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/charset_normalizer		 PYTHON_TARGETS: python3_9 python3_10
+dev-python/flit_core			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/gpep517			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/idna				 PYTHON_TARGETS: python3_9 python3_10
+dev-python/importlib_metadata		 PYTHON_TARGETS: python3_9 python3_10
+dev-python/installer			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/jaraco-context		 PYTHON_TARGETS: python3_9 python3_10
+dev-python/jaraco-functools		 PYTHON_TARGETS: python3_9 python3_10
+dev-python/jaraco-text			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/jinja			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/markupsafe			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/more-itertools		 PYTHON_TARGETS: python3_9 python3_10
+dev-python/nspektr			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/ordered-set			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/packaging			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/pyparsing			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/requests			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/setuptools			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/setuptools_scm		 PYTHON_TARGETS: python3_9 python3_10
+dev-python/tomli			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/urllib3			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/wheel			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/zipp				 PYTHON_TARGETS: python3_9 python3_10
+dev-util/meson				 PYTHON_TARGETS: python3_9 python3_10
+dev-util/meson-format-array		 PYTHON_TARGETS: python3_9 python3_10
+sys-apps/file				 PYTHON_TARGETS: python3_9 python3_10
+sys-apps/kmod				 PYTHON_TARGETS: python3_9 python3_10
+sys-apps/portage			 PYTHON_TARGETS: python3_9 python3_10
+sys-apps/util-linux			 PYTHON_TARGETS: python3_9 python3_10
+sys-libs/libcap-ng			 PYTHON_TARGETS: python3_9 python3_10
+sys-libs/libseccomp			 PYTHON_TARGETS: python3_9 python3_10
+sys-process/audit			 PYTHON_TARGETS: python3_9 python3_10
+# base-build packages:
+sys-apps/portage			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/setuptools			 PYTHON_TARGETS: python3_9 python3_10
+dev-python/appdirs			 PYTHON_TARGETS: python3_9 python3_10
+dev-lang/python-exec			 PYTHON_TARGETS: python3_9 python3_10
+dev-lang/python-exec-conf		 PYTHON_TARGETS: python3_9 python3_10
+dev-libs/libxml2			 PYTHON_TARGETS: python3_9 python3_10
+sys-apps/file				 PYTHON_TARGETS: python3_9 python3_10
+sys-apps/kmod				 PYTHON_TARGETS: python3_9 python3_10
+sys-apps/portage			 PYTHON_TARGETS: python3_9 python3_10
+sys-apps/util-linux			 PYTHON_TARGETS: python3_9 python3_10
+sys-libs/libcap-ng			 PYTHON_TARGETS: python3_9 python3_10
+sys-process/audit			 PYTHON_TARGETS: python3_9 python3_10
+
 app-arch/libarchive			-lz4 acl bzip2 e2fsprogs expat iconv lzma lzo nettle threads xattr zlib zstd
 app-arch/tar				 xattr
 app-arch/xz-utils			 extra-filters nls static-libs threads
