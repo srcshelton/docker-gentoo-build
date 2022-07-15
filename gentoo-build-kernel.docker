@@ -10,9 +10,11 @@ set -o pipefail
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
+# Set by common/vars.sh, sourced below...
 declare build_name=''
 declare docker='docker'
 declare docker_readonly='ro=true'
+declare use_essential_gcc=''
 
 declare -ir build_space_reqiured=750
 declare -ir temp_space_required=2800
@@ -63,7 +65,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 		"[--no-keep-build|--keep-build[=<dir>]]" \
 		"[--no-patch|--patch=<url>[,<url]]" \
 		"[--menuconfig|--nconfig]" \
-		"[--package=<atom>]" \
+		"[--package=<atom>] [--clean]" \
 		"[--clang [--clean-lto] [--llvm-unwind]]"
 	)"
 	output "${usage}${options}" | fold -sw ${COLUMNS:-80} - | head -n 1 >&2
@@ -85,6 +87,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "                    (default: sys-kernel/gentoo-sources)"
 	output >&2 "       --clang       Compile kernel with llvm"
 	output >&2 "       --clean-lto   Remove exisitng *.lto.o objects"
+	output >&2 "       --clean       Run 'make clean' before build"
 	output >&2 "       --llvm-unwind Install LLVM edition of libunwind"
 	output >&2
 	output >&2 "Running on architecture '${arch:-${ARCH:-}}'"
@@ -106,6 +109,7 @@ declare nconfig=''
 declare version=''
 declare patch=''
 declare clean_lto=0
+declare clean=0
 
 if echo " ${*:-} " | grep -q -- ' --menuconfig '; then
 	menuconfig='menuconfig'  # Just has to be set...
@@ -114,6 +118,9 @@ fi
 if echo " ${*:-} " | grep -q -- ' --nconfig '; then
 	menuconfig=''
 	nconfig='nconfig'  # Just has to be set...
+fi
+if echo " ${*:-} " | grep -q -- ' --clean '; then
+	clean=1
 fi
 if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 	compiler='clang'
@@ -599,9 +606,9 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	env-update ;
 	test -s /etc/profile && . /etc/profile ;
 	if portageq has_version / sys-libs/llvm-libunwind; then
-		LDFLAGS_MODULE="-unwindlib=libunwind"
-		HOSTLDFLAGS="-unwindlib=libunwind"
-		export LDFLAGS_MODULE HOSTLDFLAGS
+		LDFLAGS_MODULE="-unwindlib=libunwind" ;
+		HOSTLDFLAGS="-unwindlib=libunwind" ;
+		export LDFLAGS_MODULE HOSTLDFLAGS ;
 	fi ;
 	kernel='bzImage' ;
 	dir='x86' ;
@@ -634,17 +641,31 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	mkdir -p ../build ;
 	[ "${clean_lto}" = '1' ] && find ../build/ -name '*.lto.o' -delete ;
 	if [ -n "${microcode_blob:-}" ]; then
-		echo
-		echo "Required microcode update files:"
-		echo
+		echo ;
+		echo "Required microcode update files:" ;
+		echo ;
 		if [ "${microcode_blob}" = 'intel' ]; then
-			iucode_tool -S -l /lib/firmware/intel-ucode/*
+			iucode_tool -S -l /lib/firmware/intel-ucode/* ;
 		else
-			echo "${microcode_blob}"
-		fi
-		echo
-		[ -f ../build/.config ] && [ -s ../build/.config ] && grep -Fm 1 'CONFIG_EXTRA_FIRMWARE' ../build/.config 2>/dev/null && echo
-	fi
+			echo "${microcode_blob}" ;
+			found=0 ;
+			for blob in ${microcode_blob}; do
+				if ! [ -e "/lib/firmware/\${blob}" ]; then
+					echo >&2 "ERROR: microcode firmware blob '\${blob}' not found" ;
+					found=1 ;
+				fi ;
+			done ;
+			if [ \$(( found )) -ne 0 ]; then
+				echo >&2 "FATAL: missing firmware" ;
+				exit 1 ;
+			fi ;
+		fi ;
+		echo ;
+		[ -f ../build/.config ] && [ -s ../build/.config ] && grep -Fm 1 'CONFIG_EXTRA_FIRMWARE' ../build/.config 2>/dev/null && echo ;
+	fi ;
+	if [ $(( clean )) -ne 0 ]; then
+		make ${kernel_make_opts[@]} clean ;
+	fi ;
 	echo "Configuration changes from '.config':" ;
 	make ${kernel_make_opts[@]} listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
 	success=0 ;
@@ -665,7 +686,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		else
 			echo >&2 "WARN:  'make -C tools/bootconfig' failed: \${?}" ;
 		fi ;
-	fi;
+	fi ;
 	if [ "\${success}" = '1' ]; then
 		set -x ;
 		cp ../build/.config /boot/config-${package_version}${distro:-} ;
