@@ -139,8 +139,12 @@ preuse="${PREUSE:-}"
 for arg in "${@:-}"; do
 	case "$( echo "${arg}" | sed -r 's/^[<>]?=?//' )" in
 		media-libs/freetype|freetype|media-libs/freetype-*|freetype-*)
-			prepkg="${prepkg:+${prepkg} }${arg}"
-			preuse="${preuse:+${preuse} }-harfbuzz"
+			prepkg="${prepkg:+${prepkg} }${arg} media-libs/harfbuzz"
+			preuse="${preuse:+${preuse} }-harfbuzz -truetype"
+			;;
+		media-libs/harfbuzz|harfbuzz|media-libs/harfbuzz-*|harfbuzz-*)
+			prepkg="${prepkg:+${prepkg} }${arg} media-libs/freetype"
+			preuse="${preuse:+${preuse} }-harfbuzz -truetype"
 			;;
 		#sys-libs/glibc|glibc|sys-libs/glibc-*|glibc-*)
 		#	prepkg="${prepkg:+${prepkg} }${arg}"
