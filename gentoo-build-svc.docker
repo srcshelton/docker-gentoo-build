@@ -9,9 +9,12 @@ build_name=''
 base_dir=''
 #use_essential=''
 use_essential_gcc=''
+python_default_target=''
 docker='docker'
 docker_readonly=''
+environment_file=''
 environment_filter=''
+
 red=''
 blue=''
 reset=''
@@ -876,7 +879,7 @@ case "${package_name}" in
 		;;
 	*.redis)
 		output "Setting build variables for package 'redis' ..."
-		pre_pkgs='sys-apps/help2man sys-devel/gcc'
+		pre_pkgs='sys-apps/help2man sys-devel/gcc acct-group/hugetlb acct-group/redis acct-user/redis'
 
 		ports='6379/tcp 26379/tcp'
 		user='redis'
@@ -1399,6 +1402,7 @@ $docker ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
 		image build \
 				--build-arg SET_TERM="${TERM}" \
 				  ${ZEUSHOME:+--build-arg ZEUSHOME="${ZEUSHOME}"} \
+				  ${environment_file:+--build-arg environment_file="${environment_file}"} \
 				--build-arg environment_filter="${environment_filter}" \
 				--build-arg image_name="${container_prefix}-${package_name}" \
 				--build-arg service_cmd="${container_cmd}" \
