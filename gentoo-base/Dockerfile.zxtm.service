@@ -16,6 +16,7 @@ ARG service_fs_name
 ARG timezone="GB"
 
 ARG ROOT="/service"
+ARG environment_file="/usr/libexec/environment.sh"
 ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
 
 #ARG smtp_smarthost="localhost"
@@ -56,29 +57,30 @@ FROM "${zxtm_image_name}:${zxtm_service_version}" AS zxtm
 FROM "localhost/${image_name}:${service_version}" AS base
 
 ARG ROOT
+ARG environment_file
 ARG environment_filter
 
 ARG ZEUSHOME
 
 
-RUN test -s /usr/libexec/environment.sh
+RUN test -s "${environment_file}"
 
 # linter ignore=SC2015,ER0001
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
     set -u ; \
     mkdir -p "${ROOT}"/usr/libexec && \
-    printf "#FILTER: '%s'\n\n" "${environment_filter}" > "${ROOT}"/usr/libexec/environment.sh && \
+    printf "#FILTER: '%s'\n\n" "${environment_filter}" > "${ROOT}${environment_file}" && \
     export -p | \
             grep -- '=' | \
             grep -Ev -- "${environment_filter}" | \
             sed -r 's/\s+/ /g ; s/^(export [a-z][a-z0-9_]+=")\s+/\1/i' | \
             grep -v -e '^export [a-z_]' -e '=""$' \
-        >> "${ROOT}"/usr/libexec/environment.sh && \
-    grep >&2 -- ' ROOT=' "${ROOT}"/usr/libexec/environment.sh && { \
-            printf >&2 "Invalid 'ROOT' directive in '%s/usr/libexec/environment.sh':\n\n%s\n\n" "${ROOT%/}" "$( < "${ROOT}"/usr/libexec/environment.sh )" ; \
+        >>"${ROOT}${environment_file}" && \
+    grep >&2 -- ' ROOT=' "${ROOT}${environment_file}" && { \
+            printf >&2 "Invalid 'ROOT' directive in '%s':\n\n%s\n\n" "${ROOT%/}${environment_file}" "$( <"${ROOT}${environment_file}" )" ; \
             exit 1 ; \
         } || :
-#RUN printf >&2 " * 'service' stage propagated environment:\n\n%s\n\n" "$( < "${ROOT}"/usr/libexec/environment.sh )"
+#RUN printf >&2 " * 'service' stage propagated environment:\n\n%s\n\n" "$( <"${ROOT}${environment_file}" )"
 
 # Ensure nothing from the base image screws up the ultimate combined image...
 RUN rm -rf "${ZEUSHOME}"
@@ -107,6 +109,7 @@ ARG zxtm_service_version
 ARG ZEUSHOME
 
 ARG ROOT
+ARG environment_file
 
 #ARG smtp_smarthost
 #ARG smtp_domain
@@ -122,7 +125,7 @@ ENV ZEUS_EULA="accept"
 # Copy the installed tree into the current image
 #
 COPY --from=base "${ROOT}" /
-RUN test -s /usr/libexec/environment.sh
+RUN test -s "${environment_file}"
 
 # Copy ZXTM/PS VTM into the current image
 COPY --from=zxtm /usr/local/zeus "${ZEUSHOME}/"
@@ -143,7 +146,7 @@ COPY --from=base "/usr/share/zoneinfo/${timezone}" /etc/localtime
 #COPY etc/msmtprc /etc/
 
 LABEL maintainer="stuart@shelton.me"
-LABEL Description="Pulse Secure/Ivanti ${service_name}-${service_version} service"
+LABEL description="Pulse Secure/Ivanti ${service_name}-${service_version} service"
 
 # Try to get nice colours ...
 #
@@ -204,8 +207,9 @@ RUN ln -s /proc/self/mounts /etc/mtab ; \
     ln -s var/global.cfg "${ZEUSHOME}"/admin/global.cfg && \
     ln -s var/website "${ZEUSHOME}"/admin/website ; \
     sed -i \
-        "/^zeushome=/ s|\"[^\"]*\"$|\"${ZEUSHOME}\"|" \
-        "${ZEUSHOME}/runzeus.sh"
+        -e "/^zeushome=/ s|\"[^\"]*\"$|\"${ZEUSHOME}\"|" \
+        -e "s|__ENVFILE__|${environment_file}|" \
+            "${ZEUSHOME}/runzeus.sh"
 
 # linter ignore=SC2174
 RUN for d in 'empty' 'log' 'run'; do \

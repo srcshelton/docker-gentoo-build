@@ -16,6 +16,7 @@ ARG service_fs_name
 ARG timezone="GB"
 
 ARG ROOT="/service"
+ARG environment_file="/usr/libexec/environment.sh"
 ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
 
 ARG smtp_smarthost="localhost"
@@ -29,27 +30,28 @@ ARG smtp_domain="localhost"
 FROM "localhost/${image_name}:${service_version}" AS base
 
 ARG ROOT
+ARG environment_file
 ARG environment_filter
 
 
-RUN test -s /usr/libexec/environment.sh
+RUN test -s "${environment_file}"
 
 # linter ignore=SC2015,ER0001
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
     set -u ; \
     mkdir -p "${ROOT}"/usr/libexec && \
-    printf "#FILTER: '%s'\n\n" "${environment_filter}" > "${ROOT}"/usr/libexec/environment.sh && \
+    printf "#FILTER: '%s'\n\n" "${environment_filter}" > "${ROOT}${environment_file}" && \
     export -p | \
             grep -- '=' | \
             grep -Ev -- "${environment_filter}" | \
             sed -r 's/\s+/ /g ; s/^(export [a-z][a-z0-9_]+=")\s+/\1/i' | \
             grep -v -e '^export [a-z_]' -e '=""$' \
-        >> "${ROOT}"/usr/libexec/environment.sh && \
-    grep >&2 -- ' ROOT=' "${ROOT}"/usr/libexec/environment.sh && { \
-            printf >&2 "Invalid 'ROOT' directive in '%s/usr/libexec/environment.sh':\n\n%s\n\n" "${ROOT%/}" "$( < "${ROOT}"/usr/libexec/environment.sh )" ; \
+        >>"${ROOT}${environment_file}" && \
+    grep >&2 -- ' ROOT=' "${ROOT}${environment_file}" && { \
+            printf >&2 "Invalid 'ROOT' directive in '%s':\n\n%s\n\n" "${ROOT%/}${environment_file}" "$( <"${ROOT}${environment_file}" )" ; \
             exit 1 ; \
         } || :
-#RUN printf >&2 " * 'service' stage propagated environment:\n\n%s\n\n" "$( < "${ROOT}"/usr/libexec/environment.sh )"
+#RUN printf >&2 " * 'service' stage propagated environment:\n\n%s\n\n" "$( <"${ROOT}${environment_file}" )"
 
 
 # -----------------------------------------------------------------------------
@@ -72,6 +74,7 @@ ARG service_fs_name
 ARG timezone="GB"
 
 ARG ROOT
+ARG environment_file
 
 ARG smtp_smarthost
 ARG smtp_domain
@@ -83,7 +86,7 @@ ENV fs_name="${service_fs_name}"
 # Copy the installed tree into the current image
 #
 COPY --from=base "${ROOT}" /
-RUN test -s /usr/libexec/environment.sh
+RUN test -s "${environment_file}"
 
 ENV ROOT="/"
 
@@ -101,7 +104,7 @@ COPY --from=base "/usr/share/zoneinfo/${timezone}" /etc/localtime
 COPY etc/msmtprc /etc/
 
 LABEL maintainer="stuart@shelton.me"
-LABEL Description="Gentoo ${service_name}-${service_version} service"
+LABEL description="Gentoo ${service_name}-${service_version} service"
 
 # Try to get nice colours ...
 #
@@ -125,9 +128,10 @@ RUN i="${image_name}:${service_version}" ; \
         fi ; \
     done ; \
     rm -r /etc/base ; \
-    sed -e "s/__SMTP_SMARTHOST__/${smtp_smarthost}/" \
+    sed -i \
+        -e "s/__SMTP_SMARTHOST__/${smtp_smarthost}/" \
         -e "s/__DOMAIN__/${smtp_domain}/" \
-        -i /etc/msmtprc
+            /etc/msmtprc
 
 # linter ignore=SC2174
 RUN for d in 'empty' 'log' 'run'; do \
@@ -146,6 +150,9 @@ COPY entrypoint.sh.service /usr/libexec/entrypoint.sh
 COPY entrypoint.d/ /usr/libexec/entrypoint.d/
 RUN test -s /usr/libexec/entrypoint.sh && \
     chmod 0755 /usr/libexec/entrypoint.sh && \
+    sed -i \
+        -e "s|__ENVFILE__|${environment_file}|" \
+            /usr/libexec/entrypoint.sh && \
     test -x /usr/libexec/entrypoint.sh ; \
     chmod 0755 /usr/libexec/entrypoint.d/*.sh || :
 

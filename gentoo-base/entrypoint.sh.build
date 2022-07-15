@@ -1,6 +1,8 @@
 #! /bin/sh
 # shellcheck disable=SC2030,SC2031
 
+# entrypoint.sh.build
+
 set -eu
 
 # shellcheck disable=SC2034
@@ -8,8 +10,9 @@ debug=${DEBUG:-}
 # shellcheck disable=SC2034
 trace=${TRACE:-}
 
-DEFAULT_JOBS='__JOBS__'
-DEFAULT_MAXLOAD='__MAXLOAD__'
+DEFAULT_JOBS="${DEFAULT_JOBS:-__JOBS__}"
+DEFAULT_MAXLOAD="${DEFAULT_MAXLOAD:-__MAXLOAD__}"
+environment_file="${environment_file:-__ENVFILE__}"
 
 die() {
 	printf >&2 'FATAL: %s\n' "${*:-Unknown error}"
@@ -210,10 +213,16 @@ fi
 
 [ -n "${trace:-}" ] && set -o xtrace
 
-# shellcheck disable=SC2015,SC1091
-[ -s /usr/libexec/environment.sh ] &&
-	. /usr/libexec/environment.sh ||
-		die "gentoo-build:entrypoint.sh Unable to source '/usr/libexec/environment.sh': ${?}"
+if set | grep -q -- '=__[A-Z]\+__$'; then
+	die "Unexpanded variable(s) in environment: $(
+		set | grep -- '=__[A-Z]\+__$' | cut -d'=' -f 1 | xargs -r
+	)"
+fi
+
+# shellcheck disable=SC2015,SC1091,SC1090
+[ -s "${environment_file}" ] &&
+	. "${environment_file}" ||
+		die "gentoo-build:entrypoint.sh Unable to source '${environment_file}': ${?}"
 
 if command -v env-update >/dev/null 2>&1; then
 	LC_ALL='C' env-update
@@ -731,7 +740,7 @@ fi
 (
 	export ROOT='/service'
 	export FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
-	export USE="-* lib-only make-symlinks openmp timezone-tools"
+	export USE="-* -lib-only make-symlinks openmp timezone-tools"
 	export LC_ALL='C'
 	export VERY_BRAVE_OR_VERY_DUMB='yes'  # for busybox
 
@@ -1000,12 +1009,20 @@ case "${1:-}" in
 						(
 						if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
 							warn "Activating sys-devel/gcc work-arounds ..."
+							print "Before work-around, USE is '${USE}' ..."
 							gcc_use="$( echo " ${use_essential_gcc} " | sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//' )"
-							USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / -lib-only / ; s/^ //' )"}nls ${gcc_use}"
+							USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / / ; s/^ //' )"}-lib-only nls ${gcc_use}"
+							USE="$( echo "${USE}" | xargs -rn 1 | sort | uniq | xargs -r )"
+							export USE
+							unset gcc_use
+							print "After work-around, USE is '${USE}'"
 						fi
 						if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
 							warn "Activating app-containers/netavark work-arounds ..."
+							print "Before work-around, USE is '${USE}' ..."
 							USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
+							export USE
+							print "After work-around, USE is '${USE}'"
 						fi
 						# shellcheck disable=SC2016
 						print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
@@ -1034,12 +1051,20 @@ case "${1:-}" in
 					(
 					if echo " ${first} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
 						warn "Activating sys-devel/gcc work-arounds ..."
+						print "Before work-around, USE is '${USE}' ..."
 						gcc_use="$( echo " ${use_essential_gcc} " | sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//' )"
-						USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / -lib-only / ; s/^ //' )"}nls ${gcc_use}"
+						USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / / ; s/^ //' )"}-lib-only nls ${gcc_use}"
+						USE="$( echo "${USE}" | xargs -rn 1 | sort | uniq | xargs -r )"
+						export USE
+						unset gcc_use
+						print "After work-around, USE is '${USE}'"
 					fi
 					if echo " ${first} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
 						warn "Activating app-containers/netavark work-arounds ..."
+						print "Before work-around, USE is '${USE}' ..."
 						USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
+						export USE
+						print "After work-around, USE is '${USE}'"
 					fi
 					# shellcheck disable=SC2016
 					print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${flags:+${flags} }${first}'${USE:+ with USE='${USE}'}"
@@ -1063,12 +1088,20 @@ case "${1:-}" in
 			#
 			if echo " ${*} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
 				warn "Activating sys-devel/gcc work-arounds ..."
+				print "Before work-around, USE is '${USE}' ..."
 				gcc_use="$( echo " ${use_essential_gcc} " | sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//' )"
-				USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / -lib-only / ; s/^ //' )"}nls ${gcc_use}"
+				USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / / ; s/^ //' )"}-lib-only nls ${gcc_use}"
+				USE="$( echo "${USE}" | xargs -rn 1 | sort | uniq | xargs -r )"
+				export USE
+				unset gcc_use
+				print "After work-around, USE is '${USE}'"
 			fi
 			if echo " ${*} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
 				warn "Activating app-containers/netavark work-arounds ..."
+				print "Before work-around, USE is '${USE}' ..."
 				USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
+				export USE
+				print "After work-around, USE is '${USE}'"
 			fi
 			# shellcheck disable=SC2016
 			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${*}'${USE:+ with USE='${USE}'}"
@@ -1167,12 +1200,20 @@ case "${1:-}" in
 							#
 							if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
 								warn "Activating sys-devel/gcc work-arounds ..."
+								print "Before work-around, USE is '${USE}' ..."
 								gcc_use="$( echo " ${use_essential_gcc} " | sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//' )"
-								USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / -lib-only / ; s/^ //' )"}nls ${gcc_use}"
+								USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / / ; s/^ //' )"}-lib-only nls ${gcc_use}"
+								USE="$( echo "${USE}" | xargs -rn 1 | sort | uniq | xargs -r )"
+								export USE
+								unset gcc_use
+								print "After work-around, USE is '${USE}'"
 							fi
 							if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
 								warn "Activating app-containers/netavark work-arounds ..."
+								print "Before work-around, USE is '${USE}' ..."
 								USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
+								export USE
+								print "After work-around, USE is '${USE}'"
 							fi
 							# shellcheck disable=SC2016
 							print "Running build-dependencies 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
@@ -1210,12 +1251,20 @@ case "${1:-}" in
 				#
 				if echo " ${rebuild} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
 					warn "Activating sys-devel/gcc work-arounds ..."
+					print "Before work-around, USE is '${USE}' ..."
 					gcc_use="$( echo " ${use_essential_gcc} " | sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//' )"
-					USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / -lib-only / ; s/^ //' )"}nls ${gcc_use}"
+					USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / / ; s/^ //' )"}-lib-only nls ${gcc_use}"
+					USE="$( echo "${USE}" | xargs -rn 1 | sort | uniq | xargs -r )"
+					export USE
+					unset gcc_use
+					print "After work-around, USE is '${USE}'"
 				fi
 				if echo " ${rebuild} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
 					warn "Activating app-containers/netavark work-arounds ..."
+					print "Before work-around, USE is '${USE}' ..."
 					USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
+					export USE
+					print "After work-around, USE is '${USE}'"
 				fi
 				# shellcheck disable=SC2016
 				print "Running build-dependencies 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y ${rebuild}'${USE:+ with USE='${USE}'}"

@@ -7,11 +7,14 @@
 
 ARG ARCH
 
-ARG stage3_image="docker.io/gentoo/stage3"
+ARG gentoo_stage3_image="docker.io/gentoo/stage3"
+ARG gentoo_stage3_id=""
 ARG stage3_name="localhost/gentoo-stage3"
-ARG stage3_id=""
 ARG entrypoint_sum=""
 
+ARG stage3_flags_file="/usr/libexec/stage3_flags.sh"
+
+ARG environment_file="/usr/libexec/environment.sh"
 ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
 
 
@@ -22,23 +25,22 @@ FROM "${stage3_name}:latest"
 
 ARG ARCH
 
-ARG stage3_image
-ARG stage3_id
+ARG gentoo_stage3_image
+ARG gentoo_stage3_id
 ARG entrypoint_sum
 
+ARG stage3_flags_file
+
+ARG environment_file
 ARG environment_filter
 
 
 LABEL maintainer="stuart@shelton.me"
-LABEL Description="Deploy gentoo base-image and build binary package(s) for named Portage atom"
-LABEL Notices="To build certain packages, such as sys-libs/glibc, this container must be started with '--cap-add SYS_PTRACE'"
+LABEL description="Deploy gentoo base-image and build binary package(s) for named Portage atom"
+LABEL notices="To build certain packages, such as sys-libs/glibc, this container must be started with '--cap-add SYS_PTRACE'"
 
-LABEL stage3_from="${stage3_image}:${stage3_id}"
-LABEL entrypoint_sum="${entrypoint_sum}"
-
-
-# Save initial environment ...
-#RUN emerge --info --verbose >/usr/libexec/stage3.info 2>/dev/null
+LABEL stage3-from="${gentoo_stage3_image}:${gentoo_stage3_id}"
+LABEL entrypoint-sum="${entrypoint_sum}"
 
 
 # Try to get nice colours ...
@@ -49,7 +51,7 @@ ENV TERM="${SET_TERM}"
 
 # Perform initial setup ...
 #
-RUN echo >&2 "Creating initial image from '${stage3_image}' for '${ARCH}' ..." ; \
+RUN echo >&2 "Creating initial image from '${gentoo_stage3_image}' for '${ARCH}' ..." ; \
     set -u ; \
     mkdir -p "${PKGDIR}" "${DISTDIR}" "${PORTAGE_LOGDIR}" "${PORTAGE_TMPDIR}" \
         "${RPMDIR}" && \
@@ -101,11 +103,13 @@ RUN test -s /usr/libexec/entrypoint.sh
 
 RUN set -u ; \
     sed -i \
-            -e "s|__JOBS__|${JOBS}|" \
-            -e "s|__MAXLOAD__|${MAXLOAD}|" \
-            -e "s|__PROFILE__|${GENTOO_PROFILE}|" \
-            -e "s:__ENVFILTER__:${environment_filter}:" \
-        /usr/libexec/entrypoint.sh && \
+        -e "s|__JOBS__|${JOBS}|" \
+        -e "s|__MAXLOAD__|${MAXLOAD}|" \
+        -e "s|__PROFILE__|${GENTOO_PROFILE}|" \
+        -e "s|__FLAGSFILE__|${stage3_flags_file}|" \
+        -e "s|__ENVFILE__|${environment_file}|" \
+        -e "s:__ENVFILTER__:${environment_filter}:" \
+            /usr/libexec/entrypoint.sh && \
     chmod 0755 /usr/libexec/entrypoint.sh && \
     sh -n /usr/libexec/entrypoint.sh
 

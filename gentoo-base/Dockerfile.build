@@ -8,6 +8,7 @@ ARG base_name="localhost/gentoo-base"
 ARG env_name="localhost/gentoo-env"
 ARG env_id=""
 
+ARG environment_file="/usr/libexec/environment.sh"
 ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
 
 ARG ROOT="/build"
@@ -23,8 +24,9 @@ ARG PORTAGE_CONFIGROOT="${SYSROOT}"
 FROM "${base_name}:latest" AS base
 
 ARG ROOT
+ARG environment_file
 
-RUN test -s "${ROOT}"/usr/libexec/environment.sh
+RUN test -s "${ROOT}${environment_file}"
 
 
 # -----------------------------------------------------------------------------
@@ -37,6 +39,7 @@ FROM "${env_name}:latest"
 ARG env_name
 ARG env_id
 
+ARG environment_file
 ARG environment_filter
 
 ARG ROOT
@@ -47,7 +50,7 @@ ARG PORTAGE_CONFIGROOT
 # Copy the portage tree into the current stage
 #
 COPY --from=base "${ROOT}" /
-RUN test -s /usr/libexec/environment.sh
+RUN test -s "${environment_file}"
 
 # The acct-* packages don't appear to account for situations when ROOT != /,
 # and so without this we have packages registered as installed, without the
@@ -61,12 +64,12 @@ RUN test -s /usr/libexec/environment.sh
 # doesn't exist):
 RUN rm -rf /var/db/pkg/acct-* /var/empty/.keep_acct-user_sshd-0
 
-#RUN printf >&2 " * 'build' stage imported environment:\n\n%s\n\n" "$( < /usr/libexec/environment.sh )"
+#RUN printf >&2 " * 'build' stage imported environment:\n\n%s\n\n" "$( <"${environment_file}" )"
 
 LABEL maintainer="stuart@shelton.me"
-LABEL Description="Gentoo base @system image"
+LABEL description="Gentoo base @system image"
 
-LABEL envrionment_from="${env_name}:${env_id}"
+LABEL environment-from="${env_name}:${env_id}"
 
 
 # Further clean-up to minimise image size ...
@@ -75,10 +78,10 @@ LABEL envrionment_from="${env_name}:${env_id}"
 # exec-form...
 # linter ignore=SC2015,SC1091,ER0001
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
-    test -s /usr/libexec/environment.sh && \
-        . /usr/libexec/environment.sh || \
+    test -s "${environment_file}" && \
+        . "${environment_file}" || \
         { \
-            echo >&2 "FATAL: Unable to source '/usr/libexec/environment.sh': ${?}" ; \
+            echo >&2 "FATAL: Unable to source '${environment_file}': ${?}" ; \
             exit 1 ; \
         } ; \
     set -u ; \
@@ -117,10 +120,10 @@ ENV PORTAGE_CONFIGROOT="${SYSROOT}"
 #
 # linter ignore=SC2015,SC1091,ER0001
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
-    test -s /usr/libexec/environment.sh && \
-        . /usr/libexec/environment.sh || \
+    test -s "${environment_file}" && \
+        . "${environment_file}" || \
         { \
-            echo >&2 "FATAL: Unable to source '/usr/libexec/environment.sh': ${?}" ; \
+            echo >&2 "FATAL: Unable to source '${environment_file}': ${?}" ; \
             exit 1 ; \
         } ; \
     gcc-config 1 2>/dev/null ; \
@@ -130,18 +133,18 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
     else \
         locale-gen -k -u ; \
     fi ; \
-    printf "#FILTER: '%s'\n\n" "${environment_filter}" > /usr/libexec/environment.sh && \
+    printf "#FILTER: '%s'\n\n" "${environment_filter}" >"${environment_file}" && \
     export -p | \
             grep -- '=' | \
             grep -Ev -- "${environment_filter}" | \
             sed -r 's/\s+/ /g ; s/^(export [a-z][a-z0-9_]+=")\s+/\1/i' | \
             grep -v -e '^export [a-z_]' -e '=""$' \
-        >> /usr/libexec/environment.sh && \
-    grep >&2 -- ' ROOT=' /usr/libexec/environment.sh && { \
-            printf >&2 "Invalid 'ROOT' directive in '/usr/libexec/environment.sh':\n\n%s\n\n" "$( < /usr/libexec/environment.sh )" ; \
+        >>"${environment_file}" && \
+    grep >&2 -- ' ROOT=' "${environment_file}" && { \
+            printf >&2 "Invalid 'ROOT' directive in '${environment_file}':\n\n%s\n\n" "$( <"${environment_file}" )" ; \
             exit 1 ; \
         } || :
-#RUN printf >&2 " * 'build' stage propagated environment:\n\n%s\n\n" "$( < /usr/libexec/environment.sh )"
+#RUN printf >&2 " * 'build' stage propagated environment:\n\n%s\n\n" "$( <"${environment_file}" )"
 
 
 # Setup entrypoint script to perform a one-time copy of binary system packages
@@ -151,16 +154,17 @@ COPY entrypoint.sh.build /usr/libexec/entrypoint.sh
 RUN test -s /usr/libexec/entrypoint.sh
 
 # linter ignore=SC2015,SC1091
-RUN test -s /usr/libexec/environment.sh && \
-        . /usr/libexec/environment.sh || \
+RUN test -s "${environment_file}" && \
+        . "${environment_file}" || \
         { \
-            echo >&2 "FATAL: Unable to source '/usr/libexec/environment.sh': ${?}" ; \
+            echo >&2 "FATAL: Unable to source '${environment_file}': ${?}" ; \
             exit 1 ; \
         } ; \
     set -u ; \
     sed -i \
         -e "s/__JOBS__/${JOBS}/" \
         -e "s/__MAXLOAD__/${MAXLOAD}/" \
+        -e "s|__ENVFILE__|${environment_file}|" \
             /usr/libexec/entrypoint.sh && \
     chmod 0755 /usr/libexec/entrypoint.sh && \
     sh -n /usr/libexec/entrypoint.sh

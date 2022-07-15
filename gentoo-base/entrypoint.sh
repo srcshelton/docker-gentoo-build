@@ -1,6 +1,8 @@
 #! /bin/sh
 # shellcheck disable=SC2030,SC2031
 
+# entrypoint.sh
+
 set -eu
 
 # shellcheck disable=SC2034
@@ -8,10 +10,15 @@ debug=${DEBUG:-}
 # shellcheck disable=SC2034
 trace=${TRACE:-}
 
-DEFAULT_JOBS='__JOBS__'
-DEFAULT_MAXLOAD='__MAXLOAD__'
-DEFAULT_PROFILE='__PROFILE__'
-environment_filter='__ENVFILTER__'
+DEFAULT_JOBS="${DEFAULT_JOBS:-__JOBS__}"
+DEFAULT_MAXLOAD="${DEFAULT_MAXLOAD:-__MAXLOAD__}"
+DEFAULT_PROFILE="${DEFAULT_PROFILE:-__PROFILE__}"
+stage3_flags_file="${stage3_flags_file:-__FLAGSFILE__}"
+environment_file="${environment_file:-__ENVFILE__}"
+environment_filter="${environment_filter:-__ENVFILTER__}"
+
+python_default_target='python3_10'
+stage3_flags=''
 
 #arch="${ARCH:-amd64}"
 arch="${ARCH}"
@@ -39,21 +46,31 @@ print() {
 # POSIX sh doesn't support 'export -f'...
 format_fn_code="$( cat <<'EOF'
 format() {
-	# Pad $variable to $padding trailing spaces
+	# Pad $fmt_var with $fmt_pad trailing spaces
 	#
-	variable="${1:-}"
-	padding=${2:-20}
+	fmt_var="${1:-}"
+	fmt_pad="${2:-20}"
 
-	[ -n "${variable:-}" ] || return 1
+	[ -n "${fmt_var:-}" ] || return 1
 
-	variable="$( echo "${variable}" | xargs -n 1 | sort -d | xargs echo -n )"
-	spaces="$( printf "%${padding}s" )"
-	string="%-${padding}s= \"%s\"\\n"
+	fmt_spaces='' fmt_str=''
+
+	fmt_var="$( echo "${fmt_var}" | xargs -rn 1 | sort -d | xargs -r )"
+	fmt_spaces="$( printf "%${fmt_pad}s" )"
+	fmt_str="%-${fmt_pad}s= \"%s\"\\n"
 
 	# shellcheck disable=SC2059
-	printf "${string}" "${variable}" "$(
-		cat - | grep -- "^${variable}=" | cut -d'"' -f 2 | fmt -w $(( ${COLUMNS:-80} - ( padding + 3 ) )) | sed "s/^/   ${spaces}/ ; 1 s/^\s\+//"
+	printf "${fmt_str}" "${fmt_var}" "$(
+		cat - |
+			grep -- "^${fmt_var}=" |
+			cut -d'"' -f 2 |
+			fmt -w $(( ${COLUMNS:-80} - ( fmt_pad + 3 ) )) |
+			sed "s/^/   ${fmt_spaces}/ ; 1 s/^\s\+//"
 	)"
+
+	unset fmt_str fmt_spaces fmt_pad fmt_var
+
+	return 0
 }  # format
 EOF
 )"
@@ -61,37 +78,269 @@ export format_fn_code
 eval "${format_fn_code}"
 
 check() {
-	# Check that a given package (with build result code $crc) is actually installed
+	# Check that a given check_pkg (with build result code $check_rc) is actually
+	# installed...
 	#
-	crc=${1:-} ; shift
+	check_rc="${1:-}" ; shift
 
-	[ -n "${crc:-}" ] || return 1
+	[ -n "${check_rc:-}" ] || return 1
 
-	if [ "${crc}" -eq 0 ]; then
+	check_pkg='' check_arg=0
+
+	if [ $(( check_rc )) -eq 0 ]; then
 		# Process first package of list only...
-		for arg in "${@}"; do
-			case "${arg}" in
+		for check_arg in "${@}"; do
+			case "${check_arg}" in
 				-*)	continue ;;
-				*)	package="${arg}" ; break ;;
+				*)	check_pkg="${check_arg}" ; break ;;
 			esac
 		done
-		package="$( echo "${package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
-		if echo "${package}" | grep -Fq -- '/'; then
-			if ! ls -1d "${ROOT:-}/var/db/pkg/${package%::*}"* >/dev/null 2>&1; then
-				die "emerge indicated success but package '${package%::*}' does not appear to be installed"
+		check_pkg="$( echo "${check_pkg}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
+		if echo "${check_pkg}" | grep -Fq -- '/'; then
+			if ! ls -1d \
+				"${ROOT:-}/var/db/pkg/${check_pkg%::*}"* >/dev/null 2>&1
+			then
+				die "emerge indicated success but check_pkg '${check_pkg%::*}'" \
+					"does not appear to be installed"
 			fi
 		else
-			if ! ls -1d "${ROOT:-}/var/db/pkg"/*/"${package%::*}"* >/dev/null 2>&1; then
-				die "emerge indicated success but package '${package%::*}' does not appear to be installed"
+			if ! ls -1d \
+				"${ROOT:-}/var/db/pkg"/*/"${check_pkg%::*}"* >/dev/null 2>&1
+			then
+				die "emerge indicated success but check_pkg '${check_pkg%::*}'" \
+					"does not appear to be installed"
 			fi
 		fi
 	fi
 
-	# shellcheck disable=SC2086
-	return ${crc}
+	unset check_pkg check_arg
+
+	return $(( check_rc ))
 }  # check
 
-[ -n "${environment_filter:-}" ] || die "'environment_filter' not inherited from docker environment"
+get_stage3() {
+	# Extract a given list of get_values from the saved stage3 data...
+	#
+	get_arg='' get_type='' get_cache=0 get_values=0
+
+	for get_arg in "${@:-}"; do
+		case "${get_arg}" in
+			--cache|--cache-only|-c)
+				get_cache=1 ;;
+			--values|--values-only|-v)
+				get_values=1 ;;
+			USE|STAGE3_USE)
+				get_type='USE' ;;
+			PYTHON_SINGLE_TARGET|STAGE3_PYTHON_SINGLE_TARGET)
+				get_type='PYTHON_SINGLE_TARGET' ;;
+			PYTHON_TARGETS|STAGE3_PYTHON_TARGETS)
+				get_type='PYTHON_TARGETS' ;;
+			*)
+				warn "Invalid 'stage3' variable '${get_type}' from arguments" \
+					"'${*:-}'"
+				return 1
+				;;
+		esac
+	done
+
+	unset get_arg
+
+	if [ $(( get_cache )) -eq 0 ] && [ -z "${get_type:-}" ]; then
+		return 1
+	fi
+
+	get_result=''
+
+	if [ -z "${stage3_flags:-}" ]; then
+		stage3_flags="$( cat "${stage3_flags_file}" )"
+		export stage3_flags
+
+		print "Caching stage3 data ..."
+	else
+		print "Using get_cached stage3 data ..."
+	fi
+
+	if [ $(( get_cache )) -ne 0 ]; then
+		return 0
+	fi
+	unset get_cache
+
+	get_result="$(
+		echo "${stage3_flags}" |
+			grep -- "^STAGE3_${get_type}=" |
+			cut -d'"' -f 2
+	)"
+	print "get_stage3 get_result for '${get_type}' is '${get_result}'"
+
+	if [ "${get_type}" = 'USE' ]; then
+		# Remove USE flags which apply to multiple packages, but can only be
+		# present for one package per installation ROOT...
+		get_result="$(
+			echo "${get_result}" |
+				xargs -rn 1 |
+				grep -vw -e 'hostname' -e 'su' -e 'kill' |
+				xargs -r
+		)"
+		print "get_stage3 get_result for USE('${get_type}') after filter is '${get_result}'"
+
+		entries='' entry=''
+		entries="$(
+			echo "${stage3_flags}" |
+				grep -- "^STAGE3_PYTHON_SINGLE_TARGET=" |
+				cut -d'"' -f 2
+		)"
+		print "get_stage3 entries for SINGLE_TARGET is '${entries}'"
+
+		for entry in ${entries}; do
+			get_result="${get_result:+"${get_result} "}python_single_target_${entry}"
+		done
+		print "get_stage3 get_result for USE('${get_type}') after single is '${get_result}'"
+
+		entries="$(
+			echo "${stage3_flags}" |
+				grep -- "^STAGE3_PYTHON_TARGETS=" |
+				cut -d'"' -f 2
+		)"
+		print "get_stage3 entries for TARGETS is '${entries}'"
+
+		for entry in ${entries}; do
+			get_result="${get_result:+"${get_result} "}python_targets_${entry}"
+		done
+		print "get_stage3 get_result for USE('${get_type}') after targets is '${get_result}'"
+
+		unset entry entires
+	fi
+
+	if [ -z "${get_result:-}" ]; then
+		unset get_result get_values get_type
+		return 1
+	fi
+	if [ $(( get_values )) -eq 0 ]; then
+		printf '%s="%s"\n' "${get_type}" "${get_result}"
+	else
+		echo "${get_result}"
+	fi
+
+	unset get_result get_values get_type
+
+	return 0
+}  # get_stage3
+
+resolve_python_flags() {
+	# Ensure that USE, PYTHON_SINGLE_TARGET, and PYTHON_TARGETS are all in sync
+	# with each other...
+	#
+	resolve_use="${1:-}"
+	resolve_python_single_target="${2:-}"
+	resolve_python_targets="${3:-}"
+
+	#extern USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+
+	resolve_info='' resolve_target=''
+	resolve_info="$(
+		LC_ALL='C' SYSROOT="${ROOT}" PORTAGE_CONFIGROOT="${ROOT}" \
+			emerge --info --verbose
+	)"
+
+	# We seem to have a weird situation where USE and PYTHON_*
+	# variables are not in sync with each other...?
+	resolve_use="${USE:+"${USE} "}${resolve_use:+"${resolve_use} "}$(
+		echo "${resolve_info}" | grep -- "^USE=" | cut -d'"' -f 2
+	)"
+	resolve_python_single_target="${PYTHON_SINGLE_TARGET:-} ${resolve_python_single_target:-} $(
+		echo "${resolve_info}" | grep -- "^PYTHON_SINGLE_TARGET=" | cut -d'"' -f 2
+	) ${python_target:-}"
+	resolve_python_targets="${PYTHON_TARGETS:-} ${resolve_python_targets:-} $(
+		echo "${resolve_info}" | grep -- "^PYTHON_TARGETS=" | cut -d'"' -f 2
+	) ${python_target:-}"
+
+	for resolve_target in ${resolve_python_single_target:-}; do
+		resolve_target="python_single_target_${resolve_target}"
+		if ! echo "${resolve_use:-}" | grep -q -- "${resolve_target}"; then
+			resolve_use="${resolve_use:+"${resolve_use} "}${resolve_target}"
+		fi
+	done
+	for resolve_target in ${resolve_python_targets:-}; do
+		resolve_target="python_targets_${resolve_target}"
+		if ! echo "${resolve_use:-}" | grep -q -- "${resolve_target}"; then
+			resolve_use="${resolve_use:+"${resolve_use} "}${resolve_target}"
+		fi
+	done
+
+	for resolve_target in ${USE:-}; do
+		case "${resolve_target}" in
+			python_single_target_*)
+				resolve_target="$( echo "${resolve_target}" | sed 's/^python_single_target_//' )"
+				if ! echo " ${resolve_python_single_target:-} " |
+						grep -q -- " ${resolve_target} "
+				then
+					resolve_python_single_target="${resolve_python_single_target:+"${resolve_python_single_target} "}${resolve_target}"
+				fi
+				;;
+			python_targets_*)
+				resolve_target="$( echo "${resolve_target}" | sed 's/^python_targets_//' )"
+				if ! echo " ${resolve_python_targets} " |
+						grep -q -- " ${resolve_target} "
+				then
+					resolve_python_targets="${resolve_python_targets:+"${resolve_python_targets} "}${resolve_target}"
+				fi
+				;;
+		esac
+	done
+	printf '%s="%s"\n' 'USE' "$(
+		echo "${resolve_use}" | xargs -rn 1 | sort | uniq | xargs -r
+	)"
+	printf '%s="%s"\n' 'PYTHON_SINGLE_TARGET' "$(
+		echo "${resolve_python_single_target}" | xargs -rn 1 | sort -V | uniq |
+			tail -n 1
+	)"
+	printf '%s="%s"\n' 'PYTHON_TARGETS' "$(
+		echo "${resolve_python_targets}" | xargs -rn 1 | sort | uniq | xargs -r
+	)"
+
+	unset resolve_target resolve_info resolve_python_targets \
+		resolve_python_single_target resolve_use
+
+	return 0
+}  # resolve_python_flags
+
+fix_sh_symlink() {
+	symlink_root="${1:-"${ROOT:-}"}"
+	symlink_msg="${2:-}"  # expected 'pre-deploy' or '@system'
+
+	# Ensure we have a valid /bin/sh symlink in our ROOT ...
+	if ! [ -x "${symlink_root}"/bin/sh ]; then
+		echo " * Fixing ${symlink_msg:+"${symlink_msg} "}'/bin/sh' symlink ..."
+		[ ! -e "${symlink_root}"/bin/sh ] || rm "${symlink_root}"/bin/sh
+		ln -sf bash "${symlink_root}"/bin/sh
+	fi
+}  # fix_sh_symlink
+
+if [ -n "${DEV_MODE:-}" ]; then
+	cat <<EOF
+
+*******************************************************************************
+*                                                                             *
+* OPERATING IN DEV_MODE                                                       *
+*                                                                             *
+* This script is running as it exists on-disk, overriding the Docker image    *
+* contents.  Do not use the output of this mode for reliable builds.          *
+*                                                                             *
+*******************************************************************************
+
+EOF
+fi
+
+[ -n "${trace:-}" ] && set -o xtrace
+
+if set | grep -q -- '=__[A-Z]\+__$'; then
+	die "Unexpanded variable(s) in environment: $(
+		set | grep -- '=__[A-Z]\+__$' | cut -d'=' -f 1 | xargs -r
+	)"
+fi
+
+[ -n "${environment_filter:-}" ] ||
+	die "'environment_filter' not inherited from docker environment"
 
 if printf '%s' " ${*:-} " | grep -Fq -- ' --verbose-build '; then
 	parallel='--jobs=1 --quiet-build=n'
@@ -120,17 +369,28 @@ if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
 	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-${DEFAULT_MAXLOAD}}"
 fi
 
-post_pkgs='' post_use='' rc=0
+post_pkgs='' post_use='' python_target="${python_default_target:-}" rc=0
 for arg in "${@}"; do
 	#print "Read argument '${arg}'"
+
 	shift
 	case "${arg}" in
 		--post-pkgs=*)
-			post_pkgs="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			post_pkgs="$(
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
 			continue
 			;;
 		--post-use=*)
-			post_use="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			post_use="$(
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
+			continue
+			;;
+		--python-target=*)
+			python_target="$(
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
 			continue
 			;;
 		--verbose-build)
@@ -158,9 +418,11 @@ if [ -e /etc/portage/repos.conf.host ]; then
 		umount -q /etc/portage/repos.conf || :
 		rm -rf /etc/portage/repos.conf || :
 
-		[ -e /etc/portage/repos.conf ] && mv /etc/portage/repos.conf /etc/portage/repos.conf.disabled
+		[ -e /etc/portage/repos.conf ] &&
+			mv /etc/portage/repos.conf /etc/portage/repos.conf.disabled
 	fi
-	cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf || die "Can't copy host repos.conf: ${?}"
+	cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf ||
+		die "Can't copy host repos.conf: ${?}"
 fi
 
 #warn >&2 "Inherited USE-flags: '${USE:-}'"
@@ -175,20 +437,29 @@ if [ -n "${post_use:-}" ]; then
 else
 	post_use="${USE:-}"
 fi
-if [ -n "${use_essential:-}" ] && ! echo "${post_use:-}" | grep -Fq -- "${use_essential}"; then
+if [ -n "${use_essential:-}" ] && ! echo "${post_use:-}" |
+		grep -Fq -- "${use_essential}"
+then
 	post_use="${post_use:+${post_use} }${use_essential}"
 fi
 
 # At the point we're executed, we expect to be in a stage3 with appropriate
 # repositories mounted...
 
-[ -s /usr/libexec/stage3.info ] || die "'/usr/libexec/stage3.info' is missing or empty"
-[ -d /var/db/repo/gentoo/profiles ] || die "default repo ('gentoo') is missing"
-[ -d /etc/portage ] || die "'/etc/portage' is missing or not a directory"
-[ -s /etc/portage/package.use ] || [ -d /etc/portage/package.use ] || die "'/etc/portage/package.use' is missing"
-[ -s /etc/locale.gen ] || warn "'/etc/locale.gen' is missing or empty"
+[ -s "${stage3_flags_file}" ] ||
+	die "'${stage3_flags_file}' is missing or empty"
+[ -d /var/db/repo/gentoo/profiles ] ||
+	die "default repo ('gentoo') is missing"
+[ -d /etc/portage ] ||
+	die "'/etc/portage' is missing or not a directory"
+[ -s /etc/portage/package.use ] || [ -d /etc/portage/package.use ] ||
+	die "'/etc/portage/package.use' is missing"
+[ -s /etc/locale.gen ] ||
+	warn "'/etc/locale.gen' is missing or empty"
 # shellcheck disable=SC2166
-[ -s "${PKGDIR}"/Packages -a -d "${PKGDIR}"/virtual ] || warn "'${PKGDIR}/Packages' or '${PKGDIR}/virtual' are missing - package cache appears invalid"
+[ -s "${PKGDIR}"/Packages -a -d "${PKGDIR}"/virtual ] ||
+	warn "'${PKGDIR}/Packages' or '${PKGDIR}/virtual' are missing - package" \
+		"cache appears invalid"
 
 env | grep -F -- 'DIR=' | cut -d'=' -f 2- | while read -r d; do
 	if ! [ -d "${d}" ]; then
@@ -205,39 +476,68 @@ env | grep -F -- 'DIR=' | cut -d'=' -f 2- | while read -r d; do
 	fi
 done
 
-touch "${PKGDIR}/Packages" || die "Unable to write to file '${PKGDIR}/Packages': ${?}"
+touch "${PKGDIR}/Packages" ||
+	die "Unable to write to file '${PKGDIR}/Packages': ${?}"
 
-info="$( LC_ALL='C' emerge --info --verbose )"
+get_stage3 --cache-only
+info="$(
+	eval "export $( get_stage3 USE )"
+	eval "export $( get_stage3 PYTHON_SINGLE_TARGET )"
+	eval "export $( get_stage3 PYTHON_TARGETS )"
+	eval "$(
+		resolve_python_flags \
+			"${USE}" \
+			"${PYTHON_SINGLE_TARGET}" \
+			"${PYTHON_TARGETS}"
+	)"
+	LC_ALL='C' emerge --info --verbose
+)"
 echo
 echo 'Resolved build variables for stage3:'
 echo '-----------------------------------'
 echo
-echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
-echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
-echo "PORTAGE_CONFIGROOT  = $( echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2- )"
+echo "ROOT                = $(
+	echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+)"
+echo "SYSROOT             = $(
+	echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+)"
+echo "PORTAGE_CONFIGROOT  = $(
+	echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
+)"
 echo
 echo "${info}" | format 'FEATURES'
 echo "${info}" | format 'ACCEPT_LICENSE'
 echo "${info}" | format 'ACCEPT_KEYWORDS'
-format 'USE' </usr/libexec/stage3.info
-echo "MAKEOPTS            = $( echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2- )"
+echo "${info}" | format 'USE'
+echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+echo "${info}" | format 'PYTHON_TARGETS'
+echo "MAKEOPTS            = $(
+	echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
+)"
 echo
 echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 echo
-echo "DISTDIR             = $( echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2- )"
-echo "PKGDIR              = $( echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2- )"
-echo "PORTAGE_LOGDIR      = $( echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2- )"
+echo "DISTDIR             = $(
+	echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
+)"
+echo "PKGDIR              = $(
+	echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
+)"
+echo "PORTAGE_LOGDIR      = $(
+	echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
+)"
 echo
 unset info
 
 # Report stage3 tool versions (because some are masked from the arm64 stage3!)
 file=''
 for file in /lib*/libc.so.6; do
-	"${file}"
+	"${file}" || :
 done
 unset file
-gcc --version
-ld --version
+gcc --version || :
+ld --version || :
 
 # We should *definitely* have this...
 package='virtual/libc'
@@ -270,10 +570,14 @@ echo
 	mkdir -p /var/lib/portage
 	echo 'virtual/libc' > /var/lib/portage/world
 
-	USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+	USE="-* $( get_stage3 --values-only USE )"
 	export USE
 	export FEATURES="${FEATURES:+${FEATURES} }-fakeroot"
 	export LC_ALL='C'
+	list='virtual/dev-manager'
+	if portageq get_repos / | grep -Fq -- 'srcshelton'; then
+		list="${list:-} sys-apps/systemd-utils"
+	fi
 	# shellcheck disable=SC2086
 	emerge \
 			--ignore-default-opts \
@@ -284,33 +588,35 @@ echo
 			--with-bdeps-auto=n \
 			--with-bdeps=n \
 			--unmerge \
-		'virtual/dev-manager'
+		${list} || :
+	#virtual/udev-217-r3 pulled in by:
+	#    sys-apps/hwids-20210613-r1 requires virtual/udev
+	#    sys-fs/udev-init-scripts-34 requires >=virtual/udev-217
+	#    virtual/dev-manager-0-r2 requires virtual/udev
+	list="$(
+		sed 's/#.*$//' /etc/portage/package.mask/* |
+			grep -v -- 'gentoo-functions' |
+			xargs -rn 1 printf '%s '
+	)$(
+		{
+			sed 's/#.*$//' /etc/portage/package.mask/* |
+				grep -Eow -- '((virtual|sys-fs)/)?udev' &&
+			printf 'sys-apps/hwids sys-fs/udev-init-scripts'
+		} | xargs -rn 1 printf '%s '
+	)"
+	echo "Package list: ${list}"
+	echo
 	# shellcheck disable=SC2046,SC2086
 	emerge \
 			--ignore-default-opts \
 			--color=y \
 			--implicit-system-deps=n \
 			--keep-going=y \
-			--verbose=n \
+			--verbose=y \
 			--with-bdeps-auto=n \
 			--with-bdeps=n \
 			--depclean \
-		$(
-			cat /etc/portage/package.mask/* |
-			sed 's/#.*$//' |
-			grep -v -- 'gentoo-functions' |
-			xargs -n 1
-
-			#virtual/udev-217-r3 pulled in by:
-			#    sys-apps/hwids-20210613-r1 requires virtual/udev
-			#    sys-fs/udev-init-scripts-34 requires >=virtual/udev-217
-			#    virtual/dev-manager-0-r2 requires virtual/udev
-			cat /etc/portage/package.mask/* |
-			sed 's/#.*$//' |
-			grep -Eqw -- '((virtual|sys-fs)/)?udev' &&
-				echo 'sys-apps/hwids sys-fs/udev-init-scripts' \
-					'virtual/dev-manager'
-		)
+		${list}
 )
 
 if portageq get_repos / | grep -Fq -- 'srcshelton'; then
@@ -318,7 +624,7 @@ if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 	echo " * Building linted 'sys-apps/gentoo-functions' package for stage3 ..."
 	echo
 	(
-		USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+		USE="-* $( get_stage3 --values-only USE )"
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean -fakeroot"
 		export LC_ALL='C'
@@ -345,7 +651,7 @@ echo
 echo " * Building 'sys-apps/fakeroot' package for stage3 ..."
 echo
 (
-	USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+	USE="-* $( get_stage3 --values-only USE )"
 	export USE
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean -fakeroot"
 	export LC_ALL='C'
@@ -381,7 +687,9 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		#
 		# The intent, however, is to rebuild as closely to the original stage3
 		# state as possible.
-		USE="-* livecd nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"  # 'livecd' for busybox
+		#
+		# ('livecd' for patched busybox)
+		USE="-* livecd nptl $( get_stage3 --values-only USE )"
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 		export LC_ALL='C'
@@ -403,16 +711,25 @@ if ! [ -d "/usr/${CHOST}" ]; then
 				--with-bdeps=n \
 			'@system' '@world'
 	)
-	LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+	LC_ALL='C' etc-update --quiet --preen
+	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 	echo
-	echo " * CHOST change detected - building stage3 compilers suite ..."
+	echo " * CHOST change detected - building stage3 compiler suite ..."
 	echo
 
-	oldchost="$( find /usr -mindepth 1 -maxdepth 1 -type d -name '*-*-*' -exec basename {} \; | head -n 1 )"
+	oldchost="$(
+		find /usr \
+				-mindepth 1 \
+				-maxdepth 1 \
+				-type d \
+				-name '*-*-*' \
+				-exec basename {} ';' |
+			head -n 1
+	)"
 	for pkg in 'sys-devel/binutils' 'sys-devel/gcc' 'sys-libs/glibc'; do
 		(
-			USE="-* nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+			USE="-* nptl $( get_stage3 --values-only USE )"
 			export USE
 			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 			export LC_ALL='C'
@@ -433,7 +750,8 @@ if ! [ -d "/usr/${CHOST}" ]; then
 					--with-bdeps-auto=n \
 				"${pkg}"
 		)
-		LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+		LC_ALL='C' etc-update --quiet --preen
+		find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 		case "${pkg}" in
 			*binutils*)
 				binutils-config -l 2>/dev/null || :
@@ -448,9 +766,22 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		[ -s /etc/profile ] && { . /etc/profile || : ; }
 	done
 	rm -r "/usr/${oldchost:?}" "/usr/bin/${oldchost:?}"*
-	#find /bin/ /sbin/ /usr/bin/ /usr/sbin/ /usr/libexec/ /usr/local/ -name "*${oldchost}*" -exec ls -Fhl --color=always {} +
-	#find /usr/ -mindepth 1 -maxdepth 1 -name "*${oldchost}*" -exec ls -dFhl --color=always {} +
-	grep -l "${oldchost}" /etc/env.d/0*gcc* /etc/env.d/0*binutils* | xargs -r rm
+	#find \
+	#		/bin/ \
+	#		/sbin/ \
+	#		/usr/bin/ \
+	#		/usr/sbin/ \
+	#		/usr/libexec/ \
+	#		/usr/local/ \
+	#	-name "*${oldchost}*" \
+	#	-exec ls -Fhl --color=always {} +
+	#find /usr/ \
+	#	-mindepth 1 \
+	#	-maxdepth 1 \
+	#	-name "*${oldchost}*" \
+	#	-exec ls -dFhl --color=always {} +
+	grep -l -- "${oldchost}" /etc/env.d/0*gcc* /etc/env.d/0*binutils* |
+		xargs -r rm
 	find /etc/env.d/ -name "*${oldchost}*" -delete
 	env-update || :
 	binutils-config 1 2>/dev/null || :
@@ -461,7 +792,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	echo " * Switched from CHOST '${oldchost}' to '${CHOST}'":
 	echo
 	#ls -lAR /etc/env.d/
-	#grep -HR --colour '^.*$' /etc/env.d/
+	#grep -HR --colour -- '^.*$' /etc/env.d/
 	#binutils-config -l
 	#gcc-config -l
 
@@ -469,7 +800,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	#for pkg in 'dev-libs/libgpg-error' 'sys-devel/libtool'; do
 	for pkg in 'sys-devel/libtool'; do
 		(
-			USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+			USE="-* $( get_stage3 --values-only USE )"
 			export USE
 			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 			export LC_ALL='C'
@@ -490,12 +821,16 @@ if ! [ -d "/usr/${CHOST}" ]; then
 					--with-bdeps-auto=n \
 				"${pkg}"
 		)
-		LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+		LC_ALL='C' etc-update --quiet --preen
+		find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 	done
-	[ -x /usr/sbin/fix_libtool_files.sh ] && /usr/sbin/fix_libtool_files.sh "$( gcc -dumpversion )" --oldarch "${oldchost}"
+	[ -x /usr/sbin/fix_libtool_files.sh ] &&
+		/usr/sbin/fix_libtool_files.sh "$(
+			gcc -dumpversion
+		)" --oldarch "${oldchost}"
 
 	(
-		USE="-* nptl $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+		USE="-* nptl $( get_stage3 --values-only USE )"
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 		export LC_ALL='C'
@@ -544,31 +879,38 @@ if ! [ -d "/usr/${CHOST}" ]; then
 				--with-bdeps=n \
 				--with-bdeps-auto=n \
 			$(
-				for object in "/usr/bin/${oldchost}-"* "/usr/include/${oldchost}" /usr/lib/llvm/*/bin/"${oldchost}"-* ;do
+				for object in \
+						"/usr/bin/${oldchost}-"* \
+						"/usr/include/${oldchost}" \
+						/usr/lib/llvm/*/bin/"${oldchost}"-*
+				do
 					if [ -e "${object}" ]; then
 						printf '%s ' "${object}"
 					fi
 				done
 			)dev-lang/perl "=$(
 				ls /var/db/pkg/dev-lang/python-3* -1d |
-				cut -d'/' -f 5-6 |
-				sort -V |
-				head -n 1
+					cut -d'/' -f 5-6 |
+					sort -V |
+					head -n 1
 			)" '@preserved-rebuild'
 	)
-	LC_ALL='C' eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
-	LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+	LC_ALL='C' eselect --colour=yes news read new |
+		grep -Fv -- 'No news is good news.' || :
+	LC_ALL='C' etc-update --quiet --preen
+	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 fi
 
 echo
 echo
-echo " * Installing stage3 'sys-kernel/gentoo-sources' kernel source package ..."
+echo " * Installing stage3 'sys-kernel/gentoo-sources' kernel source" \
+	"package ..."
 echo
 
 # Some packages require prepared kernel sources ...
 #
 (
-	USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 ) symlink"
+	USE="-* $( get_stage3 --values-only USE ) symlink"
 	export USE
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 	export LC_ALL='C'
@@ -630,7 +972,8 @@ do
 	echo
 
 	(
-		USE="-* $( grep -- '^USE=' /usr/libexec/stage3.info | cut -d'"' -f 2 )"
+		USE="-* $( get_stage3 --values-only USE )"
+		# shellcheck disable=SC2154
 		USE="${USE} ${use_essential_gcc}"
 		case "${pkg}" in
 			*libcrypt|*libxcrypt)
@@ -657,19 +1000,21 @@ do
 				--with-bdeps-auto=n \
 			"${pkg}"
 	)
-	LC_ALL='C' eselect --colour=yes news read new | grep -Fv -- 'No news is good news.' || :
-	LC_ALL='C' etc-update --quiet --preen ; find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+	LC_ALL='C' eselect --colour=yes news read new |
+		grep -Fv -- 'No news is good news.' || :
+	LC_ALL='C' etc-update --quiet --preen
+	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 done
 LC_ALL='C' eselect awk set gawk || :
 
+# Now we can build our ROOT environment ...
+#
 echo
 echo
 echo ' * Creating build root ...'
 echo
 
-# Now we can build our ROOT environment ...
-#
-rm /usr/libexec/stage3.info
+rm "${stage3_flags_file}"
 
 # (ARCH should now be safe)
 export ARCH="${arch}"
@@ -678,9 +1023,12 @@ export ROOT="/build"
 export SYSROOT="${ROOT}"
 export PORTAGE_CONFIGROOT="${SYSROOT}"
 
-mkdir -p "${ROOT}"/usr/src/
-mv /usr/src/linux* "${ROOT}"/usr/src/
-ln -s ../../"${ROOT}"/usr/src/linux /usr/src/
+if [ ! -d "${ROOT}"/usr/src/linux ] || [ ! -L /usr/src/linux ]; then
+	[ -d "${ROOT}"/usr/src ] && rm -r "${ROOT}"/usr/src
+	mkdir -p "${ROOT}"/usr/src/
+	mv /usr/src/linux* "${ROOT}"/usr/src/
+	ln -s ../../"${ROOT}"/usr/src/linux /usr/src/
+fi
 
 mkdir -p "${ROOT}"/etc
 cp -r /etc/portage "${ROOT}"/etc/
@@ -703,7 +1051,8 @@ for file in /etc/profile "${ROOT}"/etc/profile; do
 done
 unset file
 echo "Setting profile for architeceture '${ARCH}'..."
-LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" 2>&1 | grep -v -- 'Warning:' || :
+LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" 2>&1 |
+	grep -v -- 'Warning:' || :
 
 # It seems we never actually defined USE if not passed-in externally, and yet
 # somehow on amd64 gcc still gets 'nptl'.  An arm64, however, this doesn't
@@ -716,21 +1065,37 @@ echo
 echo 'Resolved build variables for initial packages:'
 echo '---------------------------------------------'
 echo
-echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
-echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
-echo "PORTAGE_CONFIGROOT  = $( echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2- )"
+echo "ROOT                = $(
+	echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+)"
+echo "SYSROOT             = $(
+	echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+)"
+echo "PORTAGE_CONFIGROOT  = $(
+	echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
+)"
 echo
 echo "${info}" | format 'FEATURES'
 echo "${info}" | format 'ACCEPT_LICENSE'
 echo "${info}" | format 'ACCEPT_KEYWORDS'
 echo "${info}" | format 'USE'
-echo "MAKEOPTS            = $( echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2- )"
+echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+echo "${info}" | format 'PYTHON_TARGETS'
+echo "MAKEOPTS            = $(
+	echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
+)"
 echo
 echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 echo
-echo "DISTDIR             = $( echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2- )"
-echo "PKGDIR              = $( echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2- )"
-echo "PORTAGE_LOGDIR      = $( echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2- )"
+echo "DISTDIR             = $(
+	echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
+)"
+echo "PKGDIR              = $(
+	echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
+)"
+echo "PORTAGE_LOGDIR      = $(
+	echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
+)"
 echo
 unset info
 
@@ -771,7 +1136,12 @@ if [ -n "${pkg_initial:-}" ]; then
 					;;
 			esac
 			export LC_ALL='C'
-			for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+			for ROOT in $(
+					echo "${extra_root:-}" "${ROOT}" |
+						xargs -rn 1 |
+						sort -u |
+						xargs -r
+			); do
 				export ROOT
 				export SYSROOT="${ROOT}"
 				export PORTAGE_CONFIGROOT="${SYSROOT}"
@@ -794,15 +1164,11 @@ if [ -n "${pkg_initial:-}" ]; then
 					${pkg} ${pkg_exclude:-} || :
 			done
 		)
-		LC_ALL='C' etc-update --quiet --preen ; find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+		LC_ALL='C' etc-update --quiet --preen
+		find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 		if echo " ${pkg} " | grep -q -- ' app-shells/bash '; then
-			# Ensure we have a valid /bin/sh symlink in our ROOT ...
-			if ! [ -x "${ROOT}"/bin/sh ]; then
-				echo " * Fixing pre-deploy '/bin/sh' symlink ..."
-				[ ! -e "${ROOT}"/bin/sh ] || rm "${ROOT}"/bin/sh
-				ln -sf bash "${ROOT}"/bin/sh
-			fi
+			fix_sh_symlink "${ROOT}" 'pre-deploy'
 		fi
 	done
 fi
@@ -814,7 +1180,8 @@ echo
 (
 	#set -x
 	# sys-apps/shadow is needed for /sbin/nologin
-	# dev-libs/icu is needed for circular dependencies on icu -> python -> sqlite -> icu
+	# dev-libs/icu is needed for circular dependencies on icu -> python -> ...
+	#	sqlite -> icu
 	# libarchive is a frequent dependency, and so quicker to pull-in here
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 	USE="${USE:+${USE} }${use_essential_gcc}"
@@ -828,7 +1195,11 @@ echo
 	fi
 	export USE
 	export LC_ALL='C'
-	for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u ); do
+	for ROOT in $(
+			echo "${extra_root:-}" "${ROOT}" |
+				xargs -rn 1 |
+				sort -u
+	); do
 		export ROOT
 		export SYSROOT="${ROOT}"
 		export PORTAGE_CONFIGROOT="${SYSROOT}"
@@ -840,21 +1211,37 @@ echo
 		echo 'Resolved build variables for @system:'
 		echo '------------------------------------'
 		echo
-		echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
-		echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
-		echo "PORTAGE_CONFIGROOT  = $( echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2- )"
+		echo "ROOT                = $(
+			echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+		)"
+		echo "SYSROOT             = $(
+			echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+		)"
+		echo "PORTAGE_CONFIGROOT  = $(
+			echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
+		)"
 		echo
 		echo "${info}" | format 'FEATURES'
 		echo "${info}" | format 'ACCEPT_LICENSE'
 		echo "${info}" | format 'ACCEPT_KEYWORDS'
 		echo "${info}" | format 'USE'
-		echo "MAKEOPTS            = $( echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2- )"
+		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+		echo "${info}" | format 'PYTHON_TARGETS'
+		echo "MAKEOPTS            = $(
+			echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
+		)"
 		echo
 		echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 		echo
-		echo "DISTDIR             = $( echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2- )"
-		echo "PKGDIR              = $( echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2- )"
-		echo "PORTAGE_LOGDIR      = $( echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2- )"
+		echo "DISTDIR             = $(
+			echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
+		)"
+		echo "PKGDIR              = $(
+			echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
+		)"
+		echo "PORTAGE_LOGDIR      = $(
+			echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
+		)"
 		echo
 		unset info
 
@@ -879,17 +1266,15 @@ echo
 				--verbose-conflicts \
 				--with-bdeps=n \
 				--with-bdeps-auto=n \
-			@system sys-devel/gcc sys-apps/shadow dev-libs/icu app-arch/libarchive ${pkg_initial} ${pkg_exclude:-} || :
+			@system sys-devel/gcc sys-apps/shadow dev-libs/icu \
+				app-arch/libarchive ${pkg_initial} ${pkg_exclude:-} || :
 	done
 )
-LC_ALL='C' etc-update --quiet --preen ; find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+LC_ALL='C' etc-update --quiet --preen
+find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 # Ensure we have a valid /bin/sh symlink in our ROOT ...
-if ! [ -x "${ROOT}"/bin/sh ]; then
-	echo " * Fixing @system '/bin/sh' symlink ..."
-	[ ! -e "${ROOT}"/bin/sh ] || rm "${ROOT}"/bin/sh
-	ln -sf bash "${ROOT}"/bin/sh
-fi
+fix_sh_symlink "${ROOT}" '@system'
 
 # ... and fix the default bash prompt setup w.r.t. 'screen' window names!
 if [ -s /etc/bash/bashrc.patch ]; then
@@ -902,7 +1287,7 @@ if [ -s /etc/bash/bashrc.patch ]; then
 
 		if [ -s bashrc ]; then
 			echo ' * Patching /etc/bash/bashrc ...'
-			patch -p1 </etc/bash/bashrc.patch >/dev/null
+			patch -p1 -r - -s </etc/bash/bashrc.patch || :
 		else
 			warn "'${ROOT%/}/etc/bash/bashrc' does not exist or is empty"
 		fi
@@ -921,7 +1306,11 @@ echo
 # (e.g. /var/tmp/portage/app-misc/mime-types-9/temp/build.log)
 #
 # shellcheck disable=SC2012
-if [ -n "$( ls -1 "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log 2>/dev/null | head -n 1 )" ]; then
+if [ -n "$(
+			ls -1 "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log 2>/dev/null |
+				head -n 1
+		)" ]
+then
 	mkdir -p "${PORTAGE_LOGDIR}"/failed
 	file=''
 	for file in "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log; do
@@ -935,11 +1324,16 @@ fi
 
 # Cleanup any failed bulids/temporary files ...
 #
-[ ! -f "${ROOT}"/etc/portage/profile/package.provided ] || rm "${ROOT}"/etc/portage/profile/package.provided
-[ ! -f "${ROOT}"/etc/portage/profile/packages ] || rm "${ROOT}"/etc/portage/profile/packages
-[ ! -e "${ROOT}"/usr/src/linux ] || rm -r "${ROOT}"/usr/src/linux*
-[ ! -d "${ROOT}/${PORTAGE_TMPDIR}/portage" ] || rm -r "${ROOT}/${PORTAGE_TMPDIR}/portage"
-[ ! -d "${PORTAGE_TMPDIR}/portage" ] || rm -r "${PORTAGE_TMPDIR}/portage"
+[ ! -f "${ROOT}"/etc/portage/profile/package.provided ] ||
+	rm "${ROOT}"/etc/portage/profile/package.provided
+[ ! -f "${ROOT}"/etc/portage/profile/packages ] ||
+	rm "${ROOT}"/etc/portage/profile/packages
+[ ! -e "${ROOT}"/usr/src/linux ] ||
+	rm -r "${ROOT}"/usr/src/linux*
+[ ! -d "${ROOT}/${PORTAGE_TMPDIR}/portage" ] ||
+	rm -r "${ROOT}/${PORTAGE_TMPDIR}/portage"
+[ ! -d "${PORTAGE_TMPDIR}/portage" ] ||
+	rm -r "${PORTAGE_TMPDIR}/portage"
 
 echo
 echo ' * System deployment complete'
@@ -958,21 +1352,37 @@ echo
 echo 'Resolved build variables after init stage:'
 echo '-----------------------------------------'
 echo
-echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
-echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
-echo "PORTAGE_CONFIGROOT  = $( echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2- )"
+echo "ROOT                = $(
+	echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+)"
+echo "SYSROOT             = $(
+	echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+)"
+echo "PORTAGE_CONFIGROOT  = $(
+	echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
+)"
 echo
 echo "${info}" | format 'FEATURES'
 echo "${info}" | format 'ACCEPT_LICENSE'
 echo "${info}" | format 'ACCEPT_KEYWORDS'
 echo "${info}" | format 'USE'
-echo "MAKEOPTS            = $( echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2- )"
+echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+echo "${info}" | format 'PYTHON_TARGETS'
+echo "MAKEOPTS            = $(
+	echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
+)"
 echo
 echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 echo
-echo "DISTDIR             = $( echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2- )"
-echo "PKGDIR              = $( echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2- )"
-echo "PORTAGE_LOGDIR      = $( echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2- )"
+echo "DISTDIR             = $(
+	echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
+)"
+echo "PKGDIR              = $(
+	echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
+)"
+echo "PORTAGE_LOGDIR      = $(
+	echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
+)"
 echo
 unset info
 
@@ -985,7 +1395,8 @@ unset path
 unset format_fn_code
 
 # Save environment for later docker stages...
-printf "#FILTER: '%s'\n\n" "${environment_filter}" > "${ROOT}"/usr/libexec/environment.sh
+printf "#FILTER: '%s'\n\n" \
+	"${environment_filter}" > "${ROOT}${environment_file}"
 export -p |
 		grep -E -- '^(declare -x|export) .*=' |
 		grep -Ev -- "${environment_filter%)=}|format_fn_code)=" | \
@@ -993,11 +1404,16 @@ export -p |
 		grep -v \
 				-e '^export [a-z_]' \
 				-e '=""$' \
-	>> "${ROOT}"/usr/libexec/environment.sh
-test -e "${ROOT}"/usr/libexec/environment.sh || warn "'${ROOT%/}/usr/libexec/environment.sh' does not exist"
-test -s "${ROOT}"/usr/libexec/environment.sh || warn "'${ROOT%/}/usr/libexec/environment.sh' is empty"
-grep -- ' ROOT=' "${ROOT}"/usr/libexec/environment.sh && die "Invalid 'ROOT' directive in '${ROOT%/}/usr/libexec/environment.sh'"
-#printf " * Initial propagated environment:\n\n%s\n\n" "$( <"${ROOT}"/usr/libexec/environment.sh )"
+	>> "${ROOT}${environment_file}" || :
+test -e "${ROOT}${environment_file}" ||
+	warn "'${ROOT%/}${environment_file}' does not exist"
+test -s "${ROOT}${environment_file}" ||
+	warn "'${ROOT%/}${environment_file}' is empty"
+grep -- ' ROOT=' "${ROOT}${environment_file}" &&
+	die "Invalid 'ROOT' directive in '${ROOT%/}${environment_file}'"
+#printf " * Initial propagated environment:\n\n%s\n\n" "$(
+#	<"${ROOT}${environment_file}"
+#)"
 
 case "${1:-}" in
 	'')
@@ -1005,11 +1421,18 @@ case "${1:-}" in
 		echo " * Building default '${package}' package ..."
 		echo
 
-		print "Running default 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y \"${package}\"'"
+		print "Running default 'emerge" \
+			"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
+			"\"${package}\"'"
 
 		(
 			export LC_ALL='C'
-			for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+			for ROOT in $(
+					echo "${extra_root:-}" "${ROOT}" |
+						xargs -rn 1 |
+						sort -u |
+						xargs -r
+			); do
 				export ROOT
 				export SYSROOT="${ROOT}"
 				export PORTAGE_CONFIGROOT="${SYSROOT}"
@@ -1039,14 +1462,23 @@ case "${1:-}" in
 	*)
 		echo
 		if [ -z "${post_pkgs:-}" ]; then
-			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages ..."
+			echo " * Building requested '$(
+				printf '%s' "${*}" | sed 's/--[^ ]\+ //g'
+			)' packages ..."
 			echo
 
 			# shellcheck disable=SC2016
-			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${*}'${USE:+ with USE='${USE}'}"
+			print "Running 'emerge" \
+				"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
+				"${*}'${USE:+ with USE='${USE}'}"
 			(
 				export LC_ALL='C'
-				for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+				for ROOT in $(
+						echo "${extra_root:-}" "${ROOT}" |
+							xargs -rn 1 |
+							sort -u |
+							xargs -r
+				); do
 					export ROOT
 					export SYSROOT="${ROOT}"
 					export PORTAGE_CONFIGROOT="${SYSROOT}"
@@ -1063,14 +1495,24 @@ case "${1:-}" in
 
 			exit ${rc}
 		else
-			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages (with post-package list) ..."
+			echo " * Building requested '$(
+				printf '%s' "${*}" |
+					sed 's/--[^ ]\+ //g'
+			)' packages (with post-package list) ..."
 			echo
 
 			# shellcheck disable=SC2016
-			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${*}'${USE:+ with USE='${USE}'}"
+			print "Running 'emerge" \
+				"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
+				"${*}'${USE:+ with USE='${USE}'}"
 			(
 				export LC_ALL='C'
-				for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+				for ROOT in $(
+						echo "${extra_root:-}" "${ROOT}" |
+							xargs -rn 1 |
+							sort -u |
+							xargs -r
+				); do
 					export ROOT
 					export SYSROOT="${ROOT}"
 					export PORTAGE_CONFIGROOT="${SYSROOT}"
@@ -1086,24 +1528,34 @@ case "${1:-}" in
 			check ${rc} "${@}"
 
 			echo
-			echo " * Building specified post-installation '${post_pkgs}' packages ..."
+			echo " * Building specified post-installation '${post_pkgs}'" \
+				"packages ..."
 			echo
 
 			[ -n "${post_use:-}" ] && export USE="${post_use}"
 
 			info="$( LC_ALL='C' emerge --info --verbose )"
+
 			echo
 			echo 'Resolved build variables for post-installation packages:'
 			echo '-------------------------------------------------------'
 			echo
-			#echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
-			#echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+			#echo "ROOT                = $(
+			#	echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+			#)"
+			#echo "SYSROOT             = $(
+			#	echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+			#)"
 			#echo "${info}" | format 'FEATURES'
 			echo "${info}" | format 'USE'
+			echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+			echo "${info}" | format 'PYTHON_TARGETS'
 			echo
 			unset info
 
-			if [ -n "${EMERGE_OPTS:-}" ] && echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-post)? '; then
+			if [ -n "${EMERGE_OPTS:-}" ] && echo " ${EMERGE_OPTS} " |
+					grep -Eq -- ' --single(-post)? '
+			then
 				flags=''
 				for arg in "${@}" ${post_pkgs}; do
 					case "${arg}" in
@@ -1119,24 +1571,35 @@ case "${1:-}" in
 						*)
 							#if [ -z "${first:-}" ]; then
 							#	first="${arg}"
-							#	if echo " ${EMERGE_OPTS} " | grep -Eq -- ' --swap(-post)? '; then
+							#	if echo " ${EMERGE_OPTS} " |
+							#			grep -Eq -- ' --swap(-post)? '
+							#	then
 							#		continue
 							#	fi
 							#fi
 							echo
-							echo " * Building single post-package '${arg}' from '${post_pkgs}' ..."
+							echo " * Building single post-package '${arg}'" \
+								"from '${post_pkgs}' ..."
 							echo
 							# shellcheck disable=SC2016
-							print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${arg}'${USE:+ with USE='${USE}'}"
+							print "Running 'emerge" \
+								"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
+								"${arg}'${USE:+ with USE='${USE}'}"
 							(
 								export LC_ALL='C'
 								export FEATURES='-fail-clean'
-								for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+								for ROOT in $(
+										echo "${extra_root:-}" "${ROOT}" |
+											xargs -rn 1 |
+											sort -u |
+											xargs -r
+								); do
 									export ROOT
 									export SYSROOT="${ROOT}"
 									export PORTAGE_CONFIGROOT="${SYSROOT}"
 									# shellcheck disable=SC2086
-									emerge ${parallel} ${opts} --usepkg=y ${flags:-} ${arg} || rc=${?}
+									emerge ${parallel} ${opts} \
+										--usepkg=y ${flags:-} ${arg} || rc=${?}
 									if [ $(( rc )) -ne 0 ]; then
 										break
 									fi
@@ -1146,17 +1609,26 @@ case "${1:-}" in
 							;;
 					esac
 				done
-			else
+			else # grep -Eq -- ' --single(-post)? ' <<<" ${EMERGE_OPTS} "
 				# shellcheck disable=SC2016
-				print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--usepkg=y ${post_pkgs}'${USE:+ with USE='${USE}'}"
+				print "Running 'emerge" \
+					"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
+					"${post_pkgs}'${USE:+ with USE='${USE}'}"
 				(
 					export LC_ALL='C'
-					for ROOT in $( echo "${extra_root:-}" "${ROOT}" | xargs -n 1 | sort -u | xargs ); do
+					for ROOT in $(
+							echo "${extra_root:-}" "${ROOT}" |
+								xargs -rn 1 |
+								sort -u |
+								xargs -r
+					); do
 						export ROOT
 						export SYSROOT="${ROOT}"
 						export PORTAGE_CONFIGROOT="${SYSROOT}"
 						# shellcheck disable=SC2086
-						emerge ${parallel} ${opts} --usepkg=y ${post_pkgs} || rc=${?}
+						emerge ${parallel} ${opts} \
+								--usepkg=y \
+							${post_pkgs} || rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
 							break
 						fi
@@ -1166,6 +1638,312 @@ case "${1:-}" in
 			fi
 
 			check ${rc} "${@}"
+
+			if [ -z "${stage3_flags:-}" ]; then
+				die "No cached stage3 data - cannot clean-up Python packages"
+			fi
+
+			BUILD_USE="${USE:-}"
+			BUILD_PYTHON_SINGLE_TARGET="${python_target:-}"
+			BUILD_PYTHON_TARGETS="${python_target:-}"
+			eval "$(
+				resolve_python_flags \
+						"${BUILD_USE}" \
+						"${BUILD_PYTHON_SINGLE_TARGET}" \
+						"${BUILD_PYTHON_TARGETS}" |
+					sed 's/^/BUILD_/'
+			)"
+			export BUILD_USE BUILD_PYTHON_SINGLE_TARGET BUILD_PYTHON_TARGETS
+
+			ROOT_USE="${USE:+"${USE} "}$( get_stage3 --values-only USE )"
+			ROOT_PYTHON_SINGLE_TARGET="${PYTHON_SINGLE_TARGET:+"${PYTHON_SINGLE_TARGET} "}$( get_stage3 --values-only PYTHON_SINGLE_TARGET )"
+			ROOT_PYTHON_TARGETS="${PYTHON_TARGETS:+"${PYTHON_TARGETS} "}$( get_stage3 --values-only PYTHON_TARGETS )"
+			eval "$(
+				resolve_python_flags \
+						"${ROOT_USE}" \
+						"${ROOT_PYTHON_SINGLE_TARGET}" \
+						"${ROOT_PYTHON_TARGETS}" |
+					sed 's/^/ROOT_/'
+			)"
+			export ROOT_USE ROOT_PYTHON_SINGLE_TARGET ROOT_PYTHON_TARGETS
+
+			print "Checking for multiple 'python_targets' in USE ('${ROOT_USE}') ..."
+			if [ $(( $(
+					echo "${ROOT_USE}" |
+						xargs -rn 1 |
+						grep -c -e 'python_single_target_' -e 'python_targets_'
+			) )) -gt 2 ]
+			then
+				target='' targetpkg='' targets='' remove=''
+				target="$(
+					echo "${ROOT_USE}" |
+						xargs -rn 1 |
+						grep -- 'python_single_target_python' |
+						sed 's/python_single_target_//' |
+						sort -V |
+						tail -n 1
+				)"
+				# python3_10 -> dev-lang/python-3.10
+				targetpkg="dev-lang/$(
+					echo "${target}" | sed 's/^python/python-/ ; s/_/./'
+				)"
+				print "python target '${target}', package '${targetpkg}'"
+
+				targets="$(
+					echo "${ROOT_USE}" |
+						grep -o -- 'python_targets_python[^ ]\+' |
+						sed 's/python_targets_//'
+				)"
+				print "targets: '${targets}'"
+
+				remove="$(
+					echo "${targets}" |
+						xargs -rn 1 |
+						grep -vx -- "${target}"
+				)"
+				print "remove: '${remove}'"
+
+				if [ -n "${remove:-}" ]; then
+					echo
+					echo " * Cleaning old python targets '$(
+						echo "${remove}" | xargs -r
+					)' ..."
+					echo
+					(
+						arg='' use='' pkgs=''
+
+						# Add prefix to each item in ${remove}...
+						for arg in ${remove}; do
+							use="${use:+"${use} "}python_targets_${arg}"
+						done
+						remove="${use}" use=''
+
+						export LC_ALL='C'
+
+						# loop to allow 'break'...
+						# shellcheck disable=SC2066
+						for ROOT in $(
+								echo '/' "${ROOT}" |
+									xargs -rn 1 |
+									sort -u |
+									xargs -r
+						); do
+							SYSROOT="${ROOT}"
+							PORTAGE_CONFIGROOT="${SYSROOT}"
+							export ROOT SYSROOT PORTAGE_CONFIGROOT
+
+							PYTHON_SINGLE_TARGET="${BUILD_PYTHON_SINGLE_TARGET}"
+							if [ "${ROOT}" = '/' ]; then
+								USE="$( get_stage3 --values-only USE )"
+								PYTHON_TARGETS="$( get_stage3 --values-only PYTHON_TARGETS )"
+								export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+								eval "$(
+									resolve_python_flags \
+										"${USE}" \
+										"${PYTHON_SINGLE_TARGET}" \
+										"${PYTHON_TARGETS}"
+								)"
+							else
+								USE="${BUILD_USE}"
+								PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
+								export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+								eval "$(
+									resolve_python_flags \
+										"${USE}" \
+										"${PYTHON_SINGLE_TARGET}" \
+										"${PYTHON_TARGETS}"
+								)"
+							fi
+
+							use=''
+							for arg in ${USE}; do
+								print "Checking for '${arg}' in '${remove}' ..."
+
+								if echo "${remove}" | grep -qw -- "${arg}"; then
+									use="${use:+"${use} "}-${arg}"
+									print "Matched - use is now '${use}'"
+
+									pkgs="${pkgs:-} $(
+										#grep -Flw -- "${arg}" "${ROOT%/}"/var/db/pkg/*/*/IUSE |
+										find "${ROOT%/}/var/db/pkg/" \
+												-mindepth 3 \
+												-maxdepth 3 \
+												-type f \
+												-name 'IUSE' \
+												-print0 |
+											xargs -r0 grep -Flw -- "${arg}" |
+											sed 's|^.*/var/db/pkg/|=| ; s|/IUSE$||'
+									)"
+									print "pkgs is now '${pkgs}'"
+								else
+									print "No match"
+
+									case "${arg}" in
+										python_single_target_*)
+											continue ;;
+									esac
+									use="${use:+"${use} "}${arg}"
+									print "Added term - use is now '${use}'"
+								fi
+							done
+							print "use: '${use}'"
+
+							USE="$(
+								echo "${use:-} python_single_target_${PYTHON_SINGLE_TARGET}" |
+									xargs -rn 1 |
+									sort -V |
+									uniq |
+									xargs -r
+							)"
+							pkgs="${pkgs:-} $(
+								#ls -1d "${ROOT%/}"/var/db/pkg/dev-python/* |
+								find "${ROOT%/}/var/db/pkg/dev-python/" \
+										-mindepth 1 \
+										-maxdepth 1 \
+										-type d \
+										-print |
+									sed 's|^.*/var/db/pkg/|=| ; s|/$||'
+							)"
+
+							info="$(
+								LC_ALL='C' \
+								SYSROOT="${ROOT}" \
+								PORTAGE_CONFIGROOT="${ROOT}" \
+									emerge --info --verbose
+							)"
+							echo
+							echo 'Resolved build variables for python cleanup stage 1:'
+							echo '---------------------------------------------------'
+							echo
+							echo "ROOT                = $(
+								echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+							)"
+							echo "SYSROOT             = $(
+								echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+							)"
+							echo "PORTAGE_CONFIGROOT  = $(
+								echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
+							)"
+							echo
+							echo "${info}" | format 'USE'
+							echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+							echo "${info}" | format 'PYTHON_TARGETS'
+							print "pkgs: '${pkgs}'"
+
+							# shellcheck disable=SC2086
+							emerge ${parallel} ${opts} \
+									--usepkg=y \
+								${pkgs} || rc=${?}
+							if [ $(( rc )) -ne 0 ]; then
+								break
+							fi
+
+							export USE="${USE} -tmpfiles"
+							export PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
+
+							info="$(
+								LC_ALL='C' \
+								SYSROOT="${ROOT}" \
+								PORTAGE_CONFIGROOT="${ROOT}" \
+									emerge --info --verbose
+							)"
+							echo
+							echo 'Resolved build variables for python cleanup stage 2:'
+							echo '---------------------------------------------------'
+							echo
+							echo "${info}" | format 'USE'
+							echo "${info}" | format 'PYTHON_TARGETS'
+
+							# If we clear 'pkgs' then we hit all manner of
+							# dependency problems - even though the roots are
+							# independent, and identifying the packages built
+							# against old python versions should be
+							# exhaustive...
+							#pkgs=''
+							for arg in ${USE}; do
+								print "Checking for '${arg}' in '${remove}' ..."
+
+								if echo "${remove}" | grep -qw -- "${arg}"; then
+									pkgs="${pkgs:-} $(
+										#grep -Flw -- "${arg}" "${ROOT}"/var/db/pkg/*/*/IUSE |
+										find "${ROOT%/}/var/db/pkg/" \
+												-mindepth 3 \
+												-maxdepth 3 \
+												-type f \
+												-name 'IUSE' \
+												-print0 |
+											grep -Flw -- "${arg}" |
+											sed 's|^.*/var/db/pkg/|=| ; s|/IUSE$||'
+									)"
+									print "pkgs is now '${pkgs}'"
+								fi
+							done
+							pkgs="${pkgs:-} $(
+								#ls -1d "${ROOT}"/var/db/pkg/dev-python/* |
+								find "${ROOT%/}/var/db/pkg/dev-python/" \
+										-mindepth 1 \
+										-maxdepth 1 \
+										-type d \
+										-print |
+									sed 's|^.*/var/db/pkg/|=| ; s|/$||'
+							)"
+							if portageq get_repos / | grep -Fq -- 'srcshelton'; then
+								pkgs="${pkgs:-} virtual/tmpfiles::srcshelton"
+							fi
+							print "pkgs: '${pkgs}'"
+
+							# shellcheck disable=SC2086
+							emerge ${parallel} ${opts} \
+									--usepkg=y \
+								${pkgs} || rc=${?}
+							if [ $(( rc )) -ne 0 ]; then
+								break
+							fi
+
+							# shellcheck disable=SC2086
+							emerge ${parallel} ${opts} \
+									--depclean \
+								"<${targetpkg}" || rc=${?}
+							if [ $(( rc )) -ne 0 ]; then
+								break
+							fi
+
+							# shellcheck disable=SC2086
+							emerge ${parallel} ${opts} \
+									--depclean || rc=${?}
+							if [ $(( rc )) -ne 0 ]; then
+								break
+							fi
+						done
+
+						exit ${rc}
+					) || rc=${?}
+				fi
+			fi # multiple python targets
+
+			# TODO: The following package-lists are manually maintained :(
+			#
+			echo
+			echo 'Final package cleanup:'
+			echo '---------------------'
+			echo
+			# shellcheck disable=SC2086
+			emerge ${parallel} ${opts} \
+					--unmerge dev-util/meson dev-util/meson-format-array || :
+			# shellcheck disable=SC2086
+			emerge ${parallel} ${opts} \
+					--depclean dev-libs/icu app-portage/gemato || :
+			# shellcheck disable=SC2046,SC2086
+			find "${ROOT}"/var/db/pkg/dev-python/ \
+					-mindepth 1 \
+					-maxdepth 1 \
+					-type d |
+				rev |
+				cut -d'/' -f 1-2 |
+				rev |
+				sed 's/^/=/' |
+				grep -v 'pypy3' |
+				xargs -r emerge ${parallel} ${opts} --depclean || :
 
 			exit ${rc}
 		fi

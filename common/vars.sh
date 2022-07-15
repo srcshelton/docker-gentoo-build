@@ -20,11 +20,20 @@ mail_mta='localhost'
 
 # Set docker image names...
 #
-env_name="localhost/gentoo-env"
-stage3_name="localhost/gentoo-stage3"
-init_name="localhost/gentoo-init"
-base_name="localhost/gentoo-base"
-build_name="localhost/gentoo-build"
+env_name='localhost/gentoo-env'
+stage3_name='localhost/gentoo-stage3'
+init_name='localhost/gentoo-init'
+base_name='localhost/gentoo-base'
+build_name='localhost/gentoo-build'
+
+# Set locations for inherited data...
+#
+stage3_flags_file='/usr/libexec/stage3_flags.sh'
+environment_file='/usr/libexec/environment.sh'
+
+# Default environment-variable filter
+#
+environment_filter='^(declare -x|export) (COLUMNS|EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?|LINES|LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)='
 
 # Set Containerfile, configuration, and entrypoint script relative filesystem
 # location...
@@ -35,10 +44,6 @@ base_dir='gentoo-base'
 if ! [ -d "${base_dir}" ]; then
 	base_dir=''
 fi
-
-# Default environment-variable filter
-#
-environment_filter='^(declare -x|export) (COLUMNS|EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?|LINES|LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)='
 
 use_cpu_arch="$( uname -m | cut -c 1-3 | sed 's/aar/arm/' )"
 if command -v cpuid2cpuflags >/dev/null 2>&1; then

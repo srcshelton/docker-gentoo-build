@@ -14,38 +14,67 @@ ARG env_name="localhost/gentoo-env"
 ARG env_id=""
 
 # gentoo/stage3 supports 386, amd64, arm-v5, arm-v6, arm-v7, arm64, ppc64le, s390x
-ARG stage3_image="docker.io/gentoo/stage3"
+ARG gentoo_stage3_image="docker.io/gentoo/stage3"
 # ... however, it's not currently being updated, whereas this image is!
-#ARG stage3_image="docker.io/ksmanis/stage3"
-ARG stage3_tag="latest"
-ARG stage3_id=""
+#ARG gentoo_stage3_image="docker.io/ksmanis/stage3"
+ARG gentoo_stage3_tag="latest"
+ARG gentoo_stage3_id=""
 
-# Below, we try to inherit the python version used to build the stage3 image.
-# However, there will be times when we wish to override this, which we can do
-# here:
-ARG python_target_override=""
-
-#ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
+ARG stage3_flags_file="/usr/libexec/stage3_flags.sh"
 
 
 # -----------------------------------------------------------------------------
 
 # linter ignore=EF0003
-FROM "${stage3_image}:${stage3_tag}" AS stage3
+FROM "${gentoo_stage3_image}:${gentoo_stage3_tag}" AS stage3
 
 ARG ARCH
-ARG python_target_override
+ARG stage3_flags_file
 
 # Save initial environment...
-RUN echo "USE=\"$( \
+# linter ignore=ER0001
+RUN pe="$( \
+        find /var/db/pkg/dev-lang/ \
+                -mindepth 1 \
+                -maxdepth 1 \
+                -type d \
+                -name 'python-exec-*' \
+                -print \
+    )" ; \
+    if [ -n "${pe:-}" ] && [ -e "${pe}/USE" ]; then \
+        mv "${pe}/USE" "${pe}/USE-ignore" || : ; \
+    fi ; \
+    echo "STAGE3_USE=\"$( \
         cat /var/db/pkg/*/*/USE | \
-        xargs -n 1 echo | \
-        grep -v -e '^python_targets_' -e 'udev' -e '^static' | \
-        sed -r "s/^(python_single_target_)(.*)$/\1${python_target_override:-\2}\npython_targets_${python_target_override:-\2}/" | \
+        xargs -rn 1 echo | \
         sort | \
         uniq | \
-        xargs echo -n \
-    )\"" >/usr/libexec/stage3.info 2>/dev/null
+        grep -v \
+            -e '^abi_' -e "^${ARCH}$" -e 'elibc_glibc' -e 'kernel_linux' \
+            -e 'userland_GNU' -e '^python_' -e 'udev' -e '^static' | \
+        xargs -r echo -n \
+    )\"" >"${stage3_flags_file}" 2>/dev/null && \
+    echo "STAGE3_PYTHON_SINGLE_TARGET=\"$( \
+        cat /var/db/pkg/*/*/USE | \
+        xargs -rn 1 echo | \
+        sort | \
+        uniq | \
+        grep '^python_single_target_' | \
+        sed 's/^python_single_target_//' | \
+        xargs -r echo -n \
+    )\"" >>"${stage3_flags_file}" 2>/dev/null && \
+    echo "STAGE3_PYTHON_TARGETS=\"$( \
+        cat /var/db/pkg/*/*/USE | \
+        xargs -rn 1 echo | \
+        sort | \
+        uniq | \
+        grep '^python_targets_' | \
+        sed 's/^python_targets_//' | \
+        xargs -r echo -n \
+    )\"" >>"${stage3_flags_file}" 2>/dev/null ; \
+    if [ -n "${pe:-}" ] && [ -e "${pe}/USE-ignore" ]; then \
+        mv "${pe}/USE-ignore" "${pe}/USE" || : ; \
+    fi
 
 
 # -----------------------------------------------------------------------------
@@ -56,12 +85,12 @@ FROM "${env_name}:latest"
 ARG env_name
 ARG env_id
 
-ARG stage3_image
-ARG stage3_id
+ARG gentoo_stage3_image
+ARG gentoo_stage3_id
 
 
-LABEL envrionment_from="${env_name}:${env_id}"
-LABEL stage3_from="${stage3_image}:${stage3_id}"
+LABEL environment-from="${env_name}:${env_id}"
+LABEL stage3-from="${gentoo_stage3_image}:${gentoo_stage3_id}"
 
 COPY --from=stage3 / /
 

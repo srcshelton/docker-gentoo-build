@@ -2,10 +2,12 @@
 
 set -eu
 
+# shellcheck disable=SC2034
 debug=${DEBUG:-}
+# shellcheck disable=SC2034
 trace=${TRACE:-}
 
-[ -n "${trace:-}" ] && set -o xtrace
+environment_file='__ENVFILE__'
 
 print() {
 	if [ -n "${debug:-}" ]; then
@@ -15,10 +17,17 @@ print() {
 			echo >&2
 		fi
 	fi
-}
+}  # print
+
+[ -n "${trace:-}" ] && set -o xtrace
 
 if [ -z "${service_cmd:-}" ]; then
 	echo >&2 "FATAL: Required 'service_cmd' environment variable not set"
+	exit 1
+fi
+
+if set | grep -q -- '=__[A-Z]\+__$'; then
+	echo >&2 "FATAL: Unexpanded variable(s) in environment: $( set | grep -- '=__[A-Z]\+__$' | cut -d'=' -f 1 | xargs -r )"
 	exit 1
 fi
 
@@ -30,10 +39,10 @@ if [ -d /usr/libexec/entrypoint.d ]; then
 	fi
 fi
 
-if [ -s /usr/libexec/environment.sh ]; then
+if [ -s "${environment_file}" ]; then
 	print "Sourcing environment ..."
-	# shellcheck disable=SC1091
-	. /usr/libexec/environment.sh
+	# shellcheck disable=SC1090
+	. "${environment_file}"
 fi
 
 print "Checking for root access ..."
@@ -169,3 +178,5 @@ fi
 # shellcheck disable=SC2016
 print "Running service '${service_cmd}'${*+ with parameters '${*}'} ..."
 exec "${service_cmd}" ${@+"${@}"}
+
+# vi: set colorcolumn=80 foldmarker=()\ {,}\ \ #\  foldmethod=marker syntax=sh sw=4 ts=4:
