@@ -88,12 +88,15 @@ sys-libs/libomp				 Apache-2.0-with-LLVM-exceptions
 sys-libs/llvm-libunwind			 Apache-2.0-with-LLVM-exceptions
 
 
-# required by service sys-libs/glibc-2.32-r6[gd]
+# required by sys-libs/glibc-2.32-r6[gd]
 media-libs/gd				 HPND IJG gd
 
 # required by x11-libs/pango-1.42.4-r2
 # required by media-libs/harfbuzz-2.7.2
 media-libs/harfbuzz			 Old-MIT icu
+
+# required by dev-lang/ruby-2.7.6
+dev-ruby/test-unit			 PSF-2
 
 
 # Service packages:
