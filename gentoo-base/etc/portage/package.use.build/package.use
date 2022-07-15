@@ -205,7 +205,7 @@ sys-apps/smartmontools			 update_drivedb update-drivedb
 sys-apps/usbutils			 experimental
 sys-apps/util-linux			 magic pam su tty-helpers  # conflicts sys-apps/shadow[su]
 sys-auth/opie				-server
-sys-auth/pambase			-passwdqc pwquality yescrypt  # mktemp
+sys-auth/pambase			-passwdqc -sha512 pwquality yescrypt  # mktemp
 sys-auth/pam_mobile_otp			 manager
 sys-block/parted			 device-mapper
 sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
