@@ -193,6 +193,7 @@ if [ "${rebuild:-0}" = '1' ]; then
 		if ! [ $(( all )) -eq 0 ]; then
 			selection='--services all'
 		fi
+		# shellcheck disable=SC2086
 		./gentoo-build-svc.docker \
 				${forceflag:+${forceflag} --rebuild} \
 				${selection} ||
@@ -237,16 +238,23 @@ if [ "${pkgcache:-0}" = '1' ]; then
 
 		for image in 'localhost/gentoo-stage3' 'localhost/gentoo-init'; do
 			if [ "$( $docker image ls -n "${image}" | wc -l )" = '0' ]; then
+				stage3_flags_file=''
+				# shellcheck disable=SC1091
+				. ./common/vars.sh
 				eval "$(
 					$docker container run \
 							--rm \
 							--entrypoint /bin/sh \
-							--name 'buildpkg.stage3.read' \
+							--name 'buildpkg.stage3_flags.read' \
 							--network none \
-						${image} -c 'cat /usr/libexec/stage3.info'
+						"${image}" -c "cat ${stage3_flags_file}"
 				)"
-				if [ -n "${USE:-}" ]; then
-					use="${USE} symlink"
+				if [ -n "${STAGE3_USE:-}" ]; then
+					# Add 'symlink' USE flag to ensure that /usr/src/linux is
+					# updated
+					# FIXME: This flag also affects a small number of other
+					#        ebuilds (possibly replacing bzip2 & gzip binaries)
+					use="${STAGE3_USE} symlink"
 					for flag in ${use}; do
 						case "${flag}" in
 							readline|nls|static-libs|zstd)
@@ -257,11 +265,17 @@ if [ "${pkgcache:-0}" = '1' ]; then
 					done
 					break
 				fi
+				# shellcheck disable=SC2046
+				unset $( set | grep '^STAGE3_' | cut -d'=' -f 1 )
 			fi
 		done
 		if [ -z "${USE:-}" ]; then
+			python_default_target=''
 			# shellcheck disable=SC1091
 			. ./common/vars.sh
+
+			# Assume that python_default_target has the most recent/primary
+			# version first...
 			python_single_target="${python_default_target%% *}"
 			use="
 				${use_essential_gcc}
@@ -287,9 +301,11 @@ if [ "${pkgcache:-0}" = '1' ]; then
 		USE="-* ${use}"
 		export USE
 
+		# shellcheck disable=SC2030
 		rc=0
 
 		{
+			# shellcheck disable=SC2030
 			USE="-* ${use} nls readline static-libs zstd" \
 			./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
@@ -348,8 +364,10 @@ if [ "${pkgcache:-0}" = '1' ]; then
 				: $(( rc = rc + 1 ))
 		} | tee log/buildpkg.cache.log
 
+		# shellcheck disable=SC2031
 		[ $(( rc )) -eq 0 ] || exit ${rc}
 	)
+	# shellcheck disable=SC2031
 	: $(( rc = rc + ${?} ))
 fi
 

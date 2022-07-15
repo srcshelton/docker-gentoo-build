@@ -21,7 +21,7 @@ find_seq() {
 		(( counter++ ))
 	done
 
-	printf '%s/._cfg%04d_%s' "${path}" ${counter} "${name}"
+	printf '%s/._cfg%04d_%s' "${path}" "${counter}" "${name}"
 } # find_seq()
 
 declare -r base_dir='gentoo-base'
@@ -46,15 +46,18 @@ type -pf portageq >/dev/null 2>&1 || {
 	exit 1
 }
 
-declare -r ARCH="$( portageq envvar ARCH )"
+declare ARCH=''
+ARCH="$( portageq envvar ARCH )"
+readonly ARCH
+
 declare -i rc=0
 
-for file in *.${ARCH}; do
+for file in *."${ARCH}"; do
 	[[ "${file}" == "${file#.}" ]] || continue
 	[[ -s "${file}" ]] || continue
-	diff -q "${file}" "/etc/portage/${file%.${ARCH}}/${file}" >/dev/null 2>&1 && continue
-	mkdir -p "$( dirname "/etc/portage/${file%.${ARCH}}/${file}" )"
-	cp -v "${file}" "$( find_seq "/etc/portage/${file%.${ARCH}}/${file}" )" ||
+	diff -q "${file}" "/etc/portage/${file%."${ARCH}"}/${file}" >/dev/null 2>&1 && continue
+	mkdir -p "$( dirname "/etc/portage/${file%."${ARCH}"}/${file}" )"
+	cp -v "${file}" "$( find_seq "/etc/portage/${file%."${ARCH}"}/${file}" )" ||
 		(( rc = 2 ))
 done
 
