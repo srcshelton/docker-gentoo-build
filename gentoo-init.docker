@@ -507,15 +507,18 @@ gentoo_stage3_tag='latest'
 # name has changed from 'x86' to 'i686-openrc' and the ARM image names are
 # unchanged in the case of 'openrc' but now also have variants with a 'systemd'
 # suffix)
+# Update: As-of 18th March 2022, the 'arm64' image is no longer being updated,
+# but the 'latest' image is now multi-arch, and there's an 'arm64-openrc' image
+# also...
 case "${docker_arch}" in
 	'amd64')
 		gentoo_stage3_tag="${docker_arch}-nomultilib-openrc" ;;
 	'arm64')
-		gentoo_stage3_tag="${docker_arch}" ;;
+		gentoo_stage3_tag="${docker_arch}-openrc" ;;
 	'arm/v7')
-		gentoo_stage3_tag='armv7a_hardfp' ;;
+		gentoo_stage3_tag='armv7a_hardfp-openrc' ;;
 	'arm/v6')
-		gentoo_stage3_tag='armv6j_hardfp' ;;
+		gentoo_stage3_tag='armv6j_hardfp-openrc' ;;
 	'i386')
 		gentoo_stage3_tag='i686-openrc' ;;
 esac
