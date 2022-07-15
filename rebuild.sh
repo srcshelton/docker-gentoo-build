@@ -436,7 +436,7 @@ if [ "${update:-0}" = '1' ]; then
 					$(
 						for pkg in /var/db/pkg/*/*; do
 							pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
-							if echo "${pkg}" | grep -Eq '^container/|/pkgconfig-|/-MERGING-'; then
+							if echo "${pkg}" | grep -Eq '^app-admin/(fam|gamin)-|^container/|/pkgconfig-|/-MERGING-'; then
 								continue
 							fi
 							echo ">=${pkg}"
