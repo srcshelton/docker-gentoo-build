@@ -637,6 +637,42 @@ docker_run() {
 		FEATURES="${FEATURES:+${FEATURES} }-ipc-sandbox -mount-sandbox -network-sandbox"
 		export FEATURES
 	fi
+	if [[ -n "${DEV_MODE:-}" ]]; then
+		if
+			[[
+				-z "${JOBS:-}" ||
+				-z "${MAXLOAD:-}" ||
+				-z "${init_name:-}" ||
+				-z "${base_name:-}" ||
+				-z "${build_name:-}"
+			]]
+		then
+			# shellcheck disable=SC1091
+			[[ ! -s common/vars.sh ]] || . common/vars.sh
+		fi
+
+		local name='' ext=''
+		name="${image#*/}"
+		case "${image#*/}" in
+			"${init_name#*/}:latest"|"${base_name#*/}:latest")
+				: ;;
+			"${build_name#*/}:latest")
+				ext='.build' ;;
+			*)
+				die "I don't know how to apply DEV_MODE to image '${image}'"
+				;;
+		esac
+		unset name
+		runargs+=(
+			  # FIXME: DEV_MODE currently hard-codes entrypoint.sh.build ...
+			  --env DEV_MODE
+			  --env DEFAULT_JOBS="${JOBS}"
+			  --env DEFAULT_MAXLOAD="${MAXLOAD}"
+			  --env environment_file="${environment_file}"
+			  --volume "${PWD%/}/gentoo-base/entrypoint.sh${ext}:/usr/libexec/entrypoint.sh:ro"
+		)
+		unset ext
+	fi
 	# shellcheck disable=SC2206
 	runargs+=(
 		  ${DOCKER_DEVICES:-}
@@ -651,8 +687,6 @@ docker_run() {
 		  #${DOCKER_INTERACTIVE:+--env COLUMNS="$( tput cols 2>/dev/null )" --env LINES="$( tput lines 2>/dev/null )"}
 		--env COLUMNS="$( tput cols 2>/dev/null || echo '80' )" --env LINES="$( tput lines 2>/dev/null || echo '24' )"
 		  ${DEBUG:+--env DEBUG}
-		  # FIXME: DEV_MODE currently hard-codes entrypoint.sh.build ...
-		  ${DEV_MODE:+--env DEV_MODE --volume "${PWD%/}/gentoo-base/entrypoint.sh.build:/usr/libexec/entrypoint.sh:ro"}
 		  ${ECLASS_OVERRIDE:+--env "ECLASS_OVERRIDE=${ECLASS_OVERRIDE}"}
 		  ${EMERGE_OPTS:+--env "EMERGE_OPTS=${EMERGE_OPTS}"}
 		  ${FEATURES:+--env FEATURES}
@@ -993,6 +1027,10 @@ if ! echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	else
 		warn "No default '\${IMAGE}' specified"
 	fi
+fi
+
+if ! [ -d "${PWD%/}/gentoo-base" ]; then
+	die "Cannot locate required directory 'gentoo-base' in '${PWD%/}'"
 fi
 
 # Are we using docker or podman?
