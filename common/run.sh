@@ -1029,7 +1029,7 @@ if ! echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	fi
 fi
 
-if ! [ -d "${PWD%/}/gentoo-base" ]; then
+if [ ! -d "${PWD%/}/gentoo-base" ] && [ ! -x "${PWD%/}/gentoo-build-web.docker" ]; then
 	die "Cannot locate required directory 'gentoo-base' in '${PWD%/}'"
 fi
 
