@@ -238,7 +238,7 @@ resolve_python_flags() {
 
 	resolve_info='' resolve_target=''
 	resolve_info="$(
-		LC_ALL='C' SYSROOT="${ROOT}" PORTAGE_CONFIGROOT="${ROOT}" \
+		LC_ALL='C' SYSROOT="${ROOT:-/}" PORTAGE_CONFIGROOT="${ROOT:-/}" \
 			emerge --info --verbose
 	)"
 
@@ -1887,7 +1887,7 @@ case "${1:-}" in
 										-print |
 									sed 's|^.*/var/db/pkg/|=| ; s|/$||'
 							)"
-							if portageq get_repos / | grep -Fq -- 'srcshelton'; then
+							if ROOT="/" SYSROOT="/" PORTAGE_CONFIGROOT="/" portageq get_repos / | grep -Fq -- 'srcshelton'; then
 								pkgs="${pkgs:-} virtual/tmpfiles::srcshelton"
 							fi
 							print "pkgs: '${pkgs}'"
