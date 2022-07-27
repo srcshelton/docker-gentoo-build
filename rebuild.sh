@@ -235,6 +235,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 	(
 		use=''
 		image=''
+		ARCH="${ARCH:-$( portageq envvar ARCH )}"
 
 		for image in 'localhost/gentoo-stage3' 'localhost/gentoo-init'; do
 			if [ "$( $docker image ls -n "${image}" | wc -l )" = '0' ]; then
@@ -257,7 +258,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 					use="${STAGE3_USE} symlink"
 					for flag in ${use}; do
 						case "${flag}" in
-							readline|nls|static-libs|zstd)
+							"${ARCH}"|readline|nls|static-libs|zstd)
 								continue ;;
 						esac
 						# shellcheck disable=SC2030
@@ -347,9 +348,40 @@ if [ "${pkgcache:-0}" = '1' ]; then
 						--with-pkg-use='sys-apps/net-tools hostname' \
 						--with-pkg-use='sys-apps/coreutils -hostname' \
 					virtual/libc \
-					app-arch/cpio \
+					sys-apps/net-tools ||
+				: $(( rc = rc + 1 ))
+			USE="-* ${use} nls" \
+			./gentoo-build-pkg.docker 2>&1 \
+						--buildpkg=y \
+						--name 'buildpkg.cache' \
+						--usepkg=y \
+						--with-bdeps=n \
+						--with-pkg-use='sys-apps/net-tools hostname' \
+						--with-pkg-use='sys-apps/coreutils -hostname' \
+					virtual/libc \
+					sys-apps/coreutils ||
+				: $(( rc = rc + 1 ))
+			USE="-* ${use} nls" \
+			./gentoo-build-pkg.docker 2>&1 \
+						--buildpkg=y \
+						--name 'buildpkg.cache' \
+						--usepkg=y \
+						--with-bdeps=n \
+						--with-pkg-use='sys-apps/net-tools hostname' \
+						--with-pkg-use='sys-apps/coreutils -hostname' \
+					virtual/libc \
 					app-editors/vim-core \
-					app-editors/vim \
+					app-editors/vim ||
+				: $(( rc = rc + 1 ))
+
+			USE="-* ${use} nls" \
+			./gentoo-build-pkg.docker 2>&1 \
+						--buildpkg=y \
+						--name 'buildpkg.cache' \
+						--usepkg=y \
+						--with-bdeps=n \
+					virtual/libc \
+					app-arch/cpio \
 					dev-libs/elfutils ||
 				: $(( rc = rc + 1 ))
 
