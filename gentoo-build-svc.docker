@@ -680,7 +680,7 @@ case "${package_name}" in
 		;;
 	*.mariadb)
 		output "Setting build variables for package 'mariadb' ..."
-		pre_pkgs='sys-apps/help2man sys-devel/gcc'
+		pre_pkgs='sys-apps/help2man sys-devel/gcc acct-group/hugetlb'
 		# app-shells/bash needed to run ebuild 'pkg_config' function within container
 		# sys-libs/glibc needed to provide locale data
 		# sys-libs/timezone-data needed to provide time-zone data for new installations ...
@@ -695,6 +695,7 @@ case "${package_name}" in
 		;;
 	*.memcached)
 		output "Setting build variables for package 'memcached' ..."
+		pre_pkgs='acct-group/hugetlb'
 
 		container_cmd='/usr/bin/memcached'
 		;;
@@ -837,7 +838,7 @@ case "${package_name}" in
 	*.postfix)
 		output "Setting build variables for package 'postfix' ..."
 		# mail-filter/maildrop's BDEPEND/DEPEND isn't working :(
-		pre_pkgs='sys-apps/help2man acct-group/postfix acct-user/postfix dev-libs/libpcre net-dns/libidn net-libs/courier-unicode sys-devel/automake sys-devel/gcc sys-devel/libtool'
+		pre_pkgs='sys-apps/help2man acct-group/hugetlb acct-group/postfix acct-user/memcached acct-user/postfix dev-libs/libpcre net-dns/libidn net-libs/courier-unicode sys-devel/automake sys-devel/gcc sys-devel/libtool'
 		#extra_pkgs='dev-libs/cyrus-sasl'
 		#post_pkgs='app-shells/bash mail-filter/maildrop mail-filter/procmail net-mail/dovecot sys-apps/shadow'  # dovecot for lda
 		extra_pkgs='app-shells/bash dev-libs/cyrus-sasl mail-filter/maildrop mail-filter/procmail net-mail/dovecot sys-apps/shadow'  # dovecot for lda
@@ -977,12 +978,15 @@ case "${package_name}" in
 		'
 
 		ports='6276/udp 6276/tcp 6277/udp 6277/tcp'  # razor/dcc
-		if [ "$(
+		if [[ "$(
 				printf '2.61\n%s' "${package_version:-}" |
-				sort -V
-		)" = '2.61' ]; then
+				sort -V |
+				head -n 1
+		)" == '2.61' ]]; then
+			output "Configuring 'spampd-${package_version:-}' for v2.61 or later ..."
 			container_cmd='/usr/sbin/spampd'
 		else
+			output "Configuring 'spampd-${package_version:-}' for v2.53 or prior ..."
 			container_cmd='/usr/sbin/spampd.pl'
 		fi
 		;;
