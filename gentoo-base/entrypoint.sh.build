@@ -283,7 +283,7 @@ COLLISION_IGNORE="${COLLISION_IGNORE:-/lib/modules/*}
 "
 export COLLISION_IGNORE
 
-TUSE='' pkg_use_pkg='' pkg_use_use=''
+TUSE='' pkg_use_pkg='' pkg_use_use='' pkg_use_file='' pkg_use_files=''
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
 post_pkgs='' post_use='' post_remove=''
@@ -352,8 +352,13 @@ for arg in "${@}"; do
 				die "Unable to extract package and USE flags from '${arg}'"
 			fi
 			mkdir -p /etc/portage/package.use
-			printf '%s %s\n' "${pkg_use_pkg}" "${pkg_use_use}" >> "/etc/portage/package.use/$( echo "${pkg_use_pkg}" | cut -d'/' -f 2- )"
-			unset pkg_use_pkg pkg_use_use
+			pkg_use_file="/etc/portage/package.use/$( echo "${pkg_use_pkg}" | cut -d'/' -f 2- )"
+			printf '%s %s\n' "${pkg_use_pkg}" "${pkg_use_use}" >> "${pkg_use_file}"
+			warn "Applied override USE flag(s):"
+			warn "  ${pkg_use_file}:"
+			warn "$( sed 's/^/    /' < "${pkg_use_file}" )"
+			pkg_use_files="${pkg_use_files:+"${pkg_use_files} "}${pkg_use_file}"
+			unset pkg_use_file pkg_use_pkg pkg_use_use
 			continue
 			;;
 		*)
@@ -743,6 +748,14 @@ fi
 	export USE="-* -lib-only make-symlinks openmp timezone-tools"
 	export LC_ALL='C'
 	export VERY_BRAVE_OR_VERY_DUMB='yes'  # for busybox
+
+	for pkg_use_file in ${pkg_use_files}; do
+		if [ -e "${pkg_use_file}" ] && ! [ -e "${ROOT}${pkg_use_file}" ]; then
+			mkdir -p "$( dirname "${ROOT}${pkg_use_file}" )"
+			cp -v "${pkg_use_file}" "${ROOT}${pkg_use_file}"
+		fi
+	done
+	unset pkg_use_file
 
 	info="$( emerge --info --verbose )"
 	echo
