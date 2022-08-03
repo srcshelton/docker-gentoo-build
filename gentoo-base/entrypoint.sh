@@ -1529,10 +1529,17 @@ case "${1:-}" in
 
 			echo
 			echo " * Building specified post-installation '${post_pkgs}'" \
-				"packages ..."
+				"packages ${post_use:+"with USE='${post_use}' "}..."
 			echo
 
 			[ -n "${post_use:-}" ] && export USE="${post_use}"
+			eval "$(
+				resolve_python_flags \
+					"${USE:-}" \
+					"${PYTHON_SINGLE_TARGET:-}" \
+					"${PYTHON_TARGETS:-}"
+			)"
+			export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
 			info="$( LC_ALL='C' emerge --info --verbose )"
 
