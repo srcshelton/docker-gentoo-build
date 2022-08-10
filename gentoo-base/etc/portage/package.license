@@ -171,6 +171,27 @@ mail-mta/postfix			 EPL-2.0 IBM
 dev-libs/cyrus-sasl			 BSD-with-attribution
 #dev-db/tinycdb				 public-domain
 
+# required by service net-analyzer/gvmd
+app-text/texlive-core			 LPPL-1.3c TeX
+dev-db/postgresql			 POSTGRESQL
+dev-perl/Digest-Perl-MD5		 RSA
+dev-python/defusedxml			 PSF-2
+dev-python/fqdn				 MPL-2.0
+dev-python/lxml				 ElementTree PSF-2
+dev-python/pathspec			 MPL-2.0
+dev-python/zope-interface		 ZPL
+dev-texlive/texlive-basic		 GPL-1 LPPL-1.3 LPPL-1.3c OFL TeX TeX-other-free
+dev-texlive/texlive-fontsrecommended	 GPL-1 LPPL-1.3 LPPL-1.3c OFL TeX TeX-other-free
+dev-texlive/texlive-fontutils		 GPL-1 LPPL-1.3 LPPL-1.3c TeX TeX-other-free
+dev-texlive/texlive-latexextra		 CC0-1.0
+dev-texlive/texlive-latex		 LPPL-1.3 LPPL-1.3c
+dev-texlive/texlive-latexrecommended	 GPL-1 LPPL-1.2 LPPL-1.3 LPPL-1.3c TeX-other-free
+dev-texlive/texlive-pictures		 CC0-1.0
+dev-tex/pgf				 LPPL-1.3c FDL-1.2
+net-analyzer/gvm			 AGPL-3+
+net-analyzer/gvmd			 AGPL-3+
+net-analyzer/ospd-openvas		 AGPL-3+
+
 # required by service net-dns/bind
 container/bind				 HPND MPL-2.0
 net-dns/bind				 HPND MPL-2.0
