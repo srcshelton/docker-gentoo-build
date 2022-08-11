@@ -1779,7 +1779,7 @@ case "${1:-}" in
 												-name 'IUSE' \
 												-print0 |
 											xargs -r0 grep -Flw -- "${arg}" |
-											sed 's|^.*/var/db/pkg/|=| ; s|/IUSE$||'
+											sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||'
 									)"
 									print "pkgs is now '${pkgs}'"
 								else
@@ -1809,7 +1809,7 @@ case "${1:-}" in
 										-maxdepth 1 \
 										-type d \
 										-print |
-									sed 's|^.*/var/db/pkg/|=| ; s|/$||'
+									sed 's|^.*/var/db/pkg/|>=| ; s|/$||'
 							)"
 
 							info="$(
