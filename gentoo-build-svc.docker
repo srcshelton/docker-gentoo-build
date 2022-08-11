@@ -584,7 +584,8 @@ case "${package_name}" in
 		etcdir='dcc'
 		;;
 	*.dhcp)
-		output "Setting build variables for package 'bitlbee' ..."
+		output "Setting build variables for package 'dhcp' ..."
+		pre_pkgs='acct-user/dhcp'
 
 		ports='67/udp 68/udp 647/tcp 7911/tcp'
 		#user='dhcp'
@@ -733,6 +734,7 @@ case "${package_name}" in
 	*.openntpd)
 		output "Setting build variables for package 'openntpd' ..."
 
+		pre_pkgs='acct-user/openntpd'
 		case "${package_version}" in
 			6.[02]_p)
 				#pre_remove='app-arch/libarchive dev-libs/openssl dev-python/pypy dev-python/pypy3 dev-python/pypy3-exe net-misc/wget'
@@ -838,7 +840,19 @@ case "${package_name}" in
 	*.postfix)
 		output "Setting build variables for package 'postfix' ..."
 		# mail-filter/maildrop's BDEPEND/DEPEND isn't working :(
-		pre_pkgs='sys-apps/help2man acct-group/hugetlb acct-group/postfix acct-user/memcached acct-user/postfix dev-libs/libpcre net-dns/libidn net-libs/courier-unicode sys-devel/automake sys-devel/gcc sys-devel/libtool'
+		pre_pkgs='
+			sys-apps/help2man
+			acct-group/hugetlb
+			acct-group/postfix
+			acct-user/memcached
+			acct-user/postfix
+			dev-libs/libpcre
+			net-dns/libidn
+			net-libs/courier-unicode
+			sys-devel/automake
+			sys-devel/gcc
+			sys-devel/libtool
+		'
 		#extra_pkgs='dev-libs/cyrus-sasl'
 		#post_pkgs='app-shells/bash mail-filter/maildrop mail-filter/procmail net-mail/dovecot sys-apps/shadow'  # dovecot for lda
 		extra_pkgs='app-shells/bash dev-libs/cyrus-sasl mail-filter/maildrop mail-filter/procmail net-mail/dovecot sys-apps/shadow'  # dovecot for lda
