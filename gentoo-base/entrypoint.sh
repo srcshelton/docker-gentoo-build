@@ -1802,6 +1802,13 @@ case "${1:-}" in
 									uniq |
 									xargs -r
 							)"
+							export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+							eval "$(
+								resolve_python_flags \
+									"${USE}" \
+									"${PYTHON_SINGLE_TARGET}" \
+									"${PYTHON_TARGETS}"
+							)"
 							pkgs="${pkgs:-} $(
 								#ls -1d "${ROOT%/}"/var/db/pkg/dev-python/* |
 								find "${ROOT%/}/var/db/pkg/dev-python/" \
@@ -1838,6 +1845,14 @@ case "${1:-}" in
 							print "pkgs: '${pkgs}'"
 
 							# shellcheck disable=SC2086
+							USE="$(
+								echo " ${USE} " |
+									sed -r \
+										-e 's/ python_targets_[^ ]+ / /g' \
+										-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
+										-e 's/^ // ; s/ $//'
+							)" \
+							PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
 							emerge ${parallel} ${opts} \
 									--usepkg=y \
 								${pkgs} || rc=${?}
