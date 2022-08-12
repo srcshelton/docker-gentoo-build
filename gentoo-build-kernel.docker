@@ -58,6 +58,7 @@ set -e
 docker_setup
 
 if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
+	declare usage='' options=''
 	usage="Usage: $( basename "${0}" ) "
 	# shellcheck disable=SC2116 # echo used for line-splitting
 	options="$( echo \
@@ -85,12 +86,16 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "       --nconfig     Interactively reconfigure the kernel via nconfig"
 	output >&2 "       --package     Specify kernel package to build"
 	output >&2 "                    (default: sys-kernel/gentoo-sources)"
+	output >&2 "       -O3           Add 'KCFLAGS=-O3' (and others - see [1])"
 	output >&2 "       --clang       Compile kernel with llvm"
-	output >&2 "       --clean-lto   Remove exisitng *.lto.o objects"
-	output >&2 "       --clean       Run 'make clean' before build"
 	output >&2 "       --llvm-unwind Install LLVM edition of libunwind"
+	output >&2 "       --clean       Run 'make clean' before build"
+	output >&2 "       --clean-lto   Remove exisitng *.lto.o objects"
 	output >&2
 	output >&2 "Running on architecture '${arch:-${ARCH:-}}'"
+	output >&2
+	output >&2 "[1]: https://github.com/clearlinux-pkgs/linux/blob/main/0133-novector.patch"
+	output >&2
 	exit 0
 fi
 
@@ -98,18 +103,19 @@ if (( EUID )); then
 	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi
 
-declare build=1
+declare -i build=1
 declare build_dir=''
 declare compiler='gcc'
 declare unwind=''
 declare config=''
-declare force=0
+declare -i force=0
 declare menuconfig=''
 declare nconfig=''
 declare version=''
 declare patch=''
-declare clean_lto=0
-declare clean=0
+declare -i clean_lto=0
+declare -i clean=0
+declare -i opt_o3=0
 
 if echo " ${*:-} " | grep -q -- ' --menuconfig '; then
 	menuconfig='menuconfig'  # Just has to be set...
@@ -121,6 +127,9 @@ if echo " ${*:-} " | grep -q -- ' --nconfig '; then
 fi
 if echo " ${*:-} " | grep -q -- ' --clean '; then
 	clean=1
+fi
+if echo " ${*:-} " | grep -q -- ' -O3 '; then
+	opt_o3=1
 fi
 if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 	compiler='clang'
@@ -155,8 +164,8 @@ else
 	fi
 	# Use bash syntax to avoid shellcheck SC2166
 	if
-		[[ "${menuconfig}" == '1' || "${nconfig}" == '1' ]] &&
-		! echo " ${*:-} " | grep -q -- ' --keep-build'
+		[[ -n "${menuconfig:-}" || -n "${nconfig:-}" ]] &&
+			! grep -q -- ' --keep-build ' <<<" ${*:-} "
 	then
 		warn "Changes made to configuration will not be saved externally"
 	fi
@@ -185,10 +194,10 @@ if echo " ${*:-} " | grep -q -- ' --package'; then
 	fi
 fi
 
-package=''
-package_version=''
-container_name=''
-distro=''
+declare package=''
+declare package_version=''
+declare container_name=''
+declare distro=''
 docker_resolve "${version:-sys-kernel/gentoo-sources}"
 if ! echo "${package}" | grep -Fq -- '/'; then
 	error "Resolved package '${package}' with version '${package_version}' lacks a category"
@@ -244,6 +253,8 @@ case "${package_version}" in
 		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15-5.16.patch' ;;
 	5.17.*)
 		patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.17%2B.patch' ;;
+	5.19.[01])
+		patch='https://lore.kernel.org/all/20220630090100.2769490-1-yi.zhang@huawei.com/raw' ;;
 	'')
 		: ;;
 	*)
@@ -284,6 +295,7 @@ if mount | grep ' on /boot ' | grep -Eq '(\(ro,|,ro,|,ro\))'; then
 	sleep 5
 fi
 
+declare build_version=''
 build_version="$( echo "${package_version}" | cut -d'.' -f 1-2 )"
 if [ -z "${build_dir:-}" ]; then
 	# Even if '--keep-build' hasn't been specified, we still set build_dir
@@ -291,6 +303,7 @@ if [ -z "${build_dir:-}" ]; then
 	#
 	build_dir="/usr/src/linux-build-${compiler}${unwind:+-unwind}-${build_version}.x"
 fi
+unset build_version
 if [ "${build:-}" = '1' ]; then
 	info >&2 "Using build directory '${build_dir}' ..."
 	mkdir -p "${build_dir}" || die "mkdir() on '${build_dir}' failed: ${?}"
@@ -356,11 +369,22 @@ fi
 
 [ -d log ] || mkdir log
 
-compiler_pkgs=''
-compiler_USE=''
-container_CC='gcc'
-container_CXX='g++'
-container_LLVM=''
+declare compiler_pkgs=''
+declare compiler_USE=''
+declare container_CC='gcc'
+declare container_CXX='g++'
+declare container_LLVM=''
+declare container_KCFLAGS=''
+if (( opt_o3 )); then
+	declare add_flags='-O3 -mno-avx2 -fno-tree-vectorize'
+	if [[ -e /proc/cpuinfo && -r /proc/cpuinfo ]]; then
+		if grep -Fq 'sse4_2' /proc/cpuinfo; then
+			add_flags+=" -mpopcnt"
+		fi
+	fi
+	container_KCFLAGS="KCFLAGS=\"${add_flags}\""
+	unset add_flags
+fi
 case "${compiler}" in
 	gcc)
 		compiler_pkgs='sys-devel/gcc'
@@ -573,11 +597,13 @@ kernel_debug=''
 : ${LINES:=24}
 
 declare -a kernel_make_opts=()
+# shellcheck disable=SC2206
 kernel_make_opts+=(
 	${container_CC:+CC=${container_CC}}
 	${container_CXX:+CXX=${container_CXX}}
 	${container_LD:+LD=${container_LD}}
 	${container_LLVM:+LLVM=1 LLVM_IAS=1}
+	${container_KCFLAGS:-}
 	${kernel_debug:+${kernel_debug}}
 	O=../build
 )
@@ -642,7 +668,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	[ "${clean_lto}" = '1' ] && find ../build/ -name '*.lto.o' -delete ;
 	if [ -n "${microcode_blob:-}" ]; then
 		echo ;
-		echo "Required microcode update files:" ;
+		echo "Required microcode update files${microcode:+" from '\$( portageq best_version / \"${microcode}\" )'"}:" ;
 		echo ;
 		if [ "${microcode_blob}" = 'intel' ]; then
 			iucode_tool -S -l /lib/firmware/intel-ucode/* ;
