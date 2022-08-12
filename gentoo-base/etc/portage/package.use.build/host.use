@@ -5,8 +5,12 @@
 # bzip2 natspec unicode
 app-arch/unzip				-* bzip2 unicode
 
+#virtual/mta::container			-ssmtp postfix
+
 container/dovecot			 managesieve sieve
 container/mariadb			 server
+
+container/opendmarc			 milter
 
 # backup extraengine innodb-lz4 innodb-lzo innodb-snappy jemalloc odbc oqgraph pam perl sphinx tokudb xml
 dev-db/mariadb				-* bindist  # avoid sys-libs/binutils-libs dependency
