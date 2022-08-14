@@ -720,11 +720,25 @@ docker_run() {
 			if (( ram < ${PODMAN_MEMORY_LIMIT%g} )); then
 				PODMAN_MEMORY_RESERVATION="$(( ram - 1 ))g"
 				PODMAN_MEMORY_LIMIT="$(( ram ))g"
-				PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+				#PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+				if (( ram <= 1 )); then
+					PODMAN_SWAP_LIMIT="$(( ram * 2 ))g"
+				else
+					PODMAN_SWAP_LIMIT="$(( ram + $(
+						awk -v ram="${ram}" 'BEGIN{ print int( sqrt( ram ) + 0.5 ) }'
+					) ))g"
+				fi
 				changed=1
 			fi
 			if (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
-				PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+				#PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+				if (( ram <= 1 )); then
+					PODMAN_SWAP_LIMIT="$(( ram * 2 ))g"
+				else
+					PODMAN_SWAP_LIMIT="$(( ram + $(
+						awk -v ram="${ram}" 'BEGIN{ print int( sqrt( ram ) + 0.5 ) }'
+					) ))g"
+				fi
 				changed=1
 			fi
 			if (( changed )); then
