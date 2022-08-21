@@ -1030,7 +1030,7 @@ case "${1:-}" in
 							unset gcc_use
 							print "After work-around, USE is '${USE}'"
 						fi
-						if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
+						if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark|rust|dev-lang/rust)[ -]'; then
 							warn "Activating app-containers/netavark work-arounds ..."
 							print "Before work-around, USE is '${USE}' ..."
 							USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
@@ -1072,7 +1072,7 @@ case "${1:-}" in
 						unset gcc_use
 						print "After work-around, USE is '${USE}'"
 					fi
-					if echo " ${first} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
+					if echo " ${first} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark|rust|dev-lang/rust)[ -]'; then
 						warn "Activating app-containers/netavark work-arounds ..."
 						print "Before work-around, USE is '${USE}' ..."
 						USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
@@ -1109,7 +1109,7 @@ case "${1:-}" in
 				unset gcc_use
 				print "After work-around, USE is '${USE}'"
 			fi
-			if echo " ${*} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
+			if echo " ${*} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark|rust|dev-lang/rust)[ -]'; then
 				warn "Activating app-containers/netavark work-arounds ..."
 				print "Before work-around, USE is '${USE}' ..."
 				USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
@@ -1221,7 +1221,7 @@ case "${1:-}" in
 								unset gcc_use
 								print "After work-around, USE is '${USE}'"
 							fi
-							if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
+							if echo " ${arg} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark|rust|dev-lang/rust)[ -]'; then
 								warn "Activating app-containers/netavark work-arounds ..."
 								print "Before work-around, USE is '${USE}' ..."
 								USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
@@ -1272,7 +1272,7 @@ case "${1:-}" in
 					unset gcc_use
 					print "After work-around, USE is '${USE}'"
 				fi
-				if echo " ${rebuild} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
+				if echo " ${rebuild} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark|rust|dev-lang/rust)[ -]'; then
 					warn "Activating app-containers/netavark work-arounds ..."
 					print "Before work-around, USE is '${USE}' ..."
 					USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
