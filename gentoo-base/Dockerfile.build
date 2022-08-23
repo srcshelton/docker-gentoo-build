@@ -46,6 +46,8 @@ ARG ROOT
 ARG SYSROOT
 ARG PORTAGE_CONFIGROOT
 
+ENV SKIP_KERNEL_CHECK=1
+
 
 # Copy the portage tree into the current stage
 #
