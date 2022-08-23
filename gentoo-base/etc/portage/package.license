@@ -27,6 +27,8 @@ app-containers/aardvark-dns		 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent 
 app-containers/netavark			 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boost-1.0 Unlicense ZLIB
 app-crypt/libb2				 CC0-1.0
 dev-python/certifi			 CC0-1.0 MPL-2.0
+>=dev-python/ensurepip-wheels-100	 metapackage
+<dev-python/ensurepip-wheels-100	 MPL-2.0 PSF-2
 dev-python/typing-extensions		 PSF-2
 dev-util/cargo-ebuild			 Apache-2.0-with-LLVM-exceptions Boost-1.0 MPL-2.0 Unlicense ZLIB
 dev-util/gtk-doc-am			 FDL-1.1
