@@ -37,7 +37,9 @@ fi
 args=''
 rebuild=''
 for arg in "${@}"; do
+	# pop 'arg', but then process it (and potentially re-add it) below...
 	shift
+
 	case "${arg}" in
 		-k|--force-keywords)
 			FORCE_KEYWORDS=1
@@ -57,6 +59,13 @@ for arg in "${@}"; do
 		--rebuild=*)
 			rebuild="${rebuild:+${rebuild} }${arg#--rebuild=}"
 			set -- "${@}" "${arg}"
+			;;
+		--rebuild)
+			if [[ -n "${1:-}" ]]; then
+				rebuild="${rebuild:+${rebuild} }${1}"
+				set -- "${@}" "${arg}=${1}"
+				shift
+			fi
 			;;
 		*)
 			args="${args:+${args} }${arg}"
