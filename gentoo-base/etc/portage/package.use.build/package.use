@@ -235,7 +235,7 @@ sys-libs/glibc				-gd clone3 nscd
 sys-libs/libseccomp			-python  # Requires static-libs
 sys-libs/ncurses			 trace unicode
 sys-libs/libomp				 hwloc offload ompt
-sys-libs/timezone-data			 leaps_timezone right_timezone
+sys-libs/timezone-data			 leaps-timezone leaps_timezone right_timezone # zic-slim
 sys-power/powertop			-X
 #sys-process/audit			-python  # Requires dev-lang/swig, but only as a DEPEND
 sys-process/cronie			-anacron
