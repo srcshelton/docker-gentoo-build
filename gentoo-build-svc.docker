@@ -442,7 +442,8 @@ case "${service:-}" in
 	xmrig)
 		service='net-misc/xmrig' ;;
 	zxtm)
-		zxtm_service_version="$( curl -s https://registry.hub.docker.com/v1/repositories/pulsesecure/vtm/tags | jq -r .[].name | grep -v -- 'latest' | sort -V | tail -n 1 )"
+		zxtm_service_version="$( curl -Ls 'https://registry.hub.docker.com/v2/repositories/pulsesecure/vtm/tags?page_size=1024' | jq -r .results[].name | grep -v -- 'latest' | sort -V | tail -n 1 )"
+
 		service="net-misc/zxtm-init-scripts-${zxtm_service_version}"
 		;;
 	'')
