@@ -20,7 +20,6 @@ environment_filter="${environment_filter:-__ENVFILTER__}"
 python_default_target='python3_10'
 stage3_flags=''
 
-#arch="${ARCH:-amd64}"
 arch="${ARCH}"
 unset -v ARCH
 
@@ -169,7 +168,7 @@ get_stage3() {
 		echo "${stage3_flags}" |
 			grep -- "^STAGE3_${get_type}=" |
 			cut -d'"' -f 2
-	)"
+	)" # ' # <- Syntax highlight failure
 	print "get_stage3 get_result for '${get_type}' is '${get_result}'"
 
 	if [ "${get_type}" = 'USE' ]; then
@@ -188,7 +187,7 @@ get_stage3() {
 			echo "${stage3_flags}" |
 				grep -- "^STAGE3_PYTHON_SINGLE_TARGET=" |
 				cut -d'"' -f 2
-		)"
+		)" # ' # <- Syntax highlight failure
 		print "get_stage3 entries for SINGLE_TARGET is '${entries}'"
 
 		for entry in ${entries}; do
@@ -200,7 +199,7 @@ get_stage3() {
 			echo "${stage3_flags}" |
 				grep -- "^STAGE3_PYTHON_TARGETS=" |
 				cut -d'"' -f 2
-		)"
+		)" # ' # <- Syntax highlight failure
 		print "get_stage3 entries for TARGETS is '${entries}'"
 
 		for entry in ${entries}; do
@@ -246,13 +245,13 @@ resolve_python_flags() {
 	# variables are not in sync with each other...?
 	resolve_use="${USE:+"${USE} "}${resolve_use:+"${resolve_use} "}$(
 		echo "${resolve_info}" | grep -- "^USE=" | cut -d'"' -f 2
-	)"
+	)" # ' # <- Syntax highlight failure
 	resolve_python_single_target="${PYTHON_SINGLE_TARGET:-} ${resolve_python_single_target:-} $(
 		echo "${resolve_info}" | grep -- "^PYTHON_SINGLE_TARGET=" | cut -d'"' -f 2
-	) ${python_target:-}"
+	) ${python_target:-}" # ' # <- Syntax highlight failure
 	resolve_python_targets="${PYTHON_TARGETS:-} ${resolve_python_targets:-} $(
 		echo "${resolve_info}" | grep -- "^PYTHON_TARGETS=" | cut -d'"' -f 2
-	) ${python_target:-}"
+	) ${python_target:-}" # ' # <- Syntax highlight failure
 
 	for resolve_target in ${resolve_python_single_target:-}; do
 		resolve_target="python_single_target_${resolve_target}"
@@ -1037,7 +1036,6 @@ cp /etc/timezone "${ROOT}"/etc/
 cp /etc/etc-update.conf "${ROOT}"/etc/
 
 path="${PATH}"
-#export PATH="${PATH}:${ROOT}${PATH//:/:${ROOT}}"
 PATH="${PATH}:${ROOT}$( echo "${PATH}" | sed "s|:|:${ROOT}|g" )"
 export PATH
 
@@ -1054,52 +1052,14 @@ echo "Setting profile for architeceture '${ARCH}'..."
 LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" 2>&1 |
 	grep -v -- 'Warning:' || :
 
+LC_ALL='C' emerge --check-news
+
 # It seems we never actually defined USE if not passed-in externally, and yet
 # somehow on amd64 gcc still gets 'nptl'.  An arm64, however, this doesn't
 # happen and everything breaks :(
+#
 # Let's try to fix that...
 export USE="${USE:+${USE} }${use_essential} nptl"
-
-info="$( LC_ALL='C' emerge --info --verbose )"
-echo
-echo 'Resolved build variables for initial packages:'
-echo '---------------------------------------------'
-echo
-echo "ROOT                = $(
-	echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
-)"
-echo "SYSROOT             = $(
-	echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
-)"
-echo "PORTAGE_CONFIGROOT  = $(
-	echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
-)"
-echo
-echo "${info}" | format 'FEATURES'
-echo "${info}" | format 'ACCEPT_LICENSE'
-echo "${info}" | format 'ACCEPT_KEYWORDS'
-echo "${info}" | format 'USE'
-echo "${info}" | format 'PYTHON_SINGLE_TARGET'
-echo "${info}" | format 'PYTHON_TARGETS'
-echo "MAKEOPTS            = $(
-	echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
-)"
-echo
-echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
-echo
-echo "DISTDIR             = $(
-	echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
-)"
-echo "PKGDIR              = $(
-	echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
-)"
-echo "PORTAGE_LOGDIR      = $(
-	echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
-)"
-echo
-unset info
-
-LC_ALL='C' emerge --check-news
 
 # FIXME: Expose this somewhere?
 features_libeudev=1
@@ -1121,21 +1081,62 @@ if [ -n "${features_libeudev}" ]; then
 fi
 
 if [ -n "${pkg_initial:-}" ]; then
-	echo
-	echo ' * Building initial packages ...'
-	echo
+	(
+		export LC_ALL='C'
 
-	for pkg in ${pkg_initial:-}; do
-		(
-			#set -x
-			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
-			export USE="${pkg_initial_use}${use_essential:+ ${use_essential}}"
-			case "${pkg}" in
-				*libcrypt|*libxcrypt)
-					USE="${USE} static-libs"
-					;;
-			esac
-			export LC_ALL='C'
+		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+
+		export USE="${pkg_initial_use}${use_essential:+ ${use_essential}}"
+		case "${pkg}" in
+			*libcrypt|*libxcrypt)
+				USE="${USE} static-libs"
+				;;
+		esac
+
+		info="$( emerge --info --verbose )"
+		echo
+		echo 'Resolved build variables for initial packages:'
+		echo '---------------------------------------------'
+		echo
+		echo "ROOT                = $(
+			echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+		)"
+		echo "SYSROOT             = $(
+			echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+		)"
+		echo "PORTAGE_CONFIGROOT  = $(
+			echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
+		)"
+		echo
+		echo "${info}" | format 'FEATURES'
+		echo "${info}" | format 'ACCEPT_LICENSE'
+		echo "${info}" | format 'ACCEPT_KEYWORDS'
+		echo "${info}" | format 'USE'
+		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+		echo "${info}" | format 'PYTHON_TARGETS'
+		echo "MAKEOPTS            = $(
+			echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
+		)"
+		echo
+		echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
+		echo
+		echo "DISTDIR             = $(
+			echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
+		)"
+		echo "PKGDIR              = $(
+			echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
+		)"
+		echo "PORTAGE_LOGDIR      = $(
+			echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
+		)"
+		echo
+		unset info
+
+		echo
+		echo ' * Building initial packages ...'
+		echo
+
+		for pkg in ${pkg_initial:-}; do
 			for ROOT in $(
 					echo "${extra_root:-}" "${ROOT}" |
 						xargs -rn 1 |
@@ -1145,6 +1146,7 @@ if [ -n "${pkg_initial:-}" ]; then
 				export ROOT
 				export SYSROOT="${ROOT}"
 				export PORTAGE_CONFIGROOT="${SYSROOT}"
+
 				# shellcheck disable=SC2086
 				emerge \
 						--ignore-default-opts \
@@ -1161,16 +1163,17 @@ if [ -n "${pkg_initial:-}" ]; then
 						--verbose-conflict \
 						--with-bdeps=n \
 						--with-bdeps-auto=n \
-					${pkg} ${pkg_exclude:-} || :
-			done
-		)
-		LC_ALL='C' etc-update --quiet --preen
-		find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+					${pkg} ${pkg_exclude:-} # || :
 
-		if echo " ${pkg} " | grep -q -- ' app-shells/bash '; then
-			fix_sh_symlink "${ROOT}" 'pre-deploy'
-		fi
-	done
+				etc-update --quiet --preen
+				find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+
+				if echo " ${pkg} " | grep -q -- ' app-shells/bash '; then
+					fix_sh_symlink "${ROOT}" 'pre-deploy'
+				fi
+			done
+		done
+	)
 fi
 
 echo
@@ -1267,7 +1270,7 @@ echo
 				--with-bdeps=n \
 				--with-bdeps-auto=n \
 			@system sys-devel/gcc sys-apps/shadow dev-libs/icu \
-				app-arch/libarchive ${pkg_initial} ${pkg_exclude:-} || :
+				app-arch/libarchive ${pkg_initial} ${pkg_exclude:-} # || :
 	done
 )
 LC_ALL='C' etc-update --quiet --preen
