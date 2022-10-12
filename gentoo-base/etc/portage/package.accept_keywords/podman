@@ -57,11 +57,14 @@
 #~app-containers/podman-4.1.0_rc1			 **
 #~app-containers/podman-4.1.0_rc2			 **
 #~app-containers/podman-4.1.0				 **
-~app-containers/podman-4.1.1				 **
+#~app-containers/podman-4.1.1				 **
 #~app-containers/podman-4.2.0_rc1			 **
 #~app-containers/podman-4.2.0_rc2			 **
 #~app-containers/podman-4.2.0_rc3			 **
-~app-containers/podman-4.2.0				 **
+#~app-containers/podman-4.2.0				 **
+~app-containers/podman-4.2.0-r1				 **
+~app-containers/podman-4.2.1				 **
+#~app-containers/podman-4.3.0_rc1			 **
 
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				 **
@@ -81,37 +84,48 @@
 #~app-containers/buildah-1.19.6				 **
 #~app-containers/buildah-1.19.8				 **
 #~app-containers/buildah-1.19.9				 **
+#~app-containers/buildah-1.19.10			 **
 #~app-containers/buildah-1.20.0				 **
 #~app-containers/buildah-1.20.1				 **
+#~app-containers/buildah-1.20.2				 **
 #~app-containers/buildah-1.21.0				 **
 #~app-containers/buildah-1.21.1				 **
 #~app-containers/buildah-1.21.2				 **
 #~app-containers/buildah-1.21.3				 **
+#~app-containers/buildah-1.21.4				 **
+#~app-containers/buildah-1.21.5				 **
 #~app-containers/buildah-1.22.0				 **
 #~app-containers/buildah-1.22.1				 **
 #~app-containers/buildah-1.22.2				 **
 #~app-containers/buildah-1.22.3				 **
 #~app-containers/buildah-1.22.4				 **
+#~app-containers/buildah-1.22.5				 **
 #~app-containers/buildah-1.23.0				 **
 #~app-containers/buildah-1.23.1				 **
 #~app-containers/buildah-1.23.1-r1			 **
 #~app-containers/buildah-1.23.2				 **
 #~app-containers/buildah-1.23.3				 **
 #~app-containers/buildah-1.23.4				 **
+#~app-containers/buildah-1.23.5				 **
 #~app-containers/buildah-1.24.0				 **
 #~app-containers/buildah-1.24.1				 **
 #~app-containers/buildah-1.24.2				 **
 #~app-containers/buildah-1.24.3				 **
 #~app-containers/buildah-1.24.4				 **
 #~app-containers/buildah-1.24.5				 **
+#~app-containers/buildah-1.24.6				 **
 #~app-containers/buildah-1.25.0				 **
 #~app-containers/buildah-1.25.1				 **
 #~app-containers/buildah-1.26.0				 **
 #~app-containers/buildah-1.26.1				 **
 #~app-containers/buildah-1.26.2				 **
 #~app-containers/buildah-1.26.3				 **
-~app-containers/buildah-1.26.4				 **
-~app-containers/buildah-1.27.0				 **
+#~app-containers/buildah-1.26.4				 **
+#~app-containers/buildah-1.26.5				 **
+#~app-containers/buildah-1.27.0				 **
+#~app-containers/buildah-1.27.1				 **
+~app-containers/buildah-1.27.2				 **
+~app-containers/buildah-1.28.0				 **
 
 #~net-misc/cni-plugins-0.8.7				 **
 #~net-misc/cni-plugins-0.9.0				 **
@@ -125,12 +139,14 @@
 =dev-util/cargo-ebuild-0.5.1				~amd64
 
 #~app-containers/netavark-1.0.2				 **
-~app-containers/netavark-1.0.3				 **
+#~app-containers/netavark-1.0.3				 **
 ~app-containers/netavark-1.1.0				 **
+~app-containers/netavark-1.2.0				 **
 
 #~app-containers/aardvark-dns-1.0.2			 **
-~app-containers/aardvark-dns-1.0.3			 **
+#~app-containers/aardvark-dns-1.0.3			 **
 ~app-containers/aardvark-dns-1.1.0			 **
+~app-containers/aardvark-dns-1.2.0			 **
 
 # move app-emulation/crun app-containers/crun
 #~app-containers/crun-0.14.1				 **
@@ -153,8 +169,9 @@
 #~app-containers/crun-1.4.2				 **
 #~app-containers/crun-1.4.3				 **
 #~app-containers/crun-1.4.4				 **
-~app-containers/crun-1.4.5				 **
+#~app-containers/crun-1.4.5				 **
 ~app-containers/crun-1.5				 **
+~app-containers/crun-1.6				 **
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -214,8 +231,9 @@
 #~app-containers/containers-storage-1.40.1		 **
 #~app-containers/containers-storage-1.40.2		 **
 #~app-containers/containers-storage-1.40.3		 **
-~app-containers/containers-storage-1.41.0		 **
+#~app-containers/containers-storage-1.41.0		 **
 ~app-containers/containers-storage-1.42.0		 **
+~app-containers/containers-storage-1.43.0		 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
@@ -287,7 +305,8 @@
 #~app-containers/skopeo-1.7.0				 **
 #~app-containers/skopeo-1.8.0				 **
 #~app-containers/skopeo-1.9.0				 **
-~app-containers/skopeo-1.9.1				 **
+#~app-containers/skopeo-1.9.1				 **
 ~app-containers/skopeo-1.9.2				 **
+~app-containers/skopeo-1.10.0				 **
 
 # vi: set syntax=gentoo-package-keywords:
