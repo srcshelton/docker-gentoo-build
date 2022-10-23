@@ -251,10 +251,13 @@ case "${package_version}" in
 	5.15.*|5.16.*)
 		#patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15%2B.patch' ;;
 		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15-5.16.patch' ;;
-	5.17.*)
-		patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.17%2B.patch' ;;
-	5.19.*)
-		patch='https://lore.kernel.org/all/20220630090100.2769490-1-yi.zhang@huawei.com/raw' ;;
+	5.1[789].*|6.0.*)
+		patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.17%2B.patch'
+		case "${package_version}" in
+			5.19.*)
+				patch="${patch:+${patch} }https://lore.kernel.org/all/20220630090100.2769490-1-yi.zhang@huawei.com/raw"
+		esac
+		;;
 	'')
 		: ;;
 	*)
