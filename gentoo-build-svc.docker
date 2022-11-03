@@ -442,7 +442,18 @@ case "${service:-}" in
 	xmrig)
 		service='net-misc/xmrig' ;;
 	zxtm)
-		zxtm_service_version="$( curl -Ls 'https://registry.hub.docker.com/v2/repositories/pulsesecure/vtm/tags?page_size=1024' | jq -r .results[].name | grep -v -- 'latest' | sort -V | tail -n 1 )"
+		# The Docker Registry API documenation describes a default page_size of
+		# 10 with a maximum of 1000 results, although a practical limit of 100
+		# has been reported.
+		# There are no details of how the tag-list is sorted into pages, but
+		# the list appears to be sorted most-recently-changed first...
+		zxtm_service_version="$( # <- Syntax highlight failure
+			curl -Ls 'https://registry.hub.docker.com/v2/repositories/pulsesecure/vtm/tags' |
+				jq -r '.results[].name' |
+				grep -v -- 'latest' |
+				sort -V |
+				tail -n 1
+		)"
 
 		service="net-misc/zxtm-init-scripts-${zxtm_service_version}"
 		;;
