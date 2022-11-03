@@ -100,10 +100,10 @@ IMAGE="${base_name}:latest"
 
 if
 	[[ -z "${env_name:-}" ]] ||
-	[[ -z "${stage3_name:-}" ]] ||
-	[[ -z "${init_name:-}" ]] ||
-	[[ -z "${base_name:-}" ]] ||
-	[[ -z "${build_name:-}" ]]
+		[[ -z "${stage3_name:-}" ]] ||
+		[[ -z "${init_name:-}" ]] ||
+		[[ -z "${base_name:-}" ]] ||
+		[[ -z "${build_name:-}" ]]
 then
 	die "Image names not correctly set in '$( pwd )/common/vars.sh'"
 fi
@@ -128,7 +128,9 @@ if [[ -n "${*:-}" ]]; then
 fi
 
 if type -pf portageq >/dev/null 2>&1; then
-	python_target="${python_target_override:-$( portageq envvar 'PYTHON_SINGLE_TARGET' )}"
+	python_target="${python_target_override:-"$(
+		portageq envvar 'PYTHON_SINGLE_TARGET'
+	)"}"
 fi
 if [[ -z "${python_target:-}" ]]; then
 	python_target="${python_default_target:-}"
@@ -294,6 +296,8 @@ makedir() {
 	info " * ${dir}"
 }  # makedir
 
+declare repo_path_srcshelton=''
+
 # Check for environment sanity...
 if ! type -pf portageq >/dev/null 2>&1; then
 	warn "Not running on Gentoo host system, not checking eclass overrides"
@@ -311,10 +315,13 @@ if ! type -pf portageq >/dev/null 2>&1; then
 
 	declare -i private_gentoo_clone=0
 	declare repo_path_gentoo='/var/db/repo/gentoo'
-	declare repo_path_srcshelton='/var/db/repo/srcshelton'
+	repo_path_srcshelton='/var/db/repo/srcshelton'
 
 	# FIXME: Hardcoded paths, use repos.conf
-	if [[ ! -d "${repo_path_gentoo}" ]] && [[ ! -d /var/db/repos/gentoo ]]; then
+	if
+		[[ ! -d "${repo_path_gentoo}" ]] &&
+			[[ ! -d /var/db/repos/gentoo ]]
+	then
 		# macOS 'df' lacks the below options
 		if [[ "$( uname -s )" != 'Darwin' ]]; then
 			for dir in /var/db/repo{,s} /var/db; do
@@ -353,7 +360,10 @@ if ! type -pf portageq >/dev/null 2>&1; then
 		repo_path_gentoo='/var/db/repos/gentoo'
 	fi
 
-	if [[ ! -d "${repo_path_srcshelton}" ]] && [[ ! -d /var/db/repos/srcshelton ]]; then
+	if
+		[[ ! -d "${repo_path_srcshelton}" ]] &&
+			[[ ! -d /var/db/repos/srcshelton ]]
+	then
 		type -pf git >/dev/null 2>&1 || die "required binary 'git' missing"
 
 		note "Creating custom packages repo mirror at" \
@@ -377,9 +387,12 @@ if ! type -pf portageq >/dev/null 2>&1; then
 	declare ref=''
 	if
 		[[ -s "${repo_path_srcshelton}/.portage_commit" ]] &&
-		ref="$( < "${repo_path_srcshelton}/.portage_commit" )" &&
-		[[ -n "${ref:-}" ]]
+			ref="$(
+				grep -Fv '#' "${repo_path_srcshelton}/.portage_commit"
+			)" &&
+			[[ -n "${ref:-}" ]]
 	then
+		git config --global --add safe.directory "${repo_path_gentoo}"
 		pushd "${repo_path_gentoo}" >/dev/null 2>&1
 		declare head=''
 		head="$( git rev-parse HEAD )"
@@ -411,12 +424,13 @@ if ! type -pf portageq >/dev/null 2>&1; then
 	fi
 	unset ref
 
-	for dir in /var/cache/portage/dist /var/log/portage /var/cache/portage/pkg; do
+	for dir in /var/cache/portage/dist /var/log/portage /var/cache/portage/pkg
+	do
 		[[ -d "${dir}" ]] || makedir "${dir}"
 	done
 	unset dir
 
-	unset private_gentoo_clone repo_path_gentoo repo_path_srcshelton
+	unset private_gentoo_clone repo_path_gentoo
 
 	# Flags may have changed...
 	# shellcheck disable=SC1091
@@ -454,39 +468,54 @@ else # type -pf portageq >/dev/null 2>&1; then
 
 	# FIXME: Discover default rather than assuming 'gentoo'?
 	declare repo_path_gentoo=''
-	declare repo_path_srcshelton=''
 	declare ref=''
 	repo_path_gentoo="$(
-		portageq get_repo_path "${EROOT:-/}" 'gentoo' >/dev/null 2>&1
+		portageq get_repo_path "${EROOT:-/}" 'gentoo' 2>/dev/null
 	)"
 	repo_path_srcshelton="$(
-		portageq get_repo_path "${EROOT:-/}" 'srcshelton' >/dev/null 2>&1
+		portageq get_repo_path "${EROOT:-/}" 'srcshelton' 2>/dev/null
 	)"
 	if
 		[[ -n "${repo_path_gentoo:-}" && -d "${repo_path_gentoo}" ]] &&
-		[[ -n "${repo_path_srcshelton:-}" && -d "${repo_path_srcshelton}" ]] &&
-		[[ -s "${repo_path_srcshelton}/.portage_commit" ]] &&
-		ref="$( < "${repo_path_srcshelton}/.portage_commit" )" &&
-		[[ -n "${ref:-}" ]]
+			[[ -n "${repo_path_srcshelton:-}" && -d "${repo_path_srcshelton}" ]]
 	then
-		pushd "${repo_path_gentoo}" >/dev/null 2>&1
-		declare head=''
-		head="$( git rev-parse HEAD )"
-		if [[ "${ref}" == "${head:-}" ]]; then
-			note "Local Gentoo Portage repo mirror is in sync with custom" \
-				"packages repo at commit '${ref:0:7}'"
-		elif git rev-parse -q --verify "${ref}^{commit}" >/dev/null 2>&1; then
-			warn "Local Gentoo Portage repo mirror is currently at commit" \
-				"'${head:0:7}' but can be reverted to custom packages repo" \
-				"target commit '${ref:0:7}'"
+		if
+			[[ -s "${repo_path_srcshelton}/.portage_commit" ]] &&
+				ref="$(
+					grep -Fv '#' "${repo_path_srcshelton}/.portage_commit"
+				)" &&
+				[[ -n "${ref:-}" ]]
+		then
+			git config --global --add safe.directory "${repo_path_gentoo}"
+			pushd "${repo_path_gentoo}" >/dev/null 2>&1
+			declare head=''
+			head="$( git rev-parse HEAD )"
+			if [[ "${ref}" == "${head:-}" ]]; then
+				note "Local Gentoo Portage repo mirror is in sync with" \
+					"custom packages repo at commit '${ref:0:7}'"
+			elif
+				git rev-parse -q --verify "${ref}^{commit}" >/dev/null 2>&1
+			then
+				warn "Local Gentoo Portage repo mirror is currently at" \
+					"commit '${head:0:7}' but can be reverted to custom" \
+					"packages repo target commit '${ref:0:7}'"
+			else
+				error "Custom packages target commit '${ref:0:7}' does not" \
+					"exist in local Gentoo Portage repo mirror - mirror out" \
+					"of date?"
+			fi
+			unset head
+			popd >/dev/null 2>&1
 		else
-			error "Custom packages target commit '${ref:0:7}' does not exist" \
-				"in local Gentoo Portage repo mirror - mirror out of date?"
+			warn "No upstream commit marker found in" \
+				"'${repo_path_srcshelton}/.portage_commit'"
 		fi
-		unset head
-		popd >/dev/null 2>&1
+	else
+		die "Could not determine essential repo paths for 'gentoo'" \
+			"(${repo_path_gentoo:-}) or 'srcshelton'" \
+			"(${repo_path_srcshelton:-})"
 	fi
-	unset ref repo_path_srcshelton repo_path_gentoo
+	unset ref repo_path_gentoo
 fi
 
 # 'cut' separately to emulate 'pipefail' when using /bin/sh
@@ -530,13 +559,13 @@ esac
 env_id="$(
 	$docker image ls --noheading \
 			--format='{{.ID}}' \
-		"${env_name}:latest" 2>/dev/null
-)" || :
+		"${env_name}:latest"
+)" || die "Could not determine environment stage image name"
 local_stage3_id="$(
 	$docker image ls --noheading \
 			--format='{{.ID}}' \
-		"${stage3_name}:latest" 2>/dev/null
-)" || :
+		"${stage3_name}:latest"
+)" || die "Could not determine local stage3 image name"
 
 [[ -n "${trace:-}" ]] && set -o xtrace
 
@@ -590,7 +619,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 	output
 fi
 
-gentoo_stage3_image="$(
+gentoo_stage3_image="$( # <- Syntax highlight failure
 	grep -- '^ARG gentoo_stage3_image=' Dockerfile.stage3 |
 	cut -d'"' -f 2
 )"
@@ -606,46 +635,109 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 		"'${stage3_name}:latest' ..."
 	output
 
-	# We have to 'pull' manually, or else this stage fails ...
-	rc=0
+	declare ref=''
+	declare -i rc=0 need_pull=1
 	trap '' INT
+
+	# We have to 'pull' manually, or else this stage fails ...
 	if [[ "${gentoo_stage3_tag}" = 'latest' ]]; then
+		info "Using upstream '${gentoo_stage3_image}' tag" \
+			"'${gentoo_stage3_tag}'"
+
 		if
 			$docker image pull --help |
 				grep -Fq -- '--platform'
 		then
 			$docker image pull "${gentoo_stage3_image}:latest" \
-					--platform "linux/${docker_arch}"
+					--platform "linux/${docker_arch}" || rc=${?}
 		elif
 			$docker image pull --help |
 				grep -Fq -- '--override-arch'
 		then
 			$docker image pull "${gentoo_stage3_image}:latest" \
-					--override-arch "${docker_arch}"
+					--override-arch "${docker_arch}" || rc=${?}
 		elif
 			$docker image pull --help |
 				grep -Fq -- '--arch'
 		then
 			$docker image pull "${gentoo_stage3_image}:latest" \
-					--arch "${docker_arch}"
+					--arch "${docker_arch}" || rc=${?}
 		else
 			die "Could not determine method to retrieve" \
 				"non-native architecture with" \
 				"'$docker image pull'"
 		fi
-	else
+
+		need_pull=0
+	elif
+		[[ -n "${repo_path_srcshelton:-}" ]] &&
+			[[ -d "${repo_path_srcshelton}" ]]
+	then
+		if [[ -s "${repo_path_srcshelton}/.image_digests" ]]; then
+			ref="$(
+				grep -m 1 "^${docker_arch} " \
+						"${repo_path_srcshelton}/.image_digests" |
+					cut -d' ' -f 2-
+			)"
+			if ! [[ "${ref%:*}" == 'sha256' ]]; then
+				warn "Unable to retrieve SHA256 digest for image" \
+					"'${gentoo_stage3_image}:${gentoo_stage3_tag}' with" \
+					"with architecture '${docker_arch}' from file" \
+					"'${repo_path_srcshelton}/.image_digests'"
+				need_pull=1
+			else
+				info "Using '${gentoo_stage3_image}' pin '${ref}'"
+				$docker image pull "${gentoo_stage3_image}@${ref}" ||
+					rc=${?}
+				if ! (( rc )); then
+					$docker image untag \
+						"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null || :
+					info "Tagging '${ref}' as" \
+						"'${gentoo_stage3_image}:${gentoo_stage3_tag}'"
+					$docker image tag "${gentoo_stage3_image}@${ref}" \
+							"${gentoo_stage3_image}:${gentoo_stage3_tag}" ||
+						rc=${?}
+				fi
+				if ! (( rc )); then
+					need_pull=0
+				else
+					warn "Pull of pinned image failed - reverting to tag" \
+						"'${gentoo_stage3_tag}'"
+					need_pull=1
+				fi
+			fi
+		fi
+	fi
+
+	if (( need_pull )); then
+		info "Pulling image '${gentoo_stage3_image}:${gentoo_stage3_tag}' ..."
 		$docker image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}" ||
 			rc=${?}
 	fi
+
+	unset need_pull
 	trap - INT
+
 	[[ $(( rc )) -eq 0 ]] ||
 		die "'$docker image pull' failed to retrieve image" \
-			"'${gentoo_stage3_image}:latest' for architecture '${docker_arch}'"
-	gentoo_stage3_id="$(
-		$docker image ls --noheading \
-				--format='{{.ID}}' \
-			"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null
-	)" || :
+			"'${gentoo_stage3_image}:${gentoo_stage3_tag}' for architecture" \
+			"'${docker_arch}'"
+
+	# 'podman image ls' won't show images by SHA256 reference...
+	#if [[ -n "${ref:-}" ]]; then
+	#	gentoo_stage3_id="$(
+	#		$docker image ls --noheading \
+	#				--format='{{.ID}}' \
+	#			"${gentoo_stage3_image}@${ref}" 2>/dev/null
+	#	)" || :
+	#else
+		gentoo_stage3_id="$(
+			$docker image ls --noheading \
+					--format='{{.ID}}' \
+				"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null
+		)" || :
+	#fi
+	unset ref
 
 	# NAME:    stage3
 	# LABELS:  environment-from stage3-from
@@ -1044,7 +1136,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		# shellcheck disable=SC2086
 		if eval $docker ${DOCKER_VARS:-} container exists --external "${name}"; then
 			warn "Container with name '${name}' already exists:"
-			eval $docker ${DOCKER_VARS:-} container ps --noheading -a | grep -F "${name}"
+			eval $docker ${DOCKER_VARS:-} container ps --noheading -a |
+				grep -F "${name}"
 			eval $docker ${DOCKER_VARS:-} container stop "${name}" || :
 			eval $docker ${DOCKER_VARS:-} container rm -v "${name}"
 		fi
@@ -1112,15 +1205,21 @@ else
 	checkids "${base_name}"
 fi
 
-if [[ -z "${*:-}" ]] || (( build_helper )) || grep -Fq -- ' --force-helper ' <<<" ${*} "; then
+if
+	[[ -z "${*:-}" ]] ||
+		(( build_helper )) ||
+		grep -Fq -- ' --force-helper ' <<<" ${*} "
+then
 	if type -pf portageq >/dev/null 2>&1; then
 		# Running on Gentoo...
 
 		if (( build_helper )); then
 			if (( force )) || grep -Fq -- ' --force-helper ' <<<" ${*} "; then
-				warn "Forcing creation of unnecessary helper image on Gentoo platform"
+				warn "Forcing creation of unnecessary helper image on Gentoo" \
+					"platform"
 			else
-				die "Helper image unneeded on Gentoo platform - use '--force' to enable creation"
+				die "Helper image unneeded on Gentoo platform - use" \
+					"'--force' to enable creation"
 			fi
 		else
 			build_helper=0
@@ -1130,16 +1229,21 @@ if [[ -z "${*:-}" ]] || (( build_helper )) || grep -Fq -- ' --force-helper ' <<<
 	if (( build_helper )); then
 		popd >/dev/null 2>&1 || exit 1
 		if ! [[ -x gentoo-build-svc.docker ]]; then
-			warn "Cannot execute 'gentoo-build-svc.docker' script (in directory '${PWD}') to build non-Gentoo helper image"
+			warn "Cannot execute 'gentoo-build-svc.docker' script (in" \
+				"directory '${PWD}') to build non-Gentoo helper image"
 		else
 			#if ! ((
 			#	$docker image ls --noheading \
 			#		"gentoo-helper:latest" 2>/dev/null | wc -l
 			#)); then
-				output " ${blue}*${reset} Building helper for non-Gentoo host systems ..."
+				output " ${blue}*${reset} Building helper for non-Gentoo" \
+					"host systems ..."
 				output
 
-				if (( force )) || grep -Fq -- ' --force-helper ' <<<" ${*} "; then
+				if
+					(( force )) ||
+						grep -Fq -- ' --force-helper ' <<<" ${*} "
+				then
 					./gentoo-build-svc.docker eix --force
 				else
 					./gentoo-build-svc.docker eix
