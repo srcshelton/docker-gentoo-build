@@ -67,7 +67,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 		"[--no-patch|--patch=<url>[,<url]]" \
 		"[--menuconfig|--nconfig]" \
 		"[--package=<atom>] [--clean]" \
-		"[--clang [--clean-lto] [--llvm-unwind]]"
+		"[--clang [--clean-lto] [--llvm-unwind] [--rust]]"
 	)"
 	output "${usage}${options}" | fold -sw ${COLUMNS:-80} - | head -n 1 >&2
 	output "${options}" | fold -sw $(( ${COLUMNS:-80} - ${#usage} )) - | sed "s|^|${usage//?/ }|" | tail -n +2 >&2
@@ -89,6 +89,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "       -O3           Add 'KCFLAGS=-O3' (and others - see [1])"
 	output >&2 "       --clang       Compile kernel with llvm"
 	output >&2 "       --llvm-unwind Install LLVM edition of libunwind"
+	output >&2 "       --rust        Pull-in 'rust' dependencies"
 	output >&2 "       --clean       Run 'make clean' before build"
 	output >&2 "       --clean-lto   Remove exisitng *.lto.o objects"
 	output >&2
@@ -114,6 +115,7 @@ declare nconfig=''
 declare version=''
 declare patch=''
 declare -i clean_lto=0
+declare -i rust=0
 declare -i clean=0
 declare -i opt_o3=0
 
@@ -139,12 +141,18 @@ if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 	if echo " ${*:-} " | grep -Eq -- ' --(llvm-)?(lib)?unwind '; then
 		unwind='llvm'
 	fi
+	if echo " ${*:-} " | grep -Fq -- ' --rust '; then
+		rust=1
+	fi
 else
 	if echo " ${*:-} " | grep -Fq -- ' --clean-lto '; then
 		warn "'--clean-lto' is not a valid option without '--clang'"
 	fi
 	if echo " ${*:-} " | grep -Eq -- ' --(llvm-)?(lib)?unwind '; then
 		warn "'--llvm-unwind' is not a valid option without '--clang'"
+	fi
+	if echo " ${*:-} " | grep -Fq -- ' --rust '; then
+		warn "'--rust' is not a valid option without '--clang'"
 	fi
 fi
 if echo " ${*:-} " | grep -Eq -- ' --config(-from)?[= ]'; then
@@ -694,6 +702,9 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	fi ;
 	if [ $(( clean )) -ne 0 ]; then
 		make ${kernel_make_opts[@]} clean ;
+	fi ;
+	if [ $(( rust )) -ne 0 ]; then
+		make ${kernel_make_opts[@]} rustavailable ;
 	fi ;
 	echo "Configuration changes from '.config':" ;
 	make ${kernel_make_opts[@]} listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
