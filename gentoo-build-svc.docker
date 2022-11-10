@@ -71,6 +71,7 @@ services=(
 	unifi65
 	unifi70
 	unifi71
+	unifi72
 	vim
 	watchdog
 	xmrig
@@ -205,7 +206,7 @@ if [ -n "${installed:-}" ] && [ $(( installed )) -eq 1 ]; then
 	service_list=1
 
 	# shellcheck disable=SC2046  # We want word-splitting here...
-	set -- "${@}" $( xargs -n 1 echo <<<"$(
+	set -- "${@}" $( xargs -n 1 echo <<<"$( # <- Syntax highlight fail
 		# Build list based on installed packages... (useful if the local image
 		# cache has been cleared!)
 		#
@@ -434,6 +435,8 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-7.0*' ;;
 	unifi71|unifi-controller71|unifi-controller-71|unifi-controller-bin71|unifi-controller-bin-71)
 		service='=net-misc/unifi-controller-bin-7.1*' ;;
+	unifi72|unifi-controller72|unifi-controller-72|unifi-controller-bin72|unifi-controller-bin-72)
+		service='=net-misc/unifi-controller-bin-7.2*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
@@ -455,7 +458,7 @@ case "${service:-}" in
 				tail -n 1
 		)"
 
-		service="net-misc/zxtm-init-scripts-${zxtm_service_version}"
+		service="net-misc/zxtm-init-scripts-${zxtm_service_version/[Rr]/-r}"
 		;;
 	'')
 		die "No service name or description provided" ;;
@@ -1004,7 +1007,7 @@ case "${package_name}" in
 		'
 
 		ports='6276/udp 6276/tcp 6277/udp 6277/tcp'  # razor/dcc
-		if [[ "$(
+		if [[ "$( # <- Syntax highlight fail
 				printf '2.61\n%s' "${package_version:-}" |
 				sort -V |
 				head -n 1
@@ -1048,7 +1051,7 @@ case "${package_name}" in
 		gcc_use="${use_essential_gcc/ graphite / -graphite }"
 		# Look for "build" gcc USE-flags in package.use only (or use defaults above) ...
 		if [ -s /etc/portage/package.use/package.use ]; then
-			gcc_use="$(
+			gcc_use="$( # <- SYntax highlight fail
 				sed 's/#.*$//' /etc/portage/package.use/package.use |
 				tr -s '[:space:]' |
 				grep -E -- '^\s?([<>=~]=?)?sys-devel/gcc' |
