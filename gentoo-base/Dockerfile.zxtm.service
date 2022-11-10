@@ -33,7 +33,7 @@ ARG ZEUSHOME="/opt/zeus"
 #
 FROM "${zxtm_image_name}:${zxtm_service_version}" AS zxtm
 
-# As-of 20.1 && 20.2:
+# As-of 20.1 and later:
 #ENV ZEUS_EULA
 #ENV ZEUS_LIC
 #ENV ZEUS_PASS=RANDOM
@@ -105,7 +105,7 @@ ARG service_cwd
 ARG service_fs_name
 ARG timezone="GB"
 
-ARG zxtm_service_version
+#ARG zxtm_service_version
 ARG ZEUSHOME
 
 ARG ROOT
