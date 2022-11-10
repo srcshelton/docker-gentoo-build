@@ -4,6 +4,11 @@
 ~net-misc/unifi-controller-bin-7.1.61			~amd64
 ~net-misc/unifi-controller-bin-7.1.65			~amd64
 ~net-misc/unifi-controller-bin-7.1.66			~amd64
+~net-misc/unifi-controller-bin-7.1.68			~amd64
+~net-misc/unifi-controller-bin-7.2.91			~amd64
+~net-misc/unifi-controller-bin-7.2.92			~amd64
+~net-misc/unifi-controller-bin-7.2.94			~amd64
+~net-misc/unifi-controller-bin-7.2.95			~amd64
 
 # Releases 6.1.x and above have a less-functional UI divided into 'old' and
 # 'new' views, neither of which are as functional as the 6.0.x UI :(
@@ -24,5 +29,10 @@
 ~container/unifi-controller-7.1.61			~amd64
 ~container/unifi-controller-7.1.65			~amd64
 ~container/unifi-controller-7.1.66			~amd64
+~container/unifi-controller-7.1.68			~amd64
+~container/unifi-controller-7.2.91			~amd64
+~container/unifi-controller-7.2.92			~amd64
+~container/unifi-controller-7.2.94			~amd64
+~container/unifi-controller-7.2.95			~amd64
 
 # vi: set syntax=gentoo-package-keywords:
