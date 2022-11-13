@@ -471,7 +471,11 @@ if [ "${update:-0}" = '1' ]; then
 							if echo "${pkg}" | grep -Eq '^app-admin/(fam|gamin)-|^container/|/pkgconfig-|/-MERGING-'; then
 								continue
 							fi
-							echo ">=${pkg}"
+							if echo "${pkg}" | grep -q '^dev-lang/python'; then
+								echo "=${pkg%.*}*"
+							else
+								echo ">=${pkg}"
+							fi
 						done
 					) --name 'buildpkg.hostpkgs.update' 2>&1 ||
 				exit ${?}
