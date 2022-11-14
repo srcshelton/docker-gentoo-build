@@ -36,4 +36,8 @@ sys-apps/gentoo-functions::gentoo
 # old unifi ebuilds still require the python2.7-compatible version 10001 :(
 #>=dev-python/certifi-10001::gentoo
 
+# Mask python-3.11 until everything we care about is compatible
+# (... and let's not forget to revert this, next time!)
+>=dev-lang/python-3.11
+
 # vi: set colorcolumn=80 syntax=gentoo-package-mask:
