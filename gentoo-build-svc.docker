@@ -51,6 +51,7 @@ services=(
 	php73
 	php74
 	php80
+	php81
 	pinfo
 	postfix
 	postgrey
@@ -393,6 +394,8 @@ case "${service:-}" in
 		service='=dev-lang/php-7.4*' ;;
 	php80)
 		service='=dev-lang/php-8.0*' ;;
+	php81)
+		service='=dev-lang/php-8.1*' ;;
 	pinfo|info)
 		# Launcher loads running services' /usr/share/info volumes
 		service='app-text/pinfo' ;;
