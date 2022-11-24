@@ -256,6 +256,7 @@ app-shells/stdlib			 colour
 mail-client/roundcube::srcshelton	 plugins zxcvbn
 
 sys-kernel/gentoo-sources		 symlink experimental
+sys-kernel/linux-firmware		 compress
 
 # required by dev-db/mariadb-10.1.22[extraengine,server]
 >=sys-libs/zlib-1.2.11			 minizip
