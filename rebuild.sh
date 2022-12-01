@@ -560,13 +560,14 @@ if [ "${system:-0}" = '1' ]; then
 			xargs -r emerge \
 						--binpkg-changed-deps=y \
 						--binpkg-respect-use=y \
+						--keep-going \
 						--oneshot \
+						${pretend:+'--pretend'} \
 						--tree \
 						--usepkg=y \
 						--verbose-conflicts \
 						--verbose=y \
-						--with-bdeps=n \
-						${pretend:+'--pretend'}
+						--with-bdeps=n
 	fi
 	: $(( rc = rc + ${?} ))
 fi

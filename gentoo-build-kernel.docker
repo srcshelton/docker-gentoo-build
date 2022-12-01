@@ -20,6 +20,7 @@ declare -ir build_space_reqiured=750
 declare -ir temp_space_required=2800
 declare -ir graph_space_required=8500
 
+declare firmware='sys-kernel/linux-firmware'
 declare microcode=''
 declare microcode_blob=''
 if grep 'vendor_id' /proc/cpuinfo | awk '{ print $3 }' | grep -iqm 1 'intel'; then
@@ -66,7 +67,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 		"[--no-keep-build|--keep-build[=<dir>]]" \
 		"[--no-patch|--patch=<url>[,<url]]" \
 		"[--menuconfig|--nconfig]" \
-		"[--package=<atom>] [--clean]" \
+		"[--package=<atom>] [--firmware] [--clean]" \
 		"[--clang [--clean-lto] [--llvm-unwind] [--rust]]"
 	)"
 	output "${usage}${options}" | fold -sw ${COLUMNS:-80} - | head -n 1 >&2
@@ -86,6 +87,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "       --nconfig     Interactively reconfigure the kernel via nconfig"
 	output >&2 "       --package     Specify kernel package to build"
 	output >&2 "                    (default: sys-kernel/gentoo-sources)"
+	output >&2 "       --firmware    Include sys-kernel/linux-firmware"
 	output >&2 "       -O3           Add 'KCFLAGS=-O3' (and others - see [1])"
 	output >&2 "       --clang       Compile kernel with llvm"
 	output >&2 "       --llvm-unwind Install LLVM edition of libunwind"
@@ -274,6 +276,14 @@ case "${package_version}" in
 		fi
 		;;
 esac
+case "${package_version}" in
+	[345].*|6.0.*)
+		if (( rust )); then
+			warn "Disabling dev-lang/rust support prior to kernel 6.1.x"
+			rust=0
+		fi
+		;;
+esac
 case "${arch:-${ARCH:-}}" in
 	arm64)
 		patch="${patch:+${patch} }https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/build-with-mcpu-for-cortex-a72.patch"
@@ -289,6 +299,9 @@ if echo " ${*:-} " | grep -q -- ' --patch'; then
 	fi
 elif echo " ${*:-} " | grep -q -- ' --no-patch'; then
 	patch=''
+fi
+if echo " ${*:-} " | grep -q -- ' --no-firmware'; then
+	firmware=''
 fi
 
 $docker image list "${IMAGE%:*}" | grep -Eq -- "^(localhost/)?${IMAGE%:*}" || die "docker image '${IMAGE%:*}' not found"
@@ -465,7 +478,10 @@ fi
 if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compiler}:${package_version}" | wc -l )" = '2' ]; then
 	(
 		ACCEPT_LICENSE="linux-fw-redistributable no-source-code"
-		USE="extra-filters firmware hostname lzma symlink threads zlib${compiler_USE:+ ${compiler_USE}}"
+		USE="extra-filters hostname lzma symlink threads zlib${compiler_USE:+ ${compiler_USE}}"
+		if [[ -n "${firmware:-}" ]]; then
+			USE="firmware ${USE}"
+		fi
 		export ACCEPT_LICENSE USE
 
 		name="${container_name}-${compiler}"
@@ -493,7 +509,7 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 					sys-apps/coreutils \
 					sys-apps/kmod \
 					${microcode:-} \
-					sys-kernel/linux-firmware \
+					${firmware:-} \
 					virtual/linux-sources \
 				2>&1 | tee "log/docker.${container_name}-${compiler}.log"
 			output " -> ${?}"
