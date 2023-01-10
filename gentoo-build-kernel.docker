@@ -261,7 +261,7 @@ case "${package_version}" in
 	5.15.*|5.16.*)
 		#patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15%2B.patch' ;;
 		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15-5.16.patch' ;;
-	5.1[789].*|6.0.*)
+	5.1[789].*|6.[01].*)
 		patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.17%2B.patch'
 		case "${package_version}" in
 			5.19.*)
@@ -277,7 +277,7 @@ case "${package_version}" in
 		;;
 esac
 case "${package_version}" in
-	[345].*|6.0.*)
+	[12345].*|6.0.*)
 		if (( rust )); then
 			warn "Disabling dev-lang/rust support prior to kernel 6.1.x"
 			rust=0
@@ -475,16 +475,20 @@ else
 fi
 [ -n "${DOCKER_EXTRA_MOUNTS:-}" ] && export DOCKER_EXTRA_MOUNTS
 
-if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compiler}:${package_version}" | wc -l )" = '2' ]; then
+declare rustext=''
+if (( rust )); then
+	rustext='rustc'
+fi
+if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" | wc -l )" = '2' ]; then
 	(
 		ACCEPT_LICENSE="linux-fw-redistributable no-source-code"
-		USE="extra-filters hostname lzma symlink threads zlib${compiler_USE:+ ${compiler_USE}}"
+		USE="extra-filters hostname${rustext:+" http2"} lzma symlink threads zlib${compiler_USE:+" ${compiler_USE}"}"
 		if [[ -n "${firmware:-}" ]]; then
 			USE="firmware ${USE}"
 		fi
 		export ACCEPT_LICENSE USE
 
-		name="${container_name}-${compiler}"
+		name="${container_name}-${compiler}${rustext:+"-${rustext}"}"
 		image="${IMAGE}"
 		export name image
 
@@ -510,8 +514,9 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 					sys-apps/kmod \
 					${microcode:-} \
 					${firmware:-} \
+					${rustext:+"virtual/rust"} \
 					virtual/linux-sources \
-				2>&1 | tee "log/docker.${container_name}-${compiler}.log"
+				2>&1 | tee "log/docker.${name}.log"
 			output " -> ${?}"
 		}
 
@@ -533,20 +538,20 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 			if ! command -v buildah >/dev/null 2>&1; then
 				$docker ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
 						container commit \
-							"${container_name}-${compiler}" \
-							"${container_name%"-${package_version}"}.${compiler}:${package_version}" 2>&1 |
-					tee -a "log/docker.${container_name}.log"
+							"${name}" \
+							"${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" 2>&1 |
+					tee -a "log/docker.${name}.log"
 			else
 				buildah ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
 						commit \
 								--squash \
-							"${container_name}-${compiler}" \
-							"${container_name%"-${package_version}"}.${compiler}:${package_version}" 2>&1 |
-					tee -a "log/docker.${container_name}.log"
+							"${name}" \
+							"${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" 2>&1 |
+					tee -a "log/docker.${name}.log"
 			fi
 			output " -> ${?}"
-			$docker container rm --volumes "${container_name}-${compiler}" 2>&1 |
-				tee -a "log/docker.${container_name}-${compiler}.log"
+			$docker container rm --volumes "${name}" 2>&1 |
+				tee -a "log/docker.${name}.log"
 			trap - INT
 		}
 	)
@@ -769,10 +774,10 @@ time {
 	#DOCKER_DEVICES="--device=/dev/tty --device=/dev/tty0" \
 	TERM="${TERM:-}" \
 	DOCKER_HOSTNAME="$( hostname )-build" \
-	image="${container_name%"-${package_version}"}.${compiler}:${package_version}" \
+	image="${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" \
 	docker_run \
 			-c "${DOCKER_SCRIPT}" \
-		2>&1 | tee -a "log/docker.${container_name}-${compiler}.log"
+		2>&1 | tee -a "log/docker.${container_name}-${compiler}${rustext:+"+${rustext}"}.log"
 	rc=${?}
 	#set +x
 	output " -> ${rc}"
