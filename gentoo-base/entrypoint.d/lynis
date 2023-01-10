@@ -3,6 +3,9 @@
 [ -e /etc/mtab ] || ln -s /proc/self/mounts /etc/mtab
 [ -d /home ] || mkdir -m 0755 /home
 
-eselect awk update ifunset
+# Superseded by app-alternatives/awk...
+if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]; then
+	eselect awk update ifunset
+fi
 
 # vi: set syntax=sh:

@@ -51,7 +51,10 @@ if [ $(( updated )) -eq 1 ]; then
 	# 'scratch' if we want to inherit this value automagically...
 	export CHOST="${CHOST:-x86_64-pc-linux-gnu}"
 
-	eselect awk set gawk
+	# Superseded by app-alternatives/awk...
+	if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]; then
+		eselect awk set gawk
+	fi
 	binutils-config 1
 
 	# Taken from /usr/bin/gcc-config, and adapted to sh

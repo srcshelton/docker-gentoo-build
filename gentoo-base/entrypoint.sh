@@ -910,6 +910,11 @@ echo
 #
 (
 	USE="-* $( get_stage3 --values-only USE ) symlink"
+	# Since app-alternatives/* packages are now mandatory, the USE flags these
+	# packages rely upon must also be set in order to avoid REQUIRED_USE
+	# errors.
+	# TODO: Fix this better...
+	USE="${USE} gnu gawk"
 	export USE
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 	export LC_ALL='C'
@@ -960,10 +965,11 @@ for pkg in \
 		'dev-libs/libxml2' \
 		'app-editors/vim' \
 		'app-admin/eselect' \
-		'app-eselect/eselect-awk' \
 		'sys-apps/gawk' \
-		'sys-devel/gcc' \
-		'virtual/awk'
+		'app-alternatives/awk' \
+		'sys-devel/gcc'
+		#'app-eselect/eselect-awk' \
+		#'virtual/awk' \
 do
 	echo
 	echo
@@ -973,7 +979,7 @@ do
 	(
 		USE="-* $( get_stage3 --values-only USE )"
 		# shellcheck disable=SC2154
-		USE="${USE} ${use_essential_gcc}"
+		USE="${USE} ${use_essential_gcc} gawk"
 		case "${pkg}" in
 			*libcrypt|*libxcrypt)
 				USE="${USE} static-libs"
@@ -1004,7 +1010,7 @@ do
 	LC_ALL='C' etc-update --quiet --preen
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 done
-LC_ALL='C' eselect awk set gawk || :
+#LC_ALL='C' eselect awk set gawk || :
 
 # Now we can build our ROOT environment ...
 #
