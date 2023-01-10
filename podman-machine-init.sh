@@ -90,6 +90,7 @@ podman machine ssh "${MACHINE}" <<EOF
 		cd src &&
 		git clone https://github.com/srcshelton/docker-gentoo-build.git ;
 	} ;
+	git config --system --replace-all safe.directory '*' ;
 	cd ~/src/docker-gentoo-build && git pull --all
 EOF
 
