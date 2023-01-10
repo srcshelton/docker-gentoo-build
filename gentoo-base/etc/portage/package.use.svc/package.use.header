@@ -16,6 +16,8 @@
 #*/*					 PHP_TARGETS: php8-0
 */*					 CURL_SSL: openssl
 
+dev-lang/perl				 minimal
 dev-lang/python-exec			 native-symlinks
 dev-util/pkgconf			 pkg-config
-sys-libs/glibc				 clone3
+sys-devel/gcc				 ssp
+sys-libs/glibc				 clone3 compile-locales minimal ssp timezone-tools

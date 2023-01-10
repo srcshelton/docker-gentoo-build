@@ -15,6 +15,7 @@
 */*					 MIT
 */*					 public-domain
 
+app-alternatives/*			 CC0-1.0
 
 # System packages:
 #
@@ -36,6 +37,7 @@ dev-util/gtk-doc-am			 FDL-1.1
 app-text/sgml-common			 FDL-1.1+
 sys-devel/gcc				 FDL-1.3+
 sys-devel/flex				 FLEX
+sys-apps/help2man			 FSFAP
 sys-devel/gnuconfig			 GPL-3+-with-autoconf-exception
 sys-libs/glibc				 HPND PCRE inner-net rc
 media-libs/libjpeg-turbo		 IJG ZLIB
@@ -143,6 +145,7 @@ dev-vcs/subversion			 Subversion FSFAP unicode
 # required by service mail-filter/opendkim
 mail-filter/opendkim			 Sendmail-Open-Source
 app-text/ghostscript-gpl	     	 AGPL-3 CPL-1.0
+app-text/poppler-data			 AGPL-3+
 media-libs/jbig2dec			 AGPL-3
 media-libs/tiff				 libtiff
 #net-dns/dnssec-root			 public-domain

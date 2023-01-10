@@ -1,6 +1,6 @@
 
 #app-editors/vim			 X acl cscope debug gpm lua luajit minimal nls perl python racket ruby selinux sound tcl terminal vim-pager
-app-editors/vim				 nls terminal vim-pager
+app-editors/vim				-minimal nls terminal vim-pager
 
 sys-apps/coreutils			-hostname
 sys-apps/net-tools			 hostname

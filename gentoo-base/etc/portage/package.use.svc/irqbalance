@@ -2,4 +2,6 @@
 #sys-apps/irqbalance			 caps +numa (-selinux) systemd tui
 sys-apps/irqbalance			 caps tui
 
+dev-libs/libpcre2			 unicode
+
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

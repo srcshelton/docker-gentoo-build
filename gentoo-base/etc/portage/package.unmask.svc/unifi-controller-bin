@@ -5,8 +5,11 @@
 # We keep the ebuilds available since some of those versions are still
 # supported by upstream. See: https://jira.mongodb.org/browse/SERVER-52687
 dev-db/mongodb::unifi
-dev-python/typing::unifi
+
 dev-python/cheetah::unifi
 dev-python/snowball-stemmer::unifi
+dev-python/typing::unifi
+net-misc/unifi-controller-bin::unifi
+=sys-apps/util-linux-2.33.2::unifi
 
 # vi: set syntax=gentoo-package-mask:

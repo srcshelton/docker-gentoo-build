@@ -9,5 +9,6 @@ dev-perl/Net-DNS-SEC			 dsa ecdsa private-key
 #mail-filter/spamassassin		 berkdb cron (ipv6) ldap mysql postgres qmail sqlite (ssl) test
 mail-filter/spamassassin		 cron dkim geoip largenet mysql pacct razor spd sqlite unicode
 sys-apps/busybox			-make-symlinks
+sys-devel/gcc				-nls
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

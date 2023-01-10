@@ -2,6 +2,9 @@
 # The meson build system isn't compatible with python2_7
 dev-util/meson
 
+# Don't install more recent util-linux
+sys-apps/util-linux
+
 # Mask ebuilds beyond what we've pinned...
 >app-arch/snappy-1.1.9
 >dev-db/mongodb-4.0.22

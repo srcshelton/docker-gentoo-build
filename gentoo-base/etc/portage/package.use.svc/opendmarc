@@ -7,6 +7,6 @@ virtual/mail-mta			 no-mta
 #mail-mta/msmtp				-ssl
 # required by mail-mta/msmtp-1.8.12[ssl]
 # required by net-libs/gnutls-3.7.1
-#dev-libs/nettle				 gmp
+#dev-libs/nettle			 gmp
 
-# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
+# vi: set colorcolumn=40 nowrap syntax=gentoo-package-use sw=8 ts=8:

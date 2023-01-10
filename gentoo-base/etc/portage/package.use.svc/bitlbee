@@ -2,4 +2,6 @@
 #net-im/bitlbee				 debug +gnutls (ipv6) libevent msn nss oscar otr +plugins purple selinux test twitter xinetd +xmpp
 net-im/bitlbee				 libevent plugins twitter xmpp
 
+dev-libs/libpcre2			 unicode
+
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

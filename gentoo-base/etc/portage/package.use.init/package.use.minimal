@@ -6,6 +6,18 @@
 */*					 PYTHON_TARGETS: -* python3_10
 */*					 PYTHON_SINGLE_TARGET: -* python3_10
 
+net-misc/curl				 CURL_SSL: openssl
+
+app-alternatives/awk			 gawk  # busybox mawk nawk
+app-alternatives/bc			 gnu  # gh
+app-alternatives/bzip2			 reference  # pbzip2 lbzip2
+app-alternatives/cpio			 gnu  # libarchive
+app-alternatives/gzip			 reference  # pigz
+app-alternatives/lex			 flex  # reflex
+app-alternatives/sh			 bash  # busybox dash ksh lksh mksh
+app-alternatives/tar			 gnu  # libarchive
+app-alternatives/yacc			-reference bison  # byacc
+
 app-arch/libarchive			-lz4 acl bzip2 e2fsprogs expat iconv lzma lzo nettle threads xattr zlib zstd
 app-arch/tar				 xattr
 app-arch/xz-utils			 extra-filters nls static-libs threads
@@ -13,6 +25,7 @@ dev-lang/perl				 ithreads
 dev-lang/python-exec			 native-symlinks
 dev-lang/python				 ssl xml
 dev-util/pkgconf			 pkg-config
+net-misc/curl				-adns -ares -http2 openssl ssl
 sys-apps/busybox			 mdev static
 sys-apps/grep				 pcre
 sys-apps/help2man			-nls
