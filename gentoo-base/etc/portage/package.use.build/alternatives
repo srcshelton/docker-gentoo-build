@@ -1,0 +1,12 @@
+
+app-alternatives/awk			 gawk  # busybox mawk nawk
+app-alternatives/bc			 gnu  # gh
+app-alternatives/bzip2			 reference  # pbzip2 lbzip2
+app-alternatives/cpio			 gnu  # libarchive
+app-alternatives/gzip			 reference  # pigz
+app-alternatives/lex			 flex  # reflex
+app-alternatives/sh			 bash  # busybox dash ksh lksh mksh
+app-alternatives/tar			 gnu  # libarchive
+app-alternatives/yacc			-reference bison  # byacc
+
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
