@@ -46,13 +46,18 @@ format() {
 	string="%-${padding}s= \"%s\"\\n"
 
 	# shellcheck disable=SC2059
-	printf "${string}" "${variable}" "$(
-		cat - | grep -- "^${variable}=" | cut -d'"' -f 2 | fmt -w $(( ${COLUMNS:-80} - ( padding + 3 ) )) | sed "s/^/   ${spaces}/ ; 1 s/^\s\+//"
+	printf "${string}" "${variable}" "$( # <- Syntax highlight fail
+		cat - |
+			grep -- "^${variable}=" |
+			cut -d'"' -f 2 |
+			fmt -w $(( ${COLUMNS:-80} - ( padding + 3 ) )) |
+			sed "s/^/   ${spaces}/ ; 1 s/^\s\+//"
 	)"
 }  # format
 
 check() {
-	# Check that a given package (with build result code $crc) is actually installed
+	# Check that a given package (with build result code $crc) is actually
+	# installed
 	#
 	crc=${1:-} ; shift
 
@@ -68,12 +73,16 @@ check() {
 		done
 		package="$( echo "${package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
 		if echo "${package}" | grep -Fq -- '/'; then
-			if ! ls -1d "${ROOT:-}/var/db/pkg/${package%::*}"* >/dev/null 2>&1; then
-				die "emerge indicated success but package '${package%::*}' does not appear to be installed"
+			if ! ls -1d "${ROOT:-}/var/db/pkg/${package%::*}"* >/dev/null 2>&1
+			then
+				die "emerge indicated success but package '${package%::*}'" \
+					"does not appear to be installed"
 			fi
 		else
-			if ! ls -1d "${ROOT:-}/var/db/pkg"/*/"${package%::*}"* >/dev/null 2>&1; then
-				die "emerge indicated success but package '${package%::*}' does not appear to be installed"
+			if ! ls -1d "${ROOT:-}/var/db/pkg"/*/"${package%::*}"* >/dev/null 2>&1
+			then
+				die "emerge indicated success but package '${package%::*}'" \
+					"does not appear to be installed"
 			fi
 		fi
 	fi
@@ -94,13 +103,17 @@ checkmissing() {
 	done
 	package="$( echo "${package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
 	if echo "${package}" | grep -Fq -- '/'; then
-		if ls -1d "${ROOT:-}/var/db/pkg/${package%::*}"* >/dev/null 2>&1; then
-			warn "emerge indicated success but package '${package%::*}' still appears to be installed under root '${ROOT:-/}'"
+		if ls -1d "${ROOT:-}/var/db/pkg/${package%::*}"* >/dev/null 2>&1
+		then
+			warn "emerge indicated success but package '${package%::*}'" \
+				"still appears to be installed under root '${ROOT:-/}'"
 			return 1
 		fi
 	else
-		if ls -1d "${ROOT:-}/var/db/pkg"/*/"${package%::*}"* >/dev/null 2>&1; then
-			warn "emerge indicated success but package '${package%::*}' still appears to be installed under root '${ROOT:-/}'"
+		if ls -1d "${ROOT:-}/var/db/pkg"/*/"${package%::*}"* >/dev/null 2>&1
+		then
+			warn "emerge indicated success but package '${package%::*}'" \
+				"still appears to be installed under root '${ROOT:-/}'"
 			return 1
 		fi
 	fi
@@ -120,7 +133,8 @@ pkg_remove() {
 			[ -d "${ROOT}" ] || continue
 
 			echo
-			echo " * Removing specified ${stage:+${stage} }packages '${remove}' from root '${ROOT}'..."
+			echo " * Removing specified ${stage:+${stage} }packages" \
+				"'${remove}' from root '${ROOT}'..."
 
 			# shellcheck disable=SC2086
 			emerge \
@@ -151,10 +165,12 @@ pkg_remove() {
 					rm -vr "${ROOT%/}/var/db/pkg/${pkg}"* 2>/dev/null || :
 				if [ -e "${ROOT%/}/var/lib/portage/world" ]; then
 					str="$( echo "${pkg}" | sed 's|/|\\/|g' )"
-					if sed -i "/${str}/ d" "${ROOT%/}/var/lib/portage/world"; then
+					if sed -i "/${str}/ d" "${ROOT%/}/var/lib/portage/world"
+					then
 						print "Manually removed '${pkg}' from world profile"
 					else
-						warn "Failed to remove '${pkg}' from world profile (or package already removed)"
+						warn "Failed to remove '${pkg}' from world profile" \
+							"(or package already removed)"
 					fi
 					unset str
 				fi
@@ -170,7 +186,10 @@ savefailed() {
 
 	#[ -n "${trace:-}" ] || set -o xtrace
 	# shellcheck disable=SC2012 # We can't rely on findutils being present...
-	if [ -n "$( ls -1 "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log 2>/dev/null | head -n 1 )" ]; then
+	if [ -n "$( # <- Syntax highlight fail
+			ls -1 "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log 2>/dev/null |
+			head -n 1
+	)" ]; then
 		mkdir -p "${PORTAGE_LOGDIR}"/failed
 		for file in "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log; do
 			cat="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"
@@ -222,18 +241,24 @@ fi
 # shellcheck disable=SC2015,SC1091,SC1090
 [ -s "${environment_file}" ] &&
 	. "${environment_file}" ||
-		die "gentoo-build:entrypoint.sh Unable to source '${environment_file}': ${?}"
+		die "gentoo-build:entrypoint.sh Unable to source" \
+			"'${environment_file}': ${?}"
 
 if command -v env-update >/dev/null 2>&1; then
 	LC_ALL='C' env-update
 fi
 if [ -e /usr/gawk ] || [ -e /usr/bin/gawk ]; then
-	if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]; then
+	# Superseded by app-alternatives/awk...
+	if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]
+	then
 		eselect awk set gawk
 	fi
 fi
-[ -d /etc/env.d/gcc ] && ROOT='/' gcc-config 1
-[ -d /etc/env.d/binutils ] && command -v binutils-config >/dev/null 2>&1 && ROOT='/' binutils-config 1
+[ -d /etc/env.d/gcc ] &&
+	ROOT='/' gcc-config 1
+[ -d /etc/env.d/binutils ] &&
+	command -v binutils-config >/dev/null 2>&1 &&
+	ROOT='/' binutils-config 1
 # shellcheck disable=SC1091
 [ -s /etc/profile ] && . /etc/profile
 
@@ -287,8 +312,8 @@ TUSE='' pkg_use_pkg='' pkg_use_use='' pkg_use_file='' pkg_use_files=''
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
 post_pkgs='' post_use='' post_remove=''
-rebuild=''
-change_sysroot=0 pkg_use=0 no_use=0 rc=0
+rebuild='' depclean_extra=''
+depclean=0 change_sysroot=0 pkg_use=0 no_use=0 rc=0
 for arg in "${@}"; do
 	#print "Read argument '${arg}'"
 	shift
@@ -330,6 +355,14 @@ for arg in "${@}"; do
 			;;
 		--post-remove=*)
 			post_remove="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			continue
+			;;
+		--depclean)
+			depclean=1
+			continue
+			;;
+		--depclean-extra=*)
+			depclean_extra="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
 			continue
 			;;
 		--sysroot)
@@ -722,6 +755,7 @@ if [ -n "${pre_pkgs:-}" ]; then
 fi
 
 if [ -e /usr/gawk ] || [ -e /usr/bin/gawk ]; then
+	# Superseded by app-alternatives/awk...
 	if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]; then
 		eselect awk set gawk
 	fi
@@ -743,11 +777,17 @@ fi
 
 #time (
 (
-	export ROOT='/service'
-	export FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
-	export USE="-* -lib-only make-symlinks openmp timezone-tools"
-	export LC_ALL='C'
-	export VERY_BRAVE_OR_VERY_DUMB='yes'  # for busybox
+	ROOT='/service'
+	FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
+	USE="-* -lib-only make-symlinks openmp timezone-tools"
+	# Since app-alternatives/* packages are now mandatory, the USE flags these
+	# packages rely upon must also be set in order to avoid REQUIRED_USE
+	# errors.
+	# TODO: Fix this better...
+	USE="${USE} gawk gnu reference"
+	LC_ALL='C'
+	VERY_BRAVE_OR_VERY_DUMB='yes'  # for busybox
+	export ROOT FEATURES USE LC_ALL VERY_BRAVE_OR_VERY_DUMB
 
 	for pkg_use_file in ${pkg_use_files}; do
 		if [ -e "${pkg_use_file}" ] && ! [ -e "${ROOT}${pkg_use_file}" ]; then
@@ -836,11 +876,12 @@ fi
 )
 
 if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
-	if [ ${change_sysroot:-} -eq 1 ]; then
+	if [ $(( change_sysroot )) -ne 0 ]; then
 		export SYSROOT="${ROOT}"
 	fi
 
 	if [ -e "${ROOT}"/usr/gawk ] || [ -e "${ROOT}"/usr/bin/gawk ]; then
+		# Superseded by app-alternatives/awk...
 		if [ -e "${ROOT}"/usr/bin/eselect ] && [ -s "${ROOT}"/usr/share/eselect/modules/awk.eselect ]; then
 			eselect awk set gawk
 		fi
@@ -1316,6 +1357,51 @@ check ${rc} "${package}"
 
 if [ -n "${post_remove:-}" ]; then
 	pkg_remove 'post-installation' "${post_remove}"
+fi
+
+if [ $(( depclean )) -ne 0 ]; then
+	echo
+	echo " * Running 'depclean' against ROOT '${ROOT:-/}' ..."
+
+	mkdir -p /etc/portage/profile
+	if [ -s /etc/portage/profile/package.provided ]; then
+		mv /etc/portage/profile/package.provided \
+			/etc/portage/profile/package.provided.backup
+	fi
+
+	# This list must be kept in sync with sys-devel/gcc dependencies!
+	cat >> /etc/portage/profile/package.provided <<-EOF
+		dev-libs/gmp-4.3.2
+		dev-libs/mpc-0.8.1
+		dev-libs/mpfr-2.4.2
+		sys-devel/gcc-config-2.3
+	EOF
+	#
+	# FIXME: This may be overkill, but some containers which don't use perl
+	# seem to have it pulled-in regardless...
+	# ...and we're still getting some build-time dependencies retained...
+	emerge --depclean -v --with-bdeps=n 'perl-core/*' 'virtual/perl-*' \
+		dev-lang/perl \
+		app-alternatives/yacc sys-devel/bison \
+		app-alternatives/awk sys-apps/gawk \
+		app-alternatives/gzip app-arch/gzip \
+		sys-apps/grep \
+		sys-apps/gentoo-functions \
+		dev-libs/isl || :
+
+	if [ -n "${depclean_extra:-}" ]; then
+		emerge --depclean -v --with-bdeps=n ${depclean_extra} || :
+	fi
+	emerge --depclean -v --with-bdeps=n --exclude='dev-libs/libffi'
+
+	if [ -s /etc/portage/profile/package.provided.backup ]; then
+		mv /etc/portage/profile/package.provided.backup \
+			/etc/portage/profile/package.provided
+	else
+		rm /etc/portage/profile/package.provided
+	fi
+
+	rmdir --ignore-fail-on-non-empty /etc/portage/profile
 fi
 
 #do_prelink
