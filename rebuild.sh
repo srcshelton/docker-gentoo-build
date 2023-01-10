@@ -40,13 +40,14 @@ fi
 #	export IMAGE_ROOT="${tmp}"
 #fi
 
-kbuild_opt="${kbuild_opt:---config-from=config.gz --keep-build --no-patch --clang --llvm-unwind}"
+kbuild_opt="${kbuild_opt:-"--config-from=config.gz --keep-build --no-patch --clang --llvm-unwind"}"
 all=0
 arg=''
 force=0
 haveargs=0
 pkgcache=0
 pretend=0
+err=0
 rc=0
 rebuild=0
 rebuildutils=0
@@ -179,7 +180,12 @@ if [ "${rebuildutils:-0}" = '1' ]; then
 fi
 
 if [ "${rebuild:-0}" = '1' ]; then
-	mkdir -p log
+	failures=''
+
+	if ! mkdir -p log; then
+		echo >&2 "FATAL: Could not create directory $( pwd )/log: ${?}"
+		exit 1
+	fi
 
 	if [ $(( skip )) -ne 0 ] || ./gentoo-init.docker; then
 		forceflag=''
@@ -194,14 +200,22 @@ if [ "${rebuild:-0}" = '1' ]; then
 			selection='--services all'
 		fi
 		# shellcheck disable=SC2086
-		./gentoo-build-svc.docker \
+		if ! ./gentoo-build-svc.docker \
 				${forceflag:+${forceflag} --rebuild} \
-				${selection} ||
-			: $(( rc = rc + ${?} ))
+				${selection}
+		then
+			: $(( err = ${?} ))
+			: $(( rc = rc + err ))
+			failures="${failures:+"${failures} "}gentoo-build-svc:${err}"
+		fi
 		if [ -x gentoo-web/gentoo-build-web.docker ]; then
-			./gentoo-web/gentoo-build-web.docker \
-					${forceflag} ||
-				: $(( rc = rc + ${?} ))
+			if ! ./gentoo-web/gentoo-build-web.docker \
+					${forceflag}
+			then
+				: $(( err = ${?} ))
+				: $(( rc = rc + err ))
+				failures="${failures:+"${failures} "}gentoo-build-web:${err}"
+			fi
 		fi
 
 		# Don't impose memory limits on hosts with <8GB RAM, linux
@@ -212,18 +226,30 @@ if [ "${rebuild:-0}" = '1' ]; then
 		) / 1024 / 1024 ))
 		if [ $(( ram )) -lt 7 ]; then
 			# shellcheck disable=SC2086
-			NO_MEMORY_LIMITS=1 ./gentoo-build-kernel.docker \
-					${kbuild_opt:-} ||
-				: $(( rc = rc + ${?} ))
+			if ! NO_MEMORY_LIMITS=1 ./gentoo-build-kernel.docker \
+					${kbuild_opt:-}
+			then
+				: $(( err = ${?} ))
+				: $(( rc = rc + err ))
+				failures="${failures:+"${failures} "}gentoo-build-kernel:${err}"
+			fi
 		else
 			# shellcheck disable=SC2086
-			./gentoo-build-kernel.docker \
-					${kbuild_opt:-} ||
-				: $(( rc = rc + ${?} ))
+			if ! ./gentoo-build-kernel.docker \
+					${kbuild_opt:-}
+			then
+				: $(( err = ${?} ))
+				: $(( rc = rc + err ))
+				failures="${failures:+"${failures} "}gentoo-build-kernel:${err}"
+			fi
 		fi
 		unset ram
 	else
-		: $(( rc = rc + ${?} ))
+		: $(( err = ${?} ))
+		: $(( rc = rc + err ))
+		if [ $(( err )) -ne 0 ]; then
+			failures="${failures:+"${failures} "}gentoo-init:${err}"
+		fi
 	fi
 fi
 
@@ -233,6 +259,10 @@ if [ "${pkgcache:-0}" = '1' ]; then
 	# or libraries)...
 
 	(
+		# shellcheck disable=SC2030
+		failures=''
+		# shellcheck disable=SC2030
+		rc=0
 		use=''
 		image=''
 		ARCH="${ARCH:-$( portageq envvar ARCH )}"
@@ -302,13 +332,10 @@ if [ "${pkgcache:-0}" = '1' ]; then
 		USE="-* ${use}"
 		export USE
 
-		# shellcheck disable=SC2030
-		rc=0
-
 		{
 			# shellcheck disable=SC2030
-			USE="-* ${use} nls readline static-libs zstd" \
-			./gentoo-build-pkg.docker 2>&1 \
+			if ! USE="-* ${use} nls readline static-libs zstd" \
+				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
 						--usepkg=y \
@@ -318,11 +345,15 @@ if [ "${pkgcache:-0}" = '1' ]; then
 					sys-apps/gawk \
 					sys-devel/bc \
 					sys-devel/gcc \
-					sys-libs/libxcrypt ||
-				: $(( rc = rc + 1 ))
+					sys-libs/libxcrypt
+			then
+				: $(( err = ${?} ))
+				: $(( rc = rc + err ))
+				failures="${failures:+"${failures} "}gentoo-build-pkg;1:${err}"
+			fi
 
-			USE="-* ${use} static-libs" \
-			./gentoo-build-pkg.docker 2>&1 \
+			if ! USE="-* ${use} static-libs" \
+				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
 						--usepkg=y \
@@ -336,11 +367,15 @@ if [ "${pkgcache:-0}" = '1' ]; then
 					sys-apps/baselayout \
 					sys-apps/busybox \
 					sys-apps/portage \
-					sys-kernel/gentoo-sources ||
-				: $(( rc = rc + 1 ))
+					sys-kernel/gentoo-sources
+			then
+				: $(( err = ${?} ))
+				: $(( rc = rc + err ))
+				failures="${failures:+"${failures} "}gentoo-build-pkg;2:${err}"
+			fi
 
-			USE="-* ${use} nls" \
-			./gentoo-build-pkg.docker 2>&1 \
+			if ! USE="-* ${use} nls" \
+				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
 						--usepkg=y \
@@ -348,10 +383,14 @@ if [ "${pkgcache:-0}" = '1' ]; then
 						--with-pkg-use='sys-apps/net-tools hostname' \
 						--with-pkg-use='sys-apps/coreutils -hostname' \
 					virtual/libc \
-					sys-apps/net-tools ||
-				: $(( rc = rc + 1 ))
-			USE="-* ${use} nls" \
-			./gentoo-build-pkg.docker 2>&1 \
+					sys-apps/net-tools
+			then
+				: $(( err = ${?} ))
+				: $(( rc = rc + err ))
+				failures="${failures:+"${failures} "}gentoo-build-pkg;3:${err}"
+			fi
+			if ! USE="-* ${use} nls" \
+				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
 						--usepkg=y \
@@ -359,10 +398,14 @@ if [ "${pkgcache:-0}" = '1' ]; then
 						--with-pkg-use='sys-apps/net-tools hostname' \
 						--with-pkg-use='sys-apps/coreutils -hostname' \
 					virtual/libc \
-					sys-apps/coreutils ||
-				: $(( rc = rc + 1 ))
-			USE="-* ${use} nls" \
-			./gentoo-build-pkg.docker 2>&1 \
+					sys-apps/coreutils
+			then
+				: $(( err = ${?} ))
+				: $(( rc = rc + err ))
+				failures="${failures:+"${failures} "}gentoo-build-pkg;4:${err}"
+			fi
+			if ! USE="-* ${use} nls" \
+				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
 						--usepkg=y \
@@ -371,36 +414,58 @@ if [ "${pkgcache:-0}" = '1' ]; then
 						--with-pkg-use='sys-apps/coreutils -hostname' \
 					virtual/libc \
 					app-editors/vim-core \
-					app-editors/vim ||
-				: $(( rc = rc + 1 ))
+					app-editors/vim
+			then
+				: $(( err = ${?} ))
+				: $(( rc = rc + err ))
+				failures="${failures:+"${failures} "}gentoo-build-pkg;5:${err}"
+			fi
 
-			USE="-* ${use} nls" \
-			./gentoo-build-pkg.docker 2>&1 \
+			if ! USE="-* ${use} nls" \
+				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
 						--usepkg=y \
 						--with-bdeps=n \
 					virtual/libc \
 					app-arch/cpio \
-					dev-libs/elfutils ||
-				: $(( rc = rc + 1 ))
+					dev-libs/elfutils
+			then
+				: $(( err = ${?} ))
+				: $(( rc = rc + err ))
+				failures="${failures:+"${failures} "}gentoo-build-pkg;6:${err}"
+			fi
 
-			USE="-* pam tools" \
-			./gentoo-build-pkg.docker 2>&1 \
+			if ! USE="-* pam tools" \
+				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
 						--usepkg=y \
 						--with-bdeps=n \
 					virtual/libc \
-					sys-libs/libcap ||
-				: $(( rc = rc + 1 ))
+					sys-libs/libcap
+			then
+				: $(( err = ${?} ))
+				: $(( rc = rc + err ))
+				failures="${failures:+"${failures} "}gentoo-build-pkg;7:${err}"
+			fi
 		} | tee log/buildpkg.cache.log
 
 		# shellcheck disable=SC2031
-		[ $(( rc )) -eq 0 ] || exit ${rc}
+		if [ $(( err )) -ne 0 ]; then
+			echo >&2 "ERROR: ${failures}"
+		fi
+		# shellcheck disable=SC2031
+		exit ${rc}
 	)
+
+	: $(( err = ${?} ))
 	# shellcheck disable=SC2031
-	: $(( rc = rc + ${?} ))
+	: $(( rc = rc + err ))
+	if [ $(( err )) -ne 0 ]; then
+		# shellcheck disable=SC2031
+		failures="${failures:+"${failures} "}init-pkg-cache:${err}"
+	fi
 fi
 
 if [ "${update:-0}" = '1' ]; then
@@ -481,7 +546,9 @@ if [ "${update:-0}" = '1' ]; then
 				exit ${?}
 		} | tee log/buildpkg.hostpkgs.update.log
 	)
-	: $(( rc = rc + ${?} ))
+	: $(( err = ${?} ))
+	: $(( rc = rc + err ))
+	failures="${failures:+"${failures} "}gentoo-build-pkg;hostpkgs:${err}"
 
 	trap '' INT
 	$docker container ps -a |
@@ -517,7 +584,9 @@ if [ "${update:-0}" = '1' ]; then
 					exit ${?}
 			} | tee log/buildpkg.hostpkgs.gcc.update.log
 		)
-		: $(( rc = rc + ${?} ))
+		: $(( err = ${?} ))
+		: $(( rc = rc + err ))
+		failures="${failures:+"${failures} "}gentoo-build-pkg;gcc:${err}"
 
 		trap '' INT
 		$docker container ps -a |
@@ -569,10 +638,16 @@ if [ "${system:-0}" = '1' ]; then
 						--verbose=y \
 						--with-bdeps=n
 	fi
-	: $(( rc = rc + ${?} ))
+	: $(( err = ${?} ))
+	: $(( rc = rc + err ))
+	failures="${failures:+"${failures} "}emerge:${err}"
 fi
 
 [ -n "${trace:-}" ] && set +o xtrace
+
+if [ $(( rc )) -ne 0 ]; then
+	echo >&2 "ERROR: ${failures}"
+fi
 
 exit "${rc}"
 
