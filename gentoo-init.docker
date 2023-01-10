@@ -353,6 +353,13 @@ if ! type -pf portageq >/dev/null 2>&1; then
 
 		git clone https://github.com/gentoo/gentoo.git "${repo_path_gentoo}" ||
 			die "git 'clone' operation failed: ${?}"
+		if ! git config --global --get-all safe.directory |
+			grep -q "${repo_path_gentoo%/}"
+		then
+			git config --global --add safe.directory "${repo_path_gentoo}" ||
+				die "git safe directory addition of '${repo_path_gentoo}'" \
+					"failed: ${?}"
+		fi
 
 		private_gentoo_clone=1
 
@@ -379,6 +386,14 @@ if ! type -pf portageq >/dev/null 2>&1; then
 				https://github.com/srcshelton/gentoo-ebuilds.git \
 				"${repo_path_srcshelton}" ||
 			die "git 'clone' operation failed: ${?}"
+		if ! git config --global --get-all safe.directory |
+			grep -q "${repo_path_srcshelton%/}"
+		then
+			git config --global --add safe.directory \
+					"${repo_path_srcshelton}" ||
+				die "git safe directory addition of" \
+					"'${repo_path_srcshelton}' failed: ${?}"
+		fi
 
 	elif [[ -d /var/db/repos/srcshelton ]]; then
 		repo_path_srcshelton='/var/db/repos/srcshelton'
@@ -392,7 +407,13 @@ if ! type -pf portageq >/dev/null 2>&1; then
 			)" &&
 			[[ -n "${ref:-}" ]]
 	then
-		git config --global --add safe.directory "${repo_path_gentoo}"
+		if ! git config --global --get-all safe.directory |
+			grep -q "${repo_path_gentoo%/}"
+		then
+			git config --global --add safe.directory "${repo_path_gentoo}" ||
+				die "git safe directory addition of '${repo_path_gentoo}'" \
+					"failed: ${?}"
+		fi
 		pushd "${repo_path_gentoo}" >/dev/null 2>&1
 		declare head=''
 		head="$( git rev-parse HEAD )"
@@ -486,7 +507,13 @@ else # type -pf portageq >/dev/null 2>&1; then
 				)" &&
 				[[ -n "${ref:-}" ]]
 		then
-			git config --global --add safe.directory "${repo_path_gentoo}"
+			if ! git config --global --get-all safe.directory |
+				grep -q "${repo_path_gentoo%/}"
+			then
+				git config --global --add safe.directory "${repo_path_gentoo}" ||
+					die "git safe directory addition of '${repo_path_gentoo}'" \
+						"failed: ${?}"
+			fi
 			pushd "${repo_path_gentoo}" >/dev/null 2>&1
 			declare head=''
 			head="$( git rev-parse HEAD )"
@@ -988,8 +1015,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		fi  # [[ -n "${python_target:-}" ]]
 
 		# Add '@preserved-rebuild' for potential outdated stage3 base-images...
-		post_pkgs='dev-util/pkgconf sys-libs/glibc @preserved-rebuild sys-apps/portage'
-		post_use="multiarch native-extensions ssp"
+		post_pkgs='dev-util/pkgconf sys-libs/glibc @preserved-rebuild sys-apps/portage net-misc/curl dev-libs/nettle'
+		post_use="curl_ssl_openssl gmp multiarch native-extensions openssl ssl ssp"
 		if [[ -n "${python_use:-}" ]]; then
 			post_pkgs+=" dev-python/setuptools"
 			post_use+=" ${python_use}"
