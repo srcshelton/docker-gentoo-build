@@ -73,6 +73,7 @@ services=(
 	unifi70
 	unifi71
 	unifi72
+	unifi73
 	vim
 	watchdog
 	xmrig
@@ -440,6 +441,8 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-7.1*' ;;
 	unifi72|unifi-controller72|unifi-controller-72|unifi-controller-bin72|unifi-controller-bin-72)
 		service='=net-misc/unifi-controller-bin-7.2*' ;;
+	unifi73|unifi-controller73|unifi-controller-73|unifi-controller-bin73|unifi-controller-bin-73)
+		service='=net-misc/unifi-controller-bin-7.3*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
@@ -575,6 +578,7 @@ case "${package_name}" in
 		;;
 	*.bitlbee)
 		output "Setting build variables for package 'bitlbee' ..."
+		pre_pkgs='acct-group/bitlbee acct-user/bitlbee'
 
 		ports='6667/tcp'
 		user='bitlbee'
@@ -603,7 +607,7 @@ case "${package_name}" in
 		;;
 	*.dhcp)
 		output "Setting build variables for package 'dhcp' ..."
-		pre_pkgs='acct-user/dhcp'
+		pre_pkgs='acct-group/dhcp acct-user/dhcp'
 
 		ports='67/udp 68/udp 647/tcp 7911/tcp'
 		#user='dhcp'
@@ -614,6 +618,7 @@ case "${package_name}" in
 	*.dovecot)
 		output "Setting build variables for package 'dovecot' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc'
+		pre_pkgs+=' acct-group/dovecot acct-group/dovenull acct-group/mail acct-user/dovecot acct-user/dovenull acct-user/mail acct-user/postmaster'
 		extra_pkgs='app-shells/bash' #  mail-mta/msmtp'
 
 		ports='143/tcp 993/tcp 24242/tcp'
@@ -687,7 +692,11 @@ case "${package_name}" in
 		;;
 	*.lynis)
 		output "Setting build variables for package 'lynis' ..."
-		extra_pkgs='app-admin/eselect app-eselect/eselect-awk net-misc/openssh sys-apps/coreutils sys-apps/findutils sys-apps/gawk'
+		#extra_pkgs='app-admin/eselect app-eselect/eselect-awk net-misc/openssh sys-apps/coreutils sys-apps/findutils sys-apps/gawk'
+		# 'srcshelton' repo relocates gawk to /bin/
+		impl='::srcshelton'
+		with_use='gawk'
+		extra_pkgs="net-misc/openssh sys-apps/coreutils sys-apps/findutils sys-apps/gawk${impl:+${impl}} app-alternatives/awk${impl:+${impl}}"
 
 		container_cmd='/usr/sbin/lynis'
 		;;
@@ -699,11 +708,13 @@ case "${package_name}" in
 		;;
 	*.mariadb)
 		output "Setting build variables for package 'mariadb' ..."
-		pre_pkgs='sys-apps/help2man sys-devel/gcc acct-group/hugetlb'
+		pre_pkgs='sys-apps/help2man sys-devel/gcc'
+		pre_pkgs+=' acct-group/hugetlb acct-group/mysql acct-user/mysql'
 		# app-shells/bash needed to run ebuild 'pkg_config' function within container
 		# sys-libs/glibc needed to provide locale data
 		# sys-libs/timezone-data needed to provide time-zone data for new installations ...
-		extra_pkgs="app-shells/bash dev-db/mysqltuner sys-libs/glibc sys-libs/timezone-data"
+		with_use='-timezone-tools'
+		extra_pkgs='app-shells/bash dev-db/mysqltuner sys-libs/glibc sys-libs/timezone-data'
 
 		ports='3306/tcp 4444/tcp 4567/tcp 4568/tcp' # 4444, 4567-8 for Galera SST
 		user='mysql'
@@ -727,8 +738,10 @@ case "${package_name}" in
 		;;
 	*.opendkim)
 		output "Setting build variables for package 'opendkim' ..."
-		pre_pkgs='sys-apps/help2man'
-		extra_pkgs='acct-group/mail'
+		pre_pkgs='sys-apps/help2man sys-devel/gcc'
+		pre_pkgs+=' acct-group/opendkim acct-user/opendkim'
+		pre_pkgs+=' acct-group/dkimsocket acct-group/mail'
+		pre_pkgs+=' acct-group/unbound acct-user/unbound'
 
 		ports='8891/tcp'
 		#user='opendkim'
@@ -739,7 +752,7 @@ case "${package_name}" in
 		;;
 	*.opendmarc)
 		output "Setting build variables for package 'opendmarc' ..."
-		pre_pkgs='sys-devel/gcc'
+		pre_pkgs='sys-devel/gcc acct-group/milter acct-group/opendmarc acct-user/milter acct-user/opendmarc'
 		#extra_pkgs='mail-mta/msmtp'
 
 		ports='8893/tcp'
@@ -752,7 +765,7 @@ case "${package_name}" in
 	*.openntpd)
 		output "Setting build variables for package 'openntpd' ..."
 
-		pre_pkgs='acct-user/openntpd'
+		pre_pkgs='acct-user/openntpd acct-user/openntpd'
 		case "${package_version}" in
 			6.[02]_p)
 				#pre_remove='app-arch/libarchive dev-libs/openssl dev-python/pypy dev-python/pypy3 dev-python/pypy3-exe net-misc/wget'
@@ -881,7 +894,15 @@ case "${package_name}" in
 		;;
 	*.postgrey)
 		output "Setting build variables for package 'postgrey' ..."
-		pre_pkgs='acct-group/postfix acct-user/postfix acct-group/postgrey acct-user/postgrey'
+		pre_pkgs='
+			acct-group/dkimsocket
+			acct-group/mail
+			acct-group/milter
+			acct-group/postfix
+			acct-group/postgrey
+			acct-user/postfix
+			acct-user/postgrey
+		'
 
 		container_cmd='/usr/sbin/postgrey'
 		# Not a typo!
@@ -927,6 +948,7 @@ case "${package_name}" in
 			output "Setting build variables for package 'spamassassin-update' ..."
 			# 'srcshelton' repo relocates gawk to /bin/
 			impl='::srcshelton'
+			with_use='gawk'
 			extra_pkgs="
 				>=dev-perl/Crypt-OpenSSL-DSA-0.150.0
 				>=dev-perl/Crypt-OpenSSL-EC-1.10.0
@@ -934,8 +956,8 @@ case "${package_name}" in
 				>=dev-perl/Crypt-OpenSSL-Random-0.100.0
 				>=dev-perl/Digest-GOST-0.60.0
 				app-admin/eselect
+				app-alternatives/awk${impl:+${impl}}
 				app-crypt/gnupg
-				app-eselect/eselect-awk${impl:+${impl}}
 				dev-lang/python-exec
 				dev-perl/GeoIP2
 				net-misc/geoipupdate
@@ -954,6 +976,7 @@ case "${package_name}" in
 				sys-devel/make
 				sys-kernel/linux-headers
 			"
+				#app-eselect/eselect-awk${impl:+${impl}}
 
 			container_cmd='/usr/bin/sa-update'
 		else
@@ -1046,6 +1069,13 @@ case "${package_name}" in
 		;;
 	*.unifi-controller-bin)
 		output "Setting build variables for package 'unifi-controller-bin' ..."
+		output
+		warn "This build will fail with a python exception if any new package"
+		warn "has to be built from source. So long as all necessary packages"
+		warn "are available for installation as binaries (which should be the"
+		warn "case for subsequent builds without other changes) then the"
+		warn "process should succeed."
+		output
 		#EMERGE_OPTS='--single --swap'  # Merge packages one at a time, for debug purposes
 
 		# shellcheck disable=SC2034
@@ -1071,7 +1101,7 @@ case "${package_name}" in
 		pre_use="headless-awt ${gcc_use}"
 		force_python='python2_7'
 		#pre_pkgs='dev-java/openjdk-bin:8 dev-lang/python:2.7 sys-devel/gcc'
-		pre_pkgs="${masked_packages} sys-devel/gcc"
+		pre_pkgs="${masked_packages} sys-devel/gcc acct-group/mongodb acct-group/unifi acct-user/mongodb acct-user/unifi"
 		#extra_pkgs='
 		#	  sys-devel/gcc
 		#	 =app-misc/pax-utils-1.2.4
@@ -1110,7 +1140,17 @@ case "${package_name}" in
 		# TODO: Consider post-install and post-remove hooks to allow openjdk:8
 		#       to be build with ROOT != / and then openjdk-bin:8 removed...
 		#extra_pkgs='<dev-db/mongodb-4.2 dev-java/openjdk:8 dev-lang/python:2.7 app-admin/eselect app-eselect/eselect-python'
-		extra_pkgs='<dev-db/mongodb-4.2 dev-java/openjdk-bin:8 dev-lang/python:2.7' # app-admin/eselect app-eselect/eselect-python'
+		case "${package_version}" in
+			5.*|6.*|7.0.*|7.1.*|7.2.*)
+				extra_pkgs='dev-java/openjdk-bin:8'
+				;;
+			#7.3.*)
+			*)
+				#extra_pkgs='dev-java/openjdk-bin:11'
+				extra_pkgs='dev-java/openjdk:11'
+				;;
+		esac
+		extra_pkgs="${extra_pkgs} <dev-db/mongodb-4.2 dev-lang/python:2.7" # app-admin/eselect app-eselect/eselect-python'
 		extra_pkgs="${extra_pkgs} ${masked_packages}"
 		#post_remove='dev-java/openjdk-bin:8'
 		with_use="python_targets_${force_python}"
@@ -1164,6 +1204,17 @@ extra_pkgs="$( echo "${extra_pkgs}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed
 post_use="$( echo "${post_use}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
 post_pkgs="$( echo "${post_pkgs}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
 
+declare pkg=''
+declare -i warning=0
+for pkg in ${post_pkgs:-}; do
+	if ! grep -Fq " ${pkg} " <<<" ${package:-} ${extra_pkgs:-} "
+	then
+		warn "post_pkg entry '${pkg}' will be rebuilt without dependencies, but does not appear in 'extra_pkgs'"
+		warn
+		warning=1
+	fi
+done
+
 case " ${pre_pkgs} " in
 	*' dev-util/pkgconf '*)
 		pre_use="${pre_use:+${pre_use} }pkg-config"
@@ -1182,26 +1233,44 @@ esac
 case " ${pre_pkgs} " in
 	*' sys-devel/gcc '*)
 		pre_use="-lib-only${pre_use:+ ${pre_use}}${use_essential_gcc:+ ${use_essential_gcc}}"
-		post_use="lib-only${post_use:+ ${post_use}}"
-		if [ -n "${post_pkgs:-}" ]; then
-			warn "sys-devel/gcc needs to be rebuilt (without dependencies) but 'post_pkgs' is non-empty... suggest moving 'post_pkgs' to 'extra_pkgs'"
-			warn "post_pkgs contains '${post_pkgs}'"
-			warn
-			sleep 5
+		# spamassassin updates require perl and a functioning compiler in the
+		# container...
+		if [ "${original_service}" != 'spamassassin-update' ] && [ "${original_service}" != 'sa-update' ]; then
+			post_use="lib-only${post_use:+ ${post_use}}"
+			if [ -n "${post_pkgs:-}" ]; then
+				warn "sys-devel/gcc needs to be rebuilt (without dependencies) but 'post_pkgs' is non-empty... suggest moving 'post_pkgs' to 'extra_pkgs'"
+				warn "post_pkgs contains '${post_pkgs}'"
+				warn
+				warning=1
+			fi
+			post_pkgs="${post_pkgs:+${post_pkgs} }sys-devel/gcc sys-libs/zlib --nodeps --buildpkg=y --usepkg=y"
 		fi
-		post_pkgs="${post_pkgs:+${post_pkgs} }sys-devel/gcc --nodeps --buildpkg=y --usepkg=y"
 		;;
 esac
+(( warning )) && sleep 5
+
+if ! grep -Fq ' sys-devel/gcc ' <<<"${post_pkgs}"; then
+	post_pkgs="${post_pkgs:+${post_pkgs} }sys-libs/zlib --nodeps --buildpkg=y --usepkg=y"
+fi
 
 # Make these additions after the above check, with the intention that user and
 # group packages are explicitly included rather than the user relying on the
 # group being a dependency...
 pkg=''
 case " ${pre_pkgs} " in
-	*' acct-user/'*|*' acct-group/'*)
+	*' acct-group/'*|*' acct-user/'*)
+		# We need groups before users if we're not enforcing
+		# dependencies...
 		for pkg in ${pre_pkgs}; do
 			case "${pkg}" in
-				acct-user/*|acct-group/*)
+				acct-user/*)
+					post_pkgs="${pkg}${post_pkgs:+ ${post_pkgs}}"
+					;;
+			esac
+		done
+		for pkg in ${pre_pkgs}; do
+			case "${pkg}" in
+				acct-group/*)
 					post_pkgs="${pkg}${post_pkgs:+ ${post_pkgs}}"
 					;;
 			esac
@@ -1322,6 +1391,12 @@ if [ -e "${base_dir:+${base_dir}/}etc/portage/package.mask.${arch:-}" ]; then
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.${arch},destination=/etc/portage/package.mask/${arch}${docker_readonly:+,${docker_readonly}}"
 fi
 
+# package.use alternatives
+if [ -s "${base_dir:+${base_dir}/}etc/portage/package.use.svc/alternatives" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/alternatives' to '/etc/portage/package.use/package.use.override/alternatives' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/alternatives,destination=/etc/portage/package.use.override/alternatives${docker_readonly:+,${docker_readonly}}"
+fi
+
 # package.use.svc
 if [ -s "${base_dir:+${base_dir}/}etc/portage/package.use.svc/${package_name#*.}" ]; then
 	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.use.svc/package.use.header' to '/etc/portage/package.use/package.use.override/package.use.header' ..."
@@ -1351,10 +1426,8 @@ else
 	$docker container rm --volumes "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -Fv -- 'no such container' || :
 	trap - INT
 
-	build_use=''
-	if [ "${original_service}" != 'spamassassin-update' ] && [ "${original_service}" != 'sa-update' ]; then
-		build_use="${USE:+${USE} }lib-only"
-	fi
+	# Remove glibc dependencies on gzip, grep, awk...
+	#build_use="${USE:+${USE} }compile-locales minimal ssp timezone-tools"
 
 	# shadow needed for /sbin/nologin; coreutils needed for chmod
 	# shellcheck disable=SC2089
@@ -1365,7 +1438,6 @@ else
 	export DOCKER_CMD_VARS
 
 	# shellcheck disable=SC2086 # We don't want a null argument if there are no ${extra_pkgs} items
-	USE="${build_use:-}" \
 	ROOT="/service" \
 	name="${container_prefix}-${container_name}" \
 	image="${IMAGE}" \
@@ -1379,11 +1451,12 @@ else
 					${post_use:+--post-use="${post_use}"} \
 					${rebuild:+--rebuild="=${package}"} \
 					${post_remove:+--post-remove="${post_remove}"} \
+					--depclean \
 					--no-package-use \
 					--usepkg=y \
 					--with-bdeps=n \
 					--with-bdeps-auto=n \
-				"=${package}${repo:+::${repo}}" ${extra_pkgs:-} \
+				"=${package}${repo:+::${repo}}" sys-libs/glibc ${extra_pkgs:-} \
 			2>&1 |
 		tee log/"docker.${container_prefix}-${alt_log:-${container_name}}.log"
 	rc=${?}
