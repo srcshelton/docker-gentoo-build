@@ -1,0 +1,7 @@
+
+# We don't want to pull-in the latest stable version of PHP in addition to the
+# target verison...
+<dev-lang/php-7.4
+>=dev-lang/php-8.0
+
+# vi: set colorcolumn=80 syntax=gentoo-package-mask:

@@ -533,6 +533,7 @@ force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
 with_use='' extra_pkgs=''
 post_pkgs='' post_use='' post_remove=''
+gcc_extra_flags='pch'
 python_target='' etcdir=''
 
 # There's probably a better way of doing this, but for now let's assume that
@@ -570,7 +571,7 @@ case "${package_name}" in
 	*.bind)
 		output "Setting build variables for package 'bind' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc acct-group/named acct-user/named'
-		extra_pkgs='app-shells/bash dev-lang/perl sys-apps/coreutils'
+		extra_pkgs='app-shells/bash dev-lang/perl sys-apps/coreutils sys-apps/file sys-apps/gentoo-functions'
 
 		ports='53/tcp 53/udp 953/tcp 8053/tcp'
 		container_cmd='/usr/sbin/named'
@@ -671,7 +672,8 @@ case "${package_name}" in
 		;;
 	*.lighttpd)
 		output "Setting build variables for package 'lighttpd' ..."
-		pre_pkgs='app-admin/gamin dev-lang/php media-gfx/imagemagick sys-apps/help2man virtual/fam'
+		pre_pkgs='app-admin/gamin dev-lang/php media-gfx/imagemagick sys-apps/help2man sys-devel/gcc virtual/fam'
+		pre_pkgs+=' acct-group/lighttpd acct-user/lighttpd'
 		extra_pkgs='
 			app-admin/gamin
 			app-shells/bash
@@ -684,6 +686,7 @@ case "${package_name}" in
 			media-gfx/imagemagick
 			sys-apps/findutils
 		'
+		gcc_extra_flags+=' openmp'
 
 		#ports='80/tcp 443/tcp'
 		ports='7080/tcp 7443/tcp'
@@ -725,7 +728,7 @@ case "${package_name}" in
 		;;
 	*.memcached)
 		output "Setting build variables for package 'memcached' ..."
-		pre_pkgs='acct-group/hugetlb'
+		pre_pkgs='acct-group/hugetlb acct-group/memcached acct-user/memcached'
 
 		container_cmd='/usr/bin/memcached'
 		;;
@@ -742,6 +745,7 @@ case "${package_name}" in
 		pre_pkgs+=' acct-group/opendkim acct-user/opendkim'
 		pre_pkgs+=' acct-group/dkimsocket acct-group/mail'
 		pre_pkgs+=' acct-group/unbound acct-user/unbound'
+		extra_pkgs='sys-libs/readline'
 
 		ports='8891/tcp'
 		#user='opendkim'
@@ -802,7 +806,7 @@ case "${package_name}" in
 		esac
 		output "Setting build variables for package 'php' ..."
 		# eselect-php-0.9.6+ required for ROOT support
-		pre_pkgs='dev-php/PEAR-PEAR media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6'
+		pre_pkgs='dev-php/PEAR-PEAR media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6 acct-group/lighttpd acct-user/lighttpd'
 		# TODO: There has to be a better way... ?
 		#extra_pkgs="acct-group/lighttpd dev-db/mysql-connector-c dev-php/pecl-imagick >=dev-php/pecl-memcache-4 media-gfx/imagemagick $(
 		#	roundcube_flags='change-password enigma exif managesieve mysql plugins ssl spell zxcvbn'
@@ -828,8 +832,6 @@ case "${package_name}" in
 		#)"
 		extra_pkgs='
 			>=dev-php/pecl-memcache-4
-			acct-group/lighttpd
-			acct-user/lighttpd
 			dev-db/mysql-connector-c
 			dev-php/Endroid-QrCode
 			dev-php/Masterminds-HTML5
@@ -855,8 +857,11 @@ case "${package_name}" in
 			media-gfx/imagemagick
 			net-misc/curl
 			sys-apps/file
+			sys-apps/gentoo-functions
+			sys-apps/shadow
 		'
 			#dev-util/strace
+		gcc_extra_flags+=' openmp'
 
 		container_cmd="/usr/${LIB}/${PHP_SLOT}/bin/php-fpm"
 		etcdir='php'
@@ -1232,25 +1237,25 @@ case " ${pre_pkgs} " in
 esac
 case " ${pre_pkgs} " in
 	*' sys-devel/gcc '*)
-		pre_use="-lib-only${pre_use:+ ${pre_use}}${use_essential_gcc:+ ${use_essential_gcc}}"
-		# spamassassin updates require perl and a functioning compiler in the
-		# container...
+		pre_use="-lib-only${pre_use:+ ${pre_use}}${use_essential_gcc:+ ${use_essential_gcc}} ${gcc_extra_flags}"
+		# spamassassin updates require perl and a functioning compiler
+		# in the container...
 		if [ "${original_service}" != 'spamassassin-update' ] && [ "${original_service}" != 'sa-update' ]; then
-			post_use="lib-only${post_use:+ ${post_use}}"
+			post_use="lib-only${post_use:+ ${post_use}} ${gcc_extra_flags}"
 			if [ -n "${post_pkgs:-}" ]; then
 				warn "sys-devel/gcc needs to be rebuilt (without dependencies) but 'post_pkgs' is non-empty... suggest moving 'post_pkgs' to 'extra_pkgs'"
 				warn "post_pkgs contains '${post_pkgs}'"
 				warn
 				warning=1
 			fi
-			post_pkgs="${post_pkgs:+${post_pkgs} }sys-devel/gcc sys-libs/zlib --nodeps --buildpkg=y --usepkg=y"
+			post_pkgs="${post_pkgs:+${post_pkgs} }sys-devel/gcc sys-libs/zlib --nodeps"
 		fi
 		;;
 esac
 (( warning )) && sleep 5
 
 if ! grep -Fq ' sys-devel/gcc ' <<<"${post_pkgs}"; then
-	post_pkgs="${post_pkgs:+${post_pkgs} }sys-libs/zlib --nodeps --buildpkg=y --usepkg=y"
+	post_pkgs="${post_pkgs:+${post_pkgs} }sys-libs/zlib --nodeps"
 fi
 
 # Make these additions after the above check, with the intention that user and
@@ -1293,6 +1298,12 @@ if [ -n "${build_debug:-}" ]; then
 fi
 #extra_pkgs="${extra_pkgs:+${extra_pkgs} }sys-devel/prelink"
 
+case " ${gcc_extra_flags:-} " in
+	*' openmp '*)
+		post_pkgs="dev-libs/gmp dev-libs/mpfr dev-libs/mpc${post_pkgs:+ ${post_pkgs}}"
+		;;
+esac
+
 [ -z "${post_use:-}" ] && [ -n "${with_use:-}" ] && post_use="${with_use} lib-only"
 
 if [ -z "${container_cmd:-}" ]; then
@@ -1306,7 +1317,7 @@ fi
 DOCKER_EXTRA_MOUNTS=''
 if [ -n "${etcdir:-}" ]; then
 	for dir in ${etcdir}; do
-		mkdir -p /etc/${dir}
+		mkdir -p "/etc/${dir}"
 		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/${dir}/,destination=/service/etc/${dir}"
 		if [ "${dir}" = 'mail/spamassassin' ]; then
 			mkdir -p /var/lib/spamassassin /usr/share/spamassassin
@@ -1360,9 +1371,16 @@ if [ -e "${base_dir:+${base_dir}/}etc/portage/package.unmask.${arch:-}" ]; then
 fi
 
 # package.mask.svc
-if [ -s "${base_dir:+${base_dir}/}etc/portage/package.mask.svc/${package_name#*.}" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.mask.svc/${package_name#*.}" ]; then
-	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc/${package_name#*.}' to '/etc/portage/package.mask/${package_name#*.}' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc/${package_name#*.},destination=/etc/portage/package.mask/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
+package_mask_svc_name="${package_name#*.}"
+case "${package_mask_svc_name}-${package_version}" in
+	php-7.3.*) package_mask_svc_name='php73' ;;
+	php-7.4.*) package_mask_svc_name='php74' ;;
+	php-8.0.*) package_mask_svc_name='php80' ;;
+	php-8.1.*) package_mask_svc_name='php81' ;;
+esac
+if [ -s "${base_dir:+${base_dir}/}etc/portage/package.mask.svc/${package_mask_svc_name}" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.mask.svc/${package_mask_svc_name}" ]; then
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc/${package_mask_svc_name}' to '/etc/portage/package.mask/${package_mask_svc_name}' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc/${package_mask_svc_name},destination=/etc/portage/package.mask/${package_mask_svc_name}${docker_readonly:+,${docker_readonly}}"
 elif [ -s "${base_dir:+${base_dir}/}etc/portage/package.mask.svc/package.mask" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.mask.svc/package.mask" ]; then
 	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc/package.mask' to '/etc/portage/package.mask/package.mask' ..."
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.svc/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
