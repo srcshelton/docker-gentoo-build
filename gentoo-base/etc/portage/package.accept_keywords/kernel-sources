@@ -1,16 +1,21 @@
 
 # Current stable package is gentoo-sources-5.10.156
-~sys-kernel/gentoo-sources-5.10.161			~amd64 ~x86
+~sys-kernel/gentoo-sources-5.10.162			~amd64 ~x86
 
 # Current stable package is gentoo-sources-5.15.80
 ~sys-kernel/gentoo-sources-5.15.86			~amd64 ~arm ~arm64 ~x86
 
-~sys-kernel/gentoo-sources-6.0.16			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.0.18			~amd64 ~arm ~arm64 ~x86
 
-~sys-kernel/gentoo-sources-6.1.2			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/vanilla-sources-6.1.2			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.1.4			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-6.1.4			~amd64 ~arm ~arm64 ~x86
 
-# Additional kernel-modules
+# Required for rust modules...
+=virtual/rust-1.62.0					~amd64
+=dev-lang/rust-1.62.0					~amd64
+=dev-util/bindgen-0.56.0				~amd64
+
+# Additional kernel-modules...
 #~net-firewall/xtables-addons-3.18			~amd64 ~arm ~arm64 ~x86
 
 # vi: set colorcolumn=56 syntax=gentoo-package-keywords:
