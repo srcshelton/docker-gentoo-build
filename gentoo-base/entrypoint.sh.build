@@ -963,6 +963,20 @@ case "${1:-}" in
 		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 		echo "${info}" | format 'PYTHON_TARGETS'
 		echo
+		target=''
+		for target in $(
+			echo "${info}" |
+				grep -o ' [^ ]*TARGET[^ ]* ' |
+				cut -d'=' -f 1 |
+				sed 's/ //g' |
+				sort |
+				uniq |
+				grep -Ev '^(AMDGPU|PYTHON|QEMU)_'
+		); do
+			echo "${info}" | format "${target}"
+		done
+		unset target
+		echo
 		unset info
 
 		print "Running default 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n \"${package}\"'"
@@ -1023,6 +1037,20 @@ case "${1:-}" in
 		echo "${info}" | format 'COLLISION_IGNORE'
 		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 		echo "${info}" | format 'PYTHON_TARGETS'
+		echo
+		target=''
+		for target in $(
+			echo "${info}" |
+				grep -o ' [^ ]*TARGET[^ ]* ' |
+				cut -d'=' -f 1 |
+				sed 's/ //g' |
+				sort |
+				uniq |
+				grep -Ev '^(AMDGPU|PYTHON|QEMU)_'
+		); do
+			echo "${info}" | format "${target}"
+		done
+		unset target
 		#echo
 		unset info
 
@@ -1193,6 +1221,20 @@ case "${1:-}" in
 			echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 			echo "${info}" | format 'PYTHON_TARGETS'
 			echo
+			target=''
+			for target in $(
+				echo "${info}" |
+					grep -o ' [^ ]*TARGET[^ ]* ' |
+					cut -d'=' -f 1 |
+					sed 's/ //g' |
+					sort |
+					uniq |
+					grep -Ev '^(AMDGPU|PYTHON|QEMU)_'
+			); do
+				echo "${info}" | format "${target}"
+			done
+			unset target
+			echo
 			unset info
 
 			#print "Running 'emerge ${opts:+${opts} }--jobs=1 --quiet-build=n --buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${post_pkgs}'${USE:+ with USE='${USE}'}"
@@ -1206,17 +1248,72 @@ case "${1:-}" in
 			#		--with-bdeps-auto=n \
 			#	${post_pkgs} || rc=${?}
 
-			# shellcheck disable=SC2016
-			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${post_pkgs}'${USE:+ with USE='${USE}'}"
-			# shellcheck disable=SC2086
-			LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
-					  ${parallel} \
-					  ${opts} \
-					--buildpkg=y \
-					--usepkg=y \
-					--with-bdeps=n \
-					--with-bdeps-auto=n \
-				${post_pkgs} || rc=${?}
+			# In case we're building with --nodeps, extract acct-* packages
+			# first...
+			if echo "${post_pkgs}" | grep -q -- 'acct-'; then
+				post_acct_pkgs="$( # <- Syntax
+					echo "${post_pkgs}" |
+						xargs -rn 1 |
+						grep '^acct-' |
+						sort |
+						xargs -r
+				)"
+				if [ -n "${post_acct_pkgs:-}" ]; then
+					# shellcheck disable=SC2016
+					print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${post_acct_pkgs}'${USE:+ with USE='${USE}'}"
+					# shellcheck disable=SC2086
+					LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
+							  ${parallel} \
+							  ${opts} \
+							--buildpkg=y \
+							--usepkg=y \
+							--with-bdeps=n \
+							--with-bdeps-auto=n \
+						${post_acct_pkgs} || rc=${?}
+				fi
+				post_pkgs="$( # <- Syntax
+					echo "${post_pkgs}" |
+						xargs -rn 1 |
+						grep -v '^acct-' |
+						xargs -r
+				)"
+			fi
+
+			# First build any post_pkgs which will be installed without
+			# dependencies on the base-system, to ensure that the right binary
+			# package is available to the ROOT installation...
+			if echo " ${post_pkgs:-} " | grep -q ' --nodeps '; then
+				# shellcheck disable=SC2016
+				print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y --with-bdeps-auto=y $(
+					echo " ${post_pkgs} " | sed 's/ --nodeps / /g ; s/^ // ; s/ $//'
+				)'${USE:+ with USE='${USE}'}"
+				# shellcheck disable=SC2086
+				ROOT='/' SYSROOT='/' PORTAGE_CONFIGROOT='/' \
+				LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
+						  ${parallel} \
+						  ${opts} \
+						--buildpkg=y \
+						--usepkg=y \
+						--with-bdeps=y \
+						--with-bdeps-auto=y \
+					$(
+						echo " ${post_pkgs} " | sed 's/ --nodeps / /g ; s/^ // ; s/ $//'
+					) || rc=${?}
+			fi
+
+			if [ -n "${post_pkgs:-}" ]; then
+				# shellcheck disable=SC2016
+				print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${post_pkgs}'${USE:+ with USE='${USE}'}"
+				# shellcheck disable=SC2086
+				LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
+						  ${parallel} \
+						  ${opts} \
+						--buildpkg=y \
+						--usepkg=y \
+						--with-bdeps=n \
+						--with-bdeps-auto=n \
+					${post_pkgs} || rc=${?}
+			fi
 		fi
 
 		if [ -n "${rebuild:-}" ]; then
@@ -1381,18 +1478,19 @@ if [ $(( depclean )) -ne 0 ]; then
 	# seem to have it pulled-in regardless...
 	# ...and we're still getting some build-time dependencies retained...
 	emerge --depclean -v --with-bdeps=n 'perl-core/*' 'virtual/perl-*' \
-		dev-lang/perl \
-		app-alternatives/yacc sys-devel/bison \
-		app-alternatives/awk sys-apps/gawk \
-		app-alternatives/gzip app-arch/gzip \
-		sys-apps/grep \
-		sys-apps/gentoo-functions \
-		dev-libs/isl || :
+			dev-lang/perl \
+			app-alternatives/yacc sys-devel/bison \
+			app-alternatives/awk sys-apps/gawk \
+			app-alternatives/gzip app-arch/gzip \
+			sys-apps/grep \
+			dev-libs/isl || :
 
 	if [ -n "${depclean_extra:-}" ]; then
+		# shellcheck disable=SC2086
 		emerge --depclean -v --with-bdeps=n ${depclean_extra} || :
 	fi
-	emerge --depclean -v --with-bdeps=n --exclude='dev-libs/libffi'
+	emerge --depclean -v --with-bdeps=n \
+		--exclude='dev-libs/libffi sys-apps/gentoo-functions'
 
 	if [ -s /etc/portage/profile/package.provided.backup ]; then
 		mv /etc/portage/profile/package.provided.backup \
@@ -1405,6 +1503,17 @@ if [ $(( depclean )) -ne 0 ]; then
 fi
 
 #do_prelink
+
+if ! grep -Fqm 1 '/gcc/' "${ROOT}/etc/ld.so.conf"; then
+	find "${ROOT}"/usr/lib/gcc/x86_64-pc-linux-gnu/ \
+					-mindepth 1 \
+					-maxdepth 1 \
+					-type d \
+				-print |
+			xargs -rn 1 |
+			sed "s|^${ROOT}||" >> "${ROOT}/etc/ld.so.conf"
+	ldconfig ${ROOT:+-r "${ROOT}"} -f "${ROOT}/etc/ld.so.conf"
+fi
 
 find /var/db/pkg/ -mindepth 2 -maxdepth 2 -type d -print |
 	sed 's|^.*/var/db/pkg/||' > /builddeps.txt
