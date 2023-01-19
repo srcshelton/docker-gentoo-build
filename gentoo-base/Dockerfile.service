@@ -131,7 +131,15 @@ RUN i="${image_name}:${service_version}" ; \
     sed -i \
         -e "s/__SMTP_SMARTHOST__/${smtp_smarthost}/" \
         -e "s/__DOMAIN__/${smtp_domain}/" \
-            /etc/msmtprc
+            /etc/msmtprc ; \
+    if ! grep -Fqm 1 '/gcc/' /etc/ld.so.conf; then \
+        find /usr/lib/gcc/x86_64-pc-linux-gnu/ \
+                -mindepth 1 \
+                -maxdepth 1 \
+                -type d \
+            -print | xargs -rn 1 >> /etc/ld.so.conf ; \
+        ldconfig ; \
+    fi
 
 # linter ignore=SC2174
 RUN for d in 'empty' 'log' 'run'; do \
@@ -157,7 +165,11 @@ RUN test -s /usr/libexec/entrypoint.sh && \
     chmod 0755 /usr/libexec/entrypoint.d/*.sh || :
 
 RUN echo "${service_cmd}" ; \
-    test -x "${service_cmd}"
+    test -x "${service_cmd}" && \
+    if ! [ "$( head -n 1 "${service_cmd}" | sed 's/\(..\).*$/\1/' )" = '#!' ] ; \
+    then \
+    ldd "${service_cmd}" | tee /dev/stdout | grep -qv 'not found' ; \
+    fi
 
 # No longer needed, since 'service_cmd' is exposed as an ENV ...
 #RUN sed -i "s|^exec |exec '${service_cmd}' |" /usr/libexec/entrypoint.sh && \
