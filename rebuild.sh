@@ -89,7 +89,7 @@ for arg in ${@+"${@}"}; do
 		--no-tools)
 			tools=0
 			;;
-		--update-pkgs)
+		--update-pkgs|--update-packages)
 			update=1
 			haveargs=1
 			;;
