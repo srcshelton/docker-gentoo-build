@@ -20,6 +20,9 @@ declare -ir build_space_reqiured=750
 declare -ir temp_space_required=2800
 declare -ir graph_space_required=8500
 
+declare -r rust_ver='1.62.0'
+declare -r bindgen_ver='0.56.0'
+
 declare firmware='sys-kernel/linux-firmware'
 declare microcode=''
 declare microcode_blob=''
@@ -482,7 +485,7 @@ fi
 if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" | wc -l )" = '2' ]; then
 	(
 		ACCEPT_LICENSE="linux-fw-redistributable no-source-code"
-		USE="extra-filters hostname${rustext:+" http2"} lzma symlink threads zlib${compiler_USE:+" ${compiler_USE}"}"
+		USE="extra-filters hostname${rustext:+" http2"} lzma${rustext:+" rust-src"} symlink threads zlib${compiler_USE:+" ${compiler_USE}"}"
 		if [[ -n "${firmware:-}" ]]; then
 			USE="firmware ${USE}"
 		fi
@@ -514,7 +517,8 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 					sys-apps/kmod \
 					${microcode:-} \
 					${firmware:-} \
-					${rustext:+"virtual/rust"} \
+					${rustext:+"${rust_ver:+"="}virtual/rust${rust_ver:+"-${rust_ver}"}"} \
+					${rustext:+"${bindgen_ver:+"="}dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"} \
 					virtual/linux-sources \
 				2>&1 | tee "log/docker.${name}.log"
 			output " -> ${?}"
@@ -631,14 +635,32 @@ kernel_debug=''
 declare -a kernel_make_opts=()
 # shellcheck disable=SC2206
 kernel_make_opts+=(
-	${container_CC:+CC=${container_CC}}
-	${container_CXX:+CXX=${container_CXX}}
-	${container_LD:+LD=${container_LD}}
+	${container_CC:+"CC=${container_CC}"}
+	${container_CXX:+"CXX=${container_CXX}"}
+	${container_LD:+"LD=${container_LD}"}
 	${container_LLVM:+LLVM=1 LLVM_IAS=1}
 	${container_KCFLAGS:-}
 	${kernel_debug:+${kernel_debug}}
 	O=../build
 )
+# Unpatched:
+#  /usr/src/linux-6.1.4-gentoo/scripts/rust_is_available_bindgen_libclang.h:2:9: warning: clang version 15.0.6  [-W#pragma-messages]
+# ... gives a result of '6.1.4' rather than '15.0.6' :(
+RUST_PATCH="$( cat <<-'EOF'
+	--- scripts/rust_is_available.sh
+	+++ scripts/rust_is_available.sh
+	@@ -104,7 +104,7 @@
+	 	LC_ALL=C "$BINDGEN" $(dirname $0)/rust_is_available_bindgen_libclang.h 2>&1 >/dev/null \
+	 		| grep -F 'clang version ' \
+	 		| grep -oE '[0-9]+\.[0-9]+\.[0-9]+' \
+	-		| head -n 1 \
+	+		| tail -n 1 \
+	 )
+	 bindgen_libclang_min_version=$($min_tool_version llvm)
+	 bindgen_libclang_cversion=$(get_canonical_version $bindgen_libclang_version)
+EOF
+)"
+RUST_PATCH_B64="$( echo "${RUST_PATCH}" | base64 -w 0 )"
 DOCKER_SCRIPT="$( cat <<-EOF
 	set -eu ;
 	[ -e /usr/src/linux ] || {
@@ -663,6 +685,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	fi ;
 	env-update ;
 	test -s /etc/profile && . /etc/profile ;
+	ldconfig ;
 	if portageq has_version / sys-libs/llvm-libunwind; then
 		LDFLAGS_MODULE="-unwindlib=libunwind" ;
 		HOSTLDFLAGS="-unwindlib=libunwind" ;
@@ -725,7 +748,9 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		make ${kernel_make_opts[@]} clean ;
 	fi ;
 	if [ $(( rust )) -ne 0 ]; then
+		echo "${RUST_PATCH_B64}" | base64 -d | patch -p0 ;
 		make ${kernel_make_opts[@]} rustavailable ;
+		echo ;
 	fi ;
 	echo "Configuration changes from '.config':" ;
 	make ${kernel_make_opts[@]} listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
