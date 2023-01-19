@@ -46,16 +46,14 @@ if [ -s "${environment_file}" ]; then
 fi
 
 print "Checking for root access ..."
-uid=''
 # shellcheck disable=SC2039
-if [ -n "${EUID:-}" ]; then
-	uid="${EUID}"
-else
-	uid="$( id -u )"
-	export EUID="${uid}"
+if [ -z "${EUID:-}" ]; then
+	export EUID="$( id -u )"
 fi
 
-if [ -n "${uid:-}" ] && [ "${uid}" = '0' ]; then
+if [ $(( EUID )) -eq 0 ]; then
+	command -V ldconfig >/dev/null 2>&1 && ldconfig
+
 	if hostname="$( hostname -s 2>/dev/null )"; then
 		if ! grep -qw -- "${hostname}" /etc/hosts; then
 			print "Adding hostname alias '${hostname}' to /etc/hosts ..."
@@ -152,8 +150,6 @@ if [ "${service_cmd}" = '/usr/bin/man' ] && [ -x /usr/bin/mandb ] && getent pass
 	nice mandb --no-purge --quiet || rc=${?}
 	print "mandb update returned ${rc}"
 fi
-
-unset uid
 
 if [ -d /usr/libexec/entrypoint.d ]; then
 	rc=0
