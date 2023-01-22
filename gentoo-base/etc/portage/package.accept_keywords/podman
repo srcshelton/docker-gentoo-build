@@ -68,6 +68,7 @@
 ~app-containers/podman-4.3.0				 **
 ~app-containers/podman-4.3.1				 **
 #~app-containers/podman-4.4.0_rc1			 **
+#~app-containers/podman-4.4.0_rc2			 **
 
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				 **
@@ -256,9 +257,13 @@
 #~app-containers/containers-storage-1.41.0		 **
 #~app-containers/containers-storage-1.42.0		 **
 #~app-containers/containers-storage-1.43.0		 **
-~app-containers/containers-storage-1.43.1		 **
-~app-containers/containers-storage-1.44.0		 **
-~app-containers/containers-storage-1.45.0		 **
+#~app-containers/containers-storage-1.43.1		 **
+#~app-containers/containers-storage-1.43.2		 **
+#~app-containers/containers-storage-1.44.0		 **
+#~app-containers/containers-storage-1.45.0		 **
+#~app-containers/containers-storage-1.45.1		 **
+~app-containers/containers-storage-1.45.2		 **
+~app-containers/containers-storage-1.45.3		 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
