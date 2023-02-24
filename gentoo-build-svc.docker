@@ -526,8 +526,8 @@ else
 fi
 
 # from common/vars.sh:
-#use_essential="asm ipv6 ithreads mdev nptl threads tls-heartbeat zlib ${use_cpu_flags}"
-#use_essential_gcc="-fortran graphite nptl openmp pch sanitize ssp vtv zstd"
+#use_essential="asm ipv6 ithreads mdev nptl split-usr ssp threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
+#use_essential_gcc="default-stack-clash-protection default-znow -fortran graphite nptl openmp pch sanitize ssp vtv zstd"
 
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
@@ -1085,6 +1085,7 @@ case "${package_name}" in
 
 		# shellcheck disable=SC2034
 		ECLASS_OVERRIDE='unifi'  # consumed in common/run.sh
+		NO_REPO_MASKS='no_repo_masks'  # ... any value will do
 
 		gcc_use="${use_essential_gcc/ graphite / -graphite }"
 		# Look for "build" gcc USE-flags in package.use only (or use defaults above) ...
@@ -1155,9 +1156,9 @@ case "${package_name}" in
 				extra_pkgs='dev-java/openjdk:11'
 				;;
 		esac
+		#post_remove="${extra_pkgs}"
 		extra_pkgs="${extra_pkgs} <dev-db/mongodb-4.2 dev-lang/python:2.7" # app-admin/eselect app-eselect/eselect-python'
 		extra_pkgs="${extra_pkgs} ${masked_packages}"
-		#post_remove='dev-java/openjdk-bin:8'
 		with_use="python_targets_${force_python}"
 
 		ports='3478/udp 5514/udp 8080/tcp 8443/tcp 8880/tcp 8843/tcp 6789/tcp 27117/tcp 10001/udp 1900/udp 5656-5699/udp'
@@ -1254,8 +1255,9 @@ case " ${pre_pkgs} " in
 esac
 (( warning )) && sleep 5
 
-if ! grep -Fq ' sys-devel/gcc ' <<<"${post_pkgs}"; then
-	post_pkgs="${post_pkgs:+${post_pkgs} }sys-libs/zlib --nodeps"
+if ! grep -Fq ' sys-devel/gcc ' <<<" ${post_pkgs} "; then
+	post_pkgs="${post_pkgs:+${post_pkgs} }sys-libs/zlib --nodeps --with-bdeps=n"
+	post_use="${post_use:+ ${post_use}} -minizip xml"
 fi
 
 # Make these additions after the above check, with the intention that user and
@@ -1357,10 +1359,10 @@ if [ -s "${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/${package_name#
 	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/${package_name#*.}' to '/etc/portage/package.unmask/${package_name#*.}' ..."
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/${package_name#*.},destination=/etc/portage/package.unmask/${package_name#*.}${docker_readonly:+,${docker_readonly}}"
 elif [ -s "${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/package.unmask" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/package.unmask" ]; then
-	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/package.mask' to '/etc/portage/package.mask/package.unmask' ..."
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/package.unmask' to '/etc/portage/package.unmask/package.unmask' ..."
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/package.unmask,destination=/etc/portage/package.unmask/package.unmask${docker_readonly:+,${docker_readonly}}"
 elif [ -s "${base_dir:+${base_dir}/}etc/portage/package.unmask.svc" ] && ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.unmask.svc" ]; then
-	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc' to '/etc/portage/package.mask/package.unmask' ..."
+	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc' to '/etc/portage/package.unmask/package.unmask' ..."
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc,destination=/etc/portage/package.unmask/package.unmask${docker_readonly:+,${docker_readonly}}"
 else
 	note "No 'package.unmask' override found in '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.unmask.svc/'"
@@ -1408,6 +1410,19 @@ if [ -e "${base_dir:+${base_dir}/}etc/portage/package.mask.${arch:-}" ]; then
 	print "Mounting file '${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.${arch}' to '/etc/portage/package.mask/${arch}' ..."
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask.${arch},destination=/etc/portage/package.mask/${arch}${docker_readonly:+,${docker_readonly}}"
 fi
+
+# host additional package.mask
+#if [ -d /etc/portage/package.mask ]; then
+#	declare extra_mask='' file=''
+#	while read -r extra_mask; do
+#		file="$( basename "${extra_mask}" )"
+#		if test -s "/etc/portage/package.mask/${file}"; then
+#			print "Mounting file '/etc/portage/package.mask/${file}' to '/etc/portage/package.mask/${file}' ..."
+#			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask/${file},destination=/etc/portage/package.mask/${file}${docker_readonly:+,${docker_readonly}}"
+#		fi
+#	done < <( find /etc/portage/package.mask/ -mindepth 1 -maxdepth 1 -type f -not -name 'package.mask' | grep -v -- "repo-${ECLASS_OVERRIDE:-__IGNORE__}-mask" )
+#	unset file extra_mask
+#fi
 
 # package.use alternatives
 if [ -s "${base_dir:+${base_dir}/}etc/portage/package.use.svc/alternatives" ]; then

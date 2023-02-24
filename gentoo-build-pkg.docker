@@ -90,10 +90,17 @@ test -e /etc/portage/package.license &&
 # default...
 if ! [ -d /etc/portage/package.mask ]; then
 	test -f /etc/portage/package.mask && test -s /etc/portage/package.mask &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask,destination=/etc/portage/package.mask/host.mask${docker_readonly:+,${docker_readonly}}"
 else
 	test -f /etc/portage/package.mask/package.mask && test -s /etc/portage/package.mask/package.mask &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/host.mask${docker_readonly:+,${docker_readonly}}"
+	declare extra_mask='' file=''
+	while read -r extra_mask; do
+		file="$( basename "${extra_mask}" )"
+		test -s "/etc/portage/package.mask/${file}" &&
+			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask/${file},destination=/etc/portage/package.mask/${file}${docker_readonly:+,${docker_readonly}}"
+	done < <( find /etc/portage/package.mask/ -mindepth 1 -maxdepth 1 -type f -not -name 'package.mask' -print0 | grep -vz -- '^repo-.*-mask' )
+	unset file extra_mask
 fi
 
 if ! [ -d /etc/portage/package.use ]; then
@@ -107,11 +114,18 @@ else
 		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/package.use.local,destination=/etc/portage/package.use/ab-package.use.local${docker_readonly:+,${docker_readonly}}"
 	test -f '/etc/portage/package.use/host.use' && test -s '/etc/portage/package.use/host.use' &&
 		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/host.use,destination=/etc/portage/package.use/zz-host.use${docker_readonly:+,${docker_readonly}}"
+	declare targets='' file=''
 	while read -r targets; do
 		file="$( basename "${targets}" )"
 		test -s "/etc/portage/package.use/${file}" &&
 			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/${file},destination=/etc/portage/package.use/${file}${docker_readonly:+,${docker_readonly}}"
 	done < <( find /etc/portage/package.use/ -mindepth 1 -maxdepth 1 -type f -name '*_targets' )
+	while read -r targets; do
+		file="$( basename "${targets}" )"
+		test -s "/etc/portage/package.use/${file}" &&
+			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/${file},destination=/etc/portage/package.use/${file}${docker_readonly:+,${docker_readonly}}"
+	done < <( find /etc/portage/package.use/ -mindepth 1 -maxdepth 1 -type f -print0 | xargs -0rn 1 basename | grep -FvZ -e '.use' -e '_targets' )
+	unset file targets
 fi
 #
 # Even with all of the below made available, linux-info.eclass still causes

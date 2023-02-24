@@ -23,13 +23,14 @@ declare -ir graph_space_required=8500
 declare -r rust_ver='1.62.0'
 declare -r bindgen_ver='0.56.0'
 
-declare firmware='sys-kernel/linux-firmware'
+declare firmware=''
 declare microcode=''
 declare microcode_blob=''
 if grep 'vendor_id' /proc/cpuinfo | awk '{ print $3 }' | grep -iqm 1 'intel'; then
 	microcode='sys-firmware/intel-microcode'
 	microcode_blob='intel'
 elif grep 'vendor_id' /proc/cpuinfo | awk '{ print $3 }' | grep -iqm 1 'amd'; then
+	firmware='sys-kernel/linux-firmware'
 	case "$( grep -Fm 1 "cpu family" /proc/cpuinfo | cut -d':' -f 2- | awk '{ print $1 }' )" in
 		16|17|18|20)
 			microcode_blob='amd-ucode/microcode_amd.bin'
@@ -303,7 +304,9 @@ if echo " ${*:-} " | grep -q -- ' --patch'; then
 elif echo " ${*:-} " | grep -q -- ' --no-patch'; then
 	patch=''
 fi
-if echo " ${*:-} " | grep -q -- ' --no-firmware'; then
+if echo " ${*:-} " | grep -q -- ' --firmware'; then
+	firmware='sys-kernel/linux-firmware'
+elif echo " ${*:-} " | grep -q -- ' --no-firmware'; then
 	firmware=''
 fi
 
@@ -449,19 +452,27 @@ test -e /etc/portage/package.accept_keywords &&
 test -e /etc/portage/package.license &&
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
 
-if [ -d /etc/portage/package.mask ]; then
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask,destination=/etc/portage/package.mask${docker_readonly:+,${docker_readonly}}"
-else
+if ! [ -d /etc/portage/package.mask ]; then
 	test -f /etc/portage/package.mask && test -s /etc/portage/package.mask &&
 		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask,destination=/etc/portage/package.mask/host.mask${docker_readonly:+,${docker_readonly}}"
+else
+	test -f /etc/portage/package.mask/package.mask && test -s /etc/portage/package.mask/package.mask &&
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/host.mask${docker_readonly:+,${docker_readonly}}"
+	declare extra_mask='' file=''
+	while read -r extra_mask; do
+		file="$( basename "${extra_mask}" )"
+		test -s "/etc/portage/package.mask/${file}" &&
+			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask/${file},destination=/etc/portage/package.mask/${file}${docker_readonly:+,${docker_readonly}}"
+	done < <( find /etc/portage/package.mask/ -mindepth 1 -maxdepth 1 -type f -not -name 'package.mask' )
+	unset file extra_mask
 fi
 # shellcheck disable=SC2154
-if [ -d "${base_dir:+${base_dir}/}etc/portage/package.mask" ]; then
-	test -f "${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask" && test -s "${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask" &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
-else
+if ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.mask" ]; then
 	test -f "${base_dir:+${base_dir}/}etc/portage/package.mask" && test -s "${base_dir:+${base_dir}/}etc/portage/package.mask" &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+,${docker_readonly}}"
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask,destination=/etc/portage/package.mask/base.mask${docker_readonly:+,${docker_readonly}}"
+else
+	test -f "${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask" && test -s "${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask" &&
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/base.mask${docker_readonly:+,${docker_readonly}}"
 fi
 
 if ! [ -d /etc/portage/package.use ]; then
@@ -488,6 +499,8 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 		USE="extra-filters hostname${rustext:+" http2"} lzma${rustext:+" rust-src"} symlink threads zlib${compiler_USE:+" ${compiler_USE}"}"
 		if [[ -n "${firmware:-}" ]]; then
 			USE="firmware ${USE}"
+		else
+			USE="-firmware ${USE}"
 		fi
 		export ACCEPT_LICENSE USE
 

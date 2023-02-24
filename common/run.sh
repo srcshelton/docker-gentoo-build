@@ -534,7 +534,7 @@ docker_image_exists() {
 #
 docker_run() {
 	#inherit name container_name
-	#inherit BUILD_CONTAINER NO_BUILD_MOUNTS NO_MEMORY_LIMITS
+	#inherit BUILD_CONTAINER NO_BUILD_MOUNTS NO_MEMORY_LIMITS NO_REPO_MASKS
 	#inherit DOCKER_VARS
 	#inherit PODMAN_MEMORY_RESERVATION PODMAN_MEMORY_LIMIT PODMAN_SWAP_LIMIT
 	#inherit ACCEPT_KEYWORDS ACCEPT_LICENSE DEBUG DEV_MODE DOCKER_CMD_VARS \
@@ -553,6 +553,7 @@ docker_run() {
 	local BUILD_CONTAINER="${BUILD_CONTAINER-1}"  # Don't substitute if variable is assigned but empty...
 	local NO_BUILD_MOUNTS="${NO_BUILD_MOUNTS:-}"
 	local NO_MEMORY_LIMITS="${NO_MEMORY_LIMITS:-}"
+	local NO_REPO_MASKS="${NO_REPO_MASKS:-}"
 
 	[ "${BUILD_CONTAINER}" = '1' ] || unset BUILD_CONTAINER
 
@@ -576,6 +577,7 @@ docker_run() {
 		$docker ${DOCKER_VARS:-} container rm --volumes "${name:-${container_name}}" >/dev/null
 	trap - INT
 
+	# FIXME: Make this package-specific hack generic (or unneeded!)
 	if [ -n "${BUILD_CONTAINER:-}" ] && [ -z "${NO_BUILD_MOUNTS:-}" ]; then
 		if [ -d '/etc/openldap/schema' ] && [ -n "${name:-}" ] && [ "${name%-*}" = 'buildsvc' ]; then
 			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/openldap/schema/,destination=/service/etc/openldap/schema"
@@ -780,8 +782,7 @@ docker_run() {
 
 		# shellcheck disable=SC2046,SC2206,SC2207
 		mirrormountpointsro=(
-			# We need write access to be able to update eclasses...
-			#/etc/portage/repos.conf
+			#/etc/portage/repos.conf  # We need write access to be able to update eclasses...
 			${default_repo_path:-$( portageq get_repo_path "${EROOT:-/}" $( portageq get_repos "${EROOT:-/}" ) )}
 			#/usr/src  # Breaks gentoo-kernel-build package
 			#/var/db/repo/container
@@ -789,6 +790,14 @@ docker_run() {
 			#/var/db/repo/srcshelton
 			#/var/db/repo/compat
 		)
+
+		# N.B.: Read repo-specific masks from the host system...
+		if [ -z "${NO_REPO_MASKS:-}" ]; then
+			while read -r mp; do
+				mirrormountpointsro+=( "${mp}" )
+			done < <( find /etc/portage/package.mask/ -mindepth 1 -maxdepth 1 -type f -name 'repo-*-mask' -print )
+		fi
+
 		if [ -n "${BUILD_CONTAINER:-}" ]; then
 			mirrormountpoints=(
 				#/var/cache/portage/dist
