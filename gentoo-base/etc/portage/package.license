@@ -25,14 +25,14 @@ app-alternatives/*			 CC0-1.0
 #sys-apps/util-linux			 BSD-4 public-domain
 app-arch/bzip2				 BZIP2
 app-containers/aardvark-dns		 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Unlicense ZLIB
-app-containers/netavark			 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boost-1.0 Unlicense ZLIB
+app-containers/netavark			 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boost-1.0 Unicode-DFS-2016 Unlicense ZLIB
 app-crypt/libb2				 CC0-1.0
 dev-python/certifi			 CC0-1.0 MPL-2.0
 dev-python/ensurepip-pip		 MPL-2.0 PSF-2
 >=dev-python/ensurepip-wheels-100	 metapackage
 <dev-python/ensurepip-wheels-100	 MPL-2.0 PSF-2
 dev-python/typing-extensions		 PSF-2
-dev-util/cargo-ebuild			 Apache-2.0-with-LLVM-exceptions Boost-1.0 MPL-2.0 Unlicense ZLIB
+dev-util/cargo-ebuild			 Apache-2.0-with-LLVM-exceptions Boost-1.0 MPL-2.0 Unicode-DFS-2016 Unlicense ZLIB
 dev-util/gtk-doc-am			 FDL-1.1
 app-text/sgml-common			 FDL-1.1+
 sys-devel/gcc				 FDL-1.3+
@@ -214,6 +214,7 @@ container/unifi-controller		 UBNT
 net-misc/unifi-controller-bin		 UBNT
 app-arch/zip				 Info-ZIP
 dev-db/mongodb				 SSPL-1
+dev-java/openjdk			 GPL-2-with-classpath-exception
 dev-java/openjdk-bin			 GPL-2-with-classpath-exception
 dev-libs/boost				 Boost-1.0
 dev-python/typing			 PSF-2
@@ -265,4 +266,4 @@ net-analyzer/net-snmp			 HPND
 #
 # cat /var/db/pkg/*/*/LICENSE | xargs -n 1 | grep -Ev '^(\(|\|\||\))$' | sort | uniq -c | sort -rn
 
-# vi: set syntax=gentoo-package-license:
+# vi: set noet sw=8 ts=8 syntax=gentoo-package-license:
