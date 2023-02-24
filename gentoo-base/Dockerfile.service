@@ -133,11 +133,11 @@ RUN i="${image_name}:${service_version}" ; \
         -e "s/__DOMAIN__/${smtp_domain}/" \
             /etc/msmtprc ; \
     if ! grep -Fqm 1 '/gcc/' /etc/ld.so.conf; then \
-        find /usr/lib/gcc/x86_64-pc-linux-gnu/ \
+        find "/usr/lib/gcc/${CHOST:-__chost_not_set__}" \
                 -mindepth 1 \
                 -maxdepth 1 \
                 -type d \
-            -print | xargs -rn 1 >> /etc/ld.so.conf ; \
+            -print0 | xargs -0rn 1 >> /etc/ld.so.conf ; \
         ldconfig ; \
     fi
 
