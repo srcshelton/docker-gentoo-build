@@ -18,7 +18,7 @@
 */*					-pango -policykit pcre perl php python
 */*					 readline rpc
 */*					-samba -sasl -slang -smartcard -source -startup-notification sctp
-*/*					 seccomp server slp smtp snmp spell sql sqlite ssl syslog
+*/*					 seccomp server slp smtp snmp spell split-usr sql sqlite ssl syslog
 */*					-test threads tls-heartbeat
 */*					-udev -usb unicode unwind urandom uuid
 */*					 vim-syntax
@@ -258,7 +258,7 @@ app-shells/stdlib			 colour
 mail-client/roundcube::srcshelton	 plugins zxcvbn
 
 sys-kernel/gentoo-sources		 symlink experimental
-sys-kernel/linux-firmware		 compress
+sys-kernel/linux-firmware		 compress savedconfig
 
 # required by dev-db/mariadb-10.1.22[extraengine,server]
 >=sys-libs/zlib-1.2.11			 minizip

@@ -3,7 +3,7 @@
 # package.use.svc - USE-flags for service builds
 
 # Keep the following in sync with common/vars.sh
-*/*					-* asm ipv6 ithreads mdev nptl threads tls-heartbeat zlib
+*/*					-* asm ipv6 ithreads mdev nptl split-usr threads tls-heartbeat zlib
 #*/*					-fortran graphite (nptl) openmp pch sanitize ssp vtv zstd
 
 */*					 openssl ssl

@@ -177,7 +177,7 @@ fi
 #  sys-devel/gcc:		nptl
 # (General:				ipv6 ~openssl~ ~ssl~ threads)
 #
-use_essential="asm ipv6 ithreads mdev nptl ssp threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
+use_essential="asm ipv6 ithreads mdev nptl split-usr ssp threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
 
 # Even though we often want a minimal set of flags, gcc's flags are significant
 # since they may affect the compiler facilities available to all packages built
@@ -187,7 +187,7 @@ use_essential="asm ipv6 ithreads mdev nptl ssp threads tls-heartbeat zlib${use_c
 #      packages, but is reasonable for build-containers.
 #
 # FIXME: Source these flags from package.use
-use_essential_gcc="-fortran graphite nptl openmp pch sanitize ssp vtv zstd"
+use_essential_gcc="default-stack-clash-protection default-znow -fortran graphite nptl openmp pch sanitize ssp vtv zstd"
 
 case "$( uname -m )" in
 	x86_64|i686)
