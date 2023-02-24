@@ -593,15 +593,17 @@ echo
 	#    sys-fs/udev-init-scripts-34 requires >=virtual/udev-217
 	#    virtual/dev-manager-0-r2 requires virtual/udev
 	list="$(
-		sed 's/#.*$//' /etc/portage/package.mask/* |
-			grep -v -- 'gentoo-functions' |
-			xargs -rn 1 printf '%s '
-	)$(
 		{
+			sed 's/#.*$//' /etc/portage/package.mask/* |
+				grep -v -- 'gentoo-functions'
+
 			sed 's/#.*$//' /etc/portage/package.mask/* |
 				grep -Eow -- '((virtual|sys-fs)/)?udev' &&
 			printf 'sys-apps/hwids sys-fs/udev-init-scripts'
-		} | xargs -rn 1 printf '%s '
+		} |
+			grep -Fv -- '::' |
+			sort -V |
+			xargs -r
 	)"
 	echo "Package list: ${list}"
 	echo
