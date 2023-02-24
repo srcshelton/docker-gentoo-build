@@ -6,7 +6,7 @@
 #net-misc/unifi-controller-bin		 nls rpi1 systemd +tools
 net-misc/unifi-controller-bin		 nls tools
 
-dev-java/openjdk			-alsa -cups headless-awt jbootstrap pch
+dev-java/openjdk			-alsa -cups -system-bootstrap headless-awt jbootstrap pch
 dev-java/openjdk-bin			-alsa -cups headless-awt
 virtual/jdk				 headless-awt
 
