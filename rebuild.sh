@@ -42,6 +42,7 @@ fi
 
 kbuild_opt="${kbuild_opt:-"--config-from=config.gz --keep-build --no-patch --clang --llvm-unwind"}"
 all=0
+alt_use='bison flex gnu http2'  # http2 targeting curl for rust packages...
 arg=''
 force=0
 haveargs=0
@@ -282,10 +283,12 @@ if [ "${pkgcache:-0}" = '1' ]; then
 				)"
 				if [ -n "${STAGE3_USE:-}" ]; then
 					# Add 'symlink' USE flag to ensure that /usr/src/linux is
-					# updated
+					# updated;
 					# FIXME: This flag also affects a small number of other
 					#        ebuilds (possibly replacing bzip2 & gzip binaries)
-					use="${STAGE3_USE} symlink"
+					# Also add ${alt_use} USE flags as otherwise
+					# app-alternatives/lex aborts the build :(
+					use="${STAGE3_USE} ${alt_use} symlink"
 					for flag in ${use}; do
 						case "${flag}" in
 							"${ARCH}"|readline|nls|static-libs|zstd)
@@ -310,6 +313,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 			python_single_target="${python_default_target%% *}"
 			use="
 				${use_essential_gcc}
+				${alt_use}
 				acl
 				bzip2
 				crypt
@@ -520,10 +524,15 @@ if [ "${update:-0}" = '1' ]; then
 			uniq
 		)"
 	fi
+	# FIXME: Remove once golang on ARM no longer requires gold linker...
+	ARCH="${ARCH:-$( portageq envvar ARCH )}"
+	if echo "${ARCH}" | grep -q 'arm'; then
+		alt_use="${alt_use:+"${alt_use} "}gold"
+	fi
 	# shellcheck disable=SC2046
 	(
 		# shellcheck disable=SC2030,SC2031
-		export USE="-lib-only -natspec pkg-config ${gcc_use}"
+		export USE="-lib-only -natspec pkg-config ${gcc_use} ${alt_use}"
 		{
 			./gentoo-build-pkg.docker \
 						--buildpkg=y \
@@ -573,7 +582,7 @@ if [ "${update:-0}" = '1' ]; then
 		fi
 		(
 			# shellcheck disable=SC2031
-			export USE="${gcc_use}"
+			export USE="${gcc_use} ${alt_use}"
 			{
 				./gentoo-build-pkg.docker \
 							--buildpkg=y \
