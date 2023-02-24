@@ -65,10 +65,13 @@
 #~app-containers/podman-4.2.0-r1			 **
 #~app-containers/podman-4.2.1				 **
 #~app-containers/podman-4.3.0_rc1			 **
-~app-containers/podman-4.3.0				 **
+#~app-containers/podman-4.3.0				 **
 ~app-containers/podman-4.3.1				 **
 #~app-containers/podman-4.4.0_rc1			 **
 #~app-containers/podman-4.4.0_rc2			 **
+#~app-containers/podman-4.4.0_rc3			 **
+#~app-containers/podman-4.4.0				 **
+~app-containers/podman-4.4.1				 **
 
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				 **
@@ -133,8 +136,10 @@
 #~app-containers/buildah-1.27.2				 **
 #~app-containers/buildah-1.27.3				 **
 #~app-containers/buildah-1.28.0				 **
-~app-containers/buildah-1.28.1				 **
-~app-containers/buildah-1.28.2				 **
+#~app-containers/buildah-1.28.1				 **
+#~app-containers/buildah-1.28.2				 **
+~app-containers/buildah-1.29.0				 **
+~app-containers/buildah-1.29.1				 **
 
 #~net-misc/cni-plugins-0.8.7				 **
 #~net-misc/cni-plugins-0.9.0				 **
@@ -145,22 +150,25 @@
 ~net-misc/cni-plugins-1.1.1				 **
 
 # rust build dependencies for netavark/aardvark-dns
-=dev-util/cargo-ebuild-0.5.1				~amd64
+#=dev-util/cargo-ebuild-0.5.1				~amd64
 =dev-util/cargo-ebuild-0.5.2				~amd64
+=dev-util/cargo-ebuild-0.5.4				~amd64
 
 #~app-containers/netavark-1.0.2				 **
 #~app-containers/netavark-1.0.3				 **
 #~app-containers/netavark-1.1.0				 **
 #~app-containers/netavark-1.2.0				 **
-~app-containers/netavark-1.3.0				 **
+#~app-containers/netavark-1.3.0				 **
 ~app-containers/netavark-1.4.0				 **
+~app-containers/netavark-1.5.0				 **
 
 #~app-containers/aardvark-dns-1.0.2			 **
 #~app-containers/aardvark-dns-1.0.3			 **
 #~app-containers/aardvark-dns-1.1.0			 **
 #~app-containers/aardvark-dns-1.2.0			 **
-~app-containers/aardvark-dns-1.3.0			 **
+#~app-containers/aardvark-dns-1.3.0			 **
 ~app-containers/aardvark-dns-1.4.0			 **
+~app-containers/aardvark-dns-1.5.0			 **
 
 # move app-emulation/crun app-containers/crun
 #~app-containers/crun-0.14.1				 **
@@ -186,9 +194,10 @@
 #~app-containers/crun-1.4.5				 **
 #~app-containers/crun-1.5				 **
 #~app-containers/crun-1.6				 **
-~app-containers/crun-1.7				 **
+#~app-containers/crun-1.7				 **
 #~app-containers/crun-1.7.1				 **
 ~app-containers/crun-1.7.2				 **
+~app-containers/crun-1.8				 **
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -284,8 +293,9 @@
 #~app-containers/conmon-2.1.1				 **
 #~app-containers/conmon-2.1.2				 **
 #~app-containers/conmon-2.1.3				 **
-~app-containers/conmon-2.1.4				 **
+#~app-containers/conmon-2.1.4				 **
 ~app-containers/conmon-2.1.5				 **
+~app-containers/conmon-2.1.6				 **
 
 # originally required by app-emulation/podman-1.9.3[rootless]
 # move app-emulation/slirp4netns app-containers/slirp4netns
@@ -301,6 +311,9 @@
 #~app-containers/slirp4netns-1.2.0_rc0			 **
 ~app-containers/slirp4netns-1.2.0			 **
 #~net-libs/libslirp-4.3.1				 **
+
+# optional for app-containers/podman-4.4.0_rc3[rootless]
+~app-containers/passt-20221116				 **
 
 # originally required by app-emulation/podman-1.9.3[fuse]
 #~sys-fs/fuse-overlayfs-1.1.2				 **
@@ -337,7 +350,9 @@
 #~app-containers/skopeo-1.8.0				 **
 #~app-containers/skopeo-1.9.0				 **
 #~app-containers/skopeo-1.9.1				 **
-~app-containers/skopeo-1.9.2				 **
-~app-containers/skopeo-1.10.0				 **
+#~app-containers/skopeo-1.9.2				 **
+#~app-containers/skopeo-1.10.0				 **
+~app-containers/skopeo-1.11.0				 **
+~app-containers/skopeo-1.11.1				 **
 
 # vi: set syntax=gentoo-package-keywords:
