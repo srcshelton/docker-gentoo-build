@@ -45,6 +45,7 @@ if ! [ -d "${base_dir}" ]; then
 	base_dir=''
 fi
 
+use_cpu_arch='' use_cpu_flags='' gcc_target_opts='-march=native'
 use_cpu_arch="$( uname -m | cut -c 1-3 | sed 's/aar/arm/' )"
 if command -v cpuid2cpuflags >/dev/null 2>&1; then
 	use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- )"
@@ -66,40 +67,59 @@ else
 	case "${description:-}" in
 		*': Intel(R) Atom(TM) CPU '*' 330 '*' @ '*)
 			use_cpu_arch='x86'
-			use_cpu_flags="mmx mmxext sse sse2 sse3 ssse3" ;;
+			use_cpu_flags='mmx mmxext sse sse2 sse3 ssse3'
+			gcc_target_opts='-march=bonnell' ;;
 		*': Intel(R) Core(TM) i3-21'*' CPU @ '*)
 			use_cpu_arch='x86'
-			use_cpu_flags="avx mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3" ;;
+			use_cpu_flags='avx mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3'
+			gcc_target_opts='-march=sandybridge' ;;
 		*': Intel(R) Core(TM) i5-24'*' CPU @ '*)
 			use_cpu_arch='x86'
-			use_cpu_flags="aes avx mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3" ;;
+			use_cpu_flags='aes avx mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3'
+			gcc_target_opts='-march=sandybridge -maes' ;;
 		*': Intel(R) Xeon(R) CPU E5-'*' v2 @ '*)
 			use_cpu_arch='x86'
-			use_cpu_flags="aes avx f16c mmx mmxext pclmul popcnt rdrand sse sse2 sse4_1 sse4_2 ssse3" ;;
+			use_cpu_flags='aes avx f16c mmx mmxext pclmul popcnt rdrand sse sse2 sse4_1 sse4_2 ssse3'
+			gcc_target_opts='-march=ivybridge -maes' ;;
 		*': Intel(R) Xeon(R) CPU E3-'*' v5 @ '*)
 			use_cpu_arch='x86'
-			use_cpu_flags="aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sse sse2 sse3 sse4_1 sse4_2 ssse3" ;;
+			use_cpu_flags='aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sse sse2 sse3 sse4_1 sse4_2 ssse3'
+			gcc_target_opts='-march=skylake -mabm' ;;
 
 		*': AMD G-T40E '*)
 			use_cpu_arch='x86'
-			use_cpu_flags="mmx mmxext popcnt sse sse2 sse3 sse4a ssse3" ;;
+			use_cpu_flags='mmx mmxext popcnt sse sse2 sse3 sse4a ssse3'
+			gcc_target_opts='-march=btver1' ;;
 		*': AMD GX-412TC '*)
 			use_cpu_arch='x86'
-			use_cpu_flags="aes avx f16c mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3" ;;
+			use_cpu_flags='aes avx f16c mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3'
+			gcc_target_opts='-march=btver2' ;;
 
+		*': Raspberry Pi Zero W Rev 1.1'*)
+			use_cpu_arch='arm'
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2'
+			gcc_target_opts='-march=armv6kz+fp -mcpu=arm1176jzf-s' ;;
 		*': Raspberry Pi 2 '*)
 			use_cpu_arch='arm'
-			use_cpu_flags="edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 v4 v5 v6 v7 thumb2" ;;
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 v4 v5 v6 v7 thumb2'
+			gcc_target_opts='-march=armv7ve+vfpv3-d16 -mcpu=cortex-a7 -mlibarch=armv7ve+vfpv3-d16' ;;
 		*': Raspberry Pi 3 '*)
 			use_cpu_arch='arm'
-			use_cpu_flags="edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2" ;;
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2'
+			gcc_target_opts='-march=armv8-a+crc+simd -mcpu=cortex-a53' ;;
 		*': Raspberry Pi 4 '*)
 			use_cpu_arch='arm'
-			use_cpu_flags="edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2" ;;
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2'
+			# Raspberry Pi 400 Rev 1.0/Debian 10.2.1-6 reports 'armv8-a+crc'
+			# Raspberry Pi 4 Model B Rev 1.1/Debian 10.2.1-6+rpi1 reports 'armv8-a+crc+simd'
+			#gcc_target_opts='-march=armv8-a+crc'
+			gcc_target_opts='-march=armv8-a+crc+simd -mcpu=cortex-a72 -mtp=cp15' ;;
 
 		*': 0xd07'|'Apple M1'*)
 			use_cpu_arch='arm'
-			use_cpu_flags="aes crc32 sha1 sha2" ;;
+			use_cpu_flags='aes crc32 sha1 sha2'
+			#gcc_target_opts='-march=armv8-a'
+			;;
 		*)
 			description="$( echo "${description}" | cut -d':' -f 2- | sed 's/^\s*// ; s/\s*$//' )"
 			vendor="$( grep -- '^vendor_id' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' )"

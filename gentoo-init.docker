@@ -51,6 +51,8 @@ declare environment_file=''
 declare environment_filter=''
 declare base_dir=''
 declare use_cpu_arch=''
+declare use_cpu_flags=''
+declare gcc_target_opts=''
 declare use_cpu_flags_raw=''
 declare use_essential=''
 declare use_essential_gcc=''
@@ -67,7 +69,7 @@ declare reset=''
 declare docker_arch=''
 declare arch=''
 
-declare native=''
+declare target_opt=''
 declare -i build_helper=0
 declare -i force=0
 
@@ -578,10 +580,12 @@ case "${docker_arch}" in
 	'i386')
 		gentoo_stage3_tag='i686-openrc' ;;
 esac
+target_opt="${gcc_target_opts:-}"
 case "${docker_arch}" in
 	'arm'*)
 		# See https://community.arm.com/developer/tools-software/tools/b/tools-software-ides-blog/posts/compiler-flags-across-architectures-march-mtune-and-mcpu
-		native='-mcpu=native' ;;
+		[[ -z "${gcc_target_opts:-}" ]] &&
+			target_opt='-mcpu=native' ;;
 esac
 env_id="$(
 	$docker image ls --noheading \
@@ -615,7 +619,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 			--build-arg PROFILE_PATH="${profile:-}" \
 			--build-arg CHOST="${chost:-}" \
 			${use_cpu_arch:+${use_cpu_flags_raw:+--build-arg CPU_FLAGS_${use_cpu_arch^^}="${use_cpu_flags_raw}"}} \
-			${native:+--build-arg NATIVE="${native}"} \
+			${target_opt:+--build-arg TARGET_OPT="${target_opt}"} \
 			--build-arg JOBS="${JOBS:-}" \
 			--build-arg MAXLOAD="${MAXLOAD:-}" \
 			--build-arg MAIL_FROM="${mail_from:-}" \
