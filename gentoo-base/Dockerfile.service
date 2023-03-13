@@ -22,6 +22,8 @@ ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAM
 ARG smtp_smarthost="localhost"
 ARG smtp_domain="localhost"
 
+ARG CHOST="x86_64-pc-linux-gnu"
+
 
 # -----------------------------------------------------------------------------
 
@@ -79,8 +81,11 @@ ARG environment_file
 ARG smtp_smarthost
 ARG smtp_domain
 
+ARG CHOST
+
 ENV service_cmd="${service_cmd}"
 ENV fs_name="${service_fs_name}"
+ENV CHOST="${CHOST}"
 
 
 # Copy the installed tree into the current image
@@ -118,12 +123,12 @@ RUN i="${image_name}:${service_version}" ; \
     for f in /etc/base/*; do \
         f="$( basename "${f}" )" ; \
         if ! [ -s "/etc/${f}" ]; then \
-            echo "Adding new file '${f}' from base image '${i}' ..." ; \
+            echo "INFO:  Adding new file '${f}' from base image '${i}' ..." ; \
             mv "/etc/base/${f}" /etc/ ; \
         elif ! diff -q "/etc/base/${f}" "/etc/${f}" >/dev/null; then \
-            echo "Files '/etc/base/${f}' and '/etc/${f}' differ ..." ; \
+            echo "WARN:  Files '/etc/base/${f}' and '/etc/${f}' differ ..." ; \
             diff -u "/etc/base/${f}" "/etc/${f}" | sed 's/^/    /' ; \
-            echo "... keeping file '${f}' from base image '${i}'" ; \
+            echo "WARN:  ... keeping file '${f}' from base image '${i}'" ; \
             mv "/etc/base/${f}" /etc/ ; \
         fi ; \
     done ; \
@@ -132,13 +137,20 @@ RUN i="${image_name}:${service_version}" ; \
         -e "s/__SMTP_SMARTHOST__/${smtp_smarthost}/" \
         -e "s/__DOMAIN__/${smtp_domain}/" \
             /etc/msmtprc ; \
-    if ! grep -Fqm 1 '/gcc/' /etc/ld.so.conf; then \
-        find "/usr/lib/gcc/${CHOST:-__chost_not_set__}" \
-                -mindepth 1 \
-                -maxdepth 1 \
-                -type d \
-            -print0 | xargs -0rn 1 >> /etc/ld.so.conf ; \
-        ldconfig ; \
+    if [ -d "${ROOT}"/usr/lib/gcc ]; then \
+        if ! [ -d "${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}" ]; then \
+            echo "WARN:  Directory '${ROOT}/usr/lib/gcc' exists but '${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}' doesn't" ; \
+            ls -1AF "${ROOT}/usr/lib/gcc" | sed 's/^/DEBUG: /' ; \
+        else \
+            if ! grep -Fqm 1 '/gcc/' /etc/ld.so.conf; then \
+                find "/usr/lib/gcc/${CHOST:-__chost_not_set__}" \
+                        -mindepth 1 \
+                        -maxdepth 1 \
+                        -type d \
+                    -print0 | xargs -0rn 1 >> /etc/ld.so.conf ; \
+                ldconfig ; \
+            fi ; \
+        fi ; \
     fi
 
 # linter ignore=SC2174
