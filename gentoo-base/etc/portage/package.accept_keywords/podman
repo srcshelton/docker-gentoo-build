@@ -66,12 +66,13 @@
 #~app-containers/podman-4.2.1				 **
 #~app-containers/podman-4.3.0_rc1			 **
 #~app-containers/podman-4.3.0				 **
-~app-containers/podman-4.3.1				 **
+#~app-containers/podman-4.3.1				 **
 #~app-containers/podman-4.4.0_rc1			 **
 #~app-containers/podman-4.4.0_rc2			 **
 #~app-containers/podman-4.4.0_rc3			 **
 #~app-containers/podman-4.4.0				 **
 ~app-containers/podman-4.4.1				 **
+~app-containers/podman-4.4.2				 **
 
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				 **
@@ -196,8 +197,9 @@
 #~app-containers/crun-1.6				 **
 #~app-containers/crun-1.7				 **
 #~app-containers/crun-1.7.1				 **
-~app-containers/crun-1.7.2				 **
+#~app-containers/crun-1.7.2				 **
 ~app-containers/crun-1.8				 **
+~app-containers/crun-1.8.1				 **
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -271,8 +273,9 @@
 #~app-containers/containers-storage-1.44.0		 **
 #~app-containers/containers-storage-1.45.0		 **
 #~app-containers/containers-storage-1.45.1		 **
-~app-containers/containers-storage-1.45.2		 **
+#~app-containers/containers-storage-1.45.2		 **
 ~app-containers/containers-storage-1.45.3		 **
+~app-containers/containers-storage-1.45.4		 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
@@ -294,8 +297,9 @@
 #~app-containers/conmon-2.1.2				 **
 #~app-containers/conmon-2.1.3				 **
 #~app-containers/conmon-2.1.4				 **
-~app-containers/conmon-2.1.5				 **
+#~app-containers/conmon-2.1.5				 **
 ~app-containers/conmon-2.1.6				 **
+~app-containers/conmon-2.1.7				 **
 
 # originally required by app-emulation/podman-1.9.3[rootless]
 # move app-emulation/slirp4netns app-containers/slirp4netns
