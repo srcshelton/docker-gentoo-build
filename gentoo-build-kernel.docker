@@ -265,7 +265,7 @@ case "${package_version}" in
 	5.15.*|5.16.*)
 		#patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15%2B.patch' ;;
 		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15-5.16.patch' ;;
-	5.1[789].*|6.[01].*)
+	5.1[789].*|6.[012].*)
 		patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.17%2B.patch'
 		case "${package_version}" in
 			5.19.*)
@@ -463,7 +463,7 @@ else
 		file="$( basename "${extra_mask}" )"
 		test -s "/etc/portage/package.mask/${file}" &&
 			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask/${file},destination=/etc/portage/package.mask/${file}${docker_readonly:+,${docker_readonly}}"
-	done < <( find /etc/portage/package.mask/ -mindepth 1 -maxdepth 1 -type f -not -name 'package.mask' )
+	done < <( find /etc/portage/package.mask/ -mindepth 1 -maxdepth 1 -type f -not -name 'package.mask' -print0 | grep -vz -- '^repo-.*-mask' )
 	unset file extra_mask
 fi
 # shellcheck disable=SC2154
@@ -505,6 +505,7 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 		export ACCEPT_LICENSE USE
 
 		name="${container_name}-${compiler}${rustext:+"-${rustext}"}"
+		logname="${container_name}-${compiler}${rustext:+"+${rustext}"}"
 		image="${IMAGE}"
 		export name image
 
@@ -533,7 +534,7 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 					${rustext:+"${rust_ver:+"="}virtual/rust${rust_ver:+"-${rust_ver}"}"} \
 					${rustext:+"${bindgen_ver:+"="}dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"} \
 					virtual/linux-sources \
-				2>&1 | tee "log/docker.${name}.log"
+				2>&1 | tee "log/docker.${logname}.log"
 			output " -> ${?}"
 		}
 
@@ -557,18 +558,18 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 						container commit \
 							"${name}" \
 							"${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" 2>&1 |
-					tee -a "log/docker.${name}.log"
+					tee -a "log/docker.${logname}.log"
 			else
 				buildah ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
 						commit \
 								--squash \
 							"${name}" \
 							"${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" 2>&1 |
-					tee -a "log/docker.${name}.log"
+					tee -a "log/docker.${logname}.log"
 			fi
 			output " -> ${?}"
 			$docker container rm --volumes "${name}" 2>&1 |
-				tee -a "log/docker.${name}.log"
+				tee -a "log/docker.${logname}.log"
 			trap - INT
 		}
 	)
@@ -703,6 +704,16 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		LDFLAGS_MODULE="-unwindlib=libunwind" ;
 		HOSTLDFLAGS="-unwindlib=libunwind" ;
 		export LDFLAGS_MODULE HOSTLDFLAGS ;
+	fi ;
+	if [[ "${compiler}" == 'clang' ]]; then
+		if echo "\${CFLAGS:-}" | xargs -rn 1 | grep -v -- '^-march=' | grep -q -- '^-m'; then
+			echo -n "Filtering GNU CFLAGS for ${compiler}: " ;
+			echo "\${CFLAGS}" | xargs -rn 1 | grep -v -- '-march=' | grep -- '^-m' | sort -V | xargs -r -I'{}' -- echo "\'{}\'" | xargs -r ;
+			: march="\$( echo "\${CFLAGS}" | xargs -rn 1 | grep '^-march=' )" ;
+			march='-march=native' ;
+			export CFLAGS="\$( { echo "\${CFLAGS}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${march}" ; } | sort -V | xargs -r )" ;
+			unset march ;
+		fi ;
 	fi ;
 	kernel='bzImage' ;
 	dir='x86' ;
