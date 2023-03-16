@@ -50,6 +50,7 @@ output() {
 }  # output
 
 die() {
+	#output >&2 "FATAL: ${BASH_SOURCE[0]:-"$( basename "${0}" )"}: ${*:-Unknown error}"
 	output >&2 "FATAL: ${*:-Unknown error}"
 	exit 1
 }  # die
@@ -58,6 +59,7 @@ error() {
 	if [ -z "${*:-}" ]; then
 		output >&2
 	else
+		#output >&2 "ERROR: ${BASH_SOURCE[0]:-"$( basename "${0}" )"}: ${*}"
 		output >&2 "ERROR: ${*}"
 	fi
 	return 1
@@ -67,6 +69,7 @@ warn() {
 	if [ -z "${*:-}" ]; then
 		output >&2
 	else
+		#output >&2 "WARN:  ${BASH_SOURCE[0]:-"$( basename "${0}" )"}: ${*}"
 		output >&2 "WARN:  ${*}"
 	fi
 }  # warn
@@ -75,6 +78,7 @@ note() {
 	if [ -z "${*:-}" ]; then
 		output >&2
 	else
+		#output >&2 "NOTE:  ${BASH_SOURCE[0]:-"$( basename "${0}" )"}: ${*}"
 		output >&2 "NOTE:  ${*}"
 	fi
 }  # note
@@ -83,6 +87,7 @@ info() {
 	if [ -z "${*:-}" ]; then
 		output
 	else
+		#output "INFO:  ${BASH_SOURCE[0]:-"$( basename "${0}" )"}: ${*}"
 		output "INFO:  ${*}"
 	fi
 }  # info
@@ -92,7 +97,7 @@ print() {
 		if [ -z "${*:-}" ]; then
 			output >&2
 		else
-			output >&2 "DEBUG: ${*}"
+			output >&2 "DEBUG: ${BASH_SOURCE[0]:-"$( basename "${0}" )"}: ${*}"
 		fi
 		return 0
 	# Unhelpful with 'set -e' ...
@@ -918,6 +923,7 @@ docker_run() {
 				next=''
 			fi
 		done | column -t -s $'\t'
+		unset next arg
 		output
 	fi
 
@@ -943,7 +949,19 @@ docker_run() {
 
 		image="${image:-${IMAGE:-gentoo-build:latest}}"
 
-		print "Starting ${BUILD_CONTAINER:+build} container with command '$docker container run ${runargs[*]} ${image} ${*}'"
+		if (( debug )); then
+			local arg=''
+			print "Starting ${BUILD_CONTAINER:+build} container with command '$docker container run \\"
+			for arg in "${runargs[@]}"; do
+				print "        ${arg} \\"
+			done
+			print "    ${image}"
+			for arg in "${@}"; do
+				print "        ${arg} \\"
+			done
+			print "'"
+			unset arg
+		fi
 		# shellcheck disable=SC2086
 		$docker \
 				${DOCKER_VARS:-} \
