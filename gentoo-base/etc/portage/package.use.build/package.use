@@ -41,6 +41,7 @@ net-misc/curl				 CURL_SSL: openssl
 
 
 app-admin/hddtemp			 network-cron
+app-admin/rasdaemon			-sqlite experimental
 app-admin/syslog-ng			-snmp spoof-source
 app-admin/sysstat			 lm-sensors
 app-admin/ulogd				 nfacct pcap
@@ -49,7 +50,7 @@ app-arch/libarchive			 acl e2fsprogs iconv nettle
 app-benchmarks/bootchart		 acct
 app-benchmarks/bootchart2		-X
 app-crypt/gnupg				-ssl ecc idea mta
-#app-crypt/gpgme			-python  # Requires dev-lang/swig, but only as a BDEPEND
+#app-crypt/gpgme			-python  # requires dev-lang/swig, but only as a BDEPEND
 app-editors/vim				-cscope -sound terminal vim-pager
 # move app-emulation/crun app-containers/crun
 app-containers/crun			-criu bpf
@@ -87,7 +88,7 @@ dev-libs/gmp				 pgo
 dev-libs/jemalloc			 lazy-lock xmalloc
 dev-libs/leveldb			-snappy
 dev-libs/libmemcached			 hsieh
-#dev-libs/libnatspec			-python  # Requires dev-lang/tcl, but only as a DEPEND
+#dev-libs/libnatspec			-python  # requires dev-lang/tcl, but only as a DEPEND
 dev-libs/libnl				 utils
 #dev-libs/libpcre			-readline
 #dev-libs/libpcre2			-readline
@@ -119,7 +120,7 @@ mail-filter/libmilter			 poll
 mail-filter/opendkim			-curl -memcached -opendbx libevent poll unbound
 mail-filter/opendmarc			 spf
 mail-filter/spamassassin		 cron
-#mail-mta/msmtp				-ssl  # Requires gnutls
+#mail-mta/msmtp				-ssl  # requires gnutls
 mail-mta/postfix			-ldap-bind dovecot-sasl
 media-fonts/dejavu			-X -fontforge
 media-fonts/liberation-fonts		-X -fontforge
@@ -157,8 +158,8 @@ net-fs/cifs-utils			-acl -ads -caps caps-ng creds upcall
 net-fs/nfs-utils			 junction nfsdcld nfsidmap nfsv41
 net-fs/samba				-avahi async automount ldb libclamav oav quota quotas smbsharemodes smbtav2 swat winbind
 net-im/bitlbee				 libevent twitter
-net-libs/gnutls				 dane tools  # Requires net-dns/unbound
-#net-libs/ldns				-python dane  # Requires dev-lang/swig, but only as a DEPEND
+net-libs/gnutls				 dane tools  # requires net-dns/unbound
+#net-libs/ldns				-python dane  # requires dev-lang/swig, but only as a DEPEND
 net-libs/libpcap			-netlink libnl
 net-libs/miniupnpc			-python
 net-mail/dovecot			 cydir dbox managesieve imapc lucene mdbox sdbox sieve solr  # suid
@@ -186,7 +187,7 @@ sys-apps/coreutils			-hostname  # conflicts sys-apps/net-tools[hostname]
 sys-apps/debianutils			-installkernel
 sys-apps/file				-python
 sys-apps/hal				 disk-partition
-sys-apps/help2man			-nls  # Requires dev-perl/Locale-gettext, but then can't find it in many cases :(
+sys-apps/help2man			-nls  # requires dev-perl/Locale-gettext, but then can't find it in many cases :(
 sys-apps/hwids				 usb
 sys-apps/hwloc				-svg
 sys-apps/ipmitool			 openipmi
@@ -224,7 +225,7 @@ sys-devel/llvm				 clang llvm-gcc udis86
 sys-firmware/intel-microcode		 hostonly split-ucode
 sys-fs/btrfs-progs			-python
 sys-fs/cryptsetup			-static dynamic
-sys-fs/e2fsprogs			 tools
+sys-fs/e2fsprogs			-udev tools
 sys-fs/lvm2				-lvm1 -static -static-libs -thin
 sys-fs/udev				-extras action_modeswitch edd hwdb keymap
 sys-libs/compiler-rt			 clang
@@ -232,13 +233,14 @@ sys-libs/compiler-rt-sanitizers		 clang
 sys-libs/cracklib			-python
 sys-libs/gdbm				 berkdb
 sys-libs/glibc				-gd clone3 nscd
-#sys-libs/libcap-ng			-python  # Requires dev-lang/swig, but only as a DEPEND
-sys-libs/libseccomp			-python  # Requires static-libs
+#sys-libs/libcap-ng			-python  # requires dev-lang/swig, but only as a DEPEND
+sys-libs/libseccomp			-python  # requires static-libs
+sys-libs/llvm-libunwind			 static-libs  # required by sys-devel/clang-common
 sys-libs/ncurses			 trace unicode
 sys-libs/libomp				 hwloc offload ompt
 sys-libs/timezone-data			 leaps-timezone leaps_timezone right_timezone # zic-slim
 sys-power/powertop			-X
-#sys-process/audit			-python  # Requires dev-lang/swig, but only as a DEPEND
+#sys-process/audit			-python  # requires dev-lang/swig, but only as a DEPEND
 sys-process/cronie			-anacron
 sys-process/glances			-doc
 sys-process/procps			 modern-top
@@ -264,8 +266,8 @@ sys-kernel/linux-firmware		 compress savedconfig
 >=sys-libs/zlib-1.2.11			 minizip
 
 # required by sys-apps/busybox
-virtual/libcrypt			 static-libs
-sys-libs/libxcrypt			 static-libs
+#virtual/libcrypt			 static-libs
+#sys-libs/libxcrypt			 static-libs
 
 # required by sys-libs/libunwind-1.2.1-r3[lzma]
 #>=app-arch/xz-utils-5.2.4-r2		 static-libs

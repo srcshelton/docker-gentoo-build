@@ -17,7 +17,7 @@ app-crypt/p11-kit			 asn1 trust
 
 # required by dev-db/mongodb-4.0.12
 dev-libs/libpcre			 cxx
-#dev-libs/boost				(threads)
+dev-libs/boost				-python  # (threads)
 
 # required by virtual/jre-1.8.0-r3
 # required by virtual/jdk-1.8.0-r5

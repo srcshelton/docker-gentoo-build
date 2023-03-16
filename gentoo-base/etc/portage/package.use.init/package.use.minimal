@@ -20,10 +20,11 @@ app-alternatives/yacc			-reference bison  # byacc
 
 app-arch/libarchive			-lz4 acl bzip2 e2fsprogs expat iconv lzma lzo nettle threads xattr zlib zstd
 app-arch/tar				 xattr
-app-arch/xz-utils			 extra-filters nls static-libs threads
+app-arch/xz-utils			 extra-filters nls threads  # static-libs
 dev-lang/perl				 ithreads
 dev-lang/python-exec			 native-symlinks
 dev-lang/python				 ssl xml
+dev-libs/libgcrypt			 getentropy
 dev-util/pkgconf			 pkg-config
 net-misc/curl				-adns -ares -http2 openssl ssl
 sys-apps/busybox			 mdev static
@@ -31,18 +32,18 @@ sys-apps/grep				 pcre
 sys-apps/help2man			-nls
 sys-apps/kmod				 tools
 sys-apps/portage			-rsync-verify
-#sys-apps/shadow			-pam  cracklib  # Python dependencies are fragile...
+#sys-apps/shadow			-pam cracklib  # Python dependencies are fragile...
 sys-apps/shadow				-cracklib -su -pam  # conflicts sys-apps/util-linux[su]
 sys-apps/texinfo			 standalone
 sys-apps/util-linux			-pam -su  # conflicts sys-apps/shadow[su]
-#sys-auth/pambase			-passwdqc  pwquality  # Has many dependencies, python ones are fragile...
+#sys-auth/pambase			-passwdqc pwquality  # Has many dependencies, python ones are fragile...
 sys-auth/pambase			 passwdqc -pwquality
 sys-libs/glibc				 clone3
 sys-libs/ncurses			 unicode
 
 # required by sys-apps/busybox-1.31.1-r3[static]
 # required by virtual/dev-manager-0-r2
-virtual/libcrypt			 static-libs
-sys-libs/libxcrypt			 static-libs
+#virtual/libcrypt			 static-libs
+#sys-libs/libxcrypt			 static-libs
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
