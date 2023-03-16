@@ -32,6 +32,10 @@ warn() {
 	[ -z "${*:-}" ] && echo || printf >&2 'WARN:  %s\n' "${*}"
 }  # warn
 
+info() {
+	[ -z "${*:-}" ] && echo || printf 'INFO:  %s\n' "${*}"
+}  # info
+
 print() {
 	if [ -n "${DEBUG:-}" ]; then
 		if [ -z "${*:-}" ]; then
@@ -407,7 +411,7 @@ done
 
 if [ -e /etc/portage/repos.conf.host ]; then
 	echo
-	warn "Mirroring host repos.conf to container ..."
+	info "Mirroring host repos.conf to container ..."
 	if [ -e /etc/portage/repos.conf ]; then
 		if [ -d /etc/portage/repos.conf ]; then
 			for f in /etc/portage/repos.conf/*; do
@@ -982,11 +986,11 @@ do
 		USE="-* $( get_stage3 --values-only USE )"
 		# shellcheck disable=SC2154
 		USE="${USE} ${use_essential_gcc} gawk"
-		case "${pkg}" in
-			*libcrypt|*libxcrypt)
-				USE="${USE} static-libs"
-				;;
-		esac
+		#case "${pkg}" in
+		#	*libcrypt|*libxcrypt)
+		#		USE="${USE} static-libs"
+		#		;;
+		#esac
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 		export LC_ALL='C'
@@ -1095,11 +1099,11 @@ if [ -n "${pkg_initial:-}" ]; then
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 
 		export USE="${pkg_initial_use}${use_essential:+ ${use_essential}}"
-		case "${pkg}" in
-			*libcrypt|*libxcrypt)
-				USE="${USE} static-libs"
-				;;
-		esac
+		#case "${pkg}" in
+		#	*libcrypt|*libxcrypt)
+		#		USE="${USE} static-libs"
+		#		;;
+		#esac
 
 		info="$( emerge --info --verbose )"
 		echo

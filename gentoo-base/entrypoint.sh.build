@@ -23,6 +23,10 @@ warn() {
 	[ -z "${*:-}" ] && echo || printf >&2 'WARN:  %s\n' "${*}"
 }  # warn
 
+info() {
+	[ -z "${*:-}" ] && echo || printf 'INFO:  %s\n' "${*}"
+}  # info
+
 print() {
 	if [ -n "${DEBUG:-}" ]; then
 		if [ -z "${*:-}" ]; then
@@ -453,7 +457,7 @@ done
 
 if [ -e /etc/portage/repos.conf.host ]; then
 	echo
-	warn "Mirroring host repos.conf to container ..."
+	info "Mirroring host repos.conf to container ..."
 	if [ -e /etc/portage/repos.conf ]; then
         if [ -d /etc/portage/repos.conf ]; then
             for f in /etc/portage/repos.conf/*; do
