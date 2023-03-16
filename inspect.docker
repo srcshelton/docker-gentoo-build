@@ -300,10 +300,23 @@ docker_run() {
 				next=''
 			fi
 		done | column -t -s $'\t'
+		unset next arg
 		output
 	fi
 
-	print "Starting container with command '$docker container run ${runargs[*]} ${image} ${*}'"
+	if (( debug )); then
+		local arg=''
+		print "Starting container with command '$docker container run \\"
+		for arg in "${runargs[@]}"; do
+			print "        ${arg} \\"
+		done
+		print "    ${image}"
+		for arg in "${@}"; do
+			print "        ${arg} \\"
+		done
+		print "'"
+		unset arg
+	fi
 	# shellcheck disable=SC2086
 	$docker \
 		container run \
