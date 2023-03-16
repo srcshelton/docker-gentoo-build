@@ -8,6 +8,7 @@ if set -o | grep -q -- 'pipefail'; then
 	set -o pipefail
 fi
 
+debug=${DEBUG:-}
 trace=${TRACE:-}
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
@@ -50,7 +51,7 @@ pkgcache=0
 pretend=0
 err=0
 rc=0
-rebuild=0
+rebuildimgs=0
 rebuildutils=0
 skip=0
 system=0
@@ -81,7 +82,7 @@ for arg in ${@+"${@}"}; do
 			haveargs=1
 			;;
 		--rebuild-images)
-			rebuild=1
+			rebuildimgs=1
 			haveargs=1
 			;;
 		--skip-build)
@@ -119,13 +120,13 @@ for arg in ${@+"${@}"}; do
 done
 if [ $(( haveargs )) -eq 0 ]; then
 	rebuildutils=1
-	rebuild=1
+	rebuildimgs=1
 	update=1
 	system=1
 	# For safety
 	pretend=1
 fi
-if [ $(( rebuild )) -ne 1 ]; then
+if [ $(( rebuildimgs )) -ne 1 ]; then
 	if [ $(( skip )) -eq 1 ]; then
 		echo >&2 "WARN:  Option '--skip-build' is only valid with '--rebuild-images'"
 		skip=0
@@ -138,7 +139,7 @@ if [ $(( rebuild )) -ne 1 ]; then
 		echo >&2 "WARN:  Option '--all' is only valid with '--rebuild-images'"
 		all=0
 	fi
-else  # if [ $(( rebuild )) -eq 1 ]; then
+else  # if [ $(( rebuildimgs )) -eq 1 ]; then
 	if [ $(( skip )) -eq 1 ]; then
 		if [ "$( $docker image ls -n 'localhost/gentoo-build' | wc -l )" = '0' ]; then
 			echo >&2 "WARN:  Option '--skip-build' is only valid with a pre-existing 'build' image"
@@ -180,7 +181,7 @@ if [ "${rebuildutils:-0}" = '1' ]; then
 	fi
 fi
 
-if [ "${rebuild:-0}" = '1' ]; then
+if [ "${rebuildimgs:-0}" = '1' ]; then
 	failures=''
 
 	if ! mkdir -p log; then
@@ -200,9 +201,11 @@ if [ "${rebuild:-0}" = '1' ]; then
 		if ! [ $(( all )) -eq 0 ]; then
 			selection='--services all'
 		fi
+		[ $(( debug )) -ne 0 ] && echo >&2 "DEBUG: $( basename "${0}" ): Calling service script './gentoo-build-svc.docker${forceflag:+" ${forceflag}"}${forceflag:+" --rebuild"} ${selection}'"
 		# shellcheck disable=SC2086
 		if ! ./gentoo-build-svc.docker \
-				${forceflag:+${forceflag} --rebuild} \
+				${forceflag:+"${forceflag}"} \
+				${forceflag:+"--rebuild"} \
 				${selection}
 		then
 			: $(( err = ${?} ))
@@ -266,6 +269,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 		rc=0
 		use=''
 		image=''
+		# shellcheck disable=SC2030
 		ARCH="${ARCH:-$( portageq envvar ARCH )}"
 
 		for image in 'localhost/gentoo-stage3' 'localhost/gentoo-init'; do
@@ -338,7 +342,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 
 		{
 			# shellcheck disable=SC2030
-			if ! USE="-* ${use} nls readline static-libs zstd" \
+			if ! USE="-* ${use} bison nls readline static-libs zstd" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -356,7 +360,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 				failures="${failures:+"${failures} "}gentoo-build-pkg;1:${err}"
 			fi
 
-			if ! USE="-* ${use} static-libs" \
+			if ! USE="-* ${use} python_targets_${python_default_target:-python3_10} static-libs" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -408,7 +412,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 				: $(( rc = rc + err ))
 				failures="${failures:+"${failures} "}gentoo-build-pkg;4:${err}"
 			fi
-			if ! USE="-* ${use} nls" \
+			if ! USE="-* ${use} hostname nls" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -425,7 +429,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 				failures="${failures:+"${failures} "}gentoo-build-pkg;5:${err}"
 			fi
 
-			if ! USE="-* ${use} nls" \
+			if ! USE="-* ${use} flex nls" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -525,6 +529,7 @@ if [ "${update:-0}" = '1' ]; then
 		)"
 	fi
 	# FIXME: Remove once golang on ARM no longer requires gold linker...
+	# shellcheck disable=SC2031
 	ARCH="${ARCH:-$( portageq envvar ARCH )}"
 	if echo "${ARCH}" | grep -q 'arm'; then
 		alt_use="${alt_use:+"${alt_use} "}gold"
