@@ -1,6 +1,6 @@
 
 # General USE flags:
-#*/*					-* asm ipv6 ithreads mdev nptl threads tls-heartbeat zlib ${use_cpu_flags}  # from 'use_essential'
+#*/*					-* asm ipv6 ithreads mdev nptl split-usr ssp threads tls-heartbeat zlib ${use_cpu_flags}  # from 'use_essential'
 */*					-* split-usr
 
 */*					 PYTHON_TARGETS: -* python3_10

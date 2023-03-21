@@ -1,6 +1,6 @@
 
 # General USE flags:
-#*/*					 asm ipv6 ithreads mdev nptl threads tls-heartbeat zlib ${use_cpu_flags}  # from 'use_essential'
+#*/*					-* asm ipv6 ithreads mdev nptl split-usr ssp threads tls-heartbeat zlib ${use_cpu_flags}  # from 'use_essential'
 */*					-apache2 -awt acpi adns aio ao asm audit
 */*					-berkdb bash-completion bzip2
 */*					-cairo -cdb -common-lisp -cups caps chroot curl cxx

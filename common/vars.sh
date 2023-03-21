@@ -197,7 +197,7 @@ fi
 #  sys-devel/gcc:		nptl
 # (General:				ipv6 ~openssl~ ~ssl~ threads)
 #
-use_essential="asm ipv6 ithreads mdev nptl split-usr ssp threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
+use_essential="asm ipv6 ithreads native-extensions mdev nptl split-usr ssp threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
 
 # Even though we often want a minimal set of flags, gcc's flags are significant
 # since they may affect the compiler facilities available to all packages built

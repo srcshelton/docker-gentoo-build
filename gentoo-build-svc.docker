@@ -536,7 +536,7 @@ else
 fi
 
 # from common/vars.sh:
-#use_essential="asm ipv6 ithreads mdev nptl split-usr ssp threads tls-heartbeat zlib${use_cpu_flags:+" ${use_cpu_flags}"}"
+#use_essential="asm ipv6 ithreads native-extensions mdev nptl split-usr ssp threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
 #use_essential_gcc="default-stack-clash-protection default-znow -fortran graphite nptl openmp pch sanitize ssp vtv zstd"
 
 force_python=''
