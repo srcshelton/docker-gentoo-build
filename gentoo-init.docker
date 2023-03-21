@@ -10,9 +10,9 @@ debug="${DEBUG:-}"
 #DEBUG_EXTRA_ARGS=''
 
 # If the python release(s) used in the upstream stage3 image differ from those
-# we wish to build against, then 'python_target_override' must be set to the
+# we wish to build against, then 'python_targets_override' must be set to the
 # desired release below:
-#declare -x python_target_override='python3_10'
+#declare -x python_targets_override='python3_10'
 
 if [[ -n "${BASH_VERSINFO[0]:-}" ]] && (( BASH_VERSINFO[0] < 4 )); then
 	echo >&2 "FATAL: bash-4.0.0 or later is required to run this script - on" \
@@ -51,8 +51,8 @@ declare environment_file=''
 declare environment_filter=''
 declare base_dir=''
 declare use_cpu_arch=''
-declare use_cpu_flags=''
 declare gcc_target_opts=''
+#declare use_cpu_flags=''
 declare use_cpu_flags_raw=''
 declare use_essential=''
 declare use_essential_gcc=''
@@ -129,36 +129,47 @@ if [[ -n "${*:-}" ]]; then
 	fi
 fi
 
-if type -pf portageq >/dev/null 2>&1; then
-	python_target="${python_target_override:-"$(
-		portageq envvar 'PYTHON_SINGLE_TARGET'
-	)"}"
+declare python_single_target="${python_targets_override:+"${python_targets_override%% *}"}"
+declare python_targets="${python_targets_override:-}"
+if [[ -z "${python_targets:-}" ]] && type -pf portageq >/dev/null 2>&1; then
+	python_targets="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
 fi
-if [[ -z "${python_target:-}" ]]; then
-	python_target="${python_default_target:-}"
+if [[ -z "${python_targets:-}" ]]; then
+	python_targets="${python_default_target:-}"
 fi
 
-if [[ -n "${python_target:-}" ]]; then
-	[[ "${python_target}" =~ ^python[[:digit:]]_[[:digit:]]+$ ]] ||
-		die "python_target value '${python_target}'" \
+if [[ -n "${python_single_target:-}" ]]; then
+	[[ "${python_single_target}" =~ ^python[[:digit:]]_[[:digit:]]+$ ]] ||
+		die "python_single_target value '${python_single_target}'" \
 			"doesn't appear to be a valid python version" \
 			"(matching 'pythonX_Y', e.g. 'python3_10')"
 	if [[ -f "${base_dir}"/etc/portage/profile/use.mask ]]; then
 		if
 			sed 's/#.*$//' "${base_dir}"/etc/portage/profile/use.mask |
-				grep -Fw -- "^python_single_target_${python_target}"
+				grep -Fw -- "^python_single_target_${python_single_target}"
 		then
-			die "python_target value 'python_single_target_${python_target}'" \
+			die "python_single_target value" \
+				"'python_single_target_${python_single_target}'" \
 				"is masked by '${base_dir}/etc/portage/profile/use.mask'"
 		fi
-		if
-			sed 's/#.*$//' "${base_dir}"/etc/portage/profile/use.mask |
-				grep -Fw -- "^python_targets_${python_target}"
-		then
-			die "python_target value 'python_targets_${python_target}' is" \
-				"masked by '${base_dir}/etc/portage/profile/use.mask'"
-		fi
 	fi
+fi
+if [[ -n "${python_targets:-}" ]]; then
+	for python_target in ${python_targets}; do
+		[[ "${python_target}" =~ ^python[[:digit:]]_[[:digit:]]+$ ]] ||
+			die "python_targets value '${python_target}'" \
+				"doesn't appear to be a valid python version" \
+				"(matching 'pythonX_Y', e.g. 'python3_10')"
+		if [[ -f "${base_dir}"/etc/portage/profile/use.mask ]]; then
+			if
+				sed 's/#.*$//' "${base_dir}"/etc/portage/profile/use.mask |
+					grep -Fw -- "^python_targets_${python_target}"
+			then
+				die "python_targets value 'python_targets_${python_target}' is" \
+					"masked by '${base_dir}/etc/portage/profile/use.mask'"
+			fi
+		fi
+	done
 fi
 
 declare -a args=()
@@ -963,11 +974,16 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 	(
 		declare python_use='' python_pkgs=''
 
-		if [[ -n "${python_target:-}" ]]; then
-			python_use="python_single_target_${python_target}"
+		if [[ -n "${python_single_target:-}" ]]; then
+			python_use="python_single_target_${python_single_target}"
 			# shellcheck disable=SC2001
 			python_pkgs="=python-$( sed 's/^python//' \
-				<<<"${python_target//_/.}" )*"
+				<<<"${python_single_target//_/.}" )*"
+			for python_target in ${python_targets}; do
+				# shellcheck disable=SC2001
+				python_pkgs+=" =python-$( sed 's/^python//' \
+					<<<"${python_target//_/.}" )*"
+			done
 
 			eval "$(
 				$docker container run \
@@ -981,7 +997,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 				declare target=''
 				if [[ -n "${STAGE3_PYTHON_SINGLE_TARGET:-}" ]]; then
 					target="${STAGE3_PYTHON_SINGLE_TARGET}"
-					if [[ "${target}" != "${python_target}" ]]; then
+					if [[ "${target}" != "${python_single_target}" ]]; then
 						if sed 's/#.*$//' \
 								"${base_dir}"/etc/portage/profile/use.mask |
 							grep -Fw -- "^python_targets_${target}"
@@ -997,21 +1013,23 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 
 				if [[ -n "${STAGE3_PYTHON_TARGETS:-}" ]]; then
 					for target in ${STAGE3_PYTHON_TARGETS}; do
-						if [[ "${target}" != "${python_target}" ]]; then
-							if sed 's/#.*$//' \
-									"${base_dir}"/etc/portage/profile/use.mask |
-								grep -Fw -- "^python_targets_${target}"
-							then
-								die "Upstream stage python target" \
-									"'python_targets_${target}'" \
-									"is masked by" \
-									"'${base_dir}/etc/portage/profile/use.mask'"
+						for python_target in ${python_targets}; do
+							if [[ "${target}" != "${python_target}" ]]; then
+								if sed 's/#.*$//' \
+										"${base_dir}"/etc/portage/profile/use.mask |
+									grep -Fw -- "^python_targets_${target}"
+								then
+									die "Upstream stage python target" \
+										"'python_targets_${target}'" \
+										"is masked by" \
+										"'${base_dir}/etc/portage/profile/use.mask'"
+								fi
+								python_use+=" python_targets_${target}"
+								# shellcheck disable=SC2001
+								python_pkgs+=" =python-$( sed 's/^python//' \
+									<<<"${python_target//_/.}" )*"
 							fi
-							python_use+=" python_targets_${target}"
-							# shellcheck disable=SC2001
-							python_pkgs+=" =python-$( sed 's/^python//' \
-								<<<"${python_target//_/.}" )*"
-						fi
+						done
 					done
 				fi
 				unset target
@@ -1040,7 +1058,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		docker_run \
 				--post-pkgs="${post_pkgs}" \
 				--post-use="${post_use}" \
-				--python-target="${python_target}" \
+				--python-targets="${python_targets}" \
 				--usepkg=y \
 				--with-bdeps-auto=n \
 				--with-bdeps=n \
@@ -1172,6 +1190,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 			eval $docker ${DOCKER_VARS:-} container stop "${name}" || :
 			eval $docker ${DOCKER_VARS:-} container rm -v "${name}"
 		fi
+		# shellcheck disable=SC2046
 		docker_run \
 				  ${use_pypy_pre:+--pre-pkgs="${use_pypy_pre}"} \
 				  ${use_pypy_pre_use:+--pre-use="${use_pypy_pre_use}"} \
@@ -1185,8 +1204,12 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 				--with-use="$( echo \
 					"-* -lib-only" \
 					"pkg-config ${use_essential:-} curl_ssl_openssl openssl ssl " \
-					"python_single_target_${python_target}" \
-					"python_targets_${python_target}" \
+					"python_single_target_${python_single_target}" \
+					$(
+						for python_target in ${python_targets}; do
+							echo "python_targets_${python_target}"
+						done
+					) \
 					"${use_pypy_use:+python_targets_pypy3 ${use_pypy_use:-}}" \
 					"${use_essential_gcc:-}"
 				  )" \
