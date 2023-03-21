@@ -16,6 +16,7 @@
 # Keyword remaining unstable packages supporting python3_11...
 =net-misc/rsync-3.2.7-r2				~amd64 ~arm ~arm64 ~x86
 =net-libs/ldns-1.8.3-r1					~amd64 ~arm ~arm64 ~x86
+=sys-libs/cracklib-2.9.10-r1				~amd64 ~arm ~arm64 ~x86
 =sys-process/iotop-0.6_p20230124			~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:
