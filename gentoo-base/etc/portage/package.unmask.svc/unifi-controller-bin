@@ -8,8 +8,10 @@ dev-db/mongodb::unifi
 
 dev-java/java-config::unifi
 dev-libs/boost::unifi
+dev-python/certifi::unifi
 dev-python/cheetah::unifi
 dev-python/pyblake2::unifi
+dev-python/setuptools::unifi
 dev-python/snowball-stemmer::unifi
 dev-python/typing::unifi
 dev-util/meson-format-array::unifi
