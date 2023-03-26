@@ -7,6 +7,10 @@ set -o pipefail
 declare debug="${DEBUG:-}"
 declare trace="${TRACE:-}"
 
+# If NO_REPO_MASKS is set in the environment then propagate it here so that we
+# are able to inspect a container with no masked repos without further hacking!
+export NO_REPO_MASKS
+
 [ -n "${trace:-}" ] && set -o xtrace
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
