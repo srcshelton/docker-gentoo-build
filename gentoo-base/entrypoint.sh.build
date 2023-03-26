@@ -1453,17 +1453,34 @@ if [ $(( depclean )) -ne 0 ]; then
 		dev-libs/mpfr-2.4.2
 		sys-devel/gcc-config-2.3
 	EOF
+
+	# 'emerge --exclude' has unhelpful syntax requirements in that it won't
+	# accept initial comparators or versions, so we need to strip these in a
+	# sensible way <sigh>.
 	#
+	# We're also unable to use the (bash) functions from eapi7-ver.eclass in
+	# this (POSIX sh) script.
+	#
+	# ... so let's just do the best we can.
+	filtered_depclean_exclude=''
+	for arg in ${depclean_exclude}; do
+		filtered_depclean_exclude="${filtered_depclean_exclude:+"${filtered_depclean_exclude} "}$(
+			echo "${arg}" | sed 's/^[<>]\?=\?// ; s/-[0-9].*$//'
+		)"
+	done
+	depclean_exclude="${filtered_depclean_exclude:-}"
+	unset filtered_depclean_exclude
+
 	# FIXME: This may be overkill, but some containers which don't use perl
 	# seem to have it pulled-in regardless...
 	# ...and we're still getting some build-time dependencies retained...
 	LC_ALL='C' emerge \
 			--depclean \
-			  ${depclean_exclude:+"--exclude='${depclean_exclude}'"} \
+			  ${depclean_exclude:+"--exclude=${depclean_exclude}"} \
 			--verbose=y \
 			--with-bdeps=n \
 		'perl-core/*' 'virtual/perl-*' \
-		dev-lang/perl \
+		$( echo "${package} ${post_pkgs}" | grep -Fq -- 'dev-lang/perl' || echo "dev-lang/perl" ) \
 		app-alternatives/yacc sys-devel/bison \
 		app-alternatives/awk sys-apps/gawk \
 		app-alternatives/gzip app-arch/gzip \
