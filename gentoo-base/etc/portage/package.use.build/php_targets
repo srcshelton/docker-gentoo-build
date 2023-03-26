@@ -1,5 +1,5 @@
-#*/*					 PHP_TARGETS: php7-2 php7-3 php7-4
-*/*					 PHP_TARGETS: php7-4
-#*/*					 PHP_TARGETS: php8-0
+#*/*					 PHP_TARGETS: -* php7-2 php7-3 php7-4
+*/*					 PHP_TARGETS: -* php7-4
+#*/*					 PHP_TARGETS: -* php8-0
 
 # vi: set nowrap syntax=gentoo-package-use:
