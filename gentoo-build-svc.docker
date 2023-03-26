@@ -794,6 +794,7 @@ case "${package_name}" in
 		case "${package_version}" in
 			6.[02]_p)
 				#pre_remove='app-arch/libarchive dev-libs/openssl dev-python/pypy dev-python/pypy3 dev-python/pypy3-exe net-misc/wget'
+				# shellcheck disable=SC2034
 				pre_remove='app-arch/libarchive dev-libs/openssl' # net-misc/wget'
 				pre_use='-openssl libressl'
 				force_python="${python_target}"
@@ -1123,7 +1124,7 @@ case "${package_name}" in
 			)"
 		fi
 
-		masked_packages='sys-apps/util-linux' # sys-apps/file sys-apps/portage
+		masked_packages='=dev-python/setuptools-46.4.0-r3 sys-apps/util-linux' # sys-apps/file sys-apps/portage
 		export L10N='en'
 		export CFLAGS="${CFLAGS:+"${CFLAGS} "}-w"  # mongodb is *really* noisy...
 		pre_use="headless-awt ${gcc_use}"
@@ -1260,11 +1261,11 @@ case " ${pre_pkgs} " in
 esac
 case " ${pre_pkgs} " in
 	*' sys-devel/gcc '*)
-		pre_use="-lib-only${pre_use:+" ${pre_use}"}${use_essential_gcc:+" ${use_essential_gcc}"} ${gcc_extra_flags}"
+		pre_use="-lib-only openmp${pre_use:+" ${pre_use}"}${use_essential_gcc:+" ${use_essential_gcc}"} ${gcc_extra_flags}"
 		# spamassassin updates require perl and a functioning compiler
 		# in the container...
 		if [ "${original_service}" != 'spamassassin-update' ] && [ "${original_service}" != 'sa-update' ]; then
-			post_use="lib-only${post_use:+" ${post_use}"} ${gcc_extra_flags}"
+			post_use="lib-only openmp${post_use:+" ${post_use}"} ${gcc_extra_flags}"
 			if [ -n "${post_pkgs:-}" ]; then
 				warn "sys-devel/gcc needs to be rebuilt (without dependencies) but 'post_pkgs' is non-empty... suggest moving 'post_pkgs' to 'extra_pkgs'"
 				warn "post_pkgs contains '${post_pkgs}'"
@@ -1328,7 +1329,7 @@ case " ${gcc_extra_flags:-} " in
 		;;
 esac
 
-[ -z "${post_use:-}" ] && [ -n "${with_use:-}" ] && post_use="${with_use} lib-only"
+[ -z "${post_use:-}" ] && [ -n "${with_use:-}" ] && post_use="${with_use} lib-only openmp"
 
 if [ -z "${container_cmd:-}" ]; then
 	die "No container command provided"
@@ -1496,9 +1497,10 @@ else
 	for arg in pre_remove force_python pre_pkgs pre_use with_use post_pkgs \
 			post_use rebuild post_remove
 	do
+		# shellcheck disable=2206,SC2191
 		[[ -n "${!arg:-}" ]] && args+=( --${arg//_/-}="${!arg}" )
 	done
-	args+=( --depclean )
+	args+=( --depclean --depclean-exclude="${pre_pkgs} ${extra_pkgs}" )
 	[[ -n "${post_remove:-}" ]] && args+=( --post-remove="${post_remove}" )
 	args+=(  # <- Syntax
 			--no-package-use
@@ -1508,8 +1510,12 @@ else
 		"=${package}${repo:+"::${repo}"}"
 		sys-libs/glibc
 	)
-	# shellcheck disable=SC2086
-	[[ -n "${extra_pkgs:-}" ]] && args+=( ${extra_pkgs} )
+	if [[ -n "${extra_pkgs:-}" ]]; then
+		declare -a additional_args=()
+		read -r -a additional_args <<<"${extra_pkgs}"
+		args+=( "${additional_args[@]}" )
+		unset additional_args
+	fi
 
 			ROOT="/service" \
 			name="${container_prefix}-${container_name}" \
@@ -1554,6 +1560,14 @@ case "${package_name}" in
 		file='Dockerfile.service'
 		;;
 esac
+dockerfile_tmp="$( mktemp --tmpdir 'Dockerfile.service.XXXXXXXX' )" ||
+	die "mktemp() failed: ${?}"
+exposedports=''
+for port in ${ports:-}; do
+	exposedports+="${exposedports:+"\\n"}EXPOSE ${port}"
+done
+awk -v p="${exposedports}" '{ gsub( "^EXPOSE .*$", p ) ; print ; }' <"${file}" >"${dockerfile_tmp}"
+unset exposedports
 
 output >&2
 output >&2 " ${blue}*${reset} Building ${package_name}:${package_version} (${container_cmd}) service image ..."
@@ -1574,8 +1588,8 @@ args+=(
 [[ -n "${fs_name:-}" ]] && args+=( --build-arg service_fs_name="${fs_name}" )
 args+=(
 	--build-arg service_group="${group}"
-	--build-arg service_name="$( echo "${package_name}" | sed 's|\.|/|' )"
-	--build-arg service_name_short="$( echo "${package_name}" | sed 's|\.|/|' | cut -d'/' -f 2- )"
+	--build-arg service_name="${package_name/.//}"
+	--build-arg service_name_short="${package_name#*.}"
 	--build-arg service_ports="${ports}"
 	--build-arg service_user="${user}"
 	--build-arg service_version="${package_version}"
@@ -1586,7 +1600,7 @@ args+=(
 [[ -n "${zxtm_service_version:-}" ]] && args+=( --build-arg zxtm_service_version="${zxtm_service_version}" )
 args+=(
 	--compress
-	--file "${file}"
+	--file "${dockerfile_tmp}"
 	--squash-all
 	--tag "service.${package_name}:${package_version}"
 	#--network slirp4netns
@@ -1601,6 +1615,8 @@ $docker ${IMAGE_ROOT:+"--storage-opt='' --root '${IMAGE_ROOT}'"} \
 		image build "${args[@]}" . 2>&1 |
 	tee "../log/docker.service.${alt_log:-"${container_name}"}.log"
 rc=${?}
+rm "${dockerfile_tmp}"
+unset dockerfile_tmp
 output " -> ${rc}"
 
 if [ $(( ${rc:-1} )) -eq 0 ]; then
