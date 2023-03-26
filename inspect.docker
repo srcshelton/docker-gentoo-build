@@ -379,13 +379,16 @@ main() {
 		#: "${PODMAN_MEMORY_LIMIT:=2g}"
 		#: "${PODMAN_SWAP_LIMIT:=4g}"
 		# Large
-		: "${PODMAN_MEMORY_RESERVATION:=2g}"
-		: "${PODMAN_MEMORY_LIMIT:=4g}"
-		: "${PODMAN_SWAP_LIMIT:=8g}"
+		#: "${PODMAN_MEMORY_RESERVATION:=2g}"
+		#: "${PODMAN_MEMORY_LIMIT:=4g}"
+		#: "${PODMAN_SWAP_LIMIT:=8g}"
 		# Extra-Large
 		#: "${PODMAN_MEMORY_RESERVATION:=4g}"
 		#: "${PODMAN_MEMORY_LIMIT:=8g}"
 		#: "${PODMAN_SWAP_LIMIT:=16g}"
+		: "${PODMAN_MEMORY_RESERVATION:="4g"}"
+		: "${PODMAN_MEMORY_LIMIT:="6g"}"
+		: "${PODMAN_SWAP_LIMIT:="${PODMAN_MEMORY_LIMIT}"}"
 
 		local -i swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) + 16 ) / 1024 / 1024 ))
 		local -i ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))

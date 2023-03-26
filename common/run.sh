@@ -13,29 +13,30 @@
 # array-handling capability...
 
 # Tiny
-#: "${PODMAN_MEMORY_RESERVATION:=256m}"
-#: "${PODMAN_MEMORY_LIMIT:=512m}"
-#: "${PODMAN_SWAP_LIMIT:=1g}"
+#: "${PODMAN_MEMORY_RESERVATION:="256m"}"
+#: "${PODMAN_MEMORY_LIMIT:="512m"}"
+#: "${PODMAN_SWAP_LIMIT:="1g"}"
 # Small
-#: "${PODMAN_MEMORY_RESERVATION:=512m}"
-#: "${PODMAN_MEMORY_LIMIT:=1g}"
-#: "${PODMAN_SWAP_LIMIT:=2g}"
+#: "${PODMAN_MEMORY_RESERVATION:="512m"}"
+#: "${PODMAN_MEMORY_LIMIT:="1g"}"
+#: "${PODMAN_SWAP_LIMIT:="2g"}"
 # Medium
-#: "${PODMAN_MEMORY_RESERVATION:=1g}"
-#: "${PODMAN_MEMORY_LIMIT:=2g}"
-#: "${PODMAN_SWAP_LIMIT:=3g}"
+#: "${PODMAN_MEMORY_RESERVATION:="1g"}"
+#: "${PODMAN_MEMORY_LIMIT:="2g"}"
+#: "${PODMAN_SWAP_LIMIT:="3g"}"
 # Large
-#: "${PODMAN_MEMORY_RESERVATION:=2g}"
-#: "${PODMAN_MEMORY_LIMIT:=4g}"
-#: "${PODMAN_SWAP_LIMIT:=6g}"
+#: "${PODMAN_MEMORY_RESERVATION:="2g"}"
+#: "${PODMAN_MEMORY_LIMIT:="4g"}"
+#: "${PODMAN_SWAP_LIMIT:="6g"}"
 # Extra-Large
-#: "${PODMAN_MEMORY_RESERVATION:=4g}"
-#: "${PODMAN_MEMORY_LIMIT:=8g}"
-#: "${PODMAN_SWAP_LIMIT:=11g}"
+: "${PODMAN_MEMORY_RESERVATION:="4g"}"
+: "${PODMAN_MEMORY_LIMIT:="8g"}"
+#: "${PODMAN_SWAP_LIMIT:="11g"}"
 # XXL
-: "${PODMAN_MEMORY_RESERVATION:=8g}"
-: "${PODMAN_MEMORY_LIMIT:=16g}"
-: "${PODMAN_SWAP_LIMIT:=20g}"
+#: "${PODMAN_MEMORY_RESERVATION:="8g"}"
+#: "${PODMAN_MEMORY_LIMIT:="16g"}"
+#: "${PODMAN_SWAP_LIMIT:="20g"}"
+: "${PODMAN_SWAP_LIMIT:="${PODMAN_MEMORY_LIMIT}"}"
 
 # shellcheck disable=SC2034
 debug=${DEBUG:-}
@@ -961,6 +962,27 @@ docker_run() {
 			done
 			print "'"
 			unset arg
+			if touch common.run.sh.debug.log; then
+				echo >common.run.sh.debug.log <<-EOF
+					#! /bin/sh
+
+					set -eux
+
+				EOF
+				echo >>common.run.sh.debug.log "$docker container run \\"
+				for arg in "${runargs[@]}"; do
+					echo >>common.run.sh.debug.log "        ${arg} \\"
+				done
+				echo >>common.run.sh.debug.log "    ${image} \\"
+				# Start at $1 as $0 is the command itself...
+				local -i i=1
+				for (( ; i < ${#} ; i++ )); do
+					echo >>common.run.sh.debug.log "        ${!i} \\"
+				done
+				# At this point i == ${#}...
+				echo >>common.run.sh.debug.log "        ${!i}"
+				unset i
+			fi
 		fi
 		# shellcheck disable=SC2086
 		$docker \

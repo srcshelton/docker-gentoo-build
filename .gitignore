@@ -3,6 +3,7 @@
 
 # Don't archive logs
 /log/*
+/common.run.sh.debug.log
 
 # Exclude vim swapfiles
 **/.*.sw[a-p]
