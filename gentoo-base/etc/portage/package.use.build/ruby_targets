@@ -1,4 +1,4 @@
-#*/*					 RUBY_TARGETS: ruby26 ruby27
-*/*					 RUBY_TARGETS: ruby27
+#*/*					 RUBY_TARGETS: ruby27 ruby30
+*/*					 RUBY_TARGETS: ruby30
 
 # vi: set nowrap syntax=gentoo-package-use:
