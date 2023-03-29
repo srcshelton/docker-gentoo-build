@@ -310,7 +310,7 @@ if [ -n "${all:-}" ] && [ $(( all )) -eq 1 ]; then
 		c=0 s='' f=''
 		for s in "${services[@]}"; do
 			output >&2
-			output >&2 " ${red}*${reset} Examining service '${s}' [${rc}/${c}] ..."
+			output >&2 " ${red}*${reset} Examining service '${s}' [${c}/${#services[@]}:${rc}] ..."
 			output >&2
 
 			: $(( c = c + 1 ))
