@@ -1,5 +1,5 @@
 #! /bin/sh
-#shellcheck disable=SC2034
+# shellcheck disable=SC2034
 
 # Since we're now using 'podman system info' to determine the graphRoot
 # directory, we need to be root simply to setup the environment
@@ -211,16 +211,25 @@ use_essential_gcc="default-stack-clash-protection default-znow -fortran graphite
 
 case "$( uname -m )" in
 	x86_64|i686)
-		# Enable pypy support for Portage accleration of ~35%!
-		use_pypy="dev-python/pypy3"
-		use_pypy_use="bzip2 jit"
-		if [ $(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 )) -gt 6 ]; then
-			use_pypy="${use_pypy} dev-python/pypy3-exe"
-		else
-			use_pypy="${use_pypy} dev-python/pypy3-exe-bin"
-			use_pypy_use="${use_pypy_use} low-memory"
+		: $(( memtotal = $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
+		# memtotal is rounded-down, so 4GB systems have a memtotal of 3...
+		if [ $(( memtotal )) -ge 4 ]; then
+			# Enable pypy support for Portage accleration of ~35%!
+			use_pypy="dev-python/pypy3"
+			use_pypy_use="bzip2 jit"
+			use_pypy_post_remove="dev-lang/python:2.7"
+			if [ $(( memtotal )) -gt 6 ]; then
+				use_pypy="${use_pypy} dev-python/pypy3-exe"
+			else
+				# On a system with 4GB of memory and python3.11, the install
+				# process for dev-python/pypy3-7.3.11_p1 now hangs indefinitely
+				# after issuing a message reading:
+				#concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+				use_pypy="${use_pypy} dev-python/pypy3-exe-bin"
+				use_pypy_use="${use_pypy_use} low-memory"
+			fi
 		fi
-		use_pypy_post_remove="dev-lang/python:2.7"
+		unset memtotal
 		;;
 esac
 
