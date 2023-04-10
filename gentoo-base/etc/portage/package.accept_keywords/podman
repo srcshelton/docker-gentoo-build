@@ -75,6 +75,7 @@
 #~app-containers/podman-4.4.2				 **
 ~app-containers/podman-4.4.3				 **
 ~app-containers/podman-4.4.4				 **
+#~app-containers/podman-4.5.0_rc1			 **
 
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				 **
@@ -141,8 +142,9 @@
 #~app-containers/buildah-1.28.0				 **
 #~app-containers/buildah-1.28.1				 **
 #~app-containers/buildah-1.28.2				 **
-~app-containers/buildah-1.29.0				 **
+#~app-containers/buildah-1.29.0				 **
 ~app-containers/buildah-1.29.1				 **
+~app-containers/buildah-1.30.0				 **
 
 #~net-misc/cni-plugins-0.8.7				 **
 #~net-misc/cni-plugins-0.9.0				 **
@@ -279,8 +281,10 @@
 #~app-containers/containers-storage-1.45.0		 **
 #~app-containers/containers-storage-1.45.1		 **
 #~app-containers/containers-storage-1.45.2		 **
-~app-containers/containers-storage-1.45.3		 **
-~app-containers/containers-storage-1.45.4		 **
+#~app-containers/containers-storage-1.45.3		 **
+#~app-containers/containers-storage-1.45.4		 **
+~app-containers/containers-storage-1.46.0		 **
+~app-containers/containers-storage-1.46.1		 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
@@ -361,7 +365,8 @@
 #~app-containers/skopeo-1.9.1				 **
 #~app-containers/skopeo-1.9.2				 **
 #~app-containers/skopeo-1.10.0				 **
-~app-containers/skopeo-1.11.0				 **
+#~app-containers/skopeo-1.11.0				 **
 ~app-containers/skopeo-1.11.1				 **
+~app-containers/skopeo-1.11.2				 **
 
 # vi: set syntax=gentoo-package-keywords:
