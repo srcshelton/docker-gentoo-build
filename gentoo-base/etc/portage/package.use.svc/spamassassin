@@ -1,13 +1,17 @@
 
 */*					 berkdb gmp native-symlinks nls
 
+#app-text/poppler			 boost -cairo -cjk curl cxx -debug -doc -introspection jpeg jpeg2k lcms -nss png -qt5 tiff utils -verify-sig
+app-text/poppler			 boost
+#app-text/tesseract			-doc float32 jpeg -opencl openmp png -static-libs tiff -training -webp
+app-text/tesseract			 float32
+
 #dev-perl/DBD-mysql			-mariadb +mysql test +(ssl)
 dev-perl/DBD-mysql			 mariadb mysql
 #dev-perl/Net-DNS-SEC			+dsa +ecdsa gost +private-key test
 dev-perl/Net-DNS-SEC			 dsa ecdsa private-key
-#mail-filter/spamassassin		+berkdb cron dkim geoip (ipv6) largenet ldap mysql office pacct postgres qmail razor +sa-update spf sqlite (ssl) systemd test unicode
-#mail-filter/spamassassin		 berkdb cron (ipv6) ldap mysql postgres qmail sqlite (ssl) test
-mail-filter/spamassassin		 cron dkim geoip largenet mysql pacct razor spd sqlite unicode
+#mail-filter/spamassassin		+berkdb cron dkim dmarc geoip idn (ipv6) largenet ldap mysql office pacct postgres qmail razor +sa-update spf sqlite (ssl) systemd test unicode
+mail-filter/spamassassin		 cron dkim dmarc extracttext geoip idn largenet mysql pacct razor spf sqlite unicode
 sys-apps/busybox			-make-symlinks
 sys-devel/gcc				-nls
 
