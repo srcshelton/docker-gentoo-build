@@ -83,7 +83,7 @@ dev-lang/ruby				-jemalloc jit  # Fails to compile with jemalloc support
 dev-lang/rust				 llvm-libunwind rustfmt system-llvm  # 'rustfmt' required by dev-util/bindgen
 dev-libs/cyrus-sasl			 srp
 dev-libs/geoip				 city perl-geoipupdate
-dev-libs/glib				-mime
+dev-libs/glib				-elf -mime
 dev-libs/gmp				 pgo
 dev-libs/jemalloc			 lazy-lock xmalloc
 dev-libs/leveldb			-snappy
