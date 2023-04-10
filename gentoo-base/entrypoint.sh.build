@@ -1465,7 +1465,7 @@ if [ $(( depclean )) -ne 0 ]; then
 	filtered_depclean_exclude=''
 	for arg in ${depclean_exclude}; do
 		filtered_depclean_exclude="${filtered_depclean_exclude:+"${filtered_depclean_exclude} "}$(
-			echo "${arg}" | sed 's/^[<>]\?=\?// ; s/-[0-9].*$//'
+			echo "${arg}" | sed 's/^[<>]\?=\?// ; s/-[0-9].*$// ; s/::.*$//'
 		)"
 	done
 	depclean_exclude="${filtered_depclean_exclude:-}"
