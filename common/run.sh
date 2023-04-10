@@ -618,8 +618,9 @@ docker_run() {
 			# shellcheck disable=SC2015
 			if
 				[[ "$( uname -s )" != 'Darwin' ]] &&
-				(( $( nproc ) > 1 )) &&
-				$docker info 2>&1 | grep -q -- 'cpuset'
+					(( $( nproc ) > 1 )) &&
+					$docker info 2>&1 |
+						grep -q -- 'cpuset'
 			then
 				echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))"
 			fi
