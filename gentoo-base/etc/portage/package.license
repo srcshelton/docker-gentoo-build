@@ -20,23 +20,22 @@ app-alternatives/*			 CC0-1.0
 # System packages:
 #
 
+dev-util/cargo-ebuild			 Apache-2.0-with-LLVM-exceptions Boost-1.0 MPL-2.0 Unicode-DFS-2016 Unlicense ZLIB
+app-containers/aardvark-dns		 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Unlicense ZLIB
+app-containers/netavark			 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boost-1.0 Unicode-DFS-2016 Unlicense ZLIB
 #dev-libs/libbsd			 BSD-4
 #app-arch/libarchive			 BSD-4 public-domain
 #sys-apps/util-linux			 BSD-4 public-domain
 app-arch/bzip2				 BZIP2
-app-containers/aardvark-dns		 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Unlicense ZLIB
-app-containers/netavark			 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boost-1.0 Unicode-DFS-2016 Unlicense ZLIB
 app-crypt/libb2				 CC0-1.0
 dev-python/certifi			 CC0-1.0 MPL-2.0
-dev-python/ensurepip-pip		 MPL-2.0 PSF-2
->=dev-python/ensurepip-wheels-100	 metapackage
-<dev-python/ensurepip-wheels-100	 MPL-2.0 PSF-2
-dev-python/typing-extensions		 PSF-2
-dev-util/cargo-ebuild			 Apache-2.0-with-LLVM-exceptions Boost-1.0 MPL-2.0 Unicode-DFS-2016 Unlicense ZLIB
+net-misc/curl				 curl
+app-text/docbook-xml-dtd		 docbook
 dev-util/gtk-doc-am			 FDL-1.1
 app-text/sgml-common			 FDL-1.1+
 sys-devel/gcc				 FDL-1.3+
 sys-devel/flex				 FLEX
+sys-apps/man-pages-posix		 freedist man-pages-posix-2013
 sys-apps/help2man			 FSFAP
 sys-devel/gnuconfig			 GPL-3+-with-autoconf-exception
 sys-libs/glibc				 HPND PCRE inner-net rc
@@ -49,20 +48,19 @@ app-dicts/aspell-en			 Ispell Princeton myspell-en_CA-KevinAtkinson # public-dom
 #dev-libs/libksba			 LGPL-3+
 #net-dns/libidn2			 LGPL-3+
 #sys-devel/gcc				 LGPL-3+
-app-misc/ca-certificates		 MPL-1.1
-dev-lang/php				 PHP-3.01 Zend-2.0 gd
-dev-lang/python				 PSF-2
-sys-libs/db				 Sleepycat
-sys-apps/debianutils			 SMAIL
-sys-libs/zlib				 ZLIB
-net-misc/curl				 curl
-app-text/docbook-xml-dtd		 docbook
 media-libs/libpng			 libpng2
 sys-apps/man-pages			 man-pages
-sys-apps/man-pages-posix		 freedist man-pages-posix-2013
+>=dev-python/ensurepip-wheels-100	 metapackage
+<dev-python/ensurepip-wheels-100	 MPL-2.0 PSF-2
+app-misc/ca-certificates		 MPL-1.1
+dev-python/ensurepip-pip		 MPL-2.0 PSF-2
 app-misc/c_rehash			 openssl
 dev-libs/openssl			 openssl
+dev-libs/openssl-compat			 openssl
 sys-auth/passwdqc			 Openwall
+dev-python/typing-extensions		 PSF-2
+dev-lang/php				 PHP-3.01 Zend-2.0 gd
+dev-lang/python				 PSF-2
 #app-arch/lzma				 public-domain
 #app-arch/xz-utils			 public-domain
 #app-crypt/openpgp-keys-gentoo-release	 public-domain
@@ -72,10 +70,15 @@ sys-auth/passwdqc			 Openwall
 #sys-apps/hwids				 public-domain
 #sys-libs/timezone-data			 public-domain
 net-misc/iputils			 rdisc
+sys-libs/db				 Sleepycat
+sys-apps/debianutils			 SMAIL
 app-editors/vim				 vim
 app-editors/vim-core			 vim
 app-vim/eselect-syntax			 vim
 app-vim/gentoo-syntax			 vim
+sys-libs/zlib				 ZLIB
+
+net-nds/openldap			 OPENLDAP
 
 # clang:
 #
@@ -129,9 +132,9 @@ app-vim/ntp-syntax			 vim
 
 # required by service dev-lang/php
 container/php				 PHP-3.01 Zend-2.0
+dev-php/Masterminds-HTML5		 HTML5-PHP
 dev-php/pecl-memcache			 PHP-3
 dev-php/pecl-redis			 PHP-3.01
-dev-php/Masterminds-HTML5		 HTML5-PHP
 
 # required by services dev-lang/php & www-server/lighttpd
 dev-lang/tcl				 tcltk
@@ -143,9 +146,9 @@ media-gfx/imagemagick			 imagemagick
 dev-vcs/subversion			 Subversion FSFAP unicode
 
 # required by service mail-filter/opendkim
-mail-filter/opendkim			 Sendmail-Open-Source
 app-text/ghostscript-gpl	     	 AGPL-3 CPL-1.0
 app-text/poppler-data			 AGPL-3+
+mail-filter/opendkim			 Sendmail-Open-Source
 media-libs/jbig2dec			 AGPL-3
 media-libs/tiff				 libtiff
 #net-dns/dnssec-root			 public-domain
@@ -166,16 +169,17 @@ dev-perl/Mozilla-CA			 MPL-2.0
 #dev-perl/Net-SSLeay			 Artistic-2
 #dev-perl/Params-Validate		 Artistic-2
 #dev-perl/Params-ValidationCompiler	 Artistic-2
+dev-util/b2				 Boost-1.0
 #net-dns/libidn5			 LGPL-3
 
 # required by service mail-filter/spampd
-#mail-filter/razor			 Artistic
 dev-libs/geoip				 MaxMind2
+#mail-filter/razor			 Artistic
 
 # required by service mail-mta/postfix
-mail-mta/postfix			 EPL-2.0 IBM
-dev-libs/cyrus-sasl			 BSD-with-attribution
 #dev-db/tinycdb				 public-domain
+dev-libs/cyrus-sasl			 BSD-with-attribution
+mail-mta/postfix			 EPL-2.0 IBM
 
 # required by service net-analyzer/gvmd
 app-text/texlive-core			 LPPL-1.3c TeX
@@ -200,8 +204,8 @@ net-analyzer/ospd-openvas		 AGPL-3+
 
 # required by service net-dns/bind
 container/bind				 HPND MPL-2.0
-net-dns/bind				 HPND MPL-2.0
 dev-db/lmdb				 OPENLDAP
+net-dns/bind				 HPND MPL-2.0
 
 # required by service net-mail/fetchmail
 #net-mail/fetchmail			 public-domain
@@ -210,17 +214,17 @@ dev-db/lmdb				 OPENLDAP
 net-misc/dhcp				 MPL-2.0 SSLeay
 
 # required by service net-misc/unifi-controller-bin
-container/unifi-controller		 UBNT
-net-misc/unifi-controller-bin		 UBNT
 app-arch/zip				 Info-ZIP
+container/unifi-controller		 UBNT
 dev-db/mongodb				 SSPL-1
-dev-java/openjdk			 GPL-2-with-classpath-exception
 dev-java/openjdk-bin			 GPL-2-with-classpath-exception
+dev-java/openjdk			 GPL-2-with-classpath-exception
 dev-libs/boost				 Boost-1.0
 dev-python/typing			 PSF-2
 dev-util/boost-build			 Boost-1.0
 dev-util/cmake				 CMake
 #dev-util/gdbus-codegen			 LGPL-2+
+net-misc/unifi-controller-bin		 UBNT
 
 # required by service net-misc/zxtm
 container/zxtm				 Pulse
