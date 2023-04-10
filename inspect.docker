@@ -72,6 +72,7 @@ docker_parse() {
 		elif echo "${arg}" | grep -Eq -- '^-(n|-name)(=[a-z0-9]+([._-]{1,2}[a-z0-9]+)*)?$'; then
 			if echo "${arg}" | grep -Fq -- '=' ; then
 				name="$( echo "${arg}" | cut -d'=' -f 2- )"
+				print "Setting container name to '${name}' in $( basename -- "${0#-}" )"
 				export name
 			else
 				name='<next>'
@@ -133,6 +134,7 @@ docker_run() {
 	# shellcheck disable=SC2207
 	runargs=(
 		$(
+			# shellcheck disable=SC2015
 			if
 				[[ "$( uname -s )" != 'Darwin' ]] &&
 					(( $( nproc ) > 1 )) &&
@@ -162,6 +164,8 @@ docker_run() {
 		  ${USE:+--env USE}
 		--interactive
 		--tty
+		  ${DOCKER_EXTRA_MOUNTS:-}
+		  ${DOCKER_VOLUMES:-}
 	)
 	if [[ -r /proc/cgroups ]] && grep -q -- '^memory.*1$' /proc/cgroups &&
 		[[ -n "${PODMAN_MEMORY_RESERVATION:-}" || -n "${PODMAN_MEMORY_LIMIT}" || -n "${PODMAN_SWAP_LIMIT}" ]]
@@ -215,12 +219,12 @@ docker_run() {
 
 	cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
 	print "Volume/mount base directory is '${cwd}'"
-	mountpointsro["${cwd}/${base_dir:+${base_dir}/}etc/portage/package.accept_keywords"]='/etc/portage/package.accept_keywords'
-	if [ -s "${cwd}/${base_dir:+${base_dir}/}etc/portage/package.accept_keywords.${ARCH:-${arch}}" ]; then
-		mountpointsro["${cwd}/${base_dir:+${base_dir}/}etc/portage/package.accept_keywords.${ARCH:-${arch}}"]="/etc/portage/package.accept_keywords/${ARCH:-${arch}}"
+	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords"]='/etc/portage/package.accept_keywords'
+	if [ -s "${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-${arch}}" ]; then
+		mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-${arch}}"]="/etc/portage/package.accept_keywords/${ARCH:-${arch}}"
 	fi
-	mountpointsro["${cwd}/${base_dir:+${base_dir}/}etc/portage/package.license"]='/etc/portage/package.license'
-	mountpointsro["${cwd}/${base_dir:+${base_dir}/}etc/portage/package.use.build"]='/etc/portage/package.use'
+	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.license"]='/etc/portage/package.license'
+	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.use.build"]='/etc/portage/package.use'
 
 	for mp in ${mirrormountpointsro[@]+"${mirrormountpointsro[@]}"}; do
 		[ -n "${mp:-}" ] || continue
@@ -308,26 +312,49 @@ docker_run() {
 		output
 	fi
 
-	if (( debug )); then
-		local arg=''
-		print "Starting container with command '$docker container run \\"
-		for arg in "${runargs[@]}"; do
-			print "        ${arg} \\"
-		done
-		print "    ${image}"
-		for arg in "${@}"; do
-			print "        ${arg} \\"
-		done
-		print "'"
-		unset arg
-	fi
-	# shellcheck disable=SC2086
-	$docker \
-		container run \
-			"${runargs[@]}" \
-			${DOCKER_EXTRA_MOUNTS:-} \
-			${DOCKER_VOLUMES:-} \
-		"${image}" -c "${args[@]}" || runrc=${?}
+	(
+		if (( debug )); then
+			local arg=''
+			print "Starting container with command '$docker container run \\"
+			for arg in "${runargs[@]}"; do
+				print "        ${arg} \\"
+			done
+			print "    ${image}"
+			for arg in "${@}"; do
+				print "        ${arg} \\"
+			done
+			print "'"
+			unset arg
+			if touch inspect.sh.debug.log; then
+				echo >inspect.sh.debug.log <<-EOF
+					#! /bin/sh
+
+					set -eux
+
+				EOF
+				echo >>inspect.sh.debug.log "$docker container run \\"
+				for arg in "${runargs[@]}"; do
+					echo >>inspect.sh.debug.log "        ${arg} \\"
+				done
+				echo >>inspect.sh.debug.log "    ${image} \\"
+				# Start at $1 as $0 is the command itself...
+				local -i i=1
+				for (( ; i < ${#} ; i++ )); do
+					echo >>inspect.sh.debug.log "        ${!i} \\"
+				done
+				# At this point i == ${#}...
+				echo >>inspect.sh.debug.log "        ${!i}"
+				unset i
+			fi
+		fi
+		# shellcheck disable=SC2086
+		$docker \
+				${DOCKER_VARS:-} \
+			container run \
+				"${runargs[@]}" \
+			"${image}" -c "${args[@]}"
+	)
+	runrc=${?}
 
 	for mp in \
 		${mirrormountpointsro[@]+"${mirrormountpointsro[@]}"} \
@@ -341,17 +368,26 @@ docker_run() {
 	for mp in ${mountpointsro[@]+"${!mountpointsro[@]}"}; do
 		[ -n "${mp:-}" ] || continue
 		mp="${mountpointsro[${mp}]}" || continue
-		files+=( "${cwd}/${base_dir:+${base_dir}}${mp}" )
+		files+=( "${cwd}/${base_dir:+"${base_dir}"}${mp}" )
 	done
 	for mp in ${mountpoints[@]+"${!mountpoints[@]}"}; do
 		[ -n "${mp:-}" ] || continue
 		mp="${mountpoints[${mp}]}" || continue
-		files+=( "${cwd}/${base_dir:+${base_dir}}${mp}" )
+		files+=( "${cwd}/${base_dir:+"${base_dir}"}${mp}" )
 	done
 	for mp in "${files[@]}"; do
 		src="$( readlink -e "${mp}" )"
 		if [ -n "${src:-}" ]; then
 			if [[ -f "${src}" && "$( stat -c '%s %u %a' "${src}" )" == '0 0 700' ]]; then
+				warn "Artefact '${src}' detected - removing"
+				rm -f "${src}"
+			fi
+		fi
+	done
+	for oom in oom "${cwd}/${base_dir:+"${base_dir}/"}oom"; do
+		src="$( readlink -e "${oom}" )"
+		if [ -n "${src:-}" ]; then
+			if [[ -f "${src}" && "$( stat -c '%s %u %a' "${src}" )" == '0 0 644' ]]; then
 				warn "Artefact '${src}' detected - removing"
 				rm -f "${src}"
 			fi
@@ -409,11 +445,25 @@ main() {
 		if (( ram < ${PODMAN_MEMORY_LIMIT%g} )); then
 			PODMAN_MEMORY_RESERVATION="$(( ram - 1 ))g"
 			PODMAN_MEMORY_LIMIT="$(( ram ))g"
-			PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+			#PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+			if (( ram <= 1 )); then
+				PODMAN_SWAP_LIMIT="$(( ram * 2 ))g"
+			else
+				PODMAN_SWAP_LIMIT="$(( ram + $(
+					awk -v ram="${ram}" 'BEGIN{ print int( sqrt( ram ) + 0.5 ) }'
+				) ))g"
+			fi
 			changed=1
 		fi
 		if (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
-			PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+			#PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
+			if (( ram <= 1 )); then
+				PODMAN_SWAP_LIMIT="$(( ram * 2 ))g"
+			else
+				PODMAN_SWAP_LIMIT="$(( ram + $(
+					awk -v ram="${ram}" 'BEGIN{ print int( sqrt( ram ) + 0.5 ) }'
+				) ))g"
+			fi
 			changed=1
 		fi
 		if (( changed )); then
