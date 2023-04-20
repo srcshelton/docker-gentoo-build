@@ -52,7 +52,10 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
     grep >&2 -- ' ROOT=' "${ROOT}${environment_file}" && { \
             printf >&2 "Invalid 'ROOT' directive in '%s':\n\n%s\n\n" "${ROOT%/}${environment_file}" "$( <"${ROOT}${environment_file}" )" ; \
             exit 1 ; \
-        } || :
+        } || : ; \
+    if [ -s /builddeps.txt ] && ! [ -s "${ROOT}/builddeps.txt" ]; then \
+        mv /builddeps.txt "${ROOT}/builddeps.txt" ; \
+    fi
 #RUN printf >&2 " * 'service' stage propagated environment:\n\n%s\n\n" "$( <"${ROOT}${environment_file}" )"
 
 
@@ -154,13 +157,26 @@ RUN i="${image_name}:${service_version}" ; \
     fi
 
 # linter ignore=SC2174
-RUN for d in 'empty' 'log' 'run'; do \
-        mkdir -pm 0755 "/var/${d}/" ; \
+RUN for d in 'empty' 'log' 'run' 'lock'; do \
+        if test -e "/var/${d}" && { test -L "/var/${d}" || ! test -d "/var/${d}"; }; then \
+            rm "/var/${d}" ; \
+        fi ; \
+        mkdir -p -m 0755 "/var/${d}" ; \
     done && \
     if [ -n "${fs_name:-}" ]; then \
         for d in 'log' 'run'; do \
-            mkdir -pm 0755 "/var/${d}/${fs_name}/" ; \
+            mkdir -p -m 0755 "/var/${d}/${fs_name}" ; \
         done ; \
+    fi ; \
+    for d in \
+            etc/conf.d etc/init.d etc/portage \
+            usr/include usr/lib64/pkgconfig usr/share/awk usr/share/udhcpc \
+            var/cache/edb var/db/Makefile var/lib/gentoo ; \
+    do \
+        [ -e "${d}" ] && rm -rf "/${d}" ; \
+    done ; \
+    if [ -d usr/share/gcc-data ]; then \
+        rm -rf "/usr/share/gcc-data/*/*/man" "/usr/share/gcc-data/*/*/info" ; \
     fi
 
 # Setup entrypoint script to perform a one-time copy of binary system packages
