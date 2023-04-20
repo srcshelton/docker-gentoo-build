@@ -10,7 +10,7 @@ app-text/tesseract			 float32
 dev-perl/DBD-mysql			 mariadb mysql
 #dev-perl/Net-DNS-SEC			+dsa +ecdsa gost +private-key test
 dev-perl/Net-DNS-SEC			 dsa ecdsa private-key
-#mail-filter/spamassassin		+berkdb cron dkim dmarc geoip idn (ipv6) largenet ldap mysql office pacct postgres qmail razor +sa-update spf sqlite (ssl) systemd test unicode
+#mail-filter/spamassassin		+berkdb cron dkim dmarc extracttext geoip idn (ipv6) largenet ldap mysql office pacct postgres qmail razor +sa-update spf sqlite (ssl) systemd test unicode
 mail-filter/spamassassin		 cron dkim dmarc extracttext geoip idn largenet mysql pacct razor spf sqlite unicode
 sys-apps/busybox			-make-symlinks
 sys-devel/gcc				-nls
