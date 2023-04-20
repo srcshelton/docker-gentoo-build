@@ -1,18 +1,18 @@
 
 # Current stable package is gentoo-sources-5.10.167
 # Current stable package is gentoo-sources-5.10.174
-~sys-kernel/gentoo-sources-5.10.176			~amd64 ~x86
+~sys-kernel/gentoo-sources-5.10.177			~amd64 ~x86
 
 # Current stable package is gentoo-sources-5.15.94
 # Current stable package is gentoo-sources-5.15.102
-~sys-kernel/gentoo-sources-5.15.105			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-5.15.107			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.1.12
 # Current stable package is gentoo-sources-6.1.19
-~sys-kernel/gentoo-sources-6.1.22			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.1.24			~amd64 ~arm ~arm64 ~x86
 
-~sys-kernel/gentoo-sources-6.2.9			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/vanilla-sources-6.2.9			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.2.11			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-6.2.11			~amd64 ~arm ~arm64 ~x86
 
 # Required for rust modules...
 =virtual/rust-1.62.0					~amd64
