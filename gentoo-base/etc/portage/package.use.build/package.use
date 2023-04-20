@@ -279,4 +279,16 @@ sys-kernel/linux-firmware		 compress compress-xz savedconfig
 # requires Java AWT/JNI components
 >=media-libs/libjpeg-turbo-2.0.3	-java
 
+# required by net-misc/curl-7.88.1-r2
+# required by app-crypt/gnupg-2.2.41
+# required by dev-vcs/git-2.39.2
+# required by sys-devel/gettext-0.21.1
+# required by sys-devel/m4-1.4.19-r1
+# required by sys-devel/autoconf-2.71-r5
+# required by sys-devel/libtool-2.4.7-r1
+# required by dev-db/sqlite-3.41.2-r1
+# required by dev-lang/python-3.11.2_p2
+# required by sys-apps/kmod-30-r1
+>=net-libs/nghttp2-1.51.0		 utils
+
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
