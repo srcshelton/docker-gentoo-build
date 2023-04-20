@@ -3,7 +3,7 @@
 dev-util/meson
 
 # Don't install more recent util-linux
-sys-apps/util-linux
+>sys-apps/util-linux-2.33.2
 
 # Mask ebuilds beyond what we've pinned...
 >app-arch/snappy-1.1.9
@@ -22,7 +22,13 @@ sys-apps/util-linux
 >dev-util/scons-3.1.2
 >sys-apps/file-5.37-r1
 >sys-apps/portage-2.3.89-r1
-#>app-misc/pax-utils-1.2.4
-#>sys-apps/util-linux-2.33.2
+
+# Allow for JDK11 updates, but unifi-controller-bin is not yet validated
+# against JDK12+
+>=dev-java/openjdk-12
+>=dev-java/openjdk-bin-12
+>=dev-java/openjdk-jre-bin-12
+>=virtual/jdk-12
+>=virtual/jre-12
 
 # vi: set colorcolumn=80 syntax=gentoo-package-mask:

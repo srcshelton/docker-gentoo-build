@@ -6,6 +6,7 @@
 # supported by upstream. See: https://jira.mongodb.org/browse/SERVER-52687
 dev-db/mongodb::unifi
 
+app-misc/ca-certificates::unifi
 dev-java/java-config::unifi
 dev-libs/boost::unifi
 dev-python/certifi::unifi
