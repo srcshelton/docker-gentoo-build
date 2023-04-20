@@ -243,6 +243,22 @@ applyworkarounds() {
 	#	export USE
 	#	print "After work-around, USE is '${USE}'"
 	#fi
+	if echo " ${aw_arg} " | grep -Eq -- ' ([<>]?=|~)?(busybox|sys-apps/busybox)[ -]'; then
+		if ! command -V equery >/dev/null 2>&1; then
+			warn "Unable to activate sys-apps/busybox work-arounds due to 'equery' missing"
+		else
+			if
+				equery --no-color uses --ignore-l10n sys-apps/busybox |
+					grep -q -- '^+static'
+			then
+				warn "Activating sys-apps/busybox work-arounds ..."
+				printf '%s %s\n' 'virtual/libcrypt' 'static-libs' \
+					>> /etc/portage/package.use/busybox
+				printf '%s %s\n' 'sys-libs/libxcrypt' 'static-libs' \
+					>> /etc/portage/package.use/busybox
+			fi
+		fi
+	fi
 
 	# We actually don't want to re-order arguments...
 	#USE="$( echo "${USE}" | xargs -rn 1 | sort -V | uniq | xargs -r )"
@@ -578,7 +594,7 @@ if [ -n "${TUSE:-}" ]; then
 	fi
 	if
 		[ -n "${use_essential:-}" ] &&
-		echo "${TUSE}" | grep -Fq -- "${use_essential}"
+			echo "${TUSE}" | grep -Fq -- "${use_essential}"
 	then
 		USE="${TUSE}"
 	else
@@ -1474,6 +1490,7 @@ if [ $(( depclean )) -ne 0 ]; then
 	# FIXME: This may be overkill, but some containers which don't use perl
 	# seem to have it pulled-in regardless...
 	# ...and we're still getting some build-time dependencies retained...
+	# shellcheck disable=SC2046
 	LC_ALL='C' emerge \
 			--depclean \
 			  ${depclean_exclude:+"--exclude=${depclean_exclude}"} \
