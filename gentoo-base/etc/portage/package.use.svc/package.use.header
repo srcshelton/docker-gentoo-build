@@ -6,7 +6,9 @@
 */*					-* asm ipv6 ithreads native-extensions mdev nptl split-usr ssp threads tls-heartbeat zlib # ${use_cpu_flags}  # from 'use-essential'
 #*/*					-fortran graphite (nptl) openmp pch sanitize ssp vtv zstd
 
-*/*					 openssl ssl
+# Add 'varrun', otherwise we end up with broken '/var/lock -> ../run/lock'
+# symlinks...
+*/*					 openssl ssl varrun
 
 */*					 LUA_SINGLE_TARGET: luajit
 */*					 LUA_TARGETS: luajit
