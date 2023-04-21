@@ -20,7 +20,7 @@ environment_filter="${environment_filter:-__ENVFILTER__}"
 python_default_targets='python3_10'
 stage3_flags=''
 
-arch="${ARCH}"
+export arch="${ARCH}"
 unset -v ARCH
 
 die() {
@@ -986,6 +986,9 @@ do
 		USE="-* $( get_stage3 --values-only USE )"
 		# shellcheck disable=SC2154
 		USE="${USE} ${use_essential_gcc} gawk"
+		if [ "${arch}" = 'arm64' ]; then
+			USE="${USE} gold"
+		fi
 		#case "${pkg}" in
 		#	*libcrypt|*libxcrypt)
 		#		USE="${USE} static-libs"
@@ -1029,6 +1032,7 @@ rm "${stage3_flags_file}"
 
 # (ARCH should now be safe)
 export ARCH="${arch}"
+unset -v arch
 
 export ROOT="/build"
 export SYSROOT="${ROOT}"
@@ -1060,7 +1064,7 @@ for file in /etc/profile "${ROOT}"/etc/profile; do
 	[ -s "${file}" ] && . "${file}"
 done
 unset file
-echo "Setting profile for architeceture '${ARCH}'..."
+echo "Setting profile for architecture '${ARCH}'..."
 LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" 2>&1 |
 	grep -v -- 'Warning:' || :
 
