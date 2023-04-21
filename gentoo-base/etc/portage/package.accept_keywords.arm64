@@ -96,13 +96,15 @@
 # the specified overrides will quickly be superseded and no longer applicable,
 # while providing an initial base-line.
 
-=sys-apps/fakeroot-1.25.3-r1				~arm64
+=container/bind-9.16.37					~arm64
+
+=sys-apps/fakeroot-1.31					~arm64
 
 #=app-admin/webapp-config-1.55-r2			~arm64
 #=app-crypt/libb2-0.98.1-r2				~arm64
 =app-crypt/libb2-0.98.1-r3				~arm64
 =app-misc/colordiff-1.0.19				~arm64
-=app-misc/splitvt-1.6.6-r3				 **
+=app-misc/splitvt-1.6.6_p7				 **
 =app-text/lesspipe-2.06					~arm64
 =app-text/pinfo-0.6.13					~arm64
 =app-vim/help-extra-syntax-20050106-r2			 **
@@ -119,7 +121,7 @@
 =sys-apps/memtester-4.5.1				~arm64
 #=sys-apps/mlocate-0.26-r3				~arm64
 =sys-apps/watchdog-5.16					~arm64
-=sys-power/powertop-2.14				~arm64
+=sys-power/powertop-2.15				~arm64
 #=virtual/man-0-r4					~arm64
 
 # vi: set colorcolumn=56,80 syntax=gentoo-package-keywords:
