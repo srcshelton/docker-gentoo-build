@@ -850,7 +850,7 @@ fi
 (
 	ROOT='/service'
 	FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
-	USE="-* -lib-only make-symlinks openmp timezone-tools"
+	USE="-* -lib-only make-symlinks mdev openmp timezone-tools"
 	# Since app-alternatives/* packages are now mandatory, the USE flags these
 	# packages rely upon must also be set in order to avoid REQUIRED_USE
 	# errors.
