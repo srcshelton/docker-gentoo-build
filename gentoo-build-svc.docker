@@ -673,6 +673,7 @@ case "${package_name}" in
 		;;
 	*.imapproxy)
 		output "Setting build variables for package 'imapproxy' ..."
+		pre_pkgs='acct-group/nogroup'
 
 		#ports='143/tcp'
 		ports='8143/tcp'
@@ -828,7 +829,7 @@ case "${package_name}" in
 		esac
 		output "Setting build variables for package 'php' ..."
 		# eselect-php-0.9.6+ required for ROOT support
-		pre_pkgs='dev-php/PEAR-PEAR media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6 acct-group/lighttpd acct-user/lighttpd'
+		pre_pkgs='dev-php/PEAR-PEAR media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6 acct-group/lighttpd acct-user/lighttpd acct-group/nobody'
 		# TODO: There has to be a better way... ?
 		#extra_pkgs="acct-group/lighttpd dev-db/mysql-connector-c dev-php/pecl-imagick >=dev-php/pecl-memcache-4 media-gfx/imagemagick $(
 		#	roundcube_flags='change-password enigma exif managesieve mysql plugins ssl spell zxcvbn'
@@ -925,6 +926,7 @@ case "${package_name}" in
 			acct-group/dkimsocket
 			acct-group/mail
 			acct-group/milter
+			acct-group/nogroup
 			acct-group/postfix
 			acct-group/postgrey
 			acct-user/postfix
@@ -1181,6 +1183,7 @@ case "${package_name}" in
 		esac
 		#post_remove="${extra_pkgs}"
 		extra_pkgs="${extra_pkgs} <dev-db/mongodb-4.2 dev-lang/python:2.7" # app-admin/eselect app-eselect/eselect-python'
+		extra_pkgs="${extra_pkgs} app-misc/ca-certificates${ECLASS_OVERRIDE:+"::${ECLASS_OVERRIDE}"}"
 		extra_pkgs="${extra_pkgs} ${masked_packages}"
 		with_use="python_targets_${force_python}"
 
@@ -1215,7 +1218,7 @@ case "${package_name}" in
 	*.zxtm)
 		ZEUSHOME='/opt/zeus'
 		output "Setting build variables for package 'zxtm' ..."
-		pre_pkgs='sys-apps/help2man sys-devel/gcc'
+		pre_pkgs='sys-apps/help2man sys-devel/gcc acct-group/nogroup acct-group/sys'
 		extra_pkgs='app-eselect/eselect-iptables app-shells/bash net-firewall/iptables sys-apps/iproute2 sys-process/procps'
 
 		container_cmd='/opt/zeus/runzeus.sh'
