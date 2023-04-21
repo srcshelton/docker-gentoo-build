@@ -2,4 +2,6 @@
 #net-dns/bind				-berkdb +caps dlz dnstap doc dnsrps fixed-rrset geoip gssapi json ldap lmdb mysql odbc postgres python selinux static-libs systemd urandom xml (+zlib)
 net-dns/bind				 caps geoip json lmdb urandom xml
 
+dev-lang/python				 xml
+
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

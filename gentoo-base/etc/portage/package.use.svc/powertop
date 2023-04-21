@@ -3,4 +3,6 @@
 
 #sys-power/powertop			 nls unicode -X
 
+dev-lang/python				 xml
+
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
