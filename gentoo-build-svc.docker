@@ -564,7 +564,7 @@ if type -pf portageq >/dev/null 2>&1; then
 else
 	# FIXME: Hard-coded
 	python_single_target="${python_default_target##* }"
-	python_target="${python_single_target:-"python3_10"}"
+	python_target="${python_single_target:-"${python_default_target}"}"
 	case "${original_service:-}" in
 		php[0-9][0-9])
 			php_targets="${original_service%[0-9]}-${original_service#php[0-9]}"

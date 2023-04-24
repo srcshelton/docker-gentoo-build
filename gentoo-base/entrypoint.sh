@@ -17,7 +17,7 @@ stage3_flags_file="${stage3_flags_file:-__FLAGSFILE__}"
 environment_file="${environment_file:-__ENVFILE__}"
 environment_filter="${environment_filter:-__ENVFILTER__}"
 
-python_default_targets='python3_10'
+python_default_targets='python3_11'
 stage3_flags=''
 
 export arch="${ARCH}"
@@ -408,6 +408,7 @@ for arg in "${@}"; do
 			;;
 	esac
 done
+print "'python_targets' is '${python_targets:-}'"
 
 if [ -e /etc/portage/repos.conf.host ]; then
 	echo
@@ -1088,7 +1089,9 @@ features_libeudev=1
 
 # sys-apps/help2man with USE 'nls' requires Locale-gettext, which depends
 # on sys-apps/help2man;
-# sys-libs/libcap can USE pam, which requires libcap...
+# sys-libs/libcap can USE pam, which requires libcap;
+# sys-apps/help2man requires dev-python/setuptools which must have been built
+# with the same PYTHON_*TARGET* flags as are currently active...
 pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
 pkg_initial_use='-nls -pam -perl -python -su'
 pkg_exclude=''
@@ -1098,12 +1101,39 @@ if [ -n "${features_libeudev}" ]; then
 fi
 
 if [ -n "${pkg_initial:-}" ]; then
+	export python_targets PYTHON_SINGLE_TARGET PYTHON_TARGETS
+	print "'python_targets' is '${python_targets:-}', 'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}', 'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
 	(
 		export LC_ALL='C'
 
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 
 		export USE="${pkg_initial_use}${use_essential:+ ${use_essential}}"
+		if [ "${ROOT:-/}" = '/' ]; then
+			if [ -z "${stage3_flags:-}" ]; then
+				USE="${USE:+"${USE} "}$( get_stage3 --values-only USE )"
+				PYTHON_SINGLE_TARGET="${PYTHON_SINGLE_TARGET:+"${PYTHON_SINGLE_TARGET} "}$( get_stage3 --values-only PYTHON_SINGLE_TARGET )"
+				PYTHON_TARGETS="${PYTHON_TARGETS:+"${PYTHON_TARGETS} "}$( get_stage3 --values-only PYTHON_TARGETS )"
+				eval "$( # <- Syntax
+					resolve_python_flags \
+							"${USE}" \
+							"${PYTHON_SINGLE_TARGET}" \
+							"${PYTHON_TARGETS}"
+				)"
+			fi
+		else
+			print "'python_targets' is '${python_targets:-}', 'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}', 'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
+			PYTHON_SINGLE_TARGET="${python_targets:+"${python_targets%% *}"}"
+			PYTHON_TARGETS="${python_targets:-}"
+			eval "$( # <- Syntax
+				resolve_python_flags \
+						"${USE:-}" \
+						"${PYTHON_SINGLE_TARGET}" \
+						"${PYTHON_TARGETS}"
+			)"
+			export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+			print "'python_targets' is '${python_targets:-}', 'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}', 'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
+		fi
 		#case "${pkg}" in
 		#	*libcrypt|*libxcrypt)
 		#		USE="${USE} static-libs"
@@ -1163,6 +1193,101 @@ if [ -n "${pkg_initial:-}" ]; then
 				export ROOT
 				export SYSROOT="${ROOT}"
 				export PORTAGE_CONFIGROOT="${SYSROOT}"
+
+				# First package in '${pkg_initial}' to have python deps...
+				# TODO: It'd be nice to have a had_deps() function here to
+				#       remove this hard-coding...
+				if [ "${pkg}" = 'sys-apps/help2man' ]; then
+					(
+						ROOT='/'
+						SYSROOT="${ROOT}"
+						PORTAGE_CONFIGROOT="${SYSROOT}"
+						export ROOT SYSROOT PORTAGE_CONFIGROOT
+
+						eval "$( # <- Syntax
+							resolve_python_flags \
+									"${USE:-}" \
+									"${PYTHON_SINGLE_TARGET}" \
+									"${PYTHON_TARGETS}"
+						)"
+						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+
+						info="$( emerge --info --verbose )"
+						echo
+						echo 'Resolved build variables for python builddeps:'
+						echo '---------------------------------------------'
+						echo
+						echo "ROOT                = $( # <- Syntax
+							echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+						)"
+						echo "SYSROOT             = $( # <- Syntax
+							echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+						)"
+						echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
+							echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
+						)"
+						echo
+						echo "${info}" | format 'FEATURES'
+						echo "${info}" | format 'ACCEPT_LICENSE'
+						echo "${info}" | format 'ACCEPT_KEYWORDS'
+						echo "${info}" | format 'USE'
+						echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+						echo "${info}" | format 'PYTHON_TARGETS'
+						echo "MAKEOPTS            = $( # <- Syntax
+							echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
+						)"
+						echo
+						echo "DISTDIR             = $( # <- Syntax
+							echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
+						)"
+						echo "PKGDIR              = $( # <- Syntax
+							echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
+						)"
+						echo "PORTAGE_LOGDIR      = $( # <- Syntax
+							echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
+						)"
+						echo
+						unset info
+
+						# shellcheck disable=SC2086
+						emerge \
+								--ignore-default-opts \
+								${parallel} \
+								--buildpkg=n \
+								--color=y \
+								--deep \
+								--emptytree \
+								--keep-going=y \
+								--quiet-build=y \
+								${opts:-} \
+								--usepkg=y \
+								--verbose=y \
+								--verbose-conflict \
+								--with-bdeps=y \
+								--with-bdeps-auto=y \
+							dev-python/setuptools # || :
+					)
+					# Install same dependencies again within our build ROOT...
+					(
+						# shellcheck disable=SC2086
+						emerge \
+								--ignore-default-opts \
+								${parallel} \
+								--buildpkg=n \
+								--color=y \
+								--deep \
+								--emptytree \
+								--keep-going=y \
+								--quiet-build=y \
+								${opts:-} \
+								--usepkg=y \
+								--verbose=y \
+								--verbose-conflict \
+								--with-bdeps=y \
+								--with-bdeps-auto=y \
+							dev-python/setuptools # || :
+					)
+				fi
 
 				# shellcheck disable=SC2086
 				emerge \
@@ -1714,7 +1839,7 @@ case "${1:-}" in
 						sort -V |
 						tail -n 1
 				)"
-				# python3_10 -> dev-lang/python-3.10
+				# python3_11 -> dev-lang/python-3.11
 				targetpkg="dev-lang/$( # <- Syntax
 					echo "${target}" | sed 's/^python/python-/ ; s/_/./'
 				)"
@@ -1948,13 +2073,15 @@ case "${1:-}" in
 								break
 							fi
 
-							# shellcheck disable=SC2086
-							emerge ${parallel} ${opts} \
-									--depclean \
-								"<${targetpkg}" || rc=${?}
-							if [ $(( rc )) -ne 0 ]; then
-								echo "ERROR: Stage 2 package depclean: ${rc}"
-								break
+							if [ $(( $( resolve_python_flags | grep -- '^PYTHON_TARGETS=' | cut -d'=' -f 2- | xargs -rn 1 | wc -l ) )) -gt 1 ]; then
+								# shellcheck disable=SC2086
+								emerge ${parallel} ${opts} \
+										--depclean \
+									"<${targetpkg}" || rc=${?}
+								if [ $(( rc )) -ne 0 ]; then
+									echo "ERROR: Stage 2 package depclean: ${rc}"
+									break
+								fi
 							fi
 
 							# shellcheck disable=SC2086

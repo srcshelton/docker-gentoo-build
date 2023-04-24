@@ -290,7 +290,7 @@ tmp="$( $docker system info | grep 'graphRoot:' | cut -d':' -f 2- | awk '{ print
 mkdir -p "${tmp:=/var/lib/containers/storage/tmp}"
 export TMPDIR="${tmp}"
 
-python_default_target='python3_10'
+python_default_target='python3_11'
 
 if [ -f common/local.sh ]; then
 	# shellcheck disable=SC1091

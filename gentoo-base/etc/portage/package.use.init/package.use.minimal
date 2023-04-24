@@ -3,8 +3,8 @@
 #*/*					-* asm ipv6 ithreads mdev nptl split-usr ssp threads tls-heartbeat zlib ${use_cpu_flags}  # from 'use_essential'
 */*					-* split-usr
 
-*/*					 PYTHON_TARGETS: -* python3_10
-*/*					 PYTHON_SINGLE_TARGET: -* python3_10
+*/*					 PYTHON_SINGLE_TARGET: -* python3_11
+*/*					 PYTHON_TARGETS: -* python3_11
 
 net-misc/curl				 CURL_SSL: openssl
 

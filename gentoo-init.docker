@@ -13,7 +13,7 @@ debug="${DEBUG:-}"
 # we wish to build against or those specified in the host's
 # /etc/portage/package.use file(s), then 'python_targets_override' must be set
 # to the desired release below:
-declare -x python_targets_override='python3_10'
+declare -x python_targets_override='python3_11'
 
 if [[ -n "${BASH_VERSINFO[0]:-}" ]] && (( BASH_VERSINFO[0] < 4 )); then
 	echo >&2 "FATAL: bash-4.0.0 or later is required to run this script - on" \
@@ -143,7 +143,7 @@ if [[ -n "${python_single_target:-}" ]]; then
 	[[ "${python_single_target}" =~ ^python[[:digit:]]_[[:digit:]]+$ ]] ||
 		die "python_single_target value '${python_single_target}'" \
 			"doesn't appear to be a valid python version" \
-			"(matching 'pythonX_Y', e.g. 'python3_10')"
+			"(matching 'pythonX_Y', e.g. 'python3_11')"
 	if [[ -f "${base_dir}"/etc/portage/profile/use.mask ]]; then
 		if
 			sed 's/#.*$//' "${base_dir}"/etc/portage/profile/use.mask |
@@ -160,7 +160,7 @@ if [[ -n "${python_targets:-}" ]]; then
 		[[ "${python_target}" =~ ^python[[:digit:]]_[[:digit:]]+$ ]] ||
 			die "python_targets value '${python_target}'" \
 				"doesn't appear to be a valid python version" \
-				"(matching 'pythonX_Y', e.g. 'python3_10')"
+				"(matching 'pythonX_Y', e.g. 'python3_11')"
 		if [[ -f "${base_dir}"/etc/portage/profile/use.mask ]]; then
 			if
 				sed 's/#.*$//' "${base_dir}"/etc/portage/profile/use.mask |
