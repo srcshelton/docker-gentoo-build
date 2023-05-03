@@ -1253,6 +1253,8 @@ if [ -n "${pkg_initial:-}" ]; then
 						emerge \
 								--ignore-default-opts \
 								${parallel} \
+								--binpkg-respect-use=y \
+								--binpkg-changed-deps=y \
 								--buildpkg=n \
 								--color=y \
 								--deep \
@@ -1273,6 +1275,8 @@ if [ -n "${pkg_initial:-}" ]; then
 						emerge \
 								--ignore-default-opts \
 								${parallel} \
+								--binpkg-respect-use=y \
+								--binpkg-changed-deps=y \
 								--buildpkg=n \
 								--color=y \
 								--deep \
