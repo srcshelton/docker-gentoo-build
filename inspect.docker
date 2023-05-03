@@ -375,6 +375,7 @@ docker_run() {
 		mp="${mountpoints[${mp}]}" || continue
 		files+=( "${cwd}/${base_dir:+"${base_dir}"}${mp}" )
 	done
+	files+=( /etc/portage/package.accept_keywords/arm64 )
 	for mp in "${files[@]}"; do
 		src="$( readlink -e "${mp}" )"
 		if [ -n "${src:-}" ]; then
@@ -384,6 +385,8 @@ docker_run() {
 			fi
 		fi
 	done
+	unset files
+
 	for oom in oom "${cwd}/${base_dir:+"${base_dir}/"}oom"; do
 		src="$( readlink -e "${oom}" )"
 		if [ -n "${src:-}" ]; then
