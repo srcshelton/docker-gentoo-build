@@ -11,6 +11,7 @@
 ~net-analyzer/netdata-1.38.0				~amd64 ~arm ~arm64 ~x86
 ~net-im/bitlbee-3.6-r3					       ~arm ~arm64
 ~net-nds/phpldapadmin-1.2.6.3				~amd64 ~arm ~arm64 ~x86
+~sys-process/ctop-0.7.7					~amd64
 
 # Keyword remaining unstable packages supporting python3_11...
 =net-misc/rsync-3.2.7-r2				~amd64 ~arm ~arm64 ~x86
