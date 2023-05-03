@@ -52,6 +52,8 @@ if command -v cpuid2cpuflags >/dev/null 2>&1; then
 else
 	if [ "$( uname -s )" = 'Darwin' ]; then
 		description="$( sysctl -n machdep.cpu.brand_string )"
+	elif [ -s /sys/firmware/devicetree/base/model ]; then
+		description="$( printf ': ' ; tr -d '\0' < /sys/firmware/devicetree/base/model )"
 	else
 		description="$(
 			grep -E '(model name|Raspberry)' /proc/cpuinfo |
@@ -64,6 +66,8 @@ else
 		description="$( grep -F 'CPU part' /proc/cpuinfo | sort | tail -n 1 )"
 	fi
 
+	# Find '-march=native' flags:
+	# diff <(g++ -march=<arch> -Q --help=target --help=params) <(g++ -march=native -Q --help=target --help=params)
 	case "${description:-}" in
 		*': Intel(R) Atom(TM) CPU '*' 330 '*' @ '*)
 			use_cpu_arch='x86'
@@ -97,23 +101,37 @@ else
 
 		*': Raspberry Pi Zero W Rev 1.1'*)
 			use_cpu_arch='arm'
-			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2'
+			# Raspbian 8.3.0-6+rpi1 reports 'armv6zk+fp'
+			# Raspbian 10.2.1-6+rpi1 reports 'armv6kz+fp'
+			use_cpu_flags='edsp thumb vfp v4 v5 v6'
 			gcc_target_opts='-march=armv6kz+fp -mcpu=arm1176jzf-s' ;;
 		*': Raspberry Pi 2 '*)
 			use_cpu_arch='arm'
+			# Gentoo 11.3.0 p5 reports 'armv7ve+simd'
 			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 v4 v5 v6 v7 thumb2'
-			gcc_target_opts='-march=armv7ve+vfpv3-d16 -mcpu=cortex-a7 -mlibarch=armv7ve+vfpv3-d16' ;;
-		*': Raspberry Pi 3 '*)
+			#gcc_target_opts='-march=armv7ve+vfpv3-d16 -mcpu=cortex-a7 -mlibarch=armv7ve+vfpv3-d16' ;;
+			gcc_target_opts='-march=armv7ve+simd -mcpu=cortex-a7 -mlibarch=armv7ve+simd' ;;
+		*': Raspberry Pi 3 '*|*': Raspberry Pi Zero 2 W '*)
 			use_cpu_arch='arm'
+			# Raspbian 8.3.0-6+rpi1 reports 'armv8-a+crc+simd'
 			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2'
 			gcc_target_opts='-march=armv8-a+crc+simd -mcpu=cortex-a53' ;;
-		*': Raspberry Pi 4 '*)
+		*': Raspberry Pi 4 '*|*': Raspberry Pi Compute Module 4 '*)
 			use_cpu_arch='arm'
-			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2'
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
+			# Debian 10.2.1-6+rpi1 reports 'armv8-a+crc+simd'
+			# GCC-11
+			#gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72' ;;
+			# GCC-12+
+			gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72 -mtp=cp15' ;;
+		*': Raspberry Pi 400 '*)
+			use_cpu_arch='arm'
 			# Raspberry Pi 400 Rev 1.0/Debian 10.2.1-6 reports 'armv8-a+crc'
-			# Raspberry Pi 4 Model B Rev 1.1/Debian 10.2.1-6+rpi1 reports 'armv8-a+crc+simd'
-			#gcc_target_opts='-march=armv8-a+crc'
-			gcc_target_opts='-march=armv8-a+crc+simd -mcpu=cortex-a72 -mtp=cp15' ;;
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
+			# GCC-11
+			#gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72' ;;
+			# GCC-12+
+			gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72 -mtp=cp15' ;;
 
 		*': 0xd07'|'Apple M1'*)
 			use_cpu_arch='arm'
