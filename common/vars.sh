@@ -121,17 +121,17 @@ else
 			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
 			# Debian 10.2.1-6+rpi1 reports 'armv8-a+crc+simd'
 			# GCC-11
-			#gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72' ;;
+			gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72' ;;
 			# GCC-12+
-			gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72 -mtp=cp15' ;;
+			#gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72 -mtp=cp15' ;;
 		*': Raspberry Pi 400 '*)
 			use_cpu_arch='arm'
 			# Raspberry Pi 400 Rev 1.0/Debian 10.2.1-6 reports 'armv8-a+crc'
 			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
 			# GCC-11
-			#gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72' ;;
+			gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72' ;;
 			# GCC-12+
-			gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72 -mtp=cp15' ;;
+			#gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72 -mtp=cp15' ;;
 
 		*': 0xd07'|'Apple M1'*)
 			use_cpu_arch='arm'
