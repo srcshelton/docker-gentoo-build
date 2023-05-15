@@ -273,8 +273,8 @@ if [ $(( jobs )) -ge 2 ]; then
 	fi
 	: $(( load = load - 1 ))
 fi
-export JOBS="${jobs}"
-export MAXLOAD="${load}.00"
+export JOBS="${EMERGE_JOBS:-"${jobs}"}"
+export MAXLOAD="${EMERGE_MAXLOAD:-"${load}.00"}"
 unset load jobs
 
 # Are we using docker or podman?
