@@ -574,7 +574,7 @@ echo
 	mkdir -p /var/lib/portage
 	echo 'virtual/libc' > /var/lib/portage/world
 
-	USE="-* $( get_stage3 --values-only USE )"
+	USE="-* $( get_stage3 --values-only USE ) -udev"
 	export USE
 	export FEATURES="${FEATURES:+${FEATURES} }-fakeroot"
 	export LC_ALL='C'
