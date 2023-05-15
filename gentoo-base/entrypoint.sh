@@ -582,6 +582,25 @@ echo
 	if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 		list="${list:-} sys-apps/systemd-utils"
 	fi
+	# 'dhcpcd' is now built with USE='udev'...
+	#
+	# shellcheck disable=SC2012,SC2086,SC2046
+	emerge \
+			--ignore-default-opts \
+			--binpkg-changed-deps=y \
+			--binpkg-respect-use=y \
+			--buildpkg=n \
+			--color=y \
+			--keep-going=y \
+			--oneshot \
+			--quiet-build=y \
+			${opts:-} \
+			--usepkg=y \
+			--verbose=y \
+			--verbose-conflicts \
+			--with-bdeps=n \
+			--with-bdeps-auto=n \
+		net-misc/dhcpcd
 	# shellcheck disable=SC2086
 	emerge \
 			--ignore-default-opts \
