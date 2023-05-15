@@ -56,6 +56,8 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 	fi
 fi
 
+declare -a args=() container_args=()
+
 docker_parse() {
 	local arg=''
 
@@ -111,6 +113,10 @@ docker_parse() {
 	if [ "${mount}" = '<next>' ]; then
 		export mount=''
 	fi
+
+	for arg in "${args[@]:-}"; do
+		container_args+=( "${arg}" )
+	done
 
 	unset arg
 }  # docker_parse
@@ -325,25 +331,26 @@ docker_run() {
 			done
 			print "'"
 			unset arg
-			if touch inspect.sh.debug.log; then
-				echo >inspect.sh.debug.log <<-EOF
+			if touch inspect.docker.debug.log; then
+				echo >inspect.docker.debug.log <<-EOF
 					#! /bin/sh
 
 					set -eux
 
 				EOF
-				echo >>inspect.sh.debug.log "$docker container run \\"
+				printf >>inspect.docker.debug.log '%s container run \\\n' "${docker}"
 				for arg in "${runargs[@]}"; do
-					echo >>inspect.sh.debug.log "        ${arg} \\"
+					printf >>inspect.docker.debug.log '        %s \\\n' "${arg}"
 				done
-				echo >>inspect.sh.debug.log "    ${image} \\"
+				unset arg
+				printf >>inspect.docker.debug.log '    %s \\\n' "${image}"
 				# Start at $1 as $0 is the command itself...
 				local -i i=1
 				for (( ; i < ${#} ; i++ )); do
-					echo >>inspect.sh.debug.log "        ${!i} \\"
+					printf >>inspect.docker.debug.log '        %s \\\n' "${!i:-}"
 				done
 				# At this point i == ${#}...
-				echo >>inspect.sh.debug.log "        ${!i}"
+				printf >>inspect.docker.debug.log '        %s\n' "${!i:-}"
 				unset i
 			fi
 		fi
@@ -408,6 +415,31 @@ docker_trap() {
 }  # docker-trap
 
 main() {
+	local arg=''
+	local -a main_args=()
+
+	if [[ -n "${*:-}" ]]; then
+		for arg in "${@:-}"; do
+			case "${arg:-}" in
+				--memory-reservation=*)
+					PODMAN_MEMORY_RESERVATION="${arg#*=}"
+					;;
+				--memory-limit=*)
+					PODMAN_MEMORY_LIMIT="${arg#*=}"
+					;;
+				--swap-limit=*)
+					PODMAN_SWAP_LIMIT="${arg#*=}"
+					;;
+				*)
+					main_args+=( "${arg}" )
+					;;
+			esac
+		done
+		set -- "${main_args[@]:-}"
+		#print "args: (${#}) '${*:-}'"
+	fi
+	unset main_args arg
+
 	if [[ -z "${NO_MEMORY_LIMITS:-}" ]]; then
 		# Tiny
 		#: "${PODMAN_MEMORY_RESERVATION:=256m}"
@@ -429,7 +461,13 @@ main() {
 		#: "${PODMAN_MEMORY_RESERVATION:=4g}"
 		#: "${PODMAN_MEMORY_LIMIT:=8g}"
 		#: "${PODMAN_SWAP_LIMIT:=16g}"
-		: "${PODMAN_MEMORY_RESERVATION:="4g"}"
+		#
+		#: "${PODMAN_MEMORY_RESERVATION:="4g"}"
+		#: "${PODMAN_MEMORY_LIMIT:="6g"}"
+		#
+		# See comments in common/vars.sh...
+		#
+		: "${PODMAN_MEMORY_RESERVATION:="2g"}"
 		: "${PODMAN_MEMORY_LIMIT:="6g"}"
 		: "${PODMAN_SWAP_LIMIT:="${PODMAN_MEMORY_LIMIT}"}"
 
@@ -497,7 +535,7 @@ main() {
 	output >&2 "Launching container '${name}' from image '${image}' ..."
 
 	#set -o xtrace
-	docker_run || rc=${?}
+	docker_run "${container_args[@]:-}" || rc=${?}
 
 	#if [ -n "${rm:-}" ]; then
 	#	docker_trap rm --volumes "${name}"
