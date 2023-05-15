@@ -29,13 +29,23 @@
 #: "${PODMAN_MEMORY_LIMIT:="4g"}"
 #: "${PODMAN_SWAP_LIMIT:="6g"}"
 # Extra-Large
-: "${PODMAN_MEMORY_RESERVATION:="4g"}"
-: "${PODMAN_MEMORY_LIMIT:="8g"}"
+#: "${PODMAN_MEMORY_RESERVATION:="4g"}"
+#: "${PODMAN_MEMORY_LIMIT:="8g"}"
 #: "${PODMAN_SWAP_LIMIT:="11g"}"
 # XXL
 #: "${PODMAN_MEMORY_RESERVATION:="8g"}"
 #: "${PODMAN_MEMORY_LIMIT:="16g"}"
 #: "${PODMAN_SWAP_LIMIT:="20g"}"
+#
+# We don't want to put the system under undue memory-pressure, but at the same
+# time sys-devel/gcc and sys-devel/llvm no longer compile with 4GB RAM... so
+# let's see whether we can get away with 5GB?  Parallel builds may also require
+# more memory than this too, of course :o
+#
+# Update: 5GB isn't enough, but 6GB appears to be, just.  That's at least a 50%
+#         increase in memory required between gcc-11 and gcc-12 :(
+: "${PODMAN_MEMORY_RESERVATION:="2g"}"
+: "${PODMAN_MEMORY_LIMIT:="6g"}"
 : "${PODMAN_SWAP_LIMIT:="${PODMAN_MEMORY_LIMIT}"}"
 
 # shellcheck disable=SC2034
