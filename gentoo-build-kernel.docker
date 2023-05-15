@@ -67,15 +67,15 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	usage="Usage: $( basename "${0}" ) "
 	# shellcheck disable=SC2116 # echo used for line-splitting
 	options="$( echo \
-		"[--config-from=<file> [--force]]" \
+		"[--config-from=<file> [--force]]|[--config=<defconfig>]" \
 		"[--no-keep-build|--keep-build[=<dir>]]" \
 		"[--no-patch|--patch=<url>[,<url]]" \
 		"[--menuconfig|--nconfig]" \
 		"[--package=<atom>] [--firmware] [--clean]" \
 		"[--clang [--clean-lto] [--llvm-unwind] [--rust]]"
 	)"
-	output "${usage}${options}" | fold -sw ${COLUMNS:-80} - | head -n 1 >&2
-	output "${options}" | fold -sw $(( ${COLUMNS:-80} - ${#usage} )) - | sed "s|^|${usage//?/ }|" | tail -n +2 >&2
+	output "${usage}${options}" | fold -sw ${COLUMNS:-"80"} - | head -n 1 >&2
+	output "${options}" | fold -sw $(( ${COLUMNS:-"80"} - ${#usage} )) - | sed "s|^|${usage//?/ }|" | tail -n +2 >&2
 	output >&2
 	output >&2 "Options:"
 	output >&2 "       --config-from Use specified file as kernel base configuration"
@@ -83,6 +83,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "                     active kernel configuration)"
 	output >&2 "                     N.B. To keep the resultant configuration, use the"
 	output >&2 "                          '--keep-build' option to save the build output"
+	output >&2 "       --defconfig   preconfigure with specified 'make' target"
 	output >&2 "       --force       Overwrite build-cache configuration with specified file"
 	output >&2 "       --keep-build  Cache the kernel build artefacts for re-use"
 	output >&2 "                    (optionally in the specified directory)"
@@ -96,10 +97,11 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "       --clang       Compile kernel with llvm"
 	output >&2 "       --llvm-unwind Install LLVM edition of libunwind"
 	output >&2 "       --rust        Pull-in 'rust' dependencies"
+	output >&2 "       --no-install  Don't install build-products to /boot"
 	output >&2 "       --clean       Run 'make clean' before build"
 	output >&2 "       --clean-lto   Remove exisitng *.lto.o objects"
 	output >&2
-	output >&2 "Running on architecture '${arch:-${ARCH:-}}'"
+	output >&2 "Running on architecture '${arch:-"${ARCH:-}"}'"
 	output >&2
 	output >&2 "[1]: https://github.com/clearlinux-pkgs/linux/blob/main/0133-novector.patch"
 	output >&2
@@ -111,19 +113,25 @@ if (( EUID )); then
 fi
 
 declare -i build=1
+declare -i clean=0
+declare -i clean_lto=0
+declare -i force=0
+declare -i install=1
+declare -i opt_o3=0
+declare -i rust=0
 declare build_dir=''
 declare compiler='gcc'
-declare unwind=''
 declare config=''
-declare -i force=0
+declare defconfig=''
 declare menuconfig=''
 declare nconfig=''
-declare version=''
 declare patch=''
-declare -i clean_lto=0
-declare -i rust=0
-declare -i clean=0
-declare -i opt_o3=0
+declare unwind=''
+declare version=''
+
+if [[ -n "${kbuild_opt:-}" ]]; then
+	set -- "${*:-}" "${kbuild_opt}"
+fi
 
 if echo " ${*:-} " | grep -q -- ' --menuconfig '; then
 	menuconfig='menuconfig'  # Just has to be set...
@@ -138,6 +146,9 @@ if echo " ${*:-} " | grep -q -- ' --clean '; then
 fi
 if echo " ${*:-} " | grep -q -- ' -O3 '; then
 	opt_o3=1
+fi
+if echo " ${*:-} " | grep -q -- ' --no-install '; then
+	install=0
 fi
 if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 	compiler='clang'
@@ -184,6 +195,18 @@ else
 		warn "Changes made to configuration will not be saved externally"
 	fi
 fi
+if echo " ${*:-} " | grep -Eq -- ' --defconfig[= ]'; then
+	if echo " ${*:-} " | grep -Eq -- ' --defconfig=[^ ]+ '; then
+		defconfig="$( echo " ${*} " | grep -Eo -- '--defconfig=[^ ]+ ' | cut -d'=' -f 2- | sed 's/ $//' )"
+	elif echo " ${*:-} " | grep -Eq -- ' --defconfig [^ -][^ ]* '; then
+		defconfig="$( echo " ${*} " | grep -Eo -- '--defconfig [^ ]+ ' | cut -d' ' -f 2- | sed 's/ $//' )"
+	else
+		warn "Invalid config option '$( echo " ${*:-} " | grep -Eo -- '--defconfig[^ ]*[= ][^ ]+ ' | sed 's/ $//' )'"
+	fi
+fi
+if [[ -n "${config:-}" && -n "${defconfig:-}" ]]; then
+	warn "'--defconfig' (${defconfig}) overrides '--config-from' (${config}) - using former value"
+fi
 if echo " ${*:-} " | grep -q -- ' --keep-build'; then
 	if echo " ${*:-} " | grep -q -- ' --keep-build=[^ ]\+ '; then
 		build_dir="$( echo " ${*} " | grep -o -- '--keep-build=[^ ]\+ ' | cut -d'=' -f 2- | sed 's/ $//' )"
@@ -212,10 +235,10 @@ declare package=''
 declare package_version=''
 declare container_name=''
 declare distro=''
-docker_resolve "${version:-sys-kernel/gentoo-sources}"
+docker_resolve "${version:-"sys-kernel/gentoo-sources"}"
 if ! echo "${package}" | grep -Fq -- '/'; then
 	error "Resolved package '${package}' with version '${package_version}' lacks a category"
-	note "(... we could always add in 'sys-kernel/' as an assumed prefix?)"
+	#note "(... we could always add in 'sys-kernel/' as an assumed prefix?)"
 	die "Essential package data not found - aborting"
 fi
 # shellcheck disable=SC2001 # POSIX sh compatibility
@@ -259,7 +282,7 @@ case "${package_version}" in
 		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.8-5.14.patch'
 		case "${package_version}" in
 			5.11.*)
-				patch="${patch:+${patch} }https://lore.kernel.org/linux-btrfs/206d121e2e2b609ffe31217e6d90bfabe1c4e121.1616066404.git.fdmanana@suse.com/raw" ;;
+				patch="${patch:+"${patch} "}https://lore.kernel.org/linux-btrfs/206d121e2e2b609ffe31217e6d90bfabe1c4e121.1616066404.git.fdmanana@suse.com/raw" ;;
 		esac
 		;;
 	5.15.*|5.16.*)
@@ -269,7 +292,7 @@ case "${package_version}" in
 		patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.17%2B.patch'
 		case "${package_version}" in
 			5.19.*)
-				patch="${patch:+${patch} }https://lore.kernel.org/all/20220630090100.2769490-1-yi.zhang@huawei.com/raw"
+				patch="${patch:+"${patch} "}https://lore.kernel.org/all/20220630090100.2769490-1-yi.zhang@huawei.com/raw"
 		esac
 		;;
 	'')
@@ -288,9 +311,9 @@ case "${package_version}" in
 		fi
 		;;
 esac
-case "${arch:-${ARCH:-}}" in
+case "${arch:-"${ARCH:-}"}" in
 	arm64)
-		patch="${patch:+${patch} }https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/build-with-mcpu-for-cortex-a72.patch"
+		patch="${patch:+"${patch} "}https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/build-with-mcpu-for-cortex-a72.patch"
 		;;
 esac
 if echo " ${*:-} " | grep -q -- ' --patch'; then
@@ -331,7 +354,11 @@ if [ -z "${build_dir:-}" ]; then
 	# Even if '--keep-build' hasn't been specified, we still set build_dir
 	# here, we just won't mount it from the host later...
 	#
-	build_dir="/usr/src/linux-build-${compiler}${unwind:+-unwind}-${build_version}.x"
+	declare name="${version:-"sys-kernel/gentoo-sources"}"
+	name="${name#*/}"
+	name="${name%-sources}"
+	build_dir="/usr/src/linux-${name}-build-${compiler}${unwind:+"-unwind"}-${build_version}.x"
+	unset name
 fi
 unset build_version
 if [ "${build:-}" = '1' ]; then
@@ -362,7 +389,7 @@ if [ -n "${config:-}" ]; then
 				note >&2 "Extracting /proc/config.gz to '${config}' ..."
 				zcat /proc/config.gz > "${config}" || die "zcat failed: ${?}"
 			else
-				config="${TMPDIR:-/tmp}/linux-${package_version%-r[0-9]}.config"
+				config="${TMPDIR:-"/tmp"}/linux-${package_version%-r[0-9]}.config"
 				if [ -e "${config}" ]; then
 					die "configuration file '${config}' already exists"
 				fi
@@ -439,7 +466,7 @@ esac
 case "${unwind:-}" in
 	llvm)
 		compiler_pkgs="${compiler_pkgs} sys-libs/llvm-libunwind"
-		compiler_USE="${compiler_USE:+${compiler_USE} }llvm-libunwind"
+		compiler_USE="${compiler_USE:+"${compiler_USE} "}llvm-libunwind"
 		#pre_remove="sys-libs/libunwind"
 		#pre_pkgs="sys-libs/llvm-libunwind"
 		;;
@@ -448,44 +475,44 @@ esac
 # FIXME: Standardise on host or container configuration files
 DOCKER_EXTRA_MOUNTS=''
 test -e /etc/portage/package.accept_keywords &&
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+",${docker_readonly}"}"
 test -e /etc/portage/package.license &&
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+",${docker_readonly}"}"
 
 if ! [ -d /etc/portage/package.mask ]; then
 	test -f /etc/portage/package.mask && test -s /etc/portage/package.mask &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask,destination=/etc/portage/package.mask/host.mask${docker_readonly:+,${docker_readonly}}"
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.mask,destination=/etc/portage/package.mask/host.mask${docker_readonly:+",${docker_readonly}"}"
 else
 	test -f /etc/portage/package.mask/package.mask && test -s /etc/portage/package.mask/package.mask &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/host.mask${docker_readonly:+,${docker_readonly}}"
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/host.mask${docker_readonly:+",${docker_readonly}"}"
 	declare extra_mask='' file=''
 	while read -r extra_mask; do
 		file="$( basename "${extra_mask}" )"
 		test -s "/etc/portage/package.mask/${file}" &&
-			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.mask/${file},destination=/etc/portage/package.mask/${file}${docker_readonly:+,${docker_readonly}}"
+			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.mask/${file},destination=/etc/portage/package.mask/${file}${docker_readonly:+",${docker_readonly}"}"
 	done < <( find /etc/portage/package.mask/ -mindepth 1 -maxdepth 1 -type f -not -name 'package.mask' -print0 | grep -vz -- '^repo-.*-mask' )
 	unset file extra_mask
 fi
 # shellcheck disable=SC2154
-if ! [ -d "${base_dir:+${base_dir}/}etc/portage/package.mask" ]; then
-	test -f "${base_dir:+${base_dir}/}etc/portage/package.mask" && test -s "${base_dir:+${base_dir}/}etc/portage/package.mask" &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask,destination=/etc/portage/package.mask/base.mask${docker_readonly:+,${docker_readonly}}"
+if ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask" ]; then
+	test -f "${base_dir:+"${base_dir}/"}etc/portage/package.mask" && test -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask" &&
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask,destination=/etc/portage/package.mask/base.mask${docker_readonly:+",${docker_readonly}"}"
 else
-	test -f "${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask" && test -s "${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask" &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=${PWD}/${base_dir:+${base_dir}/}etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/base.mask${docker_readonly:+,${docker_readonly}}"
+	test -f "${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask" && test -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask" &&
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/base.mask${docker_readonly:+",${docker_readonly}"}"
 fi
 
 if ! [ -d /etc/portage/package.use ]; then
 	test -f /etc/portage/package.use && test -s /etc/portage/package.use &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+,${docker_readonly}}"
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+",${docker_readonly}"}"
 else
 	# Add a prefix so that host.use can override package.use...
 	test -f /etc/portage/package.use/package.use && test -s /etc/portage/package.use/package.use &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/package.use,destination=/etc/portage/package.use/aa-package.use${docker_readonly:+,${docker_readonly}}"
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.use/package.use,destination=/etc/portage/package.use/aa-package.use${docker_readonly:+",${docker_readonly}"}"
 	test -f /etc/portage/package.use/host.use && test -s /etc/portage/package.use/host.use &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/host.use,destination=/etc/portage/package.use/zz-host.use${docker_readonly:+,${docker_readonly}}"
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.use/host.use,destination=/etc/portage/package.use/zz-host.use${docker_readonly:+",${docker_readonly}"}"
 	test -f /etc/portage/package.use/python_targets && test -s /etc/portage/package.use/python_targets &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.use/python_targets,destination=/etc/portage/package.use/python_targets${docker_readonly:+,${docker_readonly}}"
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.use/python_targets,destination=/etc/portage/package.use/python_targets${docker_readonly:+",${docker_readonly}"}"
 fi
 [ -n "${DOCKER_EXTRA_MOUNTS:-}" ] && export DOCKER_EXTRA_MOUNTS
 
@@ -533,6 +560,7 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 					${firmware:-} \
 					${rustext:+"${rust_ver:+"="}virtual/rust${rust_ver:+"-${rust_ver}"}"} \
 					${rustext:+"${bindgen_ver:+"="}dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"} \
+					virtual/os-headers \
 					virtual/linux-sources \
 				2>&1 | tee "log/docker.${logname}.log"
 			output " -> ${?}"
@@ -578,9 +606,14 @@ fi
 #DOCKER_EXTRA_MOUNTS=''
 DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:-} --mount type=bind,source=/lib/modules/,destination=/lib/modules"
 DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:-} --mount type=bind,source=/boot/,destination=/boot"
+case "${arch:-"${ARCH:-}"}" in
+	arm64)
+		mkdir -p /boot/overlays
+		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:-} --mount type=bind,source=/boot/overlays/,destination=/boot/dtbs" ;;
+esac
 DOCKER_ENTRYPOINT='/bin/sh'
 DOCKER_INTERACTIVE=1
-deforoldconfig='defconfig'
+deforoldconfig="${defconfig:-"defconfig"}"
 if [ "${build:-}" = '1' ]; then
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:-} --mount type=bind,source=${build_dir},destination=/usr/src/build"
 	if ! [ -d "${build_dir}" ]; then
@@ -608,8 +641,8 @@ if [ -n "${TMPDIR:-}" ]; then
 	warn "Temporary directory override 'TMPDIR' (${TMPDIR}) set, but container tools may ignore this variable"
 	export TMPDIR
 fi
-if (( $( df -BM --output=avail "${TMPDIR:-/var/tmp/}" | tail -n +2 | sed 's/M$//' ) < temp_space_required )); then
-	warn "Filesystem containing '${TMPDIR:-/var/tmp}' has only $( df -h --output=avail /var/tmp/ | tail -n +2 ) space available, need ${temp_space_required}M"
+if (( $( df -BM --output=avail "${TMPDIR:-"/var/tmp/"}" | tail -n +2 | sed 's/M$//' ) < temp_space_required )); then
+	warn "Filesystem containing '${TMPDIR:-"/var/tmp"}' has only $( df -h --output=avail /var/tmp/ | tail -n +2 ) space available, need ${temp_space_required}M"
 	rc=1
 fi
 if (( $( df -BM --output=avail "${build_dir}"/.. | tail -n +2 | sed 's/M$//' ) + $( df -BM --output=used "${build_dir}" | tail -n +2 | sed 's/M$//' ) < build_space_reqiured )); then
@@ -652,9 +685,9 @@ kernel_make_opts+=(
 	${container_CC:+"CC=${container_CC}"}
 	${container_CXX:+"CXX=${container_CXX}"}
 	${container_LD:+"LD=${container_LD}"}
-	${container_LLVM:+LLVM=1 LLVM_IAS=1}
+	${container_LLVM:+"LLVM=1 LLVM_IAS=1"}
 	${container_KCFLAGS:-}
-	${kernel_debug:+${kernel_debug}}
+	${kernel_debug:+"${kernel_debug}"}
 	O=../build
 )
 # Unpatched:
@@ -717,14 +750,19 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	fi ;
 	kernel='bzImage' ;
 	dir='x86' ;
-	case "${arch:-${ARCH:-}}" in
+	dtb='' ;
+	case "${arch:-"${ARCH:-}"}" in
 		arm64)
 			kernel='Image.gz' ;
 			dir='arm64'
+			echo "Will build devicetree files for ARM64 platforms ..." ;
+			dtb='1' ;
 			;;
 		arm*)
 			kernel='Image.gz' ;
-			dir='arm'
+			dir='arm' ;
+			echo "Will build devicetree files for ARM platforms ..." ;
+			dtb='1' ;
 			;;
 	esac ;
 	${container_CC} --version ;
@@ -776,34 +814,43 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		make ${kernel_make_opts[@]} rustavailable ;
 		echo ;
 	fi ;
-	echo "Configuration changes from '.config':" ;
-	make ${kernel_make_opts[@]} listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
+	if [ -e .config ]; then
+		echo "Configuration changes from '.config':" ;
+		make ${kernel_make_opts[@]} listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
+	fi
 	success=0 ;
 	set -x ;
-	time make ${kernel_make_opts[@]} ${deforoldconfig} prepare ${menuconfig:+menuconfig} ${nconfig:+nconfig} vmlinux modules \${kernel} &&
-	rm -rf "/lib/modules/${package_version}${distro:-}" &&
-	make ${kernel_make_opts[@]} modules_install &&
-	success=1 ;
-	set +x ;
-	if [ -s /boot/boot.config -o -s /proc/bootconfig ] && [ -e /boot/initramfs.img ]; then
-		if make ${kernel_make_opts[@]} -C tools/bootconfig; then
-			make ${kernel_make_opts[@]} bindir='/usr/local/sbin' -C tools/bootconfig install ;
-			if [ -s /boot/boot.config ]; then
-				bootconfig -a /boot/boot.config /boot/initramfs.img ;
-			else
-				bootconfig -a /proc/bootconfig /boot/initramfs.img ;
-			fi ;
-		else
-			echo >&2 "WARN:  'make -C tools/bootconfig' failed: \${?}" ;
-		fi ;
-	fi ;
-	if [ "\${success}" = '1' ]; then
-		set -x ;
-		cp ../build/.config /boot/config-${package_version}${distro:-} ;
-		cp ../build/System.map /boot/System.map-${package_version}${distro:-} ;
-		cp ../build/arch/\${dir}/boot/\${kernel} /boot/kernel-${package_version}${distro:-} ;
+	time make ${kernel_make_opts[@]} ${deforoldconfig} prepare ${menuconfig:+"menuconfig"} ${nconfig:+"nconfig"} vmlinux modules \${dtb:+"dtbs"} \${kernel} &&
+		rm -rf "/lib/modules/${package_version}${distro:-}" &&
+		make ${kernel_make_opts[@]} modules_install &&
+		success=1 ;
+	if [ "${install}" = '1' ]; then
 		set +x ;
-		echo 'Linux kernel-${package_version}${distro:-} installed - please update your bootloader' ;
+		if [ -s /boot/boot.config -o -s /proc/bootconfig ] && [ -e /boot/initramfs.img ]; then
+			if make ${kernel_make_opts[@]} -C tools/bootconfig; then
+				make ${kernel_make_opts[@]} bindir='/usr/local/sbin' -C tools/bootconfig install ;
+				if [ -s /boot/boot.config ]; then
+					bootconfig -a /boot/boot.config /boot/initramfs.img ;
+				else
+					bootconfig -a /proc/bootconfig /boot/initramfs.img ;
+				fi ;
+			else
+				echo >&2 "WARN:  'make -C tools/bootconfig' failed: \${?}" ;
+			fi ;
+		fi ;
+		if [ "\${dtb}" = '1' ]; then
+			make ${kernel_make_opts[@]} dtbs_install ;
+		fi ;
+		if [ "\${success}" = '1' ]; then
+			set -x ;
+			cp ../build/.config /boot/config-${package_version}${distro:-} ;
+			cp ../build/System.map /boot/System.map-${package_version}${distro:-} ;
+			cp ../build/arch/\${dir}/boot/\${kernel} /boot/kernel-${package_version}${distro:-} ;
+			set +x ;
+			echo 'Linux kernel-${package_version}${distro:-} successfully installed - please update your bootloader' ;
+		fi ;
+	elif [ "\${success}" = '1' ]; then
+		echo "Linux kernel-${package_version}${distro:-} successfully built (but not installed due to '--no-install' argument)" ;
 	fi ;
 EOF
 )"
@@ -831,6 +878,10 @@ time {
 	#set +x
 	output " -> ${rc}"
 }
+
+if [[ -d /boot/dtbs ]] && [[ "$( find /boot/dtbs -maxdepth 0 -empty )" == '/boot/dtbs' ]]; then
+	rmdir /boot/dtbs
+fi
 
 exit ${rc}
 
