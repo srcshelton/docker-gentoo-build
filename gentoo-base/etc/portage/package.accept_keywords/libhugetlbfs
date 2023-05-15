@@ -3,5 +3,6 @@
 ~sys-libs/libhugetlbfs-2.20				~amd64 ~arm ~arm64 ~x86
 ~sys-libs/libhugetlbfs-2.21				~amd64 ~arm ~arm64 ~x86
 ~sys-libs/libhugetlbfs-2.22				~amd64 ~arm ~arm64 ~x86
+~sys-libs/libhugetlbfs-2.23				~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:
