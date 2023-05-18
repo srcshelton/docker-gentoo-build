@@ -1009,11 +1009,14 @@ do
 		if [ "${arch}" = 'arm64' ]; then
 			USE="${USE} gold"
 		fi
-		#case "${pkg}" in
+		case "${pkg}" in
 		#	*libcrypt|*libxcrypt)
 		#		USE="${USE} static-libs"
 		#		;;
-		#esac
+			*libxml2*)
+				USE="${USE} xml"
+				;;
+		esac
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 		export LC_ALL='C'
