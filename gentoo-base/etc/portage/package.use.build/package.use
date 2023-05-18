@@ -172,7 +172,7 @@ net-misc/dhcpcd				-compat
 net-misc/ntp				-snmp openntpd
 <net-misc/openntpd-6.8_p1-r1		 libressl
 >=net-misc/openntpd-6.8_p1-r1		 constraints
-net-misc/openssh			-X509 hpn ldns skey
+net-misc/openssh			-X509 ldns skey  # hpn deprecated
 net-misc/rsync				 system-zlib
 net-misc/scponly			-sftp logging passwd quota scp wildcards
 net-misc/whois				 xcrypt
