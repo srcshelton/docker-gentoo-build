@@ -15,12 +15,16 @@ ARG service_cwd="/"
 ARG service_fs_name
 ARG timezone="GB"
 
+ARG keep_base="yes"
+
 ARG ROOT="/service"
 ARG environment_file="/usr/libexec/environment.sh"
 ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
 
 #ARG smtp_smarthost="localhost"
 #ARG smtp_domain="localhost"
+
+ARG CHOST="x86_64-pc-linux-gnu"
 
 ARG zxtm_image_name="docker.io/pulsesecure/vtm"
 ARG zxtm_service_version="20.3"
@@ -110,6 +114,8 @@ ARG service_cwd
 ARG service_fs_name
 ARG timezone="GB"
 
+ARG keep_base
+
 #ARG zxtm_service_version
 ARG ZEUSHOME
 
@@ -119,8 +125,11 @@ ARG environment_file
 #ARG smtp_smarthost
 #ARG smtp_domain
 
+ARG CHOST
+
 #ENV service_cmd="${service_cmd}"
 ENV fs_name="${service_fs_name}"
+ENV CHOST="${CHOST}"
 
 ENV ZEUSHOME="${ZEUSHOME}"
 ENV ZEUS_COMMUNITY_EDITION="yes"
@@ -137,16 +146,16 @@ COPY --from=zxtm /usr/local/zeus "${ZEUSHOME}/"
 COPY entrypoint.sh.service.zxtm "${ZEUSHOME}/runzeus.sh"
 RUN test -L "${ZEUSHOME}/zxtm/conf"
 
-COPY --from=base /etc/group /etc/
-#COPY --from=base /etc/gshadow /etc/ # Doesn't exist in source image
-COPY --from=base /etc/passwd /etc/
-COPY --from=base /etc/shadow /etc/
-COPY --from=base /etc/ethertypes /etc/
-COPY --from=base /etc/networks /etc/
-COPY --from=base /etc/protocols /etc/
-COPY --from=base /etc/services /etc/
-COPY --from=base /etc/shells /etc/
-COPY --from=base /usr/share/zoneinfo /usr/share/zoneinfo/
+COPY --from=base /etc/group /etc/base/
+#COPY --from=base /etc/gshadow /etc/base/  # Doesn't exist in source image
+COPY --from=base /etc/passwd /etc/base/
+COPY --from=base /etc/shadow /etc/base/
+#COPY --from=base /etc/ethertypes /etc/base/  # Already in ${ROOT}
+COPY --from=base /etc/networks /etc/base/
+COPY --from=base /etc/protocols /etc/base/
+COPY --from=base /etc/services /etc/base/
+COPY --from=base /etc/shells /etc/base/
+#COPY --from=base /usr/share/zoneinfo /usr/share/zoneinfo/
 COPY --from=base "/usr/share/zoneinfo/${timezone}" /etc/localtime
 #COPY etc/msmtprc /etc/
 
@@ -158,26 +167,48 @@ LABEL description="Pulse Secure/Ivanti ${service_name}-${service_version} servic
 ARG SET_TERM="${TERM:-xterm}"
 ENV TERM="${SET_TERM}"
 
+ENV ROOT="/"
+
 #RUN cat "/var/db/pkg/${service_name}-${service_version}/CONTENTS"
 
 # linter ignore=ER0001
-#RUN i="${image_name}:${service_version}" ; \
-#    for f in /etc/base/*; do \
-#        f="$( basename "${f}" )" ; \
-#        if ! [ -s "/etc/${f}" ]; then \
-#            echo "Adding new file '${f}' from base image '${i}' ..." ; \
-#            mv "/etc/base/${f}" /etc/ ; \
-#        elif ! diff -q "/etc/base/${f}" "/etc/${f}" >/dev/null; then \
-#            echo "Files '/etc/base/${f}' and '/etc/${f}' differ ..." ; \
-#            diff -u "/etc/base/${f}" "/etc/${f}" | sed 's/^/    /' ; \
-#            echo "... keeping file '${f}' from base image '${i}'" ; \
-#            mv "/etc/base/${f}" /etc/ ; \
-#        fi ; \
-#    done ; \
-#    rm -r /etc/base ; \
-#    sed -e "s/__SMTP_SMARTHOST__/${smtp_smarthost}/" \
-#        -e "s/__DOMAIN__/${smtp_domain}/" \
-#        -i /etc/msmtprc
+RUN i="${image_name}:${service_version}" ; \
+    for f in /etc/base/*; do \
+        f="$( basename "${f}" )" ; \
+        if ! [ -s "/etc/${f}" ]; then \
+            echo "INFO:  Adding new file '${f}' from base image '${i}' ..." ; \
+            mv "/etc/base/${f}" /etc/ ; \
+        elif ! diff -q "/etc/base/${f}" "/etc/${f}" >/dev/null; then \
+            echo "WARN:  Files '/etc/base/${f}' and '/etc/${f}' differ ..." ; \
+            diff -u "/etc/base/${f}" "/etc/${f}" | sed 's/^/    /' ; \
+            if [ "${keep_base}" = 'yes' ]; then \
+                echo "WARN:  ... keeping file '${f}' from base image '${i}'" ; \
+                mv "/etc/base/${f}" /etc/ ; \
+            else \
+                echo "WARN:  ... keeping file '${f}' from build data" ; \
+            fi ; \
+        fi ; \
+    done ; \
+    rm -r /etc/base ; \
+    test -e /etc/msmtprc && sed -i \
+        -e "s/__SMTP_SMARTHOST__/${smtp_smarthost}/" \
+        -e "s/__DOMAIN__/${smtp_domain}/" \
+            /etc/msmtprc ; \
+    if [ -d "${ROOT}"/usr/lib/gcc ]; then \
+        if ! [ -d "${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}" ]; then \
+            echo "WARN:  Directory '${ROOT}/usr/lib/gcc' exists but '${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}' doesn't exist" ; \
+            ls -1AF "${ROOT}/usr/lib/gcc" | sed 's/^/DEBUG: /' ; \
+        else \
+            if ! grep -Fqm 1 '/gcc/' /etc/ld.so.conf; then \
+                find "/usr/lib/gcc/${CHOST:-__chost_not_set__}" \
+                        -mindepth 1 \
+                        -maxdepth 1 \
+                        -type d \
+                    -print0 | xargs -0rn 1 >> /etc/ld.so.conf ; \
+                ldconfig ; \
+            fi ; \
+        fi ; \
+    fi
 
 # I suspect the directory group ownership is random and unimportant, but let's
 # keep this image as close to the original as possible...
@@ -211,30 +242,33 @@ RUN ln -s /proc/self/mounts /etc/mtab ; \
     mv "${ZEUSHOME}"/admin/website "${ZEUSHOME}"/admin/var/ && \
     ln -s var/global.cfg "${ZEUSHOME}"/admin/global.cfg && \
     ln -s var/website "${ZEUSHOME}"/admin/website ; \
-    sed -i \
+    sed -i "${ZEUSHOME}/runzeus.sh" \
         -e "/^zeushome=/ s|\"[^\"]*\"$|\"${ZEUSHOME}\"|" \
-        -e "s|__ENVFILE__|${environment_file}|" \
-            "${ZEUSHOME}/runzeus.sh"
+        -e "s|__ENVFILE__|${environment_file}|"
 
 # linter ignore=SC2174
 RUN for d in 'empty' 'log' 'run' 'lock'; do \
         if test -e "/var/${d}" && { test -L "/var/${d}" || ! test -d "/var/${d}"; }; then \
             rm "/var/${d}" ; \
         fi ; \
-        mkdir -pm 0755 "/var/${d}/" ; \
+        mkdir -p -m 0755 "/var/${d}" ; \
     done && \
     if [ -n "${fs_name:-}" ]; then \
         for d in 'log' 'run'; do \
-            mkdir -pm 0755 "/var/${d}/${fs_name}/" ; \
+            mkdir -p -m 0755 "/var/${d}/${fs_name}" ; \
         done ; \
     fi ; \
     for d in \
             etc/conf.d etc/init.d etc/portage \
-            usr/include usr/lib64/pkgconfig usr/share/awk usr/share/udhcpc \
+            usr/lib64/pkgconfig usr/share/awk usr/share/udhcpc \
             var/cache/edb var/db/Makefile var/lib/gentoo ; \
     do \
         [ -e "${d}" ] && rm -rf "/${d}" ; \
     done ; \
+    if [ "${service_name}" != 'mail-filter/spamassassin-update' ]; then \
+        d='usr/inclue' ; \
+        [ -e "${d}" ] && rm -rf "/${d}" ; \
+    fi ; \
     if [ -d usr/share/gcc-data ]; then \
         rm -rf "/usr/share/gcc-data/*/*/man" "/usr/share/gcc-data/*/*/info" ; \
     fi
@@ -248,11 +282,18 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
 #COPY entrypoint.d/ /usr/libexec/entrypoint.d/
 #RUN test -s /usr/libexec/entrypoint.sh && \
 #    chmod 0755 /usr/libexec/entrypoint.sh && \
+#    sed -i \
+#        -e "s|__ENVFILE__|${environment_file}|" \
+#            /usr/libexec/entrypoint.sh && \
 #    test -x /usr/libexec/entrypoint.sh ; \
 #    chmod 0755 /usr/libexec/entrypoint.d/*.sh || :
-
+#
 #RUN echo "${service_cmd}" ; \
-#    test -x "${service_cmd}"
+#    test -x "${service_cmd}" && \
+#    if ! [ "$( head -n 1 "${service_cmd}" | sed 's/\(..\).*$/\1/' )" = '#!' ] ; \
+#    then \
+#    ldd "${service_cmd}" | tee /dev/stdout | grep -qv 'not found' ; \
+#    fi
 
 # linter ignore=SC2140 # False positive (https://github.com/buddy-works/dockerfile-linter/issues/8)
 RUN test -s "${ZEUSHOME}/runzeus.sh" && \

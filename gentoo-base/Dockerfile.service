@@ -15,6 +15,8 @@ ARG service_cwd="/"
 ARG service_fs_name
 ARG timezone="GB"
 
+ARG keep_base="yes"
+
 ARG ROOT="/service"
 ARG environment_file="/usr/libexec/environment.sh"
 ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
@@ -78,6 +80,8 @@ ARG service_cwd
 ARG service_fs_name
 ARG timezone="GB"
 
+ARG keep_base
+
 ARG ROOT
 ARG environment_file
 
@@ -96,13 +100,11 @@ ENV CHOST="${CHOST}"
 COPY --from=base "${ROOT}" /
 RUN test -s "${environment_file}"
 
-ENV ROOT="/"
-
 COPY --from=base /etc/group /etc/base/
 #COPY --from=base /etc/gshadow /etc/base/  # Doesn't exist in source image
 COPY --from=base /etc/passwd /etc/base/
 COPY --from=base /etc/shadow /etc/base/
-COPY --from=base /etc/ethertypes /etc/base/
+#COPY --from=base /etc/ethertypes /etc/base/  # net-firewall/iptables only
 COPY --from=base /etc/networks /etc/base/
 COPY --from=base /etc/protocols /etc/base/
 COPY --from=base /etc/services /etc/base/
@@ -119,6 +121,8 @@ LABEL description="Gentoo ${service_name}-${service_version} service"
 ARG SET_TERM="${TERM:-xterm}"
 ENV TERM="${SET_TERM}"
 
+ENV ROOT="/"
+
 #RUN cat "/var/db/pkg/${service_name}-${service_version}/CONTENTS"
 
 # linter ignore=ER0001
@@ -131,18 +135,22 @@ RUN i="${image_name}:${service_version}" ; \
         elif ! diff -q "/etc/base/${f}" "/etc/${f}" >/dev/null; then \
             echo "WARN:  Files '/etc/base/${f}' and '/etc/${f}' differ ..." ; \
             diff -u "/etc/base/${f}" "/etc/${f}" | sed 's/^/    /' ; \
-            echo "WARN:  ... keeping file '${f}' from base image '${i}'" ; \
-            mv "/etc/base/${f}" /etc/ ; \
+            if [ "${keep_base}" = 'yes' ]; then \
+                echo "WARN:  ... keeping file '${f}' from base image '${i}'" ; \
+                mv "/etc/base/${f}" /etc/ ; \
+            else \
+                echo "WARN:  ... keeping file '${f}' from build data" ; \
+            fi ; \
         fi ; \
     done ; \
     rm -r /etc/base ; \
-    sed -i \
+    test -e /etc/msmtprc && sed -i \
         -e "s/__SMTP_SMARTHOST__/${smtp_smarthost}/" \
         -e "s/__DOMAIN__/${smtp_domain}/" \
             /etc/msmtprc ; \
     if [ -d "${ROOT}"/usr/lib/gcc ]; then \
         if ! [ -d "${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}" ]; then \
-            echo "WARN:  Directory '${ROOT}/usr/lib/gcc' exists but '${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}' doesn't" ; \
+            echo "WARN:  Directory '${ROOT}/usr/lib/gcc' exists but '${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}' doesn't exist" ; \
             ls -1AF "${ROOT}/usr/lib/gcc" | sed 's/^/DEBUG: /' ; \
         else \
             if ! grep -Fqm 1 '/gcc/' /etc/ld.so.conf; then \
@@ -170,11 +178,15 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
     fi ; \
     for d in \
             etc/conf.d etc/init.d etc/portage \
-            usr/include usr/lib64/pkgconfig usr/share/awk usr/share/udhcpc \
+            usr/lib64/pkgconfig usr/share/awk usr/share/udhcpc \
             var/cache/edb var/db/Makefile var/lib/gentoo ; \
     do \
         [ -e "${d}" ] && rm -rf "/${d}" ; \
     done ; \
+    if [ "${service_name}" != 'mail-filter/spamassassin-update' ]; then \
+        d='usr/inclue' ; \
+        [ -e "${d}" ] && rm -rf "/${d}" ; \
+    fi ; \
     if [ -d usr/share/gcc-data ]; then \
         rm -rf "/usr/share/gcc-data/*/*/man" "/usr/share/gcc-data/*/*/info" ; \
     fi
