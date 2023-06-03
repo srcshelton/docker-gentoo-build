@@ -60,7 +60,7 @@ export DOCKER_CMD_VARS="--env LINES=${LINES} --env COLUMNS=${COLUMNS} --env TERM
 export DOCKER_INTERACTIVE=1
 export NO_BUILD_MOUNTS='no_build_mounts' # ... any value will do
 #export DOCKER_ENTRYPOINT='/bin/sh'
-docker_resolve 'app-text/pinfo' 'run' >/dev/null
+_docker_resolve 'app-text/pinfo' 'run' >/dev/null
 image="$( docker_image_exists )"
 export image
 

@@ -43,7 +43,7 @@ export mount=''
 
 if [ -n "${*:-}" ]; then
 	if echo " ${*} " | grep -Eq -- ' -(h|-help) '; then
-		output >&2 "Usage: $( basename "${0}" ) --image=<image>" \
+		output >&2 "Usage: $( basename "${0}" ) [--image=<image>]" \
 			"[--name=<name>] [--remove] [--mount=<...>] [commands]"
 		exit 0
 	fi
@@ -58,7 +58,7 @@ fi
 
 declare -a args=() container_args=()
 
-docker_parse() {
+_docker_parse() {
 	local arg=''
 
 	for arg in "${@:-}"; do
@@ -119,7 +119,7 @@ docker_parse() {
 	done
 
 	unset arg
-}  # docker_parse
+}  # _docker_parse
 
 # shellcheck disable=SC2120
 docker_run() {
@@ -519,8 +519,8 @@ main() {
 
 	declare rm=''
 
-	docker_setup
-	docker_parse ${@+"${@}"}
+	_docker_setup
+	_docker_parse ${@+"${@}"}
 
 	image="${image:-${IMAGE}}"
 	# shellcheck disable=SC2001 # POSIX sh compatibility
