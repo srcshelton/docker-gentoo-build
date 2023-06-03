@@ -295,7 +295,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 					use="${STAGE3_USE} ${alt_use} symlink"
 					for flag in ${use}; do
 						case "${flag}" in
-							"${ARCH}"|readline|nls|static-libs|zstd)
+							"${ARCH}"|readline|nls|static|static-libs|zstd)
 								continue ;;
 						esac
 						# shellcheck disable=SC2030
@@ -342,7 +342,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 
 		{
 			# shellcheck disable=SC2030
-			if ! USE="-* ${use} bison nls readline static-libs zstd" \
+			if ! USE="-* ${use} bison nls readline zstd" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -360,7 +360,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 				failures="${failures:+"${failures} "}gentoo-build-pkg;1:${err}"
 			fi
 
-			if ! USE="-* ${use} python_targets_${python_default_target:-python3_11} static-libs" \
+			if ! USE="-* ${use} python_targets_${python_default_target:-python3_11}" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
