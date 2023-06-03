@@ -230,9 +230,13 @@ net-misc/unifi-controller-bin		 UBNT
 container/zxtm				 Pulse
 
 # required by service sys-apps/fwupd
+app-text/docbook-sgml-dtd		 docbook
+app-text/docbook-xml-simple-dtd		 docbook
+app-text/xhtml1				 W3C
 dev-python/pillow			 HPND
+sys-apps/miscfiles			 unicode
 #sys-fs/udisks				 LGPL-2+
-sys-libs/libsmbios			 OSL-2.0
+sys-libs/libsmbios			 Boost-1.0 OSL-2.0
 x11-libs/pango				 FTL
 # required by dev-python/pygobject-3.36.1-r1
 # required by dev-libs/gobject-introspection-1.64.1-r1
