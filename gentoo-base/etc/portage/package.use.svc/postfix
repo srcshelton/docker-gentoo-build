@@ -13,6 +13,8 @@ mail-filer/maildrop			 dovecot fam
 
 #net-mail/mailbase			 pam
 
+app-alternatives/sh			-busybox bash
+
 virtual/mta				 postfix
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

@@ -7,6 +7,8 @@ mail-filter/procmail			 mbox
 net-mail/dovecot			 bzip2 caps lzma managesieve sieve solr sqlite tcpd textcat unwind
 #dev-lang/perl				-debug -doc  berkdb gdbm (ithreads) -minimal
 
+app-alternatives/sh			-busybox bash
+
 virtual/mta				 no-mta
 #mail-mta/nullmailer			-ssl
 # required by mail-filter/procmail-3.22-r14

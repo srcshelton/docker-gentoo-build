@@ -14,23 +14,26 @@ app-alternatives/bzip2			 reference  # pbzip2 lbzip2
 app-alternatives/cpio			 gnu  # libarchive
 app-alternatives/gzip			 reference  # pigz
 app-alternatives/lex			 flex  # reflex
-app-alternatives/sh			 bash  # busybox dash ksh lksh mksh
+app-alternatives/sh			 busybox  # bash dash ksh lksh mksh
 app-alternatives/tar			 gnu  # libarchive
 app-alternatives/yacc			-reference bison  # byacc
 
 app-arch/libarchive			-lz4 acl bzip2 e2fsprogs expat iconv lzma lzo nettle threads xattr zlib zstd
 app-arch/tar				 xattr
 app-arch/xz-utils			 extra-filters nls threads  # static-libs
+#app-crypt/libb2			-0openmp
 dev-lang/perl				 ithreads
 dev-lang/python-exec			 native-symlinks
 dev-lang/python				 ssl xml
 dev-libs/libgcrypt			 getentropy
 dev-util/pkgconf			 pkg-config
 net-misc/curl				-adns -ares -http2 openssl ssl
-sys-apps/busybox			 mdev static
+sys-apps/baselayout			 varrun
+sys-apps/busybox			 mdev  # static
 sys-apps/grep				 pcre
 sys-apps/help2man			-nls
 sys-apps/kmod				 tools
+sys-apps/openrc				 varrun
 sys-apps/portage			-rsync-verify
 #sys-apps/shadow			-pam cracklib  # Python dependencies are fragile...
 sys-apps/shadow				-cracklib -su -pam  # conflicts sys-apps/util-linux[su]

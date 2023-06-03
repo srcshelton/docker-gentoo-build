@@ -22,6 +22,8 @@ dev-db/libdbi-drivers			 sqlite
 #dev-libs/libpcre2			 bzip2 +jit libedit pcre16 pcre32 +readline +recursion-limit static-libs unicode (zlib)
 dev-libs/libpcre2			 jit recursion-limit unicode
 
+app-alternatives/sh			-busybox bash
+
 virtual/mta				 no-mta
 #mail-mta/nullmailer			-ssl
 # dependency required by dev-lang/php-7.4.16

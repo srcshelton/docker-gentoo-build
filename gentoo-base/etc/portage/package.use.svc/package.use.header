@@ -4,7 +4,7 @@
 
 # Keep the following in sync with common/vars.sh
 */*					-* asm ipv6 ithreads native-extensions mdev nptl split-usr ssp threads tls-heartbeat zlib # ${use_cpu_flags}  # from 'use-essential'
-#*/*					-fortran graphite (nptl) openmp pch sanitize ssp vtv zstd
+#*/*					-fortran graphite (nptl) openmp pch -sanitize ssp -vtv zstd
 
 # Add 'varrun', otherwise we end up with broken '/var/lock -> ../run/lock'
 # symlinks...

@@ -8,4 +8,6 @@ dev-libs/libpcre			 jit recursion-limit
 #sys-libs/glibc				 audit caps cet compile-locales +crypt custom-cflags doc gd headers-only +multiarch multilib multilib-bootstrap nscd profile selinux +ssp +static-libs static-pie suid systemd systemtap test -timezone-tools +tmpfiles vanilla
 sys-libs/glibc				-crypt -timezone-tools compile-locales multiarch
 
+app-alternatives/sh			-busybox bash
+
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

@@ -11,11 +11,11 @@
 */*					-introspection icu idn inotify iodbc ipv6 ithreads
 */*					-java javascript jemalloc json
 */*					-kerberos
-*/*					-libedit -ldap -lua libatomic libffi libidn2 libwww lighttpd lz4 lzma lzo
+*/*					-libedit -ldap -lua libatomic libffi libidn2 libwww lighttpd lto lz4 lzma lzo
 */*					 mariadb mbox mdev memcached mmap mpfr mysql mysqli
 */*					 ncurses network nfs nls nntp nptl
 */*					 odbc openmp openssl
-*/*					-pango -policykit pcre perl php python
+*/*					-pango -policykit pcre perl pgo php python
 */*					 readline rpc
 */*					-samba -sasl -slang -smartcard -source -startup-notification sctp
 */*					 seccomp server slp smtp snmp spell split-usr sql sqlite ssl syslog
@@ -56,7 +56,10 @@ app-editors/vim				-cscope -sound terminal vim-pager
 app-containers/crun			-criu bpf
 # move app-emulation/libpod app-emulation/podman
 # move app-emulation/podman app-containers/podman
-app-containers/podman			-fuse -rootless
+app-containers/buildah			 btrfs
+app-containers/containers-storage	-device-mapper btrfs
+app-containers/podman			-fuse -rootless btrfs
+app-containers/skopeo			 btrfs
 # move app-admin/eselect-php app-eselect/eselect-php
 app-eselect/eselect-php			 fpm
 app-misc/screen				 multiuser
@@ -84,7 +87,6 @@ dev-lang/rust				 llvm-libunwind rustfmt system-llvm  # 'rustfmt' required by de
 dev-libs/cyrus-sasl			 srp
 dev-libs/geoip				 city perl-geoipupdate
 dev-libs/glib				-elf -mime
-dev-libs/gmp				 pgo
 dev-libs/jemalloc			 lazy-lock xmalloc
 dev-libs/leveldb			-snappy
 dev-libs/libmemcached			 hsieh
@@ -182,7 +184,8 @@ net-p2p/bitcoind			 bitcoin_policy_cpfp bitcoin_policy_cltv bitcoin_policy_dcmp 
 net-vpn/openvpn				 down-root eurephia iproute2 passwordsave
 perl-core/bignum			 test
 sci-mathematics/pari			-X
-sys-apps/busybox			-pam -sep-usr -split-usr math static
+sys-apps/baselayout			 varrun
+sys-apps/busybox			-pam -sep-usr -split-usr math # static
 sys-apps/coreutils			-hostname  # conflicts sys-apps/net-tools[hostname]
 sys-apps/debianutils			-installkernel
 sys-apps/file				-python
@@ -199,7 +202,8 @@ sys-apps/memtest86			 serial
 sys-apps/memtest86+			 serial
 sys-apps/module-init-tools		 no-old-linux
 sys-apps/net-tools			 hostname  # conflicts sys-apps/coreutils[hostname]
-sys-apps/openrc				 compat  # newnet
+sys-apps/nvme-cli			 hugepages
+sys-apps/openrc				 compat varrun  # newnet
 sys-apps/pciutils			-zlib dns
 sys-apps/portage			-rsync-verify
 sys-apps/shadow				-su  # conflicts sys-apps/util-linux[su]
@@ -218,7 +222,7 @@ sys-devel/clang-runtime			 compiler-rt libcxx
 #sys-devel/gcc				 go mudflap
 # gccgo from gcc-6.4.0 tries to include a deprecated glibc header, ustat.h, and fails.
 #~sys-devel/gcc-6.4.0			-go
-sys-devel/gcc				-fortran -graphite pch sanitize ssp vtv zstd  # graphite has a runtime dependency on dev-libs/isl
+sys-devel/gcc				-fortran -graphite -lto -pgo -sanitize -vtv pch ssp zstd  # graphite has a runtime dependency on dev-libs/isl
 sys-devel/gettext			 cvs git
 sys-devel/llvm				 clang llvm-gcc udis86
 # move sys-apps/microcode-data sys-firmware/intel-microcode
@@ -234,10 +238,11 @@ sys-libs/cracklib			-python
 sys-libs/gdbm				 berkdb
 sys-libs/glibc				-gd clone3 nscd
 #sys-libs/libcap-ng			-python  # requires dev-lang/swig, but only as a DEPEND
+sys-libs/libnvme			 keyutils
+sys-libs/libomp				 hwloc offload ompt
 sys-libs/libseccomp			-python  # requires static-libs
 sys-libs/llvm-libunwind			 static-libs  # required by sys-devel/clang-common
 sys-libs/ncurses			 trace unicode
-sys-libs/libomp				 hwloc offload ompt
 sys-libs/timezone-data			 leaps-timezone leaps_timezone right_timezone # zic-slim
 sys-power/powertop			-X
 #sys-process/audit			-python  # requires dev-lang/swig, but only as a DEPEND

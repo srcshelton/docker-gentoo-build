@@ -12,6 +12,8 @@ virtual/jdk				 headless-awt
 
 dev-lang/python				 xml
 
+sys-apps/util-linux			 userland_GNU
+
 # required by sys-apps/baselayout-java-0.1.0-r1
 app-crypt/p11-kit			 asn1 trust
 

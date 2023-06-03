@@ -15,7 +15,7 @@ mail-filter/spamassassin		 extracttext mysql sa-update
 sys-apps/busybox			-make-symlinks
 #sys-apps/coreutils			 gmp
 # Keep the following in sync with common/vars.sh
-sys-devel/gcc				-lib-only -fortran graphite openmp pch sanitize ssp vtv zstd
+sys-devel/gcc				-lib-only -fortran -sanitize -vtv graphite openmp pch ssp zstd
 sys-devel/gcc-config			 native-symlinks
 sys-devel/binutils-config		 native-symlinks
 

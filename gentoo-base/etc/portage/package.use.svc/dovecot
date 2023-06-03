@@ -3,6 +3,8 @@
 net-mail/dovecot			 bzip2 caps lzma managesieve pam sieve solr sqlite tcpd textcat unwind
 net-mail/mailbase			 pam
 
+app-alternatives/sh			-busybox bash
+
 virtual/mta				 no-mta
 #virtual/mta				 msmtp
 #mail-mta/msmtp				-ssl
