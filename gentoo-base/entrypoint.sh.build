@@ -38,96 +38,113 @@ print() {
 }  # print
 
 format() {
-	# Pad $variable to $padding trailing spaces
+	format_spaces='' format_string=''
+
+	# Pad $format_variable to $format_padding trailing spaces
 	#
-	variable="${1:-}"
-	padding=${2:-20}
+	format_variable="${1:-}"
+	format_padding="${2:-20}"
 
-	[ -n "${variable:-}" ] || return 1
+	[ -n "${format_variable:-}" ] || return 1
 
-	variable="$( echo "${variable}" | xargs -n 1 | sort -d | xargs echo -n )"
-	spaces="$( printf "%${padding}s" )"
-	string="%-${padding}s= \"%s\"\\n"
+	format_variable="$( # <- Syntax
+		echo "${format_variable}" | xargs -rn 1 | sort -d | xargs -r
+	)"
+	format_spaces="$( printf "%${format_padding}s" )"
+	format_string="%-${format_padding}s= \"%s\"\\n"
 
 	# shellcheck disable=SC2059
-	printf "${string}" "${variable}" "$( # <- Syntax highlight fail
+	printf "${format_string}" "${format_variable}" "$( # <- Syntax
 		cat - |
-			grep -- "^${variable}=" |
+			grep -- "^${format_variable}=" |
 			cut -d'"' -f 2 |
-			fmt -w $(( ${COLUMNS:-80} - ( padding + 3 ) )) |
-			sed "s/^/   ${spaces}/ ; 1 s/^\s\+//"
+			fmt -w $(( ${COLUMNS:-80} - ( format_padding + 3 ) )) |
+			sed "s/^/   ${format_spaces}/ ; 1 s/^\s\+//"
 	)"
+
+	unset format_string format_spaces format_padding format_variable
+
+	return 0
 }  # format
 
 check() {
-	# Check that a given package (with build result code $crc) is actually
-	# installed
+	check_rc="${1:-}" ; shift
+
+	# Check that a given check_pkg (with build result code $check_rc) is actually
+	# installed...
 	#
-	crc=${1:-} ; shift
+	[ -n "${check_rc:-}" ] || return 1
 
-	[ -n "${crc:-}" ] || return 1
+	check_pkg='' check_arg=''
 
-	if [ "${crc}" -eq 0 ]; then
+	if [ $(( check_rc )) -eq 0 ]; then
 		# Process first package of list only...
-		for arg in "${@}"; do
-			case "${arg}" in
+		for check_arg in "${@}"; do
+			case "${check_arg}" in
 				-*)	continue ;;
-				*)	package="${arg}" ; break ;;
+				*)	check_pkg="${check_arg}" ; break ;;
 			esac
 		done
-		package="$( echo "${package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
-		if echo "${package}" | grep -Fq -- '/'; then
-			if ! ls -1d "${ROOT:-}/var/db/pkg/${package%::*}"* >/dev/null 2>&1
+		check_pkg="$( echo "${check_pkg}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
+		if echo "${check_pkg}" | grep -Fq -- '/'; then
+			if ! ls -1d \
+				"${ROOT:-}/var/db/pkg/${check_pkg%::*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package '${package%::*}'" \
+				die "emerge indicated success but package '${check_pkg%::*}'" \
 					"does not appear to be installed"
 			fi
 		else
-			if ! ls -1d "${ROOT:-}/var/db/pkg"/*/"${package%::*}"* >/dev/null 2>&1
+			if ! ls -1d \
+				"${ROOT:-}/var/db/pkg"/*/"${check_pkg%::*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package '${package%::*}'" \
+				die "emerge indicated success but package '${check_pkg%::*}'" \
 					"does not appear to be installed"
 			fi
 		fi
 	fi
 
+	unset check_pkg check_arg
+
 	# shellcheck disable=SC2086
-	return ${crc}
+	return ${check_rc}
 }  # check
 
 checkmissing() {
+	cm_arg='' cm_package=''
+
 	# Check that packages passed in as arguments have been removed
 	#
 	# Process first package of list only...
-	for arg in "${@}"; do
-		case "${arg}" in
+	for cm_arg in "${@}"; do
+		case "${cm_arg}" in
 			-*)	continue ;;
-			*)	package="${arg}" ; break ;;
+			*)	cm_package="${cm_arg}" ; break ;;
 		esac
 	done
-	package="$( echo "${package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
-	if echo "${package}" | grep -Fq -- '/'; then
-		if ls -1d "${ROOT:-}/var/db/pkg/${package%::*}"* >/dev/null 2>&1
+	cm_package="$( echo "${cm_package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
+	if echo "${cm_package}" | grep -Fq -- '/'; then
+		if ls -1d "${ROOT:-}/var/db/pkg/${cm_package%::*}"* >/dev/null 2>&1
 		then
-			warn "emerge indicated success but package '${package%::*}'" \
+			warn "emerge indicated success but package '${cm_package%::*}'" \
 				"still appears to be installed under root '${ROOT:-/}'"
 			return 1
 		fi
 	else
-		if ls -1d "${ROOT:-}/var/db/pkg"/*/"${package%::*}"* >/dev/null 2>&1
+		if ls -1d "${ROOT:-}/var/db/pkg"/*/"${cm_package%::*}"* >/dev/null 2>&1
 		then
-			warn "emerge indicated success but package '${package%::*}'" \
+			warn "emerge indicated success but package '${cm_package%::*}'" \
 				"still appears to be installed under root '${ROOT:-/}'"
 			return 1
 		fi
 	fi
 
+	unset cm_package cm_arg
 	return 0
 }  # checkmissing
 
 pkg_remove() {
-	stage="${1:-}" ; shift
-	remove="${*:-}"
+	pr_stage="${1:-}" ; shift
+	pr_remove="${*:-}"
 
 	(
 		for ROOT in $( echo "${ROOT:-}" '/' | xargs -n 1 | sort | uniq ); do
@@ -137,8 +154,8 @@ pkg_remove() {
 			[ -d "${ROOT}" ] || continue
 
 			echo
-			echo " * Removing specified ${stage:+${stage} }packages" \
-				"'${remove}' from root '${ROOT}'..."
+			echo " * Removing specified ${pr_stage:+${pr_stage} }packages" \
+				"'${pr_remove}' from root '${ROOT}'..."
 
 			# shellcheck disable=SC2086
 			emerge \
@@ -148,11 +165,11 @@ pkg_remove() {
 					--verbose-conflicts \
 					--with-bdeps=n \
 					--with-bdeps-auto=n \
-				--depclean ${remove} || :
+				--depclean ${pr_remove} || :
 			# emerge --depclean exits with code zero even if removal
 			# doesn't succeed :(
 			# shellcheck disable=SC2086
-			checkmissing ${remove} ||
+			checkmissing ${pr_remove} ||
 				emerge \
 						--ignore-default-opts \
 						--color=y \
@@ -160,11 +177,11 @@ pkg_remove() {
 						--verbose-conflicts \
 						--with-bdeps=n \
 						--with-bdeps-auto=n \
-					--rage-clean ${remove} || :
+					--rage-clean ${pr_remove} || :
 			# shellcheck disable=SC2086
-			checkmissing ${remove} || exit ${?}
+			checkmissing ${pr_remove} || exit ${?}
 			#emerge --depclean -v
-			for pkg in ${remove}; do
+			for pkg in ${pr_remove}; do
 				rm -vr "${ROOT%/}/var/db/pkg/"*"/${pkg}"* 2>/dev/null ||
 					rm -vr "${ROOT%/}/var/db/pkg/${pkg}"* 2>/dev/null || :
 				if [ -e "${ROOT%/}/var/lib/portage/world" ]; then
@@ -182,6 +199,8 @@ pkg_remove() {
 			unset pkg
 		done
 	)
+
+	unset pr_remove pr_stage
 }  # pkg_remove
 
 savefailed() {
@@ -190,7 +209,7 @@ savefailed() {
 
 	#[ -n "${trace:-}" ] || set -o xtrace
 	# shellcheck disable=SC2012 # We can't rely on findutils being present...
-	if [ -n "$( # <- Syntax highlight fail
+	if [ -n "$( # <- Syntax
 			ls -1 "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log 2>/dev/null |
 			head -n 1
 	)" ]; then
@@ -208,6 +227,7 @@ savefailed() {
 
 applyworkarounds() {
 	aw_arg="${1:-}"
+	aw_pkgs='' aw_list='' aw_pkg=''
 	#inherit use_essential_gcc USE
 
 	[ -n "${aw_arg:-}" ] || return 1
@@ -218,56 +238,87 @@ applyworkarounds() {
 		fi
 	fi
 
-	if echo " ${aw_arg} " | grep -Eq -- ' ([<>]?=|~)?(gcc|sys-devel/gcc)[ -]'; then
+	aw_pkgs='sys-devel/gcc'
+	aw_list=''
+	for aw_pkg in ${aw_pkgs}; do
+		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
+	done
+	if echo " ${aw_arg} " | grep -Eq -- " ([<>]?=|~)?(${aw_list})[ -]"; then
 		aw_gcc_use=''
 		warn "Activating sys-devel/gcc work-arounds ..."
 		print "Before work-around, USE is '${USE}' ..."
 		# We want to abort with an unbound variable error if
 		# ${use_essential_gcc} is referenced unassigned here...
 		# shellcheck disable=SC2154
-		aw_gcc_use="$( echo " ${use_essential_gcc} " | sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//' )"
-		USE="${USE:+"$( echo " ${USE} " | sed 's/ lib-only / / ; s/^ //' )"}-lib-only nls ${aw_gcc_use}"
+		aw_gcc_use="$( # <- Syntax
+			echo " ${use_essential_gcc} " |
+				sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
+		)"
+		USE="${USE:+"$( # <- Syntax
+			echo " ${USE} " |
+				sed 's/ lib-only / / ; s/^ //'
+		)"}-lib-only nls ${aw_gcc_use}"
 		unset aw_gcc_use
 		print "After work-around, USE is '${USE}'"
 	fi
-	if echo " ${aw_arg} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark|rust|dev-lang/rust)[ -]'; then
+	aw_pkgs='app-containers/netavark dev-lang/rust'
+	aw_list=''
+	for aw_pkg in ${aw_pkgs}; do
+		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
+	done
+	if echo " ${aw_arg} " | grep -Eq -- " ([<>]?=|~)?(${aw_list})[ -]"; then
 		warn "Activating app-containers/netavark work-arounds ..."
 		print "Before work-around, USE is '${USE}' ..."
-		USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //' )"}http2"
+		USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //')"}http2"
 		print "After work-around, USE is '${USE}'"
 	fi
-	#if echo " ${aw_arg} " | grep -Eq -- ' ([<>]?=|~)?(buildah|app-containers/buildah)[ -]'; then
+	#aw_pkgs='app-containers/buildah'
+	#aw_list=''
+	#for aw_pkg in ${aw_pkgs}; do
+	#	aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
+	#done
+	#if echo " ${aw_arg} " | grep -Eq -- " ([<>]?=|~)?(${aw_list})[ -]"; then
 	#	warn "Activating app-containers/buildah work-arounds ..."
 	#	print "Before work-around, USE is '${USE}' ..."
 	#	USE="${USE:+"$( echo " ${USE} " | sed 's/ -gold / / ; s/^ //' )"}gold"
 	#	export USE
 	#	print "After work-around, USE is '${USE}'"
 	#fi
-	if echo " ${aw_arg} " | grep -Eq -- ' ([<>]?=|~)?(busybox|sys-apps/busybox)[ -]'; then
-		if ! command -V equery >/dev/null 2>&1; then
-			warn "Unable to activate sys-apps/busybox work-arounds due to 'equery' missing"
-		else
-			if
-				equery --no-color uses --ignore-l10n sys-apps/busybox |
-					grep -q -- '^+static'
-			then
-				warn "Activating sys-apps/busybox work-arounds ..."
-				printf '%s %s\n' 'virtual/libcrypt' 'static-libs' \
-					>> /etc/portage/package.use/busybox
-				printf '%s %s\n' 'sys-libs/libxcrypt' 'static-libs' \
-					>> /etc/portage/package.use/busybox
-			fi
-		fi
-	fi
+	#aw_pkgs='sys-apps/busybox sys-libs/libxcrypt virtual/libcrypt'
+	#aw_list=''
+	#for aw_pkg in ${aw_pkgs}; do
+	#	aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
+	#done
+	#if echo " ${aw_arg} " | grep -Eq -- " ([<>]?=|~)?(${aw_list})[ -]"; then
+	#	if ! command -V equery >/dev/null 2>&1; then
+	#		warn "Unable to activate sys-apps/busybox, sys-libs/libxcrypt &" \
+	#			"virtual/libcrypt work-arounds due to 'equery' missing"
+	#	else
+	#		if
+	#			equery --no-color uses --ignore-l10n sys-apps/busybox |
+	#				grep -q -- '^+static'
+	#		then
+	#			warn "Activating sys-apps/busybox work-arounds ..."
+	#			printf '%s %s\n' 'virtual/libcrypt' '-static-libs' \
+	#				>> /etc/portage/package.use/aw_busybox
+	#			printf '%s %s\n' 'sys-libs/libxcrypt' '-static-libs' \
+	#				>> /etc/portage/package.use/aw_busybox
+	#		fi
+	#	fi
+	#fi
 
 	# We actually don't want to re-order arguments...
 	#USE="$( echo "${USE}" | xargs -rn 1 | sort -V | uniq | xargs -r )"
 	export USE
 
-	unset aw_arg
+	unset aw_pkg aw_list aw_pkgs aw_arg
 
 	echo "${USE:-}"
 }  # applyworkarounds
+
+clearworkarounds() {
+	rm -rf /etc/portage/package.use/aw_* 2>/dev/null || :
+}  # clearworkarounds
 
 # Prelink is no longer supported :(
 #
@@ -300,7 +351,7 @@ fi
 [ -n "${trace:-}" ] && set -o xtrace
 
 if set | grep -q -- '=__[A-Z]\+__$'; then
-	die "Unexpanded variable(s) in environment: $(
+	die "Unexpanded variable(s) in environment: $( # <- Syntax
 		set | grep -- '=__[A-Z]\+__$' | cut -d'=' -f 1 | xargs -r
 	)"
 fi
@@ -316,6 +367,7 @@ if command -v env-update >/dev/null 2>&1; then
 fi
 if [ -e /usr/gawk ] || [ -e /usr/bin/gawk ]; then
 	# Superseded by app-alternatives/awk...
+	#
 	if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]
 	then
 		eselect awk set gawk
@@ -383,11 +435,16 @@ rebuild='' depclean_extra='' depclean_exclude=''
 depclean=0 change_sysroot=0 pkg_use=0 no_use=0 rc=0
 for arg in "${@}"; do
 	#print "Read argument '${arg}'"
+
 	shift
 	case "${arg}" in
 		--force-python=*)
-			force_python="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
-			if ! echo "${force_python:-}" | grep -q -- '^python[2-9]_[0-9]$'; then
+			force_python="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
+			if ! echo "${force_python:-}" |
+					grep -q -- '^python[2-9]_[0-9]$'
+			then
 				die "Portage python token '${force_python:-}' is not valid"
 			fi
 			continue
@@ -397,31 +454,45 @@ for arg in "${@}"; do
 			continue
 			;;
 		--pre-remove=*)
-			pre_remove="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			pre_remove="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
 			continue
 			;;
 		--pre-pkgs=*)
-			pre_pkgs="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			pre_pkgs="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
 			continue
 			;;
 		--pre-use=*)
-			pre_use="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			pre_use="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
 			continue
 			;;
 		--post-pkgs=*)
-			post_pkgs="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			post_pkgs="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
 			continue
 			;;
 		--post-use=*)
-			post_use="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			post_use="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
 			continue
 			;;
 		--rebuild=*)
-			rebuild="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			rebuild="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
 			continue
 			;;
 		--post-remove=*)
-			post_remove="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			post_remove="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
 			continue
 			;;
 		--depclean)
@@ -429,11 +500,15 @@ for arg in "${@}"; do
 			continue
 			;;
 		--depclean-extra=*)
-			depclean_extra="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			depclean_extra="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
 			continue
 			;;
 		--depclean-exclude=*)
-			depclean_exclude="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			depclean_exclude="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
 			continue
 			;;
 		--sysroot)
@@ -444,20 +519,34 @@ for arg in "${@}"; do
 			continue
 			;;
 		--with-use=*)
-			TUSE="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
+			TUSE="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
 			continue
 			;;
 		--with-pkg-use=*)
+			# e.g. --with-pkg-use='sys-apps/coreutils -hostname'
+			#
 			pkg_use=1
-			pkg_use_use="$( printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n' )"
-			pkg_use_pkg="$( echo "${pkg_use_use:-}" | cut -d' ' -f 1 )"
-			pkg_use_use="$( echo "${pkg_use_use:-}" | cut -d' ' -f 2- )"
+			pkg_use_use="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
+			pkg_use_pkg="$( # <- Syntax
+				echo "${pkg_use_use:-}" | cut -d' ' -f 1
+			)"
+			pkg_use_use="$( # <- Syntax
+				echo "${pkg_use_use:-}" | cut -d' ' -f 2-
+			)"
 			if [ -z "${pkg_use_pkg:-}" ] || [ -z "${pkg_use_use:-}" ]; then
 				die "Unable to extract package and USE flags from '${arg}'"
 			fi
 			mkdir -p /etc/portage/package.use
-			pkg_use_file="/etc/portage/package.use/$( echo "${pkg_use_pkg}" | cut -d'/' -f 2- )"
-			printf '%s %s\n' "${pkg_use_pkg}" "${pkg_use_use}" >> "${pkg_use_file}"
+			pkg_use_file="/etc/portage/package.use/$( # <- Syntax
+				echo "${pkg_use_pkg}" | cut -d'/' -f 2-
+			)"
+			printf '%s %s\n' \
+				"${pkg_use_pkg}" \
+				"${pkg_use_use}" >> "${pkg_use_file}"
 			warn "Applied override USE flag(s):"
 			warn "  ${pkg_use_file}:"
 			warn "$( sed 's/^/    /' < "${pkg_use_file}" )"
@@ -475,22 +564,25 @@ if [ -e /etc/portage/repos.conf.host ]; then
 	echo
 	info "Mirroring host repos.conf to container ..."
 	if [ -e /etc/portage/repos.conf ]; then
-        if [ -d /etc/portage/repos.conf ]; then
-            for f in /etc/portage/repos.conf/*; do
-                umount -q "${f}" || :
-            done
-        fi
-        umount -q /etc/portage/repos.conf || :
-        rm -rf /etc/portage/repos.conf || :
+		if [ -d /etc/portage/repos.conf ]; then
+			for f in /etc/portage/repos.conf/*; do
+				umount -q "${f}" || :
+			done
+		fi
+		umount -q /etc/portage/repos.conf || :
+		rm -rf /etc/portage/repos.conf || :
 
-		[ -e /etc/portage/repos.conf ] && mv /etc/portage/repos.conf /etc/portage/repos.conf.disabled
+		[ -e /etc/portage/repos.conf ] &&
+			mv /etc/portage/repos.conf /etc/portage/repos.conf.disabled
 	fi
-	cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf || die "Can't copy host repos.conf: ${?}"
+	cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf ||
+		die "Can't copy host repos.conf: ${?}"
 fi
 
 if [ $(( no_use )) -ne 0 ]; then
 	# My suspicion is that package.use contents are interfering with
 	# environment USE flags...
+	#
 	if [ -e /etc/portage/package.use ]; then
 		if [ $(( pkg_use )) -ne 0 ]; then
 			warn "'--with-pkg-use' option will be overridden by '--no-package-use'"
@@ -507,8 +599,10 @@ find /etc/portage/ -mindepth 1 -maxdepth 1 -name '*.override' -print | while rea
 	if [ -e "${object}" ]; then
 		mv "${object}" "${object}.disabled"
 	fi
+
 	# override can be a file or directory
 	# header can be in current or override directory (if not a file), but must be a file
+	#
 	if [ -d "${object}.header" ] || [ -d "${override}.header" ]; then
 		[ -d "${object}.header" ] && warn "Override header directories not supported: '${object}.header' not applied"
 		[ -d "${override}.header" ] && warn "Override header directories not supported: '${override}.header' not applied"
@@ -535,7 +629,8 @@ find /etc/portage/ -mindepth 1 -maxdepth 1 -name '*.override' -print | while rea
 						fi
 					elif [ -d "${file}" ]; then
 						if ! [ -d "${dest}" ]; then
-							# FIXME Support directories?
+							# FIXME: Support directories?
+							#
 							warn "Not applying override header '${header}' to directory '${file}' ('${dest}')"
 							cp -a "${file}" "${dest}"
 						fi
@@ -548,7 +643,8 @@ find /etc/portage/ -mindepth 1 -maxdepth 1 -name '*.override' -print | while rea
 				done
 			done
 		else
-			# Simply copy $override
+			# Simply copy $override...
+			#
 			cp -a "${override}" "${object}"
 		fi
 	elif [ -f "${override}" ]; then
@@ -559,7 +655,8 @@ find /etc/portage/ -mindepth 1 -maxdepth 1 -name '*.override' -print | while rea
 				$( [ -f "${object}.header" ] && { warn >&2 "Using override '${object}.header' for item '${object}'" ; echo "${object}.header" ; } ) \
 				"${override}"
 		else
-			# Simply copy $override
+			# Simply copy $override...
+			#
 			cp -a "${override}" "${object}"
 		fi
 	fi
@@ -576,6 +673,7 @@ fi
 
 # post_use should be based on the original USE flags, without --with-use
 # additions...
+#
 if [ -n "${post_use:-}" ]; then
 	if ! printf ' %s ' "${post_use:-}" | grep -Fq -- ' -* '; then
 		post_use="${USE:+${USE} }${post_use:-}"
@@ -584,7 +682,9 @@ else
 	post_use="${USE:-}"
 fi
 if [ -n "${use_essential:-}" ]; then
-	if ! echo "${post_use:-}" | grep -Fq -- "${use_essential}"; then
+	if ! echo "${post_use:-}" |
+			grep -Fq -- "${use_essential}"
+	then
 		post_use="${post_use:+${post_use} }${use_essential}"
 	fi
 fi
@@ -604,26 +704,42 @@ if [ -n "${TUSE:-}" ]; then
 	unset TUSE
 fi
 
-info="$( LC_ALL='C' emerge --info --verbose=y )"
+info="$( # <- Syntax
+	LC_ALL='C' emerge --info --verbose=y
+)"
 echo
 echo 'Resolved build variables for build stage:'
 echo '----------------------------------------'
 echo
-#echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
-#echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
-echo "PORTAGE_CONFIGROOT  = $( echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2- )"
+#echo "ROOT                = $( # <- Syntax
+#	echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+#)"
+#echo "SYSROOT             = $( # <- Syntax
+#	echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+#)"
+echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
+	echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
+)"
 echo
 echo "${info}" | format 'FEATURES'
 echo "${info}" | format 'ACCEPT_LICENSE'
 echo "${info}" | format 'ACCEPT_KEYWORDS'
 echo "${info}" | format 'USE'
-echo "MAKEOPTS            = $( echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2- )"
+echo "MAKEOPTS            = $( # <- Syntax
+	echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
+)"
 echo
 echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 echo
-echo "DISTDIR             = $( echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2- )"
-echo "PKGDIR              = $( echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2- )"
-echo "PORTAGE_LOGDIR      = $( echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2- )"
+echo "DISTDIR             = $( # <- Syntax
+	echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
+)"
+echo "PKGDIR              = $( # <- Syntax
+	echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
+)"
+echo "PORTAGE_LOGDIR      = $( # <- Syntax
+	echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
+)"
 echo
 unset info
 
@@ -685,60 +801,6 @@ fi
 if [ -n "${force_python:-}" ]; then
 	pre_pkgs="${pre_pkgs:+${pre_pkgs} }dev-lang/python:$( echo "${force_python}" | sed 's/^python// ; s/_/./' )"
 fi
-# Now that we have a patched app-portage/elt-patches which respects ROOT
-# directory settings, this package should no longer need a specific pre-build
-# step (although the code can remain present but commented until this is proven
-# unequivocably):
-#
-#if
-#	echo " ${pre_pkgs:-} ${*:-} ${post_pkgs:-} " |
-#		grep -Pq -- ' ([=<>!~][=!]?)?(sys-devel/)?gcc(-[0-9.r-]+)?[*]?(:(?:[*]|[0-9.]*)=?)? '
-#then
-#	(
-#		pre_pkgs_pkgs='>=app-portage/elt-patches-20170815'
-#		echo
-#		echo " * Building required pre-installation packages '${pre_pkgs_pkgs}' ..."
-#
-#		for ROOT in '/' '/service'; do
-#			export ROOT
-#			export FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
-#			export LC_ALL='C'
-#
-#			info="$( emerge --info --verbose=y )"
-#			echo
-#			echo 'Resolved build variables for pre-installation packages:'
-#			echo '------------------------------------------------------'
-#			echo
-#			echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
-#			echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
-#			echo "${info}" | format 'FEATURES'
-#			echo "${info}" | format 'USE'
-#			unset info
-#
-#			# shellcheck disable=SC2086
-#			if ! emerge \
-#					--ignore-default-opts \
-#					  ${parallel} \
-#					--binpkg-changed-deps=y \
-#					--binpkg-respect-use=y \
-#					--buildpkg=y \
-#					--color=y \
-#					--keep-going=y \
-#					--quiet-build=y \
-#					  ${opts:-} \
-#					--usepkg=y \
-#					--verbose=y \
-#					--verbose-conflicts \
-#					--with-bdeps=n \
-#					--with-bdeps-auto=n \
-#				${pre_pkgs_pkgs}
-#			then
-#				savefailed
-#				exit 1
-#			fi
-#		done
-#	)
-#fi
 if [ -n "${pre_pkgs:-}" ]; then
 	echo
 	echo " * Building specified pre-installation packages '${pre_pkgs}' ..."
@@ -760,8 +822,8 @@ if [ -n "${pre_pkgs:-}" ]; then
 			# shellcheck disable=SC2154
 			USE="${USE:+${USE} }${use_essential_gcc}"
 		fi
-		export USE
 		export ROOT='/'
+		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
 		export LC_ALL='C'
 
@@ -789,10 +851,10 @@ if [ -n "${pre_pkgs:-}" ]; then
 				--quiet-build=y \
 				  ${opts:-} \
 				--usepkg=y \
-				--verbose=y \
 				--verbose-conflicts \
-				--with-bdeps=n \
+				--verbose=y \
 				--with-bdeps-auto=n \
+				--with-bdeps=n \
 			${pre_pkgs}
 				#--binpkg-changed-deps=y \
 				#--rebuild-if-new-slot=y \
@@ -812,10 +874,10 @@ if [ -n "${pre_pkgs:-}" ]; then
 					--quiet-build=y \
 					  ${opts:-} \
 					--usepkg=n \
-					--verbose=y \
 					--verbose-conflicts \
-					--with-bdeps=n \
+					--verbose=y \
 					--with-bdeps-auto=n \
+					--with-bdeps=n \
 				dev-lang/python-exec
 			then
 				savefailed
@@ -827,6 +889,7 @@ fi
 
 if [ -e /usr/gawk ] || [ -e /usr/bin/gawk ]; then
 	# Superseded by app-alternatives/awk...
+	#
 	if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]; then
 		eselect awk set gawk
 	fi
@@ -841,6 +904,7 @@ echo " * Ensuring base packages in '/service/' ROOT are current:"
 echo
 
 # Replace default file with patched version
+#
 if [ -s /etc/bash/bashrc ]; then
 	mkdir -p /service/etc/bash
 	cp /etc/bash/bashrc /service/etc/bash/
@@ -854,8 +918,10 @@ fi
 	# Since app-alternatives/* packages are now mandatory, the USE flags these
 	# packages rely upon must also be set in order to avoid REQUIRED_USE
 	# errors.
+	#
 	# TODO: Fix this better...
-	USE="${USE} gawk gnu reference"
+	#
+	USE="${USE:-} gawk gnu reference"
 	LC_ALL='C'
 	VERY_BRAVE_OR_VERY_DUMB='yes'  # for busybox
 	export ROOT FEATURES USE LC_ALL VERY_BRAVE_OR_VERY_DUMB
@@ -873,14 +939,19 @@ fi
 	echo 'Resolved build variables for service packages:'
 	echo '---------------------------------------------'
 	echo
-	echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
-	echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+	echo "ROOT                = $( # <- Syntax
+		echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+	)"
+	echo "SYSROOT             = $( # <- Syntax
+		echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+	)"
 	echo "${info}" | format 'FEATURES'
 	echo "${info}" | format 'USE'
 	unset info
 
-	# sys-apps/shadow is needed for /sbin/nologin
-	# sys-apps/coreutils needed for cat/chmod
+	# sys-apps/shadow is needed for /sbin/nologin;
+	#
+	# sys-apps/coreutils needed for cat/chmod;
 	#
 	#service_pkgs='virtual/libc app-shells/bash sys-apps/shadow sys-apps/coreutils'
 	#
@@ -896,13 +967,19 @@ fi
 	#      including category names.
 	#
 	service_pkgs='virtual/libc sys-apps/busybox'
-	if [ -n "${pre_remove:-}" ] && ! echo "${pre_remove}" | grep -Fq -- 'dev-libs/openssl'; then
-		service_pkgs="${service_pkgs} app-arch/libarchive"
+	if [ -n "${pre_remove:-}" ]; then
+		if ! echo "${pre_remove}" |
+				grep -Fq -- 'dev-libs/openssl'
+		then
+			service_pkgs="${service_pkgs} app-arch/libarchive"
+		fi
 	fi
 
 	service_pkgs="${service_pkgs} dev-lang/python-exec"
 	if [ -n "${force_python:-}" ]; then
-		service_pkgs="${service_pkgs} dev-lang/python:$( echo "${force_python}" | sed 's/^python// ; s/_/./' )"
+		service_pkgs="${service_pkgs} dev-lang/python:$( # <- Syntax
+			echo "${force_python}" | sed 's/^python// ; s/_/./'
+		)"
 	fi
 
 	exclude=''
@@ -953,6 +1030,7 @@ if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
 
 	if [ -e "${ROOT}"/usr/gawk ] || [ -e "${ROOT}"/usr/bin/gawk ]; then
 		# Superseded by app-alternatives/awk...
+		#
 		if [ -e "${ROOT}"/usr/bin/eselect ] && [ -s "${ROOT}"/usr/share/eselect/modules/awk.eselect ]; then
 			eselect awk set gawk
 		fi
@@ -964,7 +1042,12 @@ if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
 fi
 
 (
-	for ROOT in $( echo '/' "${ROOT:-}" | xargs -n 1 | sort | uniq ); do
+	for ROOT in $( # <- Syntax
+			echo '/' "${ROOT:-}" |
+				xargs -n 1 |
+				sort |
+				uniq
+	); do
 		export ROOT
 		if [ -x "${ROOT%/}"/usr/bin/eselect ]; then
 			if [ -s "${ROOT%/}"/usr/share/eselect/modules/python.eselect ]; then
@@ -992,6 +1075,7 @@ fi
 			fi
 		fi
 		# python-exec now no longer requires the 'eselect' interface...
+		#
 		if [ -n "${force_python:-}" ]; then
 			if [ -s "${ROOT%/}"/etc/python-exec/python-exec.conf ]; then
 				sed -e 's/^\([^#]\)/#\1/' \
@@ -1011,6 +1095,7 @@ case "${1:-}" in
 
 		exec /bin/sh "${@}"
 		;;
+
 	bash|/bin/bash)
 		[ -n "${2:-}" ] && shift
 
@@ -1027,15 +1112,19 @@ case "${1:-}" in
 		echo 'Resolved build variables for default package:'
 		echo '---------------------------------------------'
 		echo
-		echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
-		echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+		echo "ROOT                = $( # <- Syntax
+			echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+		)"
+		echo "SYSROOT             = $( # <- Syntax
+			echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+		)"
 		echo "${info}" | format 'FEATURES'
 		echo "${info}" | format 'USE'
 		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 		echo "${info}" | format 'PYTHON_TARGETS'
 		echo
 		target=''
-		for target in $(
+		for target in $( # <- Syntax
 			echo "${info}" |
 				grep -o ' [^ ]*TARGET[^ ]* ' |
 				cut -d'=' -f 1 |
@@ -1050,7 +1139,10 @@ case "${1:-}" in
 		echo
 		unset info
 
-		print "Running default 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n \"${package}\"'"
+		print "Running default 'emerge" \
+			"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+			"--usepkg=y --with-bdeps=n --with-bdeps-auto=n \"${package}\"'" \
+			"with ROOT='${ROOT}'"
 
 		# shellcheck disable=SC2086
 		LC_ALL='C' FEATURES='-fail-clean' emerge \
@@ -1064,6 +1156,7 @@ case "${1:-}" in
 		;;
 	*)
 		# Extract first package, to pass to check() below...
+		#
 		for arg in "${@}"; do
 			case "${arg}" in
 				-*)	continue ;;
@@ -1078,16 +1171,24 @@ case "${1:-}" in
 			post_pkgs="${post_pkgs:+${post_pkgs} }net-misc/curl"
 		fi
 		if [ -z "${post_pkgs:-}" ]; then
-			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages ..."
+			echo " * Building requested '$( # <- Syntax
+				printf '%s' "${*}" | sed 's/--[^ ]\+ //g'
+			)' packages ..."
 		else
 			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages (with post-package list) ..."
 		fi
 		echo
 
 		if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ] && [ -n "${COLLISION_IGNORE:-}" ]; then
-			COLLISION_IGNORE="${COLLISION_IGNORE} $( echo "${COLLISION_IGNORE}" | sed "s|${ROOT%/}||g" )"
+			COLLISION_IGNORE="${COLLISION_IGNORE} $( # <- Syntax
+				echo "${COLLISION_IGNORE}" |
+					sed "s|${ROOT%/}||g"
+			)"
 		fi
-		COLLISION_IGNORE="$( echo "${COLLISION_IGNORE}" | xargs -r printf '%s ' )"
+		COLLISION_IGNORE="$( # <- Syntax
+			echo "${COLLISION_IGNORE}" |
+				xargs -r printf '%s '
+		)"
 		COLLISION_IGNORE="${COLLISION_IGNORE% }"
 		export COLLISION_IGNORE
 
@@ -1110,7 +1211,7 @@ case "${1:-}" in
 		echo "${info}" | format 'PYTHON_TARGETS'
 		echo
 		target=''
-		for target in $(
+		for target in $( # <- Syntax
 			echo "${info}" |
 				grep -o ' [^ ]*TARGET[^ ]* ' |
 				cut -d'=' -f 1 |
@@ -1163,7 +1264,12 @@ case "${1:-}" in
 						USE="$( applyworkarounds "${arg}" "${USE}" )"
 						export USE
 						# shellcheck disable=SC2016
-						print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
+						print "Running 'emerge" \
+							"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+							"--usepkg=y --with-bdeps=n" \
+							"--with-bdeps-auto=n" \
+							"${flags:+"${flags} "}${arg}'${USE:+" with USE='${USE}'"}" \
+							"with ROOT='${ROOT}'"
 						# shellcheck disable=SC2086
 						LC_ALL='C' FEATURES='-fail-clean' emerge \
 								  ${parallel} \
@@ -1175,6 +1281,7 @@ case "${1:-}" in
 								  ${flags:-} \
 							"${arg}"
 						) || rc=${?}
+						clearworkarounds
 						;;
 				esac
 			done
@@ -1190,7 +1297,11 @@ case "${1:-}" in
 					USE="$( applyworkarounds "${arg}" "${USE}" )"
 					export USE
 					# shellcheck disable=SC2016
-					print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${flags:+${flags} }${first}'${USE:+ with USE='${USE}'}"
+					print "Running 'emerge" \
+						"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+						"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
+						"${flags:+"${flags} "}${first}'${USE:+" with USE='${USE}'"}" \
+						"with ROOT='${ROOT}'"
 					# shellcheck disable=SC2086
 					LC_ALL='C' FEATURES='-fail-clean' emerge \
 							  ${parallel} \
@@ -1202,6 +1313,7 @@ case "${1:-}" in
 							  ${flags:-} \
 						"${first}"
 					) || rc=${?}
+					clearworkarounds
 			fi
 
 		else # ! echo " ${EMERGE_OPTS:-} " | grep -Eq -- ' --single(-build)? '; then
@@ -1212,7 +1324,10 @@ case "${1:-}" in
 			USE="$( applyworkarounds "${arg}" "${USE}" )"
 			export USE
 			# shellcheck disable=SC2016
-			print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${*}'${USE:+ with USE='${USE}'}"
+			print "Running 'emerge" \
+				"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+				"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
+				"${*}'${USE:+" with USE='${USE}'"} with ROOT='${ROOT}'"
 			# shellcheck disable=SC2086
 			LC_ALL='C' FEATURES='-fail-clean' emerge \
 					  ${parallel} \
@@ -1223,6 +1338,7 @@ case "${1:-}" in
 					--with-bdeps-auto=n \
 				"${@}"
 			) || rc=${?}
+			clearworkarounds
 		fi
 
 		if [ -n "${post_pkgs:-}" ]; then
@@ -1230,25 +1346,31 @@ case "${1:-}" in
 			check ${rc} "${@}"
 
 			echo
-			echo " * Building specified post-installation '${post_pkgs}' packages ..."
+			echo " * Building specified post-installation '${post_pkgs}'" \
+				"packages ..."
 			echo
 
 			[ -n "${post_use:-}" ] && export USE="${post_use}"
 
 			info="$( LC_ALL='C' emerge --info --verbose=y )"
+
 			echo
 			echo 'Resolved build variables for post-installation packages:'
 			echo '-------------------------------------------------------'
 			echo
-			echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
-			echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+			echo "ROOT                = $( # <- Syntax
+				echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+			)"
+			echo "SYSROOT             = $( # <- Syntax
+				echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+			)"
 			echo "${info}" | format 'FEATURES'
 			echo "${info}" | format 'USE'
 			echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 			echo "${info}" | format 'PYTHON_TARGETS'
 			echo
 			target=''
-			for target in $(
+			for target in $( # <- Syntax
 				echo "${info}" |
 					grep -o ' [^ ]*TARGET[^ ]* ' |
 					cut -d'=' -f 1 |
@@ -1263,7 +1385,10 @@ case "${1:-}" in
 			echo
 			unset info
 
-			#print "Running 'emerge ${opts:+${opts} }--jobs=1 --quiet-build=n --buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${post_pkgs}'${USE:+ with USE='${USE}'}"
+			#print "Running 'emerge ${opts:+"${opts} "}--jobs=1" \
+			#	"--quiet-build=n --buildpkg=y --usepkg=y --with-bdeps=n" \
+			#	"--with-bdeps-auto=n" \
+			#	"${post_pkgs}'${USE:+" with USE='${USE}'"} with ROOT='${ROOT}'"
 			#LC_ALL='C' FEATURES='-fail-clean' emerge \
 			#		  ${opts} \
 			#		--jobs=1 \
@@ -1276,6 +1401,7 @@ case "${1:-}" in
 
 			# In case we're building with --nodeps, extract acct-* packages
 			# first...
+			#
 			if echo "${post_pkgs}" | grep -q -- 'acct-'; then
 				post_acct_pkgs="$( # <- Syntax
 					echo "${post_pkgs}" |
@@ -1286,7 +1412,11 @@ case "${1:-}" in
 				)"
 				if [ -n "${post_acct_pkgs:-}" ]; then
 					# shellcheck disable=SC2016
-					print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${post_acct_pkgs}'${USE:+ with USE='${USE}'}"
+					print "Running 'emerge" \
+						"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+						"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
+						"${post_acct_pkgs}'${USE:+" with USE='${USE}'"} with" \
+						"ROOT='${ROOT}'"
 					# shellcheck disable=SC2086
 					LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
 							  ${parallel} \
@@ -1308,11 +1438,14 @@ case "${1:-}" in
 			# First build any post_pkgs which will be installed without
 			# dependencies on the base-system, to ensure that the right binary
 			# package is available to the ROOT installation...
+			#
 			if echo " ${post_pkgs:-} " | grep -q ' --nodeps '; then
 				# shellcheck disable=SC2016
-				print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y --with-bdeps-auto=y $(
+				print "Running 'emerge" \
+						"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+						"--usepkg=y --with-bdeps=y --with-bdeps-auto=y $( # <- Syntax
 					echo " ${post_pkgs} " | sed 's/ --nodeps / /g ; s/^ // ; s/ $//'
-				)'${USE:+ with USE='${USE}'}"
+				)'${USE:+" with USE='${USE}'"} with ROOT='${ROOT}'"
 				# shellcheck disable=SC2046,SC2086
 				ROOT='/' SYSROOT='/' PORTAGE_CONFIGROOT='/' \
 				LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
@@ -1322,14 +1455,18 @@ case "${1:-}" in
 						--usepkg=y \
 						--with-bdeps=y \
 						--with-bdeps-auto=y \
-					$(
+					$( # <- Syntax
 						echo " ${post_pkgs} " | sed 's/ --nodeps / /g ; s/^ // ; s/ $//'
 					) || rc=${?}
 			fi
 
 			if [ -n "${post_pkgs:-}" ]; then
 				# shellcheck disable=SC2016
-				print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=n --with-bdeps-auto=n ${post_pkgs}'${USE:+ with USE='${USE}'}"
+				print "Running 'emerge" \
+					"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+					"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
+					"${post_pkgs}'${USE:+" with USE='${USE}'"} with" \
+					"ROOT='${ROOT}'"
 				# shellcheck disable=SC2086
 				LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
 						  ${parallel} \
@@ -1369,7 +1506,8 @@ case "${1:-}" in
 						-*)	continue ;;
 						*)
 							echo
-							echo " * Building single package '${arg}' from '${rebuild} ..."
+							echo " * Building single package '${arg}'" \
+								"from '${rebuild} ..."
 							echo
 
 							(
@@ -1378,7 +1516,11 @@ case "${1:-}" in
 							USE="$( applyworkarounds "${arg}" "${USE}" )"
 							export USE
 							# shellcheck disable=SC2016
-							print "Running build-dependencies 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
+							print "Running build-dependencies 'emerge" \
+								"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+								"--usepkg=y --with-bdeps=y" \
+								"${flags:+"${flags} "}${arg}'${USE:+" with USE='${USE}'"}" \
+								"with ROOT='${ROOT}'"
 							# shellcheck disable=SC2086
 							LC_ALL='C' FEATURES='-fail-clean' emerge \
 									  ${parallel} \
@@ -1389,11 +1531,16 @@ case "${1:-}" in
 									  ${flags:-} \
 								${arg}
 							) || rc=${?}
+							clearworkarounds
 
 							# ... then install again without '--usepkg':
 							#
 							# shellcheck disable=SC2016
-							print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n ${flags:+${flags} }${arg}'${USE:+ with USE='${USE}'}"
+							print "Running 'emerge" \
+								"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+								"--usepkg=n --with-bdeps=n --with-bdeps-auto=n" \
+								"${flags:+"${flags} "}${arg}'${USE:+" with USE='${USE}'"}" \
+								"with ROOT='${ROOT}'"
 							# shellcheck disable=SC2086
 							LC_ALL='C' FEATURES='-fail-clean' emerge \
 									  ${parallel} \
@@ -1407,6 +1554,7 @@ case "${1:-}" in
 							;;
 					esac
 				done
+
 			else # [ -z "${EMERGE_OPTS:-}" ] || ! echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-rebuild)? '; then
 				(
 				# Reinstall package first to maximise dependency re-use...
@@ -1414,7 +1562,10 @@ case "${1:-}" in
 				USE="$( applyworkarounds "${arg}" "${USE}" )"
 				export USE
 				# shellcheck disable=SC2016
-				print "Running build-dependencies 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=y --with-bdeps=y ${rebuild}'${USE:+ with USE='${USE}'}"
+				print "Running build-dependencies 'emerge" \
+					"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+					"--usepkg=y --with-bdeps=y" \
+					"${rebuild}'${USE:"+ with USE='${USE}'"} with ROOT='${ROOT}'"
 				# shellcheck disable=SC2086
 				LC_ALL='C' FEATURES='-fail-clean' emerge \
 						  ${parallel} \
@@ -1428,7 +1579,10 @@ case "${1:-}" in
 				# ... then install again without '--usepkg':
 				#
 				# shellcheck disable=SC2016
-				print "Running 'emerge ${parallel:+${parallel} }${opts:+${opts} }--buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n ${rebuild}'${USE:+ with USE='${USE}'}"
+				print "Running 'emerge" \
+					"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+					"--usepkg=n --with-bdeps=n --with-bdeps-auto=n" \
+					"${rebuild}'${USE:+" with USE='${USE}'"} with ROOT='${ROOT}'"
 				# shellcheck disable=SC2086
 				LC_ALL='C' FEATURES='-fail-clean' emerge \
 						  ${parallel} \
@@ -1438,12 +1592,14 @@ case "${1:-}" in
 						--with-bdeps=n \
 						--with-bdeps-auto=n \
 					${rebuild} || rc=${?}
+				clearworkarounds
 			fi
 		fi
 		;;
 esac
 
 # We only reach here if we built a package above...
+#
 
 savefailed
 check ${rc} "${package}"
@@ -1463,6 +1619,7 @@ if [ $(( depclean )) -ne 0 ]; then
 	fi
 
 	# This list must be kept in sync with sys-devel/gcc dependencies!
+	#
 	cat >> /etc/portage/profile/package.provided <<-EOF
 		dev-libs/gmp-4.3.2
 		dev-libs/mpc-0.8.1
@@ -1478,9 +1635,10 @@ if [ $(( depclean )) -ne 0 ]; then
 	# this (POSIX sh) script.
 	#
 	# ... so let's just do the best we can.
+	#
 	filtered_depclean_exclude=''
 	for arg in ${depclean_exclude}; do
-		filtered_depclean_exclude="${filtered_depclean_exclude:+"${filtered_depclean_exclude} "}$(
+		filtered_depclean_exclude="${filtered_depclean_exclude:+"${filtered_depclean_exclude} "}$( # <- Syntax
 			echo "${arg}" | sed 's/^[<>]\?=\?// ; s/-[0-9].*$// ; s/::.*$//'
 		)"
 	done
@@ -1489,7 +1647,9 @@ if [ $(( depclean )) -ne 0 ]; then
 
 	# FIXME: This may be overkill, but some containers which don't use perl
 	# seem to have it pulled-in regardless...
+	#
 	# ...and we're still getting some build-time dependencies retained...
+	#
 	# shellcheck disable=SC2046
 	LC_ALL='C' emerge \
 			--depclean \
