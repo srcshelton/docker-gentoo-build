@@ -225,7 +225,7 @@ use_essential="asm ipv6 ithreads native-extensions mdev nptl split-usr ssp threa
 #      packages, but is reasonable for build-containers.
 #
 # FIXME: Source these flags from package.use
-use_essential_gcc="default-stack-clash-protection default-znow -fortran graphite nptl openmp pch sanitize ssp vtv zstd"
+use_essential_gcc="default-stack-clash-protection -default-znow -fortran graphite nptl openmp pch -sanitize ssp -vtv zstd"
 
 case "$( uname -m )" in
 	x86_64|i686)
