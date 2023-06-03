@@ -45,8 +45,10 @@
 # Update: 5GB isn't enough, but 6GB appears to be, just.  That's at least a 50%
 #         increase in memory required between gcc-11 and gcc-12 :(
 : "${PODMAN_MEMORY_RESERVATION:="2g"}"
-: "${PODMAN_MEMORY_LIMIT:="6g"}"
+: "${PODMAN_MEMORY_LIMIT:="8g"}"
 : "${PODMAN_SWAP_LIMIT:="${PODMAN_MEMORY_LIMIT}"}"
+
+_command='docker'
 
 # shellcheck disable=SC2034
 debug=${DEBUG:-}
@@ -129,7 +131,7 @@ fi
 
 # Mostly no longer needed, with Dockerfile.env ...
 #
-docker_setup() {
+_docker_setup() {
 	export -a args=() extra=()
 	export package='' package_version='' package_name='' repo=''
 	export name='' container_name='' image="${IMAGE:-gentoo-build:latest}"
@@ -190,14 +192,14 @@ docker_setup() {
 	esac
 
 	return 0
-}  # docker_setup
+}  # _docker_setup
 
 # Sets image, name, package, extra, and args based on arguments
 #
 # FIXME: This is *massively* broken for arguments with spaces - reimplement in
 #        bash with array support?
 #
-docker_parse() {
+_docker_parse() {
 	local dp_arg=''
 
 	if [ -z "${*:-}" ]; then
@@ -277,11 +279,11 @@ docker_parse() {
 	unset dp_arg
 
 	return 0
-}  # docker_parse
+}  # _docker_parse
 
 # Validates package and sets container
 #
-docker_resolve() {
+_docker_resolve() {
 	local dr_package="${1:-${package}}"
 	local prefix="${2:-buildpkg}"
 	local dr_name=''
@@ -295,7 +297,7 @@ docker_resolve() {
 		# package-version handling facilities.
 		# shellcheck disable=SC2086
 		if
-			$docker ${DOCKER_VARS:-} image ls localhost/gentoo-helper:latest |
+			docker ${DOCKER_VARS:-} image ls localhost/gentoo-helper:latest |
 			grep -Eq -- '^(localhost/)?([^.]+\.)?gentoo-helper'
 		then
 			# shellcheck disable=SC2032  # Huh?
@@ -304,7 +306,7 @@ docker_resolve() {
 				local -i rc=0
 
 				result="$(
-					$docker container run \
+					docker container run \
 							--rm \
 							--name='portage-helper' \
 							--network=none \
@@ -322,7 +324,7 @@ docker_resolve() {
 				local result=''
 				local -i rc=0
 
-				# We'll execute this container via docker_run rather than
+				# We'll execute this container via _docker_run rather than
 				# by direct invocation, so that we get all of the necessary
 				# repo directories mounted...
 				result="$(
@@ -331,7 +333,7 @@ docker_resolve() {
 					image='' \
 					IMAGE='localhost/gentoo-helper:latest' \
 					container_name='gentoo-helper' \
-						docker_run equery "${@:-}"
+						_docker_run equery "${@:-}"
 				)" || rc="${?}"
 
 				print "equery returned '${result}': ${?}"
@@ -361,7 +363,7 @@ docker_resolve() {
 				local slot='' masked='' keyworded=''
 
 				if [ -z "${arch:-}" ]; then
-					docker_setup
+					_docker_setup
 				fi
 
 				args=( "${@:-}" )
@@ -509,9 +511,9 @@ docker_resolve() {
 	unset dr_package
 
 	return 0
-}  # docker_resolve
+}  # _docker_resolve
 
-docker_image_exists() {
+_docker_image_exists() {
 	image="${1:-${package}}"
 	version="${2:-${package_version}}"
 
@@ -529,26 +531,26 @@ docker_image_exists() {
 	fi
 
 	# shellcheck disable=SC2086
-	if ! $docker ${DOCKER_VARS:-} image ls "${image}" | grep -Eq -- "^(localhost/)?([^.]+\.)?${image}"; then
+	if ! docker ${DOCKER_VARS:-} image ls "${image}" | grep -Eq -- "^(localhost/)?([^.]+\.)?${image}"; then
 		error "docker image '${image}' not found"
 		return 1
 
-	elif ! $docker ${DOCKER_VARS:-} image ls "${image}:${version}" | grep -Eq -- "^(localhost/)?([^.]+\.)?${image}"; then
+	elif ! docker ${DOCKER_VARS:-} image ls "${image}:${version}" | grep -Eq -- "^(localhost/)?([^.]+\.)?${image}"; then
 		erro "docker image '${image}' found, but not version '${version}'"
 		return 1
 	fi
 
 	# shellcheck disable=SC2086
-	$docker ${DOCKER_VARS:-} image ls "${image}:${version}" |
+	docker ${DOCKER_VARS:-} image ls "${image}:${version}" |
 		grep -E -- "^(localhost/)?([^.]+\.)?${image}" |
 		awk '{ print $3 }'
 
 	return 0
-}  # docker_image_exists
+}  # _docker_image_exists
 
 # Launches container
 #
-docker_run() {
+_docker_run() {
 	#inherit name container_name
 	#inherit BUILD_CONTAINER NO_BUILD_MOUNTS NO_MEMORY_LIMITS NO_REPO_MASKS
 	#inherit DOCKER_VARS
@@ -584,13 +586,13 @@ docker_run() {
 
 	trap '' INT
 	# shellcheck disable=SC2086
-	$docker ${DOCKER_VARS:-} container ps --noheading |
+	docker ${DOCKER_VARS:-} container ps --noheading |
 			grep -qw -- "${name:-${container_name}}$" &&
-		$docker ${DOCKER_VARS:-} container stop --time 2 "${name:-${container_name}}" >/dev/null
+		docker ${DOCKER_VARS:-} container stop --time 2 "${name:-${container_name}}" >/dev/null
 	# shellcheck disable=SC2086
-	$docker ${DOCKER_VARS:-} container ps --noheading -a |
+	docker ${DOCKER_VARS:-} container ps --noheading -a |
 			grep -qw -- "${name:-${container_name}}$" &&
-		$docker ${DOCKER_VARS:-} container rm --volumes "${name:-${container_name}}" >/dev/null
+		docker ${DOCKER_VARS:-} container rm --volumes "${name:-${container_name}}" >/dev/null
 	trap - INT
 
 	# FIXME: Make this package-specific hack generic (or unneeded!)
@@ -629,7 +631,7 @@ docker_run() {
 			if
 				[[ "$( uname -s )" != 'Darwin' ]] &&
 					(( $( nproc ) > 1 )) &&
-					$docker info 2>&1 |
+					docker info 2>&1 |
 						grep -q -- 'cpuset'
 			then
 				echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))"
@@ -824,7 +826,7 @@ docker_run() {
 			)
 
 			if [ -z "${arch:-}" ]; then
-				docker_setup
+				_docker_setup
 			fi
 
 			#ENV PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
@@ -948,22 +950,22 @@ docker_run() {
 			output "Defined ${BUILD_CONTAINER:+pre-build} container images:"
 			set -x
 			# shellcheck disable=SC2086
-			eval $docker ${DOCKER_VARS:-} image ls --noheading
+			eval docker ${DOCKER_VARS:-} image ls --noheading
 			set +x
 			output "Defined ${BUILD_CONTAINER:+pre-build} additional-store container tasks:"
 			set -x
 			# shellcheck disable=SC2086
-			eval $docker ${DOCKER_VARS:-} container ps --noheading -a
+			eval docker ${DOCKER_VARS:-} container ps --noheading -a
 			set +x
 			output "Defined ${BUILD_CONTAINER:+pre-build} container tasks:"
-			$docker container ps --noheading -a
+			docker container ps --noheading -a
 		fi
 
 		image="${image:-${IMAGE:-gentoo-build:latest}}"
 
 		if (( debug )); then
 			local arg=''
-			print "Starting ${BUILD_CONTAINER:+build} container with command '$docker container run \\"
+			print "Starting ${BUILD_CONTAINER:+build} container with command '${_command} container run \\"
 			for arg in "${runargs[@]}"; do
 				print "        ${arg} \\"
 			done
@@ -980,7 +982,7 @@ docker_run() {
 					set -eux
 
 				EOF
-				echo >>common.run.sh.debug.log "$docker container run \\"
+				echo >>common.run.sh.debug.log "${_command} container run \\"
 				for arg in "${runargs[@]}"; do
 					echo >>common.run.sh.debug.log "        ${arg} \\"
 				done
@@ -996,7 +998,7 @@ docker_run() {
 			fi
 		fi
 		# shellcheck disable=SC2086
-		$docker \
+		docker \
 				${DOCKER_VARS:-} \
 			container run \
 				"${runargs[@]}" \
@@ -1005,12 +1007,12 @@ docker_run() {
 	rc=${?}
 	# shellcheck disable=SC2031,SC2086
 	if
-		dr_id="$( $docker ${DOCKER_VARS:-} container ps --noheading -a |
+		dr_id="$( docker ${DOCKER_VARS:-} container ps --noheading -a |
 				grep -- "\s${name:-${container_name}}$" |
 				awk '{ prnt $1 }' )" &&
 			[ -n "${dr_id:-}" ]
 	then
-		rcc=$( $docker ${DOCKER_VARS:-} container inspect --format='{{.State.ExitCode}}' "${dr_id}" ) || :
+		rcc=$( docker ${DOCKER_VARS:-} container inspect --format='{{.State.ExitCode}}' "${dr_id}" ) || :
 	fi
 
 	if [ -n "${rcc:-}" ] && [ "${rc}" -ne "${rcc}" ]; then
@@ -1028,72 +1030,72 @@ docker_run() {
 
 	# shellcheck disable=SC2086
 	return ${rc}
-}  # docker_run
+}  # _docker_run
 
 # Invokes container launch with package-build arguments
 #
-docker_build_pkg() {
+_docker_build_pkg() {
 	[ -n "${USE:-}" ] && info "USE override: '$( echo "${USE}" | xargs echo -n )'"
 
 	# shellcheck disable=SC2016
 	info "Building package '${package}' ${extra[*]+plus additional packages '${extra[*]}' }into container '${name:-${container_name}}' ..."
 
 	# shellcheck disable=SC2086
-	docker_run "=${package}${repo:+::${repo}}" ${extra[@]+"${extra[@]}"} ${args[@]+"${args[@]}"}
+	_docker_run "=${package}${repo:+::${repo}}" ${extra[@]+"${extra[@]}"} ${args[@]+"${args[@]}"}
 
 	return ${?}
-}  # docker_build_pkg
+}  # _docker_build_pkg
 
 # Garbage collect
 #
-docker_prune() {
+_docker_prune() {
 	# shellcheck disable=SC2086
-	#$docker ${DOCKER_VARS:-} system prune --all --filter 'until=24h' --filter 'label!=build' --filter 'label!=build.system' --force # --volumes
+	#docker ${DOCKER_VARS:-} system prune --all --filter 'until=24h' --filter 'label!=build' --filter 'label!=build.system' --force # --volumes
 	# volumes can't be pruned with a filter :(
 	# shellcheck disable=SC2086
-	#$docker ${DOCKER_VARS:-} volume prune --force
+	#docker ${DOCKER_VARS:-} volume prune --force
 
 	trap '' INT
 	# shellcheck disable=SC2031,SC2086
-	$docker ${DOCKER_VARS:-} container ps --noheading |
+	docker ${DOCKER_VARS:-} container ps --noheading |
 		rev |
 		cut -d' ' -f 1 |
 		rev |
 		grep -- '_' |
-		xargs -r $docker ${DOCKER_VARS:-} container stop --time 2 >/dev/null
+		xargs -r docker ${DOCKER_VARS:-} container stop --time 2 >/dev/null
 	# shellcheck disable=SC2031,SC2086
-	$docker ${DOCKER_VARS:-} container ps --noheading -a |
+	docker ${DOCKER_VARS:-} container ps --noheading -a |
 		rev |
 		cut -d' ' -f 1 |
 		rev |
 		grep -- '_' |
-		xargs -r $docker ${DOCKER_VARS:-} container rm --volumes >/dev/null
+		xargs -r docker ${DOCKER_VARS:-} container rm --volumes >/dev/null
 
 	# shellcheck disable=SC2031,SC2086
-	$docker ${DOCKER_VARS:-} image ls |
+	docker ${DOCKER_VARS:-} image ls |
 		grep -- '^<none>\s\+<none>' |
 		awk '{ print $3 }' |
-		xargs -r $docker ${DOCKER_VARS:-} image rm
+		xargs -r docker ${DOCKER_VARS:-} image rm
 	trap - INT
 
 	return 0
-}  # docker_prune
+}  # _docker_prune
 
 # Default entrypoint
 #
-docker_build() {
+_docker_build() {
 	if [ -z "${*:-}" ]; then
-		warn "No options passed to 'docker_build()'"
+		warn "No options passed to '_docker_build()'"
 	fi
 
-	docker_setup || return ${?}
-	docker_parse ${@+"${@}"} || return ${?}
-	docker_resolve || return ${?}
-	docker_build_pkg || return ${?}
-	#docker_prune
+	_docker_setup || return ${?}
+	_docker_parse ${@+"${@}"} || return ${?}
+	_docker_resolve || return ${?}
+	_docker_build_pkg || return ${?}
+	#_docker_prune
 
 	return ${?}
-}  # docker_build
+}  # _docker_build
 
 if ! echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	if [ -n "${IMAGE:-}" ]; then
@@ -1108,18 +1110,18 @@ if [ ! -d "${PWD%/}/gentoo-base" ] && [ ! -x "${PWD%/}/gentoo-build-web.docker" 
 fi
 
 # Are we using docker or podman?
-if ! command -v podman >/dev/null 2>&1; then
-	docker='docker'
-
+if ! type -pf podman >/dev/null 2>&1; then
 	#extra_build_args=''
 	docker_readonly='readonly'
 else
-	docker='podman'
+	_command='podman'
+	docker() { podman --db-backend sqlite ${@+"${@}"} ; }
 
 	#extra_build_args='--format docker'
 	# From release 2.0.0, podman should accept docker 'readonly' attributes
 	docker_readonly='ro=true'
 fi
-export docker docker_readonly  # extra_build_args
+export -f docker
+export _command docker_readonly  # extra_build_args
 
 # vi: set colorcolumn=80 foldmarker=()\ {,}\ \ #\  foldmethod=marker syntax=bash nowrap:
