@@ -49,29 +49,31 @@ print() {
 # POSIX sh doesn't support 'export -f'...
 format_fn_code="$( cat <<'EOF'
 format() {
-	# Pad $fmt_var with $fmt_pad trailing spaces
+	format_spaces='' format_string=''
+
+	# Pad $format_variable to $format_padding trailing spaces
 	#
-	fmt_var="${1:-}"
-	fmt_pad="${2:-20}"
+	format_variable="${1:-}"
+	format_padding="${2:-20}"
 
-	[ -n "${fmt_var:-}" ] || return 1
+	[ -n "${format_variable:-}" ] || return 1
 
-	fmt_spaces='' fmt_str=''
-
-	fmt_var="$( echo "${fmt_var}" | xargs -rn 1 | sort -d | xargs -r )"
-	fmt_spaces="$( printf "%${fmt_pad}s" )"
-	fmt_str="%-${fmt_pad}s= \"%s\"\\n"
+	format_variable="$( # <- Syntax
+		echo "${format_variable}" | xargs -rn 1 | sort -d | xargs -r
+	)"
+	format_spaces="$( printf "%${format_padding}s" )"
+	format_string="%-${format_padding}s= \"%s\"\\n"
 
 	# shellcheck disable=SC2059
-	printf "${fmt_str}" "${fmt_var}" "$(
+	printf "${format_string}" "${format_variable}" "$( # <- Syntax
 		cat - |
-			grep -- "^${fmt_var}=" |
+			grep -- "^${format_variable}=" |
 			cut -d'"' -f 2 |
-			fmt -w $(( ${COLUMNS:-80} - ( fmt_pad + 3 ) )) |
-			sed "s/^/   ${fmt_spaces}/ ; 1 s/^\s\+//"
+			fmt -w $(( ${COLUMNS:-80} - ( format_padding + 3 ) )) |
+			sed "s/^/   ${format_spaces}/ ; 1 s/^\s\+//"
 	)"
 
-	unset fmt_str fmt_spaces fmt_pad fmt_var
+	unset format_string format_spaces format_padding format_variable
 
 	return 0
 }  # format
@@ -81,14 +83,14 @@ export format_fn_code
 eval "${format_fn_code}"
 
 check() {
+	check_rc="${1:-}" ; shift
+
 	# Check that a given check_pkg (with build result code $check_rc) is actually
 	# installed...
 	#
-	check_rc="${1:-}" ; shift
-
 	[ -n "${check_rc:-}" ] || return 1
 
-	check_pkg='' check_arg=0
+	check_pkg='' check_arg=''
 
 	if [ $(( check_rc )) -eq 0 ]; then
 		# Process first package of list only...
@@ -103,14 +105,14 @@ check() {
 			if ! ls -1d \
 				"${ROOT:-}/var/db/pkg/${check_pkg%::*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but check_pkg '${check_pkg%::*}'" \
+				die "emerge indicated success but package '${check_pkg%::*}'" \
 					"does not appear to be installed"
 			fi
 		else
 			if ! ls -1d \
 				"${ROOT:-}/var/db/pkg"/*/"${check_pkg%::*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but check_pkg '${check_pkg%::*}'" \
+				die "emerge indicated success but package '${check_pkg%::*}'" \
 					"does not appear to be installed"
 			fi
 		fi
@@ -118,7 +120,8 @@ check() {
 
 	unset check_pkg check_arg
 
-	return $(( check_rc ))
+	# shellcheck disable=SC2086
+	return ${check_rc}
 }  # check
 
 get_stage3() {
@@ -172,7 +175,7 @@ get_stage3() {
 		echo "${stage3_flags}" |
 			grep -- "^STAGE3_${get_type}=" |
 			cut -d'"' -f 2
-	)" # ' # <- Syntax highlight failure
+	)" # ' # <- Syntax
 	print "get_stage3 get_result for '${get_type}' is '${get_result}'"
 
 	if [ "${get_type}" = 'USE' ]; then
@@ -191,7 +194,7 @@ get_stage3() {
 			echo "${stage3_flags}" |
 				grep -- "^STAGE3_PYTHON_SINGLE_TARGET=" |
 				cut -d'"' -f 2
-		)" # ' # <- Syntax highlight failure
+		)" # ' # <- Syntax
 		print "get_stage3 entries for SINGLE_TARGET is '${entries}'"
 
 		for entry in ${entries}; do
@@ -203,7 +206,7 @@ get_stage3() {
 			echo "${stage3_flags}" |
 				grep -- "^STAGE3_PYTHON_TARGETS=" |
 				cut -d'"' -f 2
-		)" # ' # <- Syntax highlight failure
+		)" # ' # <- Syntax
 		print "get_stage3 entries for TARGETS is '${entries}'"
 
 		for entry in ${entries}; do
@@ -249,13 +252,13 @@ resolve_python_flags() {
 	# variables are not in sync with each other...?
 	resolve_use="${USE:+"${USE} "}${resolve_use:+"${resolve_use} "}$( # <- Syntax
 		echo "${resolve_info}" | grep -- "^USE=" | cut -d'"' -f 2
-	)" # ' # <- Syntax highlight failure
+	)" # ' # <- Syntax
 	resolve_python_single_target="${PYTHON_SINGLE_TARGET:-} ${resolve_python_single_target:-} $( # <- Syntax
 		echo "${resolve_info}" | grep -- "^PYTHON_SINGLE_TARGET=" | cut -d'"' -f 2
-	)${python_targets:+" ${python_targets%% *}"}" # ' # <- Syntax highlight failure
+	)${python_targets:+" ${python_targets%% *}"}" # ' # <- Syntax
 	resolve_python_targets="${PYTHON_TARGETS:-} ${resolve_python_targets:-} $( # <- Syntax
 		echo "${resolve_info}" | grep -- "^PYTHON_TARGETS=" | cut -d'"' -f 2
-	) ${python_targets:-}" # ' # <- Syntax highlight failure
+	) ${python_targets:-}" # ' # <- Syntax
 
 	for resolve_target in ${resolve_python_single_target:-}; do
 		resolve_target="python_single_target_${resolve_target}"
@@ -434,6 +437,7 @@ fi
 # post_use should be based on the original USE flags, without --with-use
 # additions...
 # (... even though we're not using those here!)
+#
 if [ -n "${post_use:-}" ]; then
 	if ! printf ' %s ' "${post_use:-}" | grep -Fq -- ' -* '; then
 		post_use="${USE:+${USE} }${post_use:-}"
@@ -441,15 +445,17 @@ if [ -n "${post_use:-}" ]; then
 else
 	post_use="${USE:-}"
 fi
-if [ -n "${use_essential:-}" ] && ! echo "${post_use:-}" |
-		grep -Fq -- "${use_essential}"
-then
-	post_use="${post_use:+${post_use} }${use_essential}"
+if [ -n "${use_essential:-}" ]; then
+	if ! echo "${post_use:-}" |
+			grep -Fq -- "${use_essential}"
+	then
+		post_use="${post_use:+${post_use} }${use_essential}"
+	fi
 fi
 
 # At the point we're executed, we expect to be in a stage3 with appropriate
 # repositories mounted...
-
+#
 [ -s "${stage3_flags_file}" ] ||
 	die "'${stage3_flags_file}' is missing or empty"
 [ -d /var/db/repo/gentoo/profiles ] ||
@@ -494,7 +500,7 @@ info="$( # <- Syntax
 			"${PYTHON_SINGLE_TARGET}" \
 			"${PYTHON_TARGETS}"
 	)"
-	LC_ALL='C' emerge --info --verbose
+	LC_ALL='C' emerge --info --verbose=y
 )"
 echo
 echo 'Resolved build variables for stage3:'
@@ -535,6 +541,7 @@ echo
 unset info
 
 # Report stage3 tool versions (because some are masked from the arm64 stage3!)
+#
 file=''
 for file in /lib*/libc.so.6; do
 	"${file}" || :
@@ -554,8 +561,10 @@ LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" # 2>/dev/null
 
 LC_ALL='C' emaint --fix binhost
 
+# TODO: Is there any benefit in shorting stage3 news?
 LC_ALL='C' emerge --check-news
 LC_ALL='C' eselect --colour=yes news read
+printf '\n---\n\n'
 
 #set -o xtrace
 
@@ -565,11 +574,6 @@ LC_ALL='C' eselect --colour=yes news read
 # To try to work around this, snapshot the current stage3 version...
 #quickpkg --include-config y --include-unmodified-config y sys-libs/zlib
 
-# To make the following output potentially clearer, attempt to remove any
-# masked packages which exist in the image we're building from...
-echo
-echo " * Attempting to remove masked packages from stage3 ..."
-echo
 (
 	mkdir -p /var/lib/portage
 	echo 'virtual/libc' > /var/lib/portage/world
@@ -601,6 +605,16 @@ echo
 			--with-bdeps=n \
 			--with-bdeps-auto=n \
 		net-misc/dhcpcd
+
+	# To make the following output potentially clearer, attempt to remove any
+	# masked packages which exist in the image we're building from...
+	#
+	echo
+	echo
+	echo " * Attempting to remove masked packages from stage3 ..."
+	echo
+	echo
+
 	# shellcheck disable=SC2086
 	emerge \
 			--ignore-default-opts \
@@ -612,6 +626,7 @@ echo
 			--with-bdeps=n \
 			--unmerge \
 		${list} || :
+
 	#virtual/udev-217-r3 pulled in by:
 	#    sys-apps/hwids-20210613-r1 requires virtual/udev
 	#    sys-fs/udev-init-scripts-34 requires >=virtual/udev-217
@@ -662,7 +677,7 @@ if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 				--color=y \
 				--keep-going=y \
 				--quiet-build=y \
-				${opts:-} \
+				  ${opts:-} \
 				--usepkg=y \
 				--verbose-conflicts \
 				--verbose=y \
@@ -703,6 +718,8 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	echo
 	echo " * CHOST change detected - ensuring stage3 is up to date ..."
 	echo
+
+	# chost_change() {
 
 	# This process may be fragile if there are updates available for installed
 	# stage3 packages...
@@ -920,10 +937,14 @@ if ! [ -d "/usr/${CHOST}" ]; then
 					head -n 1
 			)" '@preserved-rebuild'
 	)
+	# shellcheck disable=SC2015
 	LC_ALL='C' eselect --colour=yes news read new |
-		grep -Fv -- 'No news is good news.' || :
+		grep -Fv -- 'No news is good news.' && printf '\n---\n\n' || :
+
 	LC_ALL='C' etc-update --quiet --preen
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+
+	# }  # chost_change
 fi
 
 echo
@@ -939,8 +960,10 @@ echo
 	# Since app-alternatives/* packages are now mandatory, the USE flags these
 	# packages rely upon must also be set in order to avoid REQUIRED_USE
 	# errors.
+	#
 	# TODO: Fix this better...
-	USE="${USE} gnu gawk"
+	#
+	#USE="${USE} gawk gnu"
 	export USE
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 	export LC_ALL='C'
@@ -966,11 +989,11 @@ echo
 echo ' * Configuring stage3 kernel sources ...'
 echo
 
-#pushd >/dev/null /usr/src/linux
+#pushd >/dev/null /usr/src/linux  # bash only
 src_cwd="${PWD}"
 cd /usr/src/linux/
 make defconfig prepare
-#popd >/dev/null
+#popd >/dev/null  # bash only
 cd "${src_cwd}"
 unset src_cwd
 
@@ -1005,17 +1028,20 @@ do
 	(
 		USE="-* $( get_stage3 --values-only USE )"
 		# shellcheck disable=SC2154
-		USE="${USE} ${use_essential_gcc} gawk"
+		USE="${USE} ${use_essential_gcc}"
 		if [ "${arch}" = 'arm64' ]; then
 			USE="${USE} gold"
 		fi
 		case "${pkg}" in
-		#	*libcrypt|*libxcrypt)
+		#	sys-libs/libxcrypt|virtual/libcrypt)
 		#		USE="${USE} static-libs"
 		#		;;
-			*libxml2*)
+			dev-libs/libxml2)
 				USE="${USE} xml"
 				;;
+			#app-alternatives/awk)
+			#	USE="-busybox ${USE} gawk"
+			#	;;
 		esac
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
@@ -1037,8 +1063,10 @@ do
 				--with-bdeps-auto=n \
 			"${pkg}"
 	)
+	# shellcheck disable=SC2015
 	LC_ALL='C' eselect --colour=yes news read new |
-		grep -Fv -- 'No news is good news.' || :
+		grep -Fv -- 'No news is good news.' && printf '\n---\n\n' || :
+
 	LC_ALL='C' etc-update --quiet --preen
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 done
@@ -1061,6 +1089,9 @@ export ROOT="/build"
 export SYSROOT="${ROOT}"
 export PORTAGE_CONFIGROOT="${SYSROOT}"
 
+# Relocate /usr/src/linux* to ${ROOT}/usr/src/ and symlink back to original
+# location...
+#
 if [ ! -d "${ROOT}"/usr/src/linux ] || [ ! -L /usr/src/linux ]; then
 	[ -d "${ROOT}"/usr/src ] && rm -r "${ROOT}"/usr/src
 	mkdir -p "${ROOT}"/usr/src/
@@ -1068,11 +1099,19 @@ if [ ! -d "${ROOT}"/usr/src/linux ] || [ ! -L /usr/src/linux ]; then
 	ln -s ../../"${ROOT}"/usr/src/linux /usr/src/
 fi
 
+# We could keep SYSROOT/PORTAGE_CONFIGROOT set to '/', but embedding the active
+# configuration in the build-image feels like a better overall option...
+#
+mkdir -p "${SYSROOT}"/etc
+cp -r /etc/portage "${SYSROOT}"/etc/
+[ -e "${SYSROOT}"/etc/portage/package.use ] ||
+	die "Mirroring /etc/portage to '${SYSROOT}' failed"
+
 mkdir -p "${ROOT}"/etc
-cp -r /etc/portage "${ROOT}"/etc/
+cp /etc/etc-update.conf "${ROOT}"/etc/
+cp /etc/group "${ROOT}"/etc/
 cp /etc/locale.gen "${ROOT}"/etc/
 cp /etc/timezone "${ROOT}"/etc/
-cp /etc/etc-update.conf "${ROOT}"/etc/
 
 path="${PATH}"
 PATH="${PATH}:${ROOT}$( echo "${PATH}" | sed "s|:|:${ROOT}|g" )"
@@ -1098,6 +1137,7 @@ LC_ALL='C' emerge --check-news
 # happen and everything breaks :(
 #
 # Let's try to fix that...
+#
 export USE="${USE:+${USE} }${use_essential} nptl"
 
 # FIXME: Expose this somewhere?
@@ -1111,9 +1151,12 @@ features_libeudev=1
 
 # sys-apps/help2man with USE 'nls' requires Locale-gettext, which depends
 # on sys-apps/help2man;
+#
 # sys-libs/libcap can USE pam, which requires libcap;
+#
 # sys-apps/help2man requires dev-python/setuptools which must have been built
 # with the same PYTHON_*TARGET* flags as are currently active...
+#
 pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
 pkg_initial_use='-nls -pam -perl -python -su'
 pkg_exclude=''
@@ -1162,7 +1205,7 @@ if [ -n "${pkg_initial:-}" ]; then
 		#		;;
 		#esac
 
-		info="$( emerge --info --verbose )"
+		info="$( emerge --info --verbose=y )"
 		echo
 		echo 'Resolved build variables for initial packages:'
 		echo '---------------------------------------------'
@@ -1217,8 +1260,13 @@ if [ -n "${pkg_initial:-}" ]; then
 				export PORTAGE_CONFIGROOT="${SYSROOT}"
 
 				# First package in '${pkg_initial}' to have python deps...
+				#
 				# TODO: It'd be nice to have a had_deps() function here to
 				#       remove this hard-coding...
+				#
+				#       (There is 'equery depgraph', but it is unreliable with
+				#       unlimmited depth)
+				#
 				if [ "${pkg}" = 'sys-apps/help2man' ]; then
 					(
 						ROOT='/'
@@ -1228,13 +1276,16 @@ if [ -n "${pkg_initial:-}" ]; then
 
 						eval "$( # <- Syntax
 							resolve_python_flags \
-									"${USE:-}" \
+									"${USE:-} ${use_essential:-} ${use_essential_gcc:-}" \
 									"${PYTHON_SINGLE_TARGET}" \
 									"${PYTHON_TARGETS}"
 						)"
+						if [ "${ARCH}" = 'arm64' ]; then
+							USE="${USE:-} gold"
+						fi
 						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
-						info="$( emerge --info --verbose )"
+						info="$( emerge --info --verbose=y )"
 						echo
 						echo 'Resolved build variables for python builddeps:'
 						echo '---------------------------------------------'
@@ -1271,6 +1322,35 @@ if [ -n "${pkg_initial:-}" ]; then
 						echo
 						unset info
 
+						## shellcheck disable=SC2086
+						#USE="static-libs" \
+						#emerge \
+						#		--ignore-default-opts \
+						#		${parallel} \
+						#		--binpkg-respect-use=y \
+						#		--binpkg-changed-deps=y \
+						#		--buildpkg=n \
+						#		--color=y \
+						#		--deep \
+						#		--keep-going=y \
+						#		--quiet-build=y \
+						#		${opts:-} \
+						#		--usepkg=y \
+						#		--verbose=y \
+						#		--verbose-conflict \
+						#		--with-bdeps=y \
+						#		--with-bdeps-auto=y \
+						#	sys-libs/libxcrypt virtual/libcrypt
+
+						# FIXME: --emptytree is needed if that upstream stage3
+						#        image is built against a different python
+						#        version to what we're now trying to build, but
+						#        use of this option is fragile when binary
+						#        packages don't already exist.
+						#        Perhaps we need to pre-build all dependents as
+						#        binary packages in a more controlled
+						#        environment first?
+						#
 						# shellcheck disable=SC2086
 						emerge \
 								--ignore-default-opts \
@@ -1280,7 +1360,6 @@ if [ -n "${pkg_initial:-}" ]; then
 								--buildpkg=n \
 								--color=y \
 								--deep \
-								--emptytree \
 								--keep-going=y \
 								--quiet-build=y \
 								${opts:-} \
@@ -1290,9 +1369,21 @@ if [ -n "${pkg_initial:-}" ]; then
 								--with-bdeps=y \
 								--with-bdeps-auto=y \
 							dev-python/setuptools # || :
+								#--emptytree \
 					)
 					# Install same dependencies again within our build ROOT...
 					(
+						eval "$( # <- Syntax
+							resolve_python_flags \
+									"${USE:-} ${use_essential:-} ${use_essential_gcc:-}" \
+									"${PYTHON_SINGLE_TARGET}" \
+									"${PYTHON_TARGETS}"
+						)"
+						if [ "${ARCH}" = 'arm64' ]; then
+							USE="${USE:-} gold"
+						fi
+						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+
 						# shellcheck disable=SC2086
 						emerge \
 								--ignore-default-opts \
@@ -1302,7 +1393,6 @@ if [ -n "${pkg_initial:-}" ]; then
 								--buildpkg=n \
 								--color=y \
 								--deep \
-								--emptytree \
 								--keep-going=y \
 								--quiet-build=y \
 								${opts:-} \
@@ -1312,26 +1402,51 @@ if [ -n "${pkg_initial:-}" ]; then
 								--with-bdeps=y \
 								--with-bdeps-auto=y \
 							dev-python/setuptools # || :
+								#--emptytree \
 					)
 				fi
 
-				# shellcheck disable=SC2086
-				emerge \
-						--ignore-default-opts \
-						${parallel} \
-						--binpkg-changed-deps=n \
-						--binpkg-respect-use=y \
-						--buildpkg=n \
-						--color=y \
-						--keep-going=y \
-						--quiet-build=y \
-						${opts:-} \
-						--usepkg=y \
-						--verbose=y \
-						--verbose-conflict \
-						--with-bdeps=n \
-						--with-bdeps-auto=n \
-					${pkg} ${pkg_exclude:-} # || :
+				#if [ "${pkg}" = 'sys-apps/util-linux' ]; then
+				#	(
+				#	#USE="-busybox ${USE:-} gawk"
+				#
+				#	# shellcheck disable=SC2086
+				#	emerge \
+				#			--ignore-default-opts \
+				#			${parallel} \
+				#			--binpkg-changed-deps=n \
+				#			--binpkg-respect-use=y \
+				#			--buildpkg=n \
+				#			--color=y \
+				#			--keep-going=y \
+				#			--quiet-build=y \
+				#			${opts:-} \
+				#			--usepkg=y \
+				#			--verbose=y \
+				#			--verbose-conflict \
+				#			--with-bdeps=n \
+				#			--with-bdeps-auto=n \
+				#		${pkg} ${pkg_exclude:-} # || :
+				#	)
+				#else
+					# shellcheck disable=SC2086
+					emerge \
+							--ignore-default-opts \
+							${parallel} \
+							--binpkg-changed-deps=n \
+							--binpkg-respect-use=y \
+							--buildpkg=n \
+							--color=y \
+							--keep-going=y \
+							--quiet-build=y \
+							${opts:-} \
+							--usepkg=y \
+							--verbose=y \
+							--verbose-conflict \
+							--with-bdeps=n \
+							--with-bdeps-auto=n \
+						${pkg} ${pkg_exclude:-} # || :
+				#fi
 
 				etc-update --quiet --preen
 				find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
@@ -1342,7 +1457,7 @@ if [ -n "${pkg_initial:-}" ]; then
 			done
 		done
 	)
-fi
+fi  # [ -n "${pkg_initial:-}" ]
 
 echo
 echo ' * Building @system packages ...'
@@ -1350,10 +1465,16 @@ echo
 
 (
 	#set -x
-	# sys-apps/shadow is needed for /sbin/nologin
+
+	# sys-apps/shadow is needed for /sbin/nologin;
+	#
 	# dev-libs/icu is needed for circular dependencies on icu -> python -> ...
-	#	sqlite -> icu
+	#	sqlite -> icu;
+	#
 	# libarchive is a frequent dependency, and so quicker to pull-in here
+	#
+	pkg_system="@system sys-devel/gcc sys-apps/shadow dev-libs/icu app-arch/libarchive ${pkg_initial:-} ${pkg_exclude:-}"
+
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 	USE="${USE:+${USE} }${use_essential_gcc}"
 	if
@@ -1377,7 +1498,7 @@ echo
 
 		eval "${format_fn_code}"
 
-		info="$( LC_ALL='C' emerge --info --verbose )"
+		info="$( LC_ALL='C' emerge --info --verbose=y )"
 		echo
 		echo 'Resolved build variables for @system:'
 		echo '------------------------------------'
@@ -1432,38 +1553,42 @@ echo
 				--quiet-build=y \
 				--root-deps \
 				${opts:-} \
+				--update \
 				--usepkg=y \
 				--verbose=y \
 				--verbose-conflicts \
 				--with-bdeps=n \
 				--with-bdeps-auto=n \
-			@system sys-devel/gcc sys-apps/shadow dev-libs/icu \
-				app-arch/libarchive ${pkg_initial} ${pkg_exclude:-} # || :
+			${pkg_system} # || :
 	done
-)
+)  # @system
+
 LC_ALL='C' etc-update --quiet --preen
 find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 # Ensure we have a valid /bin/sh symlink in our ROOT ...
+#
 fix_sh_symlink "${ROOT}" '@system'
 
 # ... and fix the default bash prompt setup w.r.t. 'screen' window names!
+#
 if [ -s /etc/bash/bashrc.patch ]; then
 	if ! command -v patch >/dev/null; then
 		warn "@system build has not installed package 'sys-devel/patch'"
 	else
-		#pushd >/dev/null "${ROOT}"/etc/bash/
+		#pushd >/dev/null "${ROOT}"/etc/bash/  # bash only
 		src_cwd="${PWD}"
 		cd "${ROOT}"/etc/bash/
 
 		if [ -s bashrc ]; then
 			echo ' * Patching /etc/bash/bashrc ...'
-			patch -p1 -r - -s </etc/bash/bashrc.patch || :
+			patch -p1 -r - -s </etc/bash/bashrc.patch ||
+				die "Applying patch to bashrc failed: ${?}"
 		else
 			warn "'${ROOT%/}/etc/bash/bashrc' does not exist or is empty"
 		fi
 
-		#popd >/dev/null
+		#popd >/dev/null  # bash only
 		cd "${src_cwd}"
 		unset src_cwd
 	fi
@@ -1512,13 +1637,15 @@ echo
 echo
 
 # Check for ROOT news ...
-LC_ALL='C' eselect --colour=yes news read new
+# shellcheck disable=SC2015
+LC_ALL='C' eselect --colour=yes news read new |
+	grep -Fv -- 'No news is good news.' && printf '\n---\n\n' || :
 
 # At this point, we should have a fully-built @system!
 
 export EMERGE_DEFAULT_OPTS="${EMERGE_DEFAULT_OPTS:+${EMERGE_DEFAULT_OPTS} } --with-bdeps=y --with-bdeps-auto=y"
 
-info="$( LC_ALL='C' emerge --info --verbose )"
+info="$( LC_ALL='C' emerge --info --verbose=y )"
 echo
 echo 'Resolved build variables after init stage:'
 echo '-----------------------------------------'
@@ -1594,7 +1721,7 @@ case "${1:-}" in
 
 		print "Running default 'emerge" \
 			"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
-			"\"${package}\"'"
+			"\"${package}\"' with ROOT='${ROOT}'"
 
 		(
 			export LC_ALL='C'
@@ -1620,16 +1747,19 @@ case "${1:-}" in
 
 		exit ${rc}
 		;;
+
 	sh|/bin/sh)
 		[ -n "${2:-}" ] && shift
 
 		exec /bin/sh "${@}"
 		;;
+
 	bash|/bin/bash)
 		[ -n "${2:-}" ] && shift
 
 		exec /bin/bash "${@}"
 		;;
+
 	*)
 		echo
 		if [ -z "${post_pkgs:-}" ]; then
@@ -1641,7 +1771,7 @@ case "${1:-}" in
 			# shellcheck disable=SC2016
 			print "Running 'emerge" \
 				"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
-				"${*}'${USE:+ with USE='${USE}'}"
+				"${*}'${USE:+ with USE='${USE}'} with ROOT='${ROOT}'"
 			(
 				export LC_ALL='C'
 				for ROOT in $( # <- Syntax
@@ -1665,6 +1795,7 @@ case "${1:-}" in
 			check ${rc} "${@}"
 
 			exit ${rc}
+
 		else # [ -n "${post_pkgs:-}" ]
 			echo " * Building requested '$( # <- Syntax
 				printf '%s' "${*}" |
@@ -1675,7 +1806,7 @@ case "${1:-}" in
 			# shellcheck disable=SC2016
 			print "Running 'emerge" \
 				"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
-				"${*}'${USE:+ with USE='${USE}'}"
+				"${*}'${USE:+ with USE='${USE}'} with ROOT='${ROOT}'"
 			(
 				export LC_ALL='C'
 				for ROOT in $( # <- Syntax
@@ -1712,7 +1843,7 @@ case "${1:-}" in
 			)"
 			export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
-			info="$( LC_ALL='C' emerge --info --verbose )"
+			info="$( LC_ALL='C' emerge --info --verbose=y )"
 
 			echo
 			echo 'Resolved build variables for post-installation packages:'
@@ -1762,7 +1893,7 @@ case "${1:-}" in
 							# shellcheck disable=SC2016
 							print "Running 'emerge" \
 								"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
-								"${arg}'${USE:+ with USE='${USE}'}"
+								"${arg}'${USE:+ with USE='${USE}'} with ROOT='${ROOT}'"
 							(
 								export LC_ALL='C'
 								export FEATURES='-fail-clean'
@@ -1787,6 +1918,7 @@ case "${1:-}" in
 							;;
 					esac
 				done
+
 			else # grep -Eq -- ' --single(-post)? ' <<<" ${EMERGE_OPTS} "
 				echo
 				echo " * Building post-packages '${post_pkgs}' ..."
@@ -1794,7 +1926,7 @@ case "${1:-}" in
 				# shellcheck disable=SC2016
 				print "Running 'emerge" \
 					"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
-					"${post_pkgs}'${USE:+ with USE='${USE}'}"
+					"${post_pkgs}'${USE:+ with USE='${USE}'} with ROOT='${ROOT}'"
 				(
 					export LC_ALL='C'
 					for ROOT in $( # <- Syntax
@@ -1819,164 +1951,109 @@ case "${1:-}" in
 			fi
 
 			check ${rc} "${@}"
+		fi # [ -n "${post_pkgs:-}" ]
 
-			if [ -z "${stage3_flags:-}" ]; then
-				die "No cached stage3 data - cannot clean-up Python packages"
-			fi
+		# Attempt to clean-up Python packages/versions...
+		#
 
-			BUILD_USE="${USE:-}"
-			BUILD_PYTHON_SINGLE_TARGET="${python_targets:+"${python_targets%% *}"}"
-			BUILD_PYTHON_TARGETS="${python_targets:-}"
-			eval "$( # <- Syntax
-				resolve_python_flags \
-						"${BUILD_USE}" \
-						"${BUILD_PYTHON_SINGLE_TARGET}" \
-						"${BUILD_PYTHON_TARGETS}" |
-					sed 's/^/BUILD_/'
+		if [ -z "${stage3_flags:-}" ]; then
+			die "No cached stage3 data - cannot clean-up Python packages"
+		fi
+
+		BUILD_USE="${USE:-}"
+		BUILD_PYTHON_SINGLE_TARGET="${python_targets:+"${python_targets%% *}"}"
+		BUILD_PYTHON_TARGETS="${python_targets:-}"
+		eval "$( # <- Syntax
+			resolve_python_flags \
+					"${BUILD_USE}" \
+					"${BUILD_PYTHON_SINGLE_TARGET}" \
+					"${BUILD_PYTHON_TARGETS}" |
+				sed 's/^/BUILD_/'
+		)"
+		export BUILD_USE BUILD_PYTHON_SINGLE_TARGET BUILD_PYTHON_TARGETS
+
+		ROOT_USE="${USE:+"${USE} "}$( get_stage3 --values-only USE )"
+		ROOT_PYTHON_SINGLE_TARGET="${PYTHON_SINGLE_TARGET:+"${PYTHON_SINGLE_TARGET} "}$( get_stage3 --values-only PYTHON_SINGLE_TARGET )"
+		ROOT_PYTHON_TARGETS="${PYTHON_TARGETS:+"${PYTHON_TARGETS} "}$( get_stage3 --values-only PYTHON_TARGETS )"
+		eval "$( # <- Syntax
+			resolve_python_flags \
+					"${ROOT_USE}" \
+					"${ROOT_PYTHON_SINGLE_TARGET}" \
+					"${ROOT_PYTHON_TARGETS}" |
+				sed 's/^/ROOT_/'
+		)"
+		# FIXME: ROOT_PYTHON_SINGLE_TARGET, ROOT_PYTHON_TARGETS unused
+		export ROOT_USE ROOT_PYTHON_SINGLE_TARGET ROOT_PYTHON_TARGETS
+
+		print "Checking for multiple 'python_target'(s) in USE ('${ROOT_USE}') ..."
+		if [ $(( $( # <- Syntax
+				echo "${ROOT_USE}" |
+					xargs -rn 1 |
+					grep -c -e 'python_single_target_' -e 'python_targets_'
+		) )) -gt 2 ]
+		then
+			target='' targetpkg='' targets='' remove=''
+			target="$( # <- Syntax
+				echo "${ROOT_USE}" |
+					xargs -rn 1 |
+					grep -- 'python_single_target_python' |
+					sed 's/python_single_target_//' |
+					sort -V |
+					tail -n 1
 			)"
-			export BUILD_USE BUILD_PYTHON_SINGLE_TARGET BUILD_PYTHON_TARGETS
-
-			ROOT_USE="${USE:+"${USE} "}$( get_stage3 --values-only USE )"
-			ROOT_PYTHON_SINGLE_TARGET="${PYTHON_SINGLE_TARGET:+"${PYTHON_SINGLE_TARGET} "}$( get_stage3 --values-only PYTHON_SINGLE_TARGET )"
-			ROOT_PYTHON_TARGETS="${PYTHON_TARGETS:+"${PYTHON_TARGETS} "}$( get_stage3 --values-only PYTHON_TARGETS )"
-			eval "$( # <- Syntax
-				resolve_python_flags \
-						"${ROOT_USE}" \
-						"${ROOT_PYTHON_SINGLE_TARGET}" \
-						"${ROOT_PYTHON_TARGETS}" |
-					sed 's/^/ROOT_/'
+			# python3_11 -> dev-lang/python-3.11
+			targetpkg="dev-lang/$( # <- Syntax
+				echo "${target}" | sed 's/^python/python-/ ; s/_/./'
 			)"
-			# FIXME: ROOT_PYTHON_SINGLE_TARGET, ROOT_PYTHON_TARGETS unused
-			export ROOT_USE ROOT_PYTHON_SINGLE_TARGET ROOT_PYTHON_TARGETS
+			print "python target '${target}', package '${targetpkg}'"
 
-			print "Checking for multiple 'python_target'(s) in USE ('${ROOT_USE}') ..."
-			if [ $(( $( # <- Syntax
-					echo "${ROOT_USE}" |
-						xargs -rn 1 |
-						grep -c -e 'python_single_target_' -e 'python_targets_'
-			) )) -gt 2 ]
-			then
-				target='' targetpkg='' targets='' remove=''
-				target="$( # <- Syntax
-					echo "${ROOT_USE}" |
-						xargs -rn 1 |
-						grep -- 'python_single_target_python' |
-						sed 's/python_single_target_//' |
-						sort -V |
-						tail -n 1
-				)"
-				# python3_11 -> dev-lang/python-3.11
-				targetpkg="dev-lang/$( # <- Syntax
-					echo "${target}" | sed 's/^python/python-/ ; s/_/./'
-				)"
-				print "python target '${target}', package '${targetpkg}'"
+			targets="$( # <- Syntax
+				echo "${ROOT_USE}" |
+					grep -o -- 'python_targets_python[^ ]\+' |
+					sed 's/python_targets_//'
+			)"
+			print "targets: '${targets}'"
 
-				targets="$( # <- Syntax
-					echo "${ROOT_USE}" |
-						grep -o -- 'python_targets_python[^ ]\+' |
-						sed 's/python_targets_//'
-				)"
-				print "targets: '${targets}'"
+			remove="$( # <- Syntax
+				echo "${targets}" |
+					xargs -rn 1 |
+					grep -vx -- "${target}"
+			)"
+			print "remove: '${remove}'"
 
-				remove="$( # <- Syntax
-					echo "${targets}" |
-						xargs -rn 1 |
-						grep -vx -- "${target}"
-				)"
-				print "remove: '${remove}'"
+			if [ -n "${remove:-}" ]; then
+				echo
+				echo " * Cleaning old python targets '$( # <- Syntax
+					echo "${remove}" | xargs -r
+				)' ..."
+				echo
+				(
+					arg='' use='' pkgs=''
 
-				if [ -n "${remove:-}" ]; then
-					echo
-					echo " * Cleaning old python targets '$( # <- Syntax
-						echo "${remove}" | xargs -r
-					)' ..."
-					echo
-					(
-						arg='' use='' pkgs=''
+					# Add prefix to each item in ${remove}...
+					for arg in ${remove}; do
+						use="${use:+"${use} "}python_targets_${arg}"
+					done
+					remove="${use}" use=''
 
-						# Add prefix to each item in ${remove}...
-						for arg in ${remove}; do
-							use="${use:+"${use} "}python_targets_${arg}"
-						done
-						remove="${use}" use=''
+					export LC_ALL='C'
 
-						export LC_ALL='C'
+					# loop to allow 'break'...
+					# shellcheck disable=SC2066
+					for ROOT in $( # <- Syntax
+							echo '/' "${ROOT}" |
+								xargs -rn 1 |
+								sort -u |
+								xargs -r
+					); do
+						SYSROOT="${ROOT}"
+						PORTAGE_CONFIGROOT="${SYSROOT}"
+						export ROOT SYSROOT PORTAGE_CONFIGROOT
 
-						# loop to allow 'break'...
-						# shellcheck disable=SC2066
-						for ROOT in $( # <- Syntax
-								echo '/' "${ROOT}" |
-									xargs -rn 1 |
-									sort -u |
-									xargs -r
-						); do
-							SYSROOT="${ROOT}"
-							PORTAGE_CONFIGROOT="${SYSROOT}"
-							export ROOT SYSROOT PORTAGE_CONFIGROOT
-
-							PYTHON_SINGLE_TARGET="${BUILD_PYTHON_SINGLE_TARGET}"
-							if [ "${ROOT}" = '/' ]; then
-								USE="$( get_stage3 --values-only USE )"
-								PYTHON_TARGETS="$( get_stage3 --values-only PYTHON_TARGETS )"
-								export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
-								eval "$( # <- Syntax
-									resolve_python_flags \
-										"${USE}" \
-										"${PYTHON_SINGLE_TARGET}" \
-										"${PYTHON_TARGETS}"
-								)"
-							else
-								USE="${BUILD_USE}"
-								PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
-								export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
-								eval "$( # <- Syntax
-									resolve_python_flags \
-										"${USE}" \
-										"${PYTHON_SINGLE_TARGET}" \
-										"${PYTHON_TARGETS}"
-								)"
-							fi
-
-							use=''
-							for arg in ${USE}; do
-								print "Checking for '${arg}' in '${remove}' ..."
-
-								if echo "${remove}" | grep -qw -- "${arg}"; then
-									use="${use:+"${use} "}-${arg}"
-									print "Matched - use is now '${use}'"
-
-									pkgs="${pkgs:-} $( # <- Syntax
-										#grep -Flw -- "${arg}" "${ROOT%/}"/var/db/pkg/*/*/IUSE |
-										find "${ROOT%/}/var/db/pkg/" \
-												-mindepth 3 \
-												-maxdepth 3 \
-												-type f \
-												-name 'IUSE' \
-												-print0 |
-											xargs -r0 grep -Flw -- "${arg}" |
-											sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||'
-									)"
-									print "pkgs is now '${pkgs}'"
-								else
-									print "No match"
-
-									case "${arg}" in
-										python_single_target_*)
-											continue ;;
-									esac
-									use="${use:+"${use} "}${arg}"
-									print "Added term - use is now '${use}'"
-								fi
-							done
-							print "use: '${use}'"
-
-							USE="$( # <- Syntax
-								echo "${use:-} python_single_target_${PYTHON_SINGLE_TARGET}" |
-									xargs -rn 1 |
-									sort -V |
-									uniq |
-									xargs -r
-							)"
+						PYTHON_SINGLE_TARGET="${BUILD_PYTHON_SINGLE_TARGET}"
+						if [ "${ROOT}" = '/' ]; then
+							USE="$( get_stage3 --values-only USE )"
+							PYTHON_TARGETS="$( get_stage3 --values-only PYTHON_TARGETS )"
 							export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 							eval "$( # <- Syntax
 								resolve_python_flags \
@@ -1984,180 +2061,256 @@ case "${1:-}" in
 									"${PYTHON_SINGLE_TARGET}" \
 									"${PYTHON_TARGETS}"
 							)"
-							pkgs="${pkgs:-} $( # <- Syntax
-								#ls -1d "${ROOT%/}"/var/db/pkg/dev-python/* |
-								find "${ROOT%/}/var/db/pkg/dev-python/" \
-										-mindepth 1 \
-										-maxdepth 1 \
-										-type d \
-										-print |
-									sed 's|^.*/var/db/pkg/|>=| ; s|/$||'
+						else
+							USE="${BUILD_USE}"
+							PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
+							export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+							eval "$( # <- Syntax
+								resolve_python_flags \
+									"${USE}" \
+									"${PYTHON_SINGLE_TARGET}" \
+									"${PYTHON_TARGETS}"
 							)"
+						fi
 
-							info="$( # <- Syntax
-								LC_ALL='C' \
-								SYSROOT="${ROOT}" \
-								PORTAGE_CONFIGROOT="${ROOT}" \
-									emerge --info --verbose
-							)"
-							echo
-							echo 'Resolved build variables for python cleanup stage 1:'
-							echo '---------------------------------------------------'
-							echo
-							echo "ROOT                = $( # <- Syntax
-								echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
-							)"
-							echo "SYSROOT             = $( # <- Syntax
-								echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
-							)"
-							echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-								echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
-							)"
-							echo
-							echo "${info}" | format 'USE'
-							echo "${info}" | format 'PYTHON_SINGLE_TARGET'
-							echo "${info}" | format 'PYTHON_TARGETS'
-							print "pkgs: '${pkgs}'"
+						use=''
+						for arg in ${USE}; do
+							print "Checking for '${arg}' in '${remove}' ..."
 
-							# shellcheck disable=SC2086
-							USE="$( # <- Syntax
-								echo " ${USE} " |
-									sed -r \
-										-e 's/ python_targets_[^ ]+ / /g' \
-										-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
-										-e 's/^ // ; s/ $//'
-							)" \
-							PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
-							emerge ${parallel} ${opts} \
-									--usepkg=y \
-								${pkgs} || rc=${?}
-							if [ $(( rc )) -ne 0 ]; then
-								echo "ERROR: Stage 1 cleanup: ${rc}"
-								break
-							fi
+							if echo "${remove}" | grep -qw -- "${arg}"; then
+								use="${use:+"${use} "}-${arg}"
+								print "Matched - use is now '${use}'"
 
-							export USE="${USE} -tmpfiles"
-							export PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
+								pkgs="${pkgs:-} $( # <- Syntax
+									#grep -Flw -- "${arg}" "${ROOT%/}"/var/db/pkg/*/*/IUSE |
+									find "${ROOT%/}/var/db/pkg/" \
+											-mindepth 3 \
+											-maxdepth 3 \
+											-type f \
+											-name 'IUSE' \
+											-print0 |
+										xargs -r0 grep -Flw -- "${arg}" |
+										sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||'
+								)"
+								print "pkgs is now '${pkgs}'"
+							else
+								print "No match"
 
-							info="$( # <- Syntax
-								LC_ALL='C' \
-								SYSROOT="${ROOT}" \
-								PORTAGE_CONFIGROOT="${ROOT}" \
-									emerge --info --verbose
-							)"
-							echo
-							echo 'Resolved build variables for python cleanup stage 2:'
-							echo '---------------------------------------------------'
-							echo
-							echo "${info}" | format 'USE'
-							echo "${info}" | format 'PYTHON_TARGETS'
-
-							# If we clear 'pkgs' then we hit all manner of
-							# dependency problems - even though the roots are
-							# independent, and identifying the packages built
-							# against old python versions should be
-							# exhaustive...
-							#pkgs=''
-							for arg in ${USE}; do
-								print "Checking for '${arg}' in '${remove}' ..."
-
-								if echo "${remove}" | grep -qw -- "${arg}"; then
-									pkgs="${pkgs:-} $( # <- Syntax
-										#grep -Flw -- "${arg}" "${ROOT}"/var/db/pkg/*/*/IUSE |
-										find "${ROOT%/}/var/db/pkg/" \
-												-mindepth 3 \
-												-maxdepth 3 \
-												-type f \
-												-name 'IUSE' \
-												-print0 |
-											grep -Flw -- "${arg}" |
-											sed 's|^.*/var/db/pkg/|=| ; s|/IUSE$||'
-									)"
-									print "pkgs is now '${pkgs}'"
-								fi
-							done
-							pkgs="${pkgs:-} $( # <- Syntax
-								#ls -1d "${ROOT}"/var/db/pkg/dev-python/* |
-								find "${ROOT%/}/var/db/pkg/dev-python/" \
-										-mindepth 1 \
-										-maxdepth 1 \
-										-type d \
-										-print |
-									sed 's|^.*/var/db/pkg/|=| ; s|/$||'
-							)"
-							if ROOT="/" SYSROOT="/" PORTAGE_CONFIGROOT="/" portageq get_repos / | grep -Fq -- 'srcshelton'; then
-								pkgs="${pkgs:-} virtual/tmpfiles::srcshelton"
-							fi
-							print "pkgs: '${pkgs}'"
-
-							# shellcheck disable=SC2086
-							emerge ${parallel} ${opts} \
-									--usepkg=y \
-								${pkgs} || rc=${?}
-							if [ $(( rc )) -ne 0 ]; then
-								echo "ERROR: Stage 2 cleanup: ${rc}"
-								break
-							fi
-
-							if [ $(( $( resolve_python_flags | grep -- '^PYTHON_TARGETS=' | cut -d'=' -f 2- | xargs -rn 1 | wc -l ) )) -gt 1 ]; then
-								# shellcheck disable=SC2086
-								emerge ${parallel} ${opts} \
-										--depclean \
-									"<${targetpkg}" || rc=${?}
-								if [ $(( rc )) -ne 0 ]; then
-									echo "ERROR: Stage 2 package depclean: ${rc}"
-									break
-								fi
-							fi
-
-							# shellcheck disable=SC2086
-							emerge ${parallel} ${opts} \
-									--depclean || rc=${?}
-							if [ $(( rc )) -ne 0 ]; then
-								echo "ERROR: Stage 2 world depclean: ${rc}"
-								break
+								case "${arg}" in
+									python_single_target_*)
+										continue ;;
+								esac
+								use="${use:+"${use} "}${arg}"
+								print "Added term - use is now '${use}'"
 							fi
 						done
+						print "use: '${use}'"
 
-						exit ${rc}
-					) || rc=${?}
+						USE="$( # <- Syntax
+							echo "${use:-} python_single_target_${PYTHON_SINGLE_TARGET}" |
+								xargs -rn 1 |
+								sort -V |
+								uniq |
+								xargs -r
+						)"
+						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+						eval "$( # <- Syntax
+							resolve_python_flags \
+								"${USE}" \
+								"${PYTHON_SINGLE_TARGET}" \
+								"${PYTHON_TARGETS}"
+						)"
+						pkgs="${pkgs:-} $( # <- Syntax
+							#ls -1d "${ROOT%/}"/var/db/pkg/dev-python/* |
+							find "${ROOT%/}/var/db/pkg/dev-python/" \
+									-mindepth 1 \
+									-maxdepth 1 \
+									-type d \
+									-print |
+								sed 's|^.*/var/db/pkg/|>=| ; s|/$||'
+						)"
 
-					if [ $(( rc )) -ne 0 ]; then
-						echo "ERROR: Old python targets: ${rc}"
-					fi
-				fi # [ -n "${remove:-}" ]
-			fi # multiple python targets
+						info="$( # <- Syntax
+							LC_ALL='C' \
+							SYSROOT="${ROOT}" \
+							PORTAGE_CONFIGROOT="${ROOT}" \
+								emerge --info --verbose
+						)"
+						echo
+						echo 'Resolved build variables for python cleanup stage 1:'
+						echo '---------------------------------------------------'
+						echo
+						echo "ROOT                = $( # <- Syntax
+							echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+						)"
+						echo "SYSROOT             = $( # <- Syntax
+							echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+						)"
+						echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
+							echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
+						)"
+						echo
+						echo "${info}" | format 'USE'
+						echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+						echo "${info}" | format 'PYTHON_TARGETS'
+						print "pkgs: '${pkgs}'"
 
-			# TODO: The following package-lists are manually maintained :(
-			#
-			echo
-			echo 'Final package cleanup:'
-			echo '---------------------'
-			echo
-			# shellcheck disable=SC2086
-			emerge ${parallel} ${opts} \
-					--unmerge dev-util/meson dev-util/meson-format-array || :
-			# shellcheck disable=SC2086
-			emerge ${parallel} ${opts} \
-					--depclean dev-libs/icu app-portage/gemato || :
-			# shellcheck disable=SC2046,SC2086
-			find "${ROOT}"/var/db/pkg/dev-python/ \
-					-mindepth 1 \
-					-maxdepth 1 \
-					-type d |
-				rev |
-				cut -d'/' -f 1-2 |
-				rev |
-				sed 's/^/=/' |
-				grep -v 'pypy3' |
-				xargs -r emerge ${parallel} ${opts} --depclean || :
+						# openmp for gcc/libb2
+						#
+						# shellcheck disable=SC2086
+						USE="$( # <- Syntax
+							echo " ${USE} " |
+								sed -r \
+									-e 's/ python_targets_[^ ]+ / /g' \
+									-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
+									-e 's/^ // ; s/ $//'
+						) openmp" \
+						PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
+						emerge ${parallel} ${opts} \
+								--oneshot \
+								--update \
+								--usepkg=y \
+							${pkgs} || rc=${?}
+						if [ $(( rc )) -ne 0 ]; then
+							echo "ERROR: Stage 1 cleanup: ${rc}"
+							break
+						fi
 
-			if [ $(( rc )) -ne 0 ]; then
-				echo "ERROR: Final package cleanup: ${rc}"
-			fi
-			exit ${rc}
-		fi # [ -n "${post_pkgs:-}" ]
-		;;
+						export USE="${USE} -openmp -tmpfiles"
+						export PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
+
+						info="$( # <- Syntax
+							LC_ALL='C' \
+							SYSROOT="${ROOT}" \
+							PORTAGE_CONFIGROOT="${ROOT}" \
+								emerge --info --verbose
+						)"
+						echo
+						echo 'Resolved build variables for python cleanup stage 2:'
+						echo '---------------------------------------------------'
+						echo
+						echo "${info}" | format 'USE'
+						echo "${info}" | format 'PYTHON_TARGETS'
+
+						# If we clear 'pkgs' then we hit all manner of
+						# dependency problems - even though the roots are
+						# independent, and identifying the packages built
+						# against old python versions should be
+						# exhaustive...
+						#pkgs=''
+						for arg in ${USE}; do
+							print "Checking for '${arg}' in '${remove}' ..."
+
+							if echo "${remove}" | grep -qw -- "${arg}"; then
+								pkgs="${pkgs:-} $( # <- Syntax
+									#grep -Flw -- "${arg}" "${ROOT}"/var/db/pkg/*/*/IUSE |
+									find "${ROOT%/}/var/db/pkg/" \
+											-mindepth 3 \
+											-maxdepth 3 \
+											-type f \
+											-name 'IUSE' \
+											-print0 |
+										grep -Flw -- "${arg}" |
+										sed 's|^.*/var/db/pkg/|=| ; s|/IUSE$||'
+								)"
+								print "pkgs is now '${pkgs}'"
+							fi
+						done
+						pkgs="${pkgs:-} $( # <- Syntax
+							#ls -1d "${ROOT}"/var/db/pkg/dev-python/* |
+							find "${ROOT%/}/var/db/pkg/dev-python/" \
+									-mindepth 1 \
+									-maxdepth 1 \
+									-type d \
+									-print |
+								sed 's|^.*/var/db/pkg/|=| ; s|/$||'
+						)"
+						if ROOT="/" SYSROOT="/" PORTAGE_CONFIGROOT="/" \
+							portageq get_repos / | grep -Fq -- 'srcshelton'
+						then
+							pkgs="${pkgs:-} virtual/tmpfiles::srcshelton"
+						fi
+						print "pkgs: '${pkgs}'"
+
+						# shellcheck disable=SC2086
+						emerge ${parallel} ${opts} \
+								--oneshot \
+								--usepkg=y \
+							app-crypt/libb2 app-portage/portage-utils sys-devel/gcc sys-devel/gettext || rc=${?}
+						if [ $(( rc )) -ne 0 ]; then
+							echo "ERROR: Stage 2 pre-cleanup: ${rc}"
+							break
+						fi
+
+						# shellcheck disable=SC2086
+						emerge ${parallel} ${opts} \
+								--oneshot \
+								--update \
+								--usepkg=y \
+							${pkgs} || rc=${?}
+						if [ $(( rc )) -ne 0 ]; then
+							echo "ERROR: Stage 2 cleanup: ${rc}"
+							break
+						fi
+
+						if [ $(( $( resolve_python_flags | grep -- '^PYTHON_TARGETS=' | cut -d'=' -f 2- | xargs -rn 1 | wc -l ) )) -gt 1 ]; then
+							# shellcheck disable=SC2086
+							emerge ${parallel} ${opts} \
+									--depclean \
+								"<${targetpkg}" || rc=${?}
+							if [ $(( rc )) -ne 0 ]; then
+								echo "ERROR: Stage 2 package depclean: ${rc}"
+								break
+							fi
+						fi
+
+						# shellcheck disable=SC2086
+						emerge ${parallel} ${opts} \
+								--depclean || rc=${?}
+						if [ $(( rc )) -ne 0 ]; then
+							echo "ERROR: Stage 2 world depclean: ${rc}"
+							break
+						fi
+					done
+
+					exit ${rc}
+				) || rc=${?}
+
+				if [ $(( rc )) -ne 0 ]; then
+					echo "ERROR: Old python targets: ${rc}"
+				fi
+			fi # [ -n "${remove:-}" ]
+		fi # multiple python targets
+
+		# TODO: The following package-lists are manually maintained :(
+		#
+		echo
+		echo 'Final package cleanup:'
+		echo '---------------------'
+		echo
+		# shellcheck disable=SC2086
+		emerge ${parallel} ${opts} \
+				--unmerge dev-util/meson dev-util/meson-format-array || :
+		# shellcheck disable=SC2086
+		emerge ${parallel} ${opts} \
+				--depclean dev-libs/icu app-portage/gemato || :
+		# shellcheck disable=SC2046,SC2086
+		find "${ROOT}"/var/db/pkg/dev-python/ \
+				-mindepth 1 \
+				-maxdepth 1 \
+				-type d |
+			rev |
+			cut -d'/' -f 1-2 |
+			rev |
+			sed 's/^/=/' |
+			grep -v 'pypy3' |
+			xargs -r emerge ${parallel} ${opts} --depclean || :
+
+		if [ $(( rc )) -ne 0 ]; then
+			echo "ERROR: Final package cleanup: ${rc}"
+		fi
+		exit ${rc}
+	;;
 esac
 
 #[ -n "${trace:-}" ] && set +o xtrace
