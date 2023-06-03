@@ -66,7 +66,7 @@ declare blue=''
 #declare purple=''
 declare reset=''
 
-# Set by common/run.sh docker_setup()
+# Set by common/run.sh _docker_setup()
 declare docker_arch=''
 declare arch=''
 
@@ -190,7 +190,7 @@ done
 set -- "${args[@]:-}"
 unset args arg
 
-docker_setup
+_docker_setup
 
 [[ -d log ]] || mkdir -p log
 pushd "${base_dir}" >/dev/null 2>&1 ||
@@ -1056,7 +1056,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		export image="${init_name}:latest"
 		export DOCKER_CMD_VARS="--env ARCH=${arch:-${ARCH}}"
 		# shellcheck disable=SC2086
-		docker_run \
+		_docker_run \
 				--post-pkgs="${post_pkgs}" \
 				--post-use="${post_use}" \
 				--python-targets="${python_targets}" \
@@ -1192,7 +1192,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 			eval $docker ${DOCKER_VARS:-} container rm -v "${name}"
 		fi
 		# shellcheck disable=SC2046
-		docker_run \
+		_docker_run \
 				  ${use_pypy_pre:+--pre-pkgs="${use_pypy_pre}"} \
 				  ${use_pypy_pre_use:+--pre-use="${use_pypy_pre_use}"} \
 				--post-pkgs="app-arch/tar${use_pypy_post:+ ${use_pypy_post}}" \
@@ -1214,8 +1214,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 					"${use_pypy_use:+python_targets_pypy3 ${use_pypy_use:-}}" \
 					"${use_essential_gcc:-}"
 				  )" \
-			sys-devel/gcc sys-apps/sed dev-libs/icu dev-util/pkgconf sys-libs/libeudev \
-			@system \
+			sys-devel/gcc sys-apps/sed sys-apps/util-linux dev-libs/icu dev-util/pkgconf \
+			sys-libs/libeudev @system \
 			${use_pypy:+sys-apps/portage ${use_pypy:-}} 2>&1 |
 		tee -a ../log/"docker.${build_name#*/}.log"
 	)
