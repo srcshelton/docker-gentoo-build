@@ -325,7 +325,7 @@ if (( ! skipsetup )) && [[ ! -f "${zeushome}"/.docker.done ]]; then
 	touch "${zeushome}"/.docker.done
 	rm "${zeushome}"/zconfig.txt
 	plog INFO "Container first run COMPLETE"
-fi
+fi # (( ! skipsetup )) && [[ ! -f "${zeushome}"/.docker.done ]]
 
 # We'll mount over conf_A, so always link this!
 rm "${zeushome}"/zxtm/conf && ln -s conf_A "${zeushome}"/zxtm/conf
@@ -343,7 +343,7 @@ if type -pf eselect  >/dev/null 2>&1 && [[ -s /usr/share/eselect/modules/iptable
 else
 	plog WARN "Unable to switch to NFT iptables back-end"
 fi
-if ! [[ -x /sbin/ip6tables ]]; then
+if ! [[ -x /sbin/ip6tables ]] || ! file /sbin/ip6tables 2>&1 | grep -q -- 'File: .* -> xtables-nft-multi'; then
 	plog WARN "Creating missing ip6tables symlinks ..."
 	ln -sf xtables-nft-multi /sbin/ip6tables
 	[[ -x /sbin/ip6tables-restore ]] || ln -sf xtables-nft-multi /sbin/ip6tables-restore
