@@ -1,4 +1,4 @@
-#!/bin/sh
+#! /bin/sh
 
 # They don't make this easy... sa-update exits with return-code 1 if there are
 # no updates available, so actual errors are identified by running first with

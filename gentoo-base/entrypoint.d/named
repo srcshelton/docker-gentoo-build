@@ -12,7 +12,12 @@ set +u
 regenerateconfig() {
 	rc=0
 
-	if [ -x /var/bind/pri/internal/generate-ptr.sh ]; then
+	# FIXME: Remove hard-coding of zone file name...
+	if \
+		[ -d /var/bind/pri/internal ] &&
+		[ -x /var/bind/pri/internal/generate-ptr.sh ] &&
+		[ -s /var/bind/pri/internal/miltonroad.net.zone ]
+	then
 		(
 			set +e
 
@@ -21,9 +26,9 @@ regenerateconfig() {
 			ebegin "Regenerating reverse mappings for internal zones"
 
 			mkdir -p backup
-			/var/bind/pri/internal/generate-ptr.sh # >/dev/null
-			rc=${?}
-
+			/var/bind/pri/internal/generate-ptr.sh \
+					/var/bind/pri/internal/miltonroad.net.zone ||
+				rc=${?}
 			mv -- ./*-20????????.zone backup/ 2>/dev/null
 
 			eend ${rc} "Reverse map generation failed: ${rc}"
