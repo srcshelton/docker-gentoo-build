@@ -4,8 +4,8 @@
 
 # RPi System-essential packages
 #
-=media-libs/raspberrypi-userland-9999-r1		~arm64
-=media-libs/raspberrypi-userland-9999-r2		~arm64
+#=media-libs/raspberrypi-userland-9999-r1		~arm64
+#=media-libs/raspberrypi-userland-9999-r2		~arm64
 #
 #=sys-apps/raspberrypi-utilities-armv6-1.20210303	~arm
 #=sys-apps/raspberrypi-utilities-armv6-1.20210430	~arm
