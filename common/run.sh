@@ -1115,7 +1115,7 @@ if ! type -pf podman >/dev/null 2>&1; then
 	docker_readonly='readonly'
 else
 	_command='podman'
-	docker() { podman --db-backend sqlite ${@+"${@}"} ; }
+	docker() { podman ${@+"${@}"} ; }
 
 	#extra_build_args='--format docker'
 	# From release 2.0.0, podman should accept docker 'readonly' attributes
