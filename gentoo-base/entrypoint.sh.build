@@ -261,7 +261,7 @@ applyworkarounds() {
 		unset aw_gcc_use
 		print "After work-around, USE is '${USE}'"
 	fi
-	aw_pkgs='app-containers/netavark dev-lang/rust'
+	aw_pkgs='app-containers/podman app-containers/netavark dev-lang/rust'
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
 		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
@@ -319,6 +319,19 @@ applyworkarounds() {
 clearworkarounds() {
 	rm -rf /etc/portage/package.use/aw_* 2>/dev/null || :
 }  # clearworkarounds
+
+git_safedirectory_markall() {
+	# Silence 'safe-directory' warnings...
+	if command -v git >/dev/null 2>&1; then
+		# We don't know when (if at all) we might find that 'git' is installed,
+		# so we'll end up needing to call this multiple times - so let's see if
+		# the required directive is already present, and only make changes
+		# (which git will accumulate rather than deduplicate) if needed...
+		#
+		grep -q -- '^\s*directory\s*=\s*\*$' ~/.gitconfig 2>/dev/null ||
+			git config --global --add safe.directory '*'
+	fi
+}  # git_safedirectory_markall
 
 # Prelink is no longer supported :(
 #
@@ -838,7 +851,7 @@ if [ -n "${pre_pkgs:-}" ]; then
 		echo "${info}" | format 'USE'
 		unset info
 
-		export VERY_BRAVE_OR_VERY_DUMB='yes'  # for busybox
+		export VERY_BRAVE_OR_VERY_DUMB='yes'  # for (old) busybox
 		# shellcheck disable=SC2086
 		if ! emerge \
 				--ignore-default-opts \
@@ -863,6 +876,9 @@ if [ -n "${pre_pkgs:-}" ]; then
 			savefailed
 			exit 1
 		fi
+
+		git_safedirectory_markall
+
 		if [ -n "${force_python:-}" ]; then
 			# shellcheck disable=SC2086
 			if ! emerge \
@@ -883,9 +899,9 @@ if [ -n "${pre_pkgs:-}" ]; then
 				savefailed
 				exit 1
 			fi
-		fi
+		fi # [ -n "${force_python:-}" ]
 	)
-fi
+fi # [ -n "${pre_pkgs:-}" ]
 
 if [ -e /usr/gawk ] || [ -e /usr/bin/gawk ]; then
 	# Superseded by app-alternatives/awk...
@@ -1020,6 +1036,9 @@ fi
 		exit 1
 	fi
 
+	git_safedirectory_markall
+
+	# Tallies against 'time' call immediately before subshell invocation...
 	#echo "Time spent updating build container:"
 )
 
@@ -1153,6 +1172,8 @@ case "${1:-}" in
 				--with-bdeps=n \
 				--with-bdeps-auto=n \
 			"${package}" || rc=${?}
+
+		git_safedirectory_markall
 		;;
 	*)
 		# Extract first package, to pass to check() below...
@@ -1166,17 +1187,20 @@ case "${1:-}" in
 
 		echo
 
-		if echo " ${*} " | grep -Eq -- ' ([<>]?=|~)?(netavark|app-containers/netavark)[ -]'; then
+		build_pkgs='app-containers/netavark'
+		build_list=''
+		for build_pkg in ${build_pkgs}; do
+			build_list="${build_list:+"${build_list}|"}${build_pkg#*/}|${build_pkg}"
+		done
+		if echo " ${*} " | grep -Eq -- " ([<>]?=|~)?(${build_list})[ -]"; then
 			warn "Adding post-package entry 'net-misc/curl' due to presence of app-containers/netavark ..."
 			post_pkgs="${post_pkgs:+${post_pkgs} }net-misc/curl"
 		fi
-		if [ -z "${post_pkgs:-}" ]; then
-			echo " * Building requested '$( # <- Syntax
-				printf '%s' "${*}" | sed 's/--[^ ]\+ //g'
-			)' packages ..."
-		else
-			echo " * Building requested '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' packages (with post-package list) ..."
-		fi
+		unset build_pkg build_list build_pkgs
+
+		echo " * Building requested '$( # <- Syntax
+			printf '%s' "${*}" | sed 's/--[^ ]\+ //g'
+		)' packages ${post_pkgs:+"(with post-package list) "}..."
 		echo
 
 		if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ] && [ -n "${COLLISION_IGNORE:-}" ]; then
@@ -1194,11 +1218,7 @@ case "${1:-}" in
 
 		info="$( LC_ALL='C' emerge --info --verbose=y )"
 		echo
-		if [ -z "${post_pkgs:-}" ]; then
-			echo 'Resolved build variables for requested packages:'
-		else
-			echo 'Resolved build variables for requested packages (with post-package list):'
-		fi
+		echo "Resolved build variables for requested packages${post_pkgs:+" (with post-package list)"}:"
 		echo '-----------------------------------------------'
 		echo
 		echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
@@ -1284,6 +1304,8 @@ case "${1:-}" in
 						clearworkarounds
 						;;
 				esac
+
+				git_safedirectory_markall
 			done
 
 			# ... and finally, if '--swap-build' is in effect, build the first
@@ -1340,6 +1362,8 @@ case "${1:-}" in
 			) || rc=${?}
 			clearworkarounds
 		fi
+
+		git_safedirectory_markall
 
 		if [ -n "${post_pkgs:-}" ]; then
 			savefailed
@@ -1458,34 +1482,34 @@ case "${1:-}" in
 					$( # <- Syntax
 						echo " ${post_pkgs} " | sed 's/ --nodeps / /g ; s/^ // ; s/ $//'
 					) || rc=${?}
-			fi
+			fi # echo " ${post_pkgs:-} " | grep -q ' --nodeps '
 
-			if [ -n "${post_pkgs:-}" ]; then
-				# shellcheck disable=SC2016
-				print "Running 'emerge" \
-					"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-					"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
-					"${post_pkgs}'${USE:+" with USE='${USE}'"} with" \
-					"ROOT='${ROOT}'"
-				# shellcheck disable=SC2086
-				LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
-						  ${parallel} \
-						  ${opts} \
-						--buildpkg=y \
-						--usepkg=y \
-						--with-bdeps=n \
-						--with-bdeps-auto=n \
-					${post_pkgs} || rc=${?}
-			fi
-		fi
+			git_safedirectory_markall
+
+			# shellcheck disable=SC2016
+			print "Running 'emerge" \
+				"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+				"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
+				"${post_pkgs}'${USE:+" with USE='${USE}'"} with" \
+				"ROOT='${ROOT}'"
+			# shellcheck disable=SC2086
+			LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
+					  ${parallel} \
+					  ${opts} \
+					--buildpkg=y \
+					--usepkg=y \
+					--with-bdeps=n \
+					--with-bdeps-auto=n \
+				${post_pkgs} || rc=${?}
+		fi # [ -n "${post_pkgs:-}" ]
 
 		if [ -n "${rebuild:-}" ]; then
 			echo
-			if [ -z "${post_pkgs:-}" ]; then
+			#if [ -z "${post_pkgs:-}" ]; then
 				echo " * Rebuilding requested '${rebuild}' package(s) ..."
-			else
-				echo " * Rebuilding requested '${rebuild}' post-package(s) ..."
-			fi
+			#else
+			#	echo " * Rebuilding requested '${rebuild}' post-package(s) ..."
+			#fi
 			echo
 
 			# See handling of EMERGE_OPTS above for details of logic below, but
@@ -1533,6 +1557,8 @@ case "${1:-}" in
 							) || rc=${?}
 							clearworkarounds
 
+							git_safedirectory_markall
+
 							# ... then install again without '--usepkg':
 							#
 							# shellcheck disable=SC2016
@@ -1576,6 +1602,8 @@ case "${1:-}" in
 					${rebuild}
 				) || rc=${?}
 
+				git_safedirectory_markall
+
 				# ... then install again without '--usepkg':
 				#
 				# shellcheck disable=SC2016
@@ -1594,7 +1622,7 @@ case "${1:-}" in
 					${rebuild} || rc=${?}
 				clearworkarounds
 			fi
-		fi
+		fi # [ -n "${rebuild:-}" ]
 		;;
 esac
 
