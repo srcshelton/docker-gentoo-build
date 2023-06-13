@@ -72,7 +72,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 		"[--no-patch|--patch=<url>[,<url]]" \
 		"[--menuconfig|--nconfig]" \
 		"[--package=<atom>] [--firmware] [--clean]" \
-		"[--clang [--clean-lto] [--llvm-unwind] [--rust]]"
+		"[--clang [--clean-lto] [--llvm-unwind] [--rust]] [-O3]"
 	)"
 	output "${usage}${options}" | fold -sw ${COLUMNS:-"80"} - | head -n 1 >&2
 	output "${options}" | fold -sw $(( ${COLUMNS:-"80"} - ${#usage} )) - | sed "s|^|${usage//?/ }|" | tail -n +2 >&2
@@ -426,6 +426,10 @@ fi
 
 [ -d log ] || mkdir log
 
+declare openmp='openmp'
+declare pre_remove=''
+declare pre_pkgs=''
+declare pre_use=''
 declare compiler_pkgs=''
 declare compiler_USE=''
 declare container_CC='gcc'
@@ -523,45 +527,61 @@ fi
 if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" | wc -l )" = '2' ]; then
 	(
 		ACCEPT_LICENSE="linux-fw-redistributable no-source-code"
-		USE="extra-filters hostname${rustext:+" http2"} lzma${rustext:+" rust-src"} symlink threads zlib${compiler_USE:+" ${compiler_USE}"}"
+		USE="extra-filters hostname${rustext:+" http2"} lzma${openmp:+" openmp"}${rustext:+" rust-src"} symlink threads zlib${compiler_USE:+" ${compiler_USE}"}"
 		if [[ -n "${firmware:-}" ]]; then
 			USE="firmware ${USE}"
 		else
 			USE="-firmware ${USE}"
 		fi
 		export ACCEPT_LICENSE USE
+		if [[ -n "${openmp:-}" ]]; then
+			pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}sys-devel/gcc app-crypt/libb2"
+			pre_use="${pre_use:+"${pre_use} "}-lib-only"
+		fi
 
 		name="${container_name}-${compiler}${rustext:+"-${rustext}"}"
 		logname="${container_name}-${compiler}${rustext:+"+${rustext}"}"
 		image="${IMAGE}"
 		export name image
 
+		declare -a pkgs=( # <- Syntax
+			${compiler_pkgs:-}
+			app-arch/bzip2
+			app-arch/cpio
+			app-arch/lz4
+			app-arch/lzma
+			app-arch/xz-utils
+			app-arch/zstd
+			app-crypt/libb2
+			dev-libs/libyaml
+			sys-apps/coreutils
+			sys-apps/kmod
+			sys-process/time
+			${microcode:-}
+			${firmware:-}
+			${rustext:+"${rust_ver:+"="}virtual/rust${rust_ver:+"-${rust_ver}"}"}
+			${rustext:+"${bindgen_ver:+"="}dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"}
+			virtual/os-headers
+			virtual/linux-sources
+		)
+		declare -a _docker_run_arguments=( # <- Syntax
+			--with-use="${USE}"
+			--changed-use
+			--update
+			--usepkg=y
+			${pre_remove:+--pre-remove="${pre_remove}"}
+			${pre_pkgs:+--pre-pkgs="${pre_pkgs}"}
+			${pre_use:+--pre-use="${pre_use}"}
+			${openmp:+--post-pkgs="sys-devel/gcc"}
+			${openmp:+--post-use="-lib-only"}
+		)
+
 		# shellcheck disable=SC2086,SC2154
 		time {
 			_docker_run \
-						--with-use="${USE}" \
-						--changed-use \
-						--update \
-						--usepkg=y \
-						${pre_remove:+--pre-remove="${pre_remove}"} \
-						${pre_pkgs:+--pre-pkgs="${pre_pkgs}"} \
+					"${_docker_run_arguments[@]:-}" \
 					"=${package}" \
-					${compiler_pkgs:-} \
-					app-arch/bzip2 \
-					app-arch/cpio \
-					app-arch/lz4 \
-					app-arch/lzma \
-					app-arch/xz-utils \
-					app-arch/zstd \
-					dev-libs/libyaml \
-					sys-apps/coreutils \
-					sys-apps/kmod \
-					${microcode:-} \
-					${firmware:-} \
-					${rustext:+"${rust_ver:+"="}virtual/rust${rust_ver:+"-${rust_ver}"}"} \
-					${rustext:+"${bindgen_ver:+"="}dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"} \
-					virtual/os-headers \
-					virtual/linux-sources \
+					"${pkgs[@]:-}" \
 				2>&1 | tee "log/docker.${logname}.log"
 			output " -> ${?}"
 		}
