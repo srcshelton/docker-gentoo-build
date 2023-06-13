@@ -21,7 +21,7 @@ export IMAGE
 [ -s common/run.sh ] && . common/run.sh
 
 if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	output >&2 "Usage: $( basename "${0}" ) <category/package_name [portage_atom...]> [--rebuild='<portage_atom...>'] [--force-keywords]"
+	output >&2 "Usage: $( basename "${0}" ) <category/package_name [portage_atom...]> [--rebuild='<portage_atom...>'] [--force-keywords] [--cmd=<cmd>] [--entrypoint=<path>]"
 	exit 0
 fi
 
@@ -159,6 +159,8 @@ fi
 
 prepkg=''
 preuse="${PREUSE:-}"
+use="${USE:-}"
+postuse="${POSTUSE:-}"
 for arg in "${@:-}"; do
 	case "$( echo "${arg}" | sed -r 's/^[<>]?=?//' )" in
 		media-libs/freetype|freetype|media-libs/freetype-*|freetype-*)
@@ -174,6 +176,9 @@ for arg in "${@:-}"; do
 		#	;;
 	esac
 done
+preuse="${preuse:+${preuse} }-lib-only"
+use="${use:+${use} }-lib-only"
+postuse="${postuse:+${postuse} }lib-only"
 if [ -n "${prepkg:-}" ]; then
 	note >&2 "Adding pre-build package(s) '${prepkg}' to resolve depenency loops ..."
 	set -- "${@}" --pre-pkgs="${prepkg}"
@@ -181,6 +186,14 @@ fi
 if [ -n "${preuse:-}" ]; then
 	note >&2 "Adding pre-build USE flag(s) '${preuse}' to resolve depenency loops ..."
 	set -- "${@}" --pre-use="${preuse}"
+fi
+if [ -n "${use:-}" ]; then
+	note >&2 "Adding build-time USE flag(s) '${use}' ..."
+	set -- "${@}" --with-use="${use}"
+fi
+if [ -n "${postuse:-}" ]; then
+	note >&2 "Adding post-build USE flag(s) '${postuse}' to minimise host requirements ..."
+	set -- "${@}" --post-use="${postuse}"
 fi
 
 # Provide a '--name' to prevent the container being removed on exit.
