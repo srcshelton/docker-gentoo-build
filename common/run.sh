@@ -680,7 +680,8 @@ _docker_run() {
 			"${build_name#*/}:latest")
 				ext='.build' ;;
 			*)
-				die "I don't know how to apply DEV_MODE to image '${image}'"
+				ext='.build'
+				warn "I don't know how to apply DEV_MODE to image '${image}' - guessing 'entrypoint.sh${ext}'"
 				;;
 		esac
 		unset name
@@ -1115,7 +1116,9 @@ if ! type -pf podman >/dev/null 2>&1; then
 	docker_readonly='readonly'
 else
 	_command='podman'
-	docker() { podman ${@+"${@}"} ; }
+	docker() {
+		podman ${@+"${@}"}
+	}  # docker
 
 	#extra_build_args='--format docker'
 	# From release 2.0.0, podman should accept docker 'readonly' attributes
