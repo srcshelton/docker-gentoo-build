@@ -11,5 +11,6 @@ python_targets_python3_8
 python_targets_python3_9
 #python_targets_python3_10
 #python_targets_python3_11
+python_targets_python3_12
 
 # vi: set syntax=gentoo-package-mask:
