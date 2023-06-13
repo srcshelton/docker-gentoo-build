@@ -10,8 +10,9 @@ declare base_dir=''
 #declare use_essential=''
 declare use_essential_gcc=''
 declare python_default_target=''
-declare docker='docker'
-declare docker_readonly=''
+# Set in run.sh
+#declare docker='docker'
+#declare docker_readonly=''
 declare environment_file=''
 declare environment_filter=''
 
@@ -102,10 +103,8 @@ for arg in "${args[@]:-}"; do
 			continue
 			;;
 		tools|installed|all)
-			# ... we have a problem :o
-			# (Why, tho? What's special about 'less' which causes it not to be
-			#  automatically included?)
-			set -- ${@+"${@}"} 'sys-apps/less'
+			# We can't auto-detect the presence of 'less' or 'distcc'...
+			set -- ${@+"${@}"} 'sys-apps/less' 'sys-devel/distcc'
 			;;
 		*)
 			set -- ${@+"${@}"} "${arg}"
@@ -132,12 +131,15 @@ declare IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
 [[ -s common/run.sh ]] && . common/run.sh >/dev/null
 
-if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	output >&2 "Usage: $( basename "${0}" ) <service [<ports> <user> <group> <command> [directory [fs_name]]]|--services <service> [service...]> [--rebuild] [--force] [--force-keywords] [--debug]"
+if [[ -z "${*:-}" ]] || grep -Eq -- ' -(h|-help) ' <<<" ${*:-} "; then
+	output >&2 "Usage: $( basename "${0}" ) <service" \
+		"[<ports> <user> <group> <command> [directory [fs_name]]]|--services" \
+		"<service> [service...]> [--rebuild] [--force] [--force-keywords]" \
+		"[--debug]"
 	output >&2
 	output >&2 "Known services:"
 	s=''
-	for s in "${services[@]}"; do
+	for s in "${services[@]:-}"; do
 		output >&2 "  ${s}"
 	done
 	unset s
@@ -146,7 +148,7 @@ if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "  installed"
 	output >&2 "  all"
 	output >&2
-	if [ -z "${*:-}" ]; then
+	if [[ -z "${*:-}" ]]; then
 		exit 1
 	else
 		exit 0
@@ -162,9 +164,9 @@ fi
 
 declare arg=''
 declare service_list=''
-for arg in "${@}"; do
+for arg in "${@:-}"; do
 	shift
-	case "${arg}" in
+	case "${arg:-}" in
 		-a|--all|all)
 			service=''
 			all=1
@@ -192,8 +194,11 @@ for arg in "${@}"; do
 		-t|--tools|tools)
 			tools=1
 			;;
+		'')
+			:
+			;;
 		*)
-			set -- "${@}" "${arg}"
+			set -- "${@:-}" "${arg}"
 			;;
 	esac
 done
@@ -201,15 +206,16 @@ done
 
 # BEGIN WRAPPER CODE
 #
-# All we're doing here is figuring out the arguments to re-invoke ourselves with!
+# All we're doing here is figuring out the arguments to re-invoke ourselves
+# with!
 #
 
-if [ $(( all )) -eq 1 ] && [ $(( installed )) -eq 1 ]; then
+if (( all && installed )); then
 	warn "options 'all' and 'installed' are mutually exclusive - using 'all'"
 	installed=0
 fi
 
-if [ -n "${installed:-}" ] && [ $(( installed )) -eq 1 ]; then
+if (( installed )); then
 	service_list=1
 
 	# shellcheck disable=SC2046  # We want word-splitting here...
@@ -217,7 +223,8 @@ if [ -n "${installed:-}" ] && [ $(( installed )) -eq 1 ]; then
 		# Build list based on installed packages... (useful if the local image
 		# cache has been cleared!)
 		#
-		find /var/db/pkg/container/ -mindepth 2 -maxdepth 2 -type f -name CONTENTS -print |
+		find /var/db/pkg/container/ \
+				-mindepth 2 -maxdepth 2 -type f -name CONTENTS -print |
 			awk -F '/' 'NF-1 { print $(NF-1) }' |
 			sed \
 				-e 's/^php-\([0-9]\).\([0-9]\)\(.*\)$/php\1\2-\1.\2\3/g' \
@@ -226,7 +233,8 @@ if [ -n "${installed:-}" ] && [ $(( installed )) -eq 1 ]; then
 
 		# Build list based on present images...
 		#
-		$docker image list --noheading --sort repository --format '{{.Repository}}-{{.Tag}}' 'localhost/service.' |
+		docker image list --noheading --sort repository \
+				--format '{{.Repository}}-{{.Tag}}' 'localhost/service.' |
 			grep -vx -- 'localhost/service.www-servers.web-content-latest' |
 			cut -d'.' -f 3- |
 			sed \
@@ -236,15 +244,14 @@ if [ -n "${installed:-}" ] && [ $(( installed )) -eq 1 ]; then
 	)" | sort | uniq )
 fi
 
-if [ -n "${tools:-}" ] && [ $(( tools )) -eq 1 ]; then
+if (( tools )); then
 	service_list=1
-	#set -- "${@}" 'fwupd' 'less' 'lynis' 'man' 'pinfo' 'powertop' 'vim'
-	set -- "${@}" 'less' 'lynis' 'man' 'pinfo' 'powertop' 'vim'
+	set -- "${@}" 'distcc' 'less' 'lynis' 'man' 'pinfo' 'powertop' 'vim' # 'fwupd'
 fi
 
-for arg in "${@}"; do
+for arg in "${@:-}"; do
 	shift
-	case "${arg}" in
+	case "${arg:-}" in
 		# In some cases, the package name and service name differ :(
 		bind)
 			set -- "${@}" 'named'
@@ -277,54 +284,59 @@ for arg in "${@}"; do
 		web-content)
 			:
 			;;
+		'')
+			:
+			;;
 		*)
 			set -- "${@}" "${arg}"
 			;;
 	esac
 done
 
-if [ -n "${service_list:-}" ] && [ $(( service_list )) -eq 1 ]; then
+if (( service_list )); then
 	list=''
-	for arg in "${@}"; do
-		if echo " ${services[*]} " | grep -wq -- "${arg}"; then
+	for arg in "${@:-}"; do
+		if grep -wq -- "${arg}" <<<" ${services[*]:-} "; then
 			list="${list:+"${list} "}${arg}"
 		else
 			error "Service '${arg}' not known"
 			rc=1
 		fi
 	done
-	[ $(( rc )) -eq 1 ] && die "Unable to process service list"
+	(( rc )) && die "Unable to process service list"
 
 	# This logic isn't great - if we're given a (reduced) service list, then we
 	# replace the master list of services with the specified set but then still
 	# process what we believe to be all services (as a result) with the 'all'
 	# logic :|
 	#
-	IFS=" " read -r -a services <<<"${list}"
+	IFS=" " read -r -a services <<<"${list:-}"
 	service=''
 	all=1
 fi
 
-if [ -n "${all:-}" ] && [ $(( all )) -eq 1 ]; then
+if (( all )); then
 	# Prevent recursion on 'all'...
-	if ! [ "${service:-}" = 'all' ]; then
-		c=0 s='' f=''
-		for s in "${services[@]}"; do
+	if ! [[ "${service:-}" == 'all' ]]; then
+		declare -i c=0
+		declare s='' f=''
+		for s in "${services[@]:-}"; do
 			output >&2
-			output >&2 " ${red}*${reset} Examining service '${s}' [${c}/${#services[@]}:${rc}] ..."
+			output >&2 " ${red}*${reset} Examining service '${s}'" \
+				"[${c}/${#services[@]}:${rc}] ..."
 			output >&2
 
-			: $(( c = c + 1 ))
+			: $(( c++ ))
 
 			# Call ourself for each service in turn...
 			print "Re-invoking script as './$( basename "${0}" ) ${s}${rebuildpkgs:+" --rebuild"}${force:+" --force"}${FORCE_KEYWORDS:+" --force-keywords"}'"
 			./"$( basename "${0}" )" "${s}" ${rebuildpkgs:+"--rebuild"} ${force:+"--force"} ${FORCE_KEYWORDS:+"--force-keywords"} || {
-				: $(( rc = rc + 1 ))
+				: $(( rc++ ))
 				f="${f:+"${f} "}${s}"
 			}
 			sleep 0.1 2>/dev/null || sleep 1
 		done
-		if [ $(( rc )) -gt 0 ]; then
+		if (( rc )); then
 			warn "${rc} out of ${c} services failed to build:"
 			warn "Failed service builds: ${f}"
 		fi
@@ -336,10 +348,77 @@ fi
 #
 # END WRAPPER CODE
 
+replace_flags() {
+	# list="$( replace_flags <new> [flags] [to] [add] -- existing_list[@] )"
+	local -a flags=() list=() output=()
+	local -i state=0
+	local arg='' flag=''
+
+	for arg in "${@:-}"; do
+		case "${arg:-}" in
+			--)
+				state=1
+				continue
+				;;
+			'')
+				:
+				;;
+			*' '*)
+				if (( state )); then
+					# shellcheck disable=SC2206
+					list+=( ${arg} )
+				else
+					# shellcheck disable=SC2206
+					flags+=( ${arg} )
+				fi
+				;;
+			*)
+				if (( state )); then
+					list+=( "${arg}" )
+				else
+					flags+=( "${arg}" )
+				fi
+				;;
+		esac
+	done
+
+	if (( 0 == ${#flags} )); then
+		print "ERROR: No flags supplied to ${FUNCNAME[0]} - received '${*:-}'"
+		return 1
+	fi
+
+	for flag in "${flags[@]}"; do
+		state=0
+		for arg in "${list[@]}"; do
+			case "${arg}" in
+				"-${flag#-}"|"${flag#-}"|'')
+					:
+					;;
+				*)
+					if (( 0 == state )); then
+						output+=( "${arg}" )
+						state=1
+					fi
+					;;
+			esac
+		done
+
+		case "${flag}" in
+			-*)
+				output=( "${flag}" "${output[@]:-}" )
+				;;
+			*)
+				output+=( "${flag}" )
+				;;
+		esac
+	done
+
+	echo "${output[*]:-}"
+} # replace_flags
 
 [ -n "${trace:-}" ] && set -o xtrace
 
-images="$( $docker image list --noheading "${IMAGE%:*}" 2>&1 )"
+images="$( docker image list --noheading "${IMAGE%:*}" 2>&1 )"
 if ! echo "${images}" | grep -Eq -- "^(localhost/)?${IMAGE%:*}"; then
 	die "svc stage: docker image '${IMAGE%:*}' not found"
 fi
@@ -527,7 +606,7 @@ if [ -z "${package_version:-}" ]; then
 fi
 
 if [ $(( ${force:-0} )) -eq 0 ]; then
-	images="$( $docker image list --noheading "service.${package_name}:${package_version}" 2>&1 )"
+	images="$( docker image list --noheading "service.${package_name}:${package_version}" 2>&1 )"
 	if echo "${images:-}" | grep -q -- "service.${package_name}\s\+${package_version}\s"; then
 		note "Docker image 'service.${package_name}:${package_version}' already exists - remove or use --force to rebuild"
 		exit 0
@@ -1127,7 +1206,7 @@ case "${package_name}" in
 		# shellcheck disable=SC2034
 		NO_REPO_MASKS='no_repo_masks'  # ... any value will do
 
-		gcc_use="${use_essential_gcc/ graphite / -graphite }"
+		gcc_use="$( replace_flags '-graphite' -- "${use_essential_gcc}" )"
 		# Look for "build" gcc USE-flags in package.use only (or use defaults above) ...
 		if [ -s /etc/portage/package.use/package.use ]; then
 			gcc_use="$( # <- Syntax
@@ -1144,7 +1223,7 @@ case "${package_name}" in
 		masked_packages='=dev-python/setuptools-46.4.0-r3 sys-apps/util-linux' # sys-apps/file sys-apps/portage
 		export L10N='en'
 		export CFLAGS="${CFLAGS:+"${CFLAGS} "}-w"  # mongodb is *really* noisy...
-		pre_use="headless-awt ${gcc_use}"
+		pre_use="$( replace_flags 'headless-awt' -- "${gcc_use}" )"
 		force_python='python2_7'
 		#pre_pkgs='dev-java/openjdk-bin:8 dev-lang/python:2.7 sys-devel/gcc'
 		pre_pkgs="${masked_packages} sys-devel/gcc acct-group/mongodb acct-group/unifi acct-user/mongodb acct-user/unifi"
@@ -1244,13 +1323,13 @@ case "${package_name}" in
 		warn "Package '${package_name}' has no pre-set configuration"
 		;;
 esac
-#print "Additional USE flags are '${with_use:-"<none>"}'"
 
-pre_use="$( echo "${pre_use}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
-pre_pkgs="$( echo "${pre_pkgs}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
-extra_pkgs="$( echo "${extra_pkgs}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
-post_use="$( echo "${post_use}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
-post_pkgs="$( echo "${post_pkgs}" | tr $'\n' ' ' | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
+for arg in pre_remove pre_use pre_pkgs with_use extra_pkgs post_use post_pkgs \
+	post_remove
+do
+	eval "${arg}=\$( tr $'\n' ' ' <<<\"\${${arg}}\" | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
+done
+#print "Additional USE flags are '${with_use:-"<none>"}'"
 
 declare pkg=''
 declare -i warning=0
@@ -1265,26 +1344,29 @@ done
 
 case " ${pre_pkgs} " in
 	*' dev-util/pkgconf '*)
-		pre_use="${pre_use:+"${pre_use} "}pkg-config"
+		pre_use="$( replace_flags 'pkg-config' -- "${pre_use:-}" )"
 		;;
 esac
 case " ${pre_pkgs} " in
 	*' dev-util/pkgconfig '*)
-		pre_use="${pre_use:+"${pre_use} "}internal-glib"
+		pre_use="$( replace_flags 'internal-glib' -- "${pre_use:-}" )"
 		;;
 esac
 case " ${pre_pkgs} " in
 	*' sys-apps/help2man '*)
-		pre_use="${pre_use:+"${pre_use} "}nls"
+		pre_use="$( replace_flags 'nls' -- "${pre_use:-}" )"
 		;;
 esac
 case " ${pre_pkgs} " in
 	*' sys-devel/gcc '*)
-		pre_use="-lib-only openmp${pre_use:+" ${pre_use}"}${use_essential_gcc:+" ${use_essential_gcc}"} ${gcc_extra_flags}"
+		pre_use="${pre_use:+" ${pre_use}"}${use_essential_gcc:+"${use_essential_gcc}"} ${gcc_extra_flags}"
+		pre_use="$( replace_flags '-lib-only' 'openmp' -- "${pre_use}" )"
+		with_use="$( replace_flags '-lib-only' -- "${with_use}" )"
 		# spamassassin updates require perl and a functioning compiler
 		# in the container...
 		if [ "${original_service}" != 'spamassassin-update' ] && [ "${original_service}" != 'sa-update' ]; then
-			post_use="lib-only openmp${post_use:+" ${post_use}"} ${gcc_extra_flags}"
+			post_use="${post_use:+" ${post_use}"} ${gcc_extra_flags}"
+			post_use="$( replace_flags 'lib-only' -- "${post_use}" )"
 			if [ -n "${post_pkgs:-}" ]; then
 				warn "sys-devel/gcc needs to be rebuilt (without dependencies) but 'post_pkgs' is non-empty... suggest moving 'post_pkgs' to 'extra_pkgs'"
 				warn "post_pkgs contains '${post_pkgs}'"
@@ -1299,7 +1381,7 @@ esac
 
 if ! grep -Fq ' sys-devel/gcc ' <<<" ${post_pkgs} "; then
 	post_pkgs="${post_pkgs:+"${post_pkgs} "}sys-libs/zlib --nodeps --with-bdeps=n"
-	post_use="${post_use:+" ${post_use}"} -minizip xml"
+	post_use="$( replace_flags '-minizip' 'xml' -- "${post_use}" )"
 fi
 
 # Make these additions after the above check, with the intention that user and
@@ -1347,7 +1429,7 @@ if [ -n "${build_debug:-}" ]; then
 	extra_pkgs="${extra_pkgs:+"${extra_pkgs} "}dev-util/strace"
 fi
 #extra_pkgs="${extra_pkgs:+"${extra_pkgs} "}sys-devel/prelink"
-with_use="${with_use:+"${with_use} "}make-symlinks -safe"
+with_use="$( replace_flags 'make-symlinks' -- "${with_use}" )"
 
 case " ${gcc_extra_flags:-} " in
 	*' openmp '*)
@@ -1355,7 +1437,9 @@ case " ${gcc_extra_flags:-} " in
 		;;
 esac
 
-[ -z "${post_use:-}" ] && [ -n "${with_use:-}" ] && post_use="${with_use} lib-only openmp"
+if [[ -z "${post_use:-}" && -n "${with_use:-}" ]]; then
+	post_use="$( replace_flags 'lib-only' 'openmp' -- "${post_use}" )"
+fi
 
 if [ -z "${container_cmd:-}" ]; then
 	die "No container command provided"
@@ -1494,7 +1578,7 @@ fi
 
 export DOCKER_EXTRA_MOUNTS
 
-images="$( $docker image list --noheading "${container_prefix}-${package_name}:${package_version}" 2>&1 )"
+images="$( docker image list --noheading "${container_prefix}-${package_name}:${package_version}" 2>&1 )"
 if echo "${images:-}" | grep -q -- "${container_prefix}-${package_name}\s\+${package_version}\s"; then
 	output >&2
 	output >&2 " ${blue}*${reset} Re-using existing '${package_name}:${package_version}' root image ..."
@@ -1504,8 +1588,8 @@ else
 	output >&2
 
 	trap '' INT
-	$docker container stop "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -v 'no such container' || :
-	$docker container rm --volumes "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -Fv -- 'no such container' || :
+	docker container stop "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -v 'no such container' || :
+	docker container rm --volumes "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -Fv -- 'no such container' || :
 	trap - INT
 
 	# Remove glibc dependencies on gzip, grep, awk...
@@ -1560,7 +1644,7 @@ else
 	# next-stage build fails after the ROOT filesystem contents have been
 	# copied across when running 'test -s /usr/libexec/environment.sh'!?
 	trap '' INT
-	$docker container commit \
+	docker container commit \
 				"${container_prefix}-${container_name}" \
 				"${container_prefix}-${package_name}:${package_version}" \
 			2>&1 |
@@ -1574,7 +1658,7 @@ fi
 unset images
 
 trap '' INT
-$docker container rm --volumes "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -Fv -- 'no such container' || :
+docker container rm --volumes "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -Fv -- 'no such container' || :
 trap - INT
 
 cd "${base_dir}" || die "chdir() to '${base_dir}' failed: ${?}"
@@ -1645,7 +1729,7 @@ args+=(
 # produce the service-container image.
 #
 # shellcheck disable=SC2001  # POSIX sh compatibility
-$docker ${IMAGE_ROOT:+"--storage-opt='' --root '${IMAGE_ROOT}'"} \
+docker ${IMAGE_ROOT:+"--storage-opt='' --root '${IMAGE_ROOT}'"} \
 		image build "${args[@]}" . 2>&1 |
 	tee "../log/docker.service.${alt_log:-"${container_name}"}.log"
 rc=${?}
@@ -1655,10 +1739,10 @@ output " -> ${rc}"
 
 if [ $(( ${rc:-1} )) -eq 0 ]; then
 	trap '' INT
-	$docker image rm "${container_prefix}-${package_name}:${package_version}" 2>/dev/null || :
+	docker image rm "${container_prefix}-${package_name}:${package_version}" 2>/dev/null || :
 	case "${package_name}" in
 		*eix*)
-			$docker image tag "service.${package_name}:${package_version}" 'gentoo-helper:latest'
+			docker image tag "service.${package_name}:${package_version}" 'gentoo-helper:latest'
 			;;
 	esac
 	trap - INT
