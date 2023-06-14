@@ -56,10 +56,8 @@ app-editors/vim				-cscope -sound terminal vim-pager
 app-containers/crun			-criu bpf
 # move app-emulation/libpod app-emulation/podman
 # move app-emulation/podman app-containers/podman
-app-containers/buildah			 btrfs
-app-containers/containers-storage	-device-mapper btrfs
-app-containers/podman			-fuse -rootless btrfs
-app-containers/skopeo			 btrfs
+app-containers/containers-storage	-device-mapper
+app-containers/podman			-fuse -rootless
 # move app-admin/eselect-php app-eselect/eselect-php
 app-eselect/eselect-php			 fpm
 app-misc/screen				 multiuser
@@ -185,7 +183,7 @@ net-vpn/openvpn				 down-root eurephia iproute2 passwordsave
 perl-core/bignum			 test
 sci-mathematics/pari			-X
 sys-apps/baselayout			 varrun
-sys-apps/busybox			-pam -sep-usr -split-usr math # static
+sys-apps/busybox			-pam -sep-usr -split-usr math  # static
 sys-apps/coreutils			-hostname  # conflicts sys-apps/net-tools[hostname]
 sys-apps/debianutils			-installkernel
 sys-apps/file				-python
@@ -204,7 +202,7 @@ sys-apps/module-init-tools		 no-old-linux
 sys-apps/net-tools			 hostname  # conflicts sys-apps/coreutils[hostname]
 sys-apps/nvme-cli			 hugepages
 sys-apps/openrc				 compat varrun  # newnet
-sys-apps/pciutils			-zlib dns
+sys-apps/pciutils			-zlib dns  # zlib requires sys-libs/zlib[static-libs(+)]
 sys-apps/portage			-rsync-verify
 sys-apps/shadow				-su  # conflicts sys-apps/util-linux[su]
 sys-apps/smartmontools			 update_drivedb update-drivedb
@@ -212,6 +210,7 @@ sys-apps/usbutils			 experimental
 sys-apps/util-linux			 magic pam su tty-helpers  # conflicts sys-apps/shadow[su]
 sys-auth/opie				-server
 sys-auth/pambase			-passwdqc -sha512 pwquality yescrypt  # mktemp
+#sys-auth/pambase			-passwdqc -sha512 mktemp pwquality yescrypt
 sys-auth/pam_mobile_otp			 manager
 sys-block/parted			 device-mapper
 sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
@@ -270,7 +269,7 @@ sys-kernel/linux-firmware		 compress compress-xz savedconfig
 # required by dev-db/mariadb-10.1.22[extraengine,server]
 >=sys-libs/zlib-1.2.11			 minizip
 
-# required by sys-apps/busybox
+# required by sys-apps/busybox[static]
 #virtual/libcrypt			 static-libs
 #sys-libs/libxcrypt			 static-libs
 
