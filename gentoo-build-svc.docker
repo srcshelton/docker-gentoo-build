@@ -268,13 +268,13 @@ for arg in "${@:-}"; do
 		man-db)
 			set -- "${@}" 'man'
 			;;
-		spamassassin*)
+		spamd|spamassassin*)
 			# The idea here is to ensure that if spamassassin is rebuilt, then
 			# so is spamassassin's updater...
-			if ! grep -qw -- 'spamassassin' <<<"${*:-}"; then
+			if ! grep -Eq -- ' spam(d|assassin) ' <<<" ${*:-} "; then
 				set -- "${@}" 'spamassassin'
 			fi
-			if ! grep -qw -- 'spamassassin-update' <<<"${*:-}"; then
+			if ! grep -q -- ' spamassassin-update ' <<<" ${*:-} "; then
 				set -- "${@}" 'spamassassin-update'
 			fi
 			;;
