@@ -180,19 +180,19 @@ preuse="${preuse:+${preuse} }-lib-only"
 use="${use:+${use} }-lib-only"
 postuse="${postuse:+${postuse} }lib-only"
 if [ -n "${prepkg:-}" ]; then
-	note >&2 "Adding pre-build package(s) '${prepkg}' to resolve depenency loops ..."
+	note >&2 "Adding pre-build package(s) '$( xargs -r <<<"${prepkg}" )' to resolve depenency loops ..."
 	set -- "${@}" --pre-pkgs="${prepkg}"
 fi
 if [ -n "${preuse:-}" ]; then
-	note >&2 "Adding pre-build USE flag(s) '${preuse}' to resolve depenency loops ..."
+	note >&2 "Adding pre-build USE flag(s) '$( xargs -r <<<"${preuse}" )' to resolve depenency loops ..."
 	set -- "${@}" --pre-use="${preuse}"
 fi
 if [ -n "${use:-}" ]; then
-	note >&2 "Adding build-time USE flag(s) '${use}' ..."
+	note >&2 "Adding build-time USE flag(s) '$( xargs -r <<<"${use}" )' ..."
 	set -- "${@}" --with-use="${use}"
 fi
 if [ -n "${postuse:-}" ]; then
-	note >&2 "Adding post-build USE flag(s) '${postuse}' to minimise host requirements ..."
+	note >&2 "Adding post-build USE flag(s) '$( xargs -r <<<"${postuse}" )' to minimise host requirements ..."
 	set -- "${@}" --post-use="${postuse}"
 fi
 
