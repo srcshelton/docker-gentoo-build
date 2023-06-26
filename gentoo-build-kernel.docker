@@ -403,7 +403,7 @@ if [ -n "${config:-}" ]; then
 				elif file "${config}" 2>&1 | grep -Fq -- 'gzip compressed data'; then
 					die "configuration file '${config}' is compressed"
 				else
-					cp "${config}" "${build_dir}"/.config || die "File copy failed: ${?}"
+					cp "${config}" "${build_dir}"/.config || die "file copy from '${config}' to '${build_dir}/.config' failed: ${?}"
 					config="${build_dir}/.config"
 				fi
 			fi
