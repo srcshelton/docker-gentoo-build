@@ -444,7 +444,10 @@ if [ "${pkgcache:-0}" = '1' ]; then
 				failures="${failures:+"${failures} "}gentoo-build-pkg;6:${err}"
 			fi
 
-			if ! USE="-* pam tools" \
+			if [ "${ARCH}" = 'arm64' ]; then
+				USE="gold"
+			fi
+			if ! USE="-* ${alt_use} ${USE} python_targets_${python_default_target:-python3_11} pam tools" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
