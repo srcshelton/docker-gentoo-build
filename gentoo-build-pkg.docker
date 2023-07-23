@@ -21,7 +21,7 @@ export IMAGE
 [ -s common/run.sh ] && . common/run.sh
 
 if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	output >&2 "Usage: $( basename "${0}" ) <category/package_name [portage_atom...]> [--rebuild='<portage_atom...>'] [--force-keywords] [--cmd=<cmd>] [--entrypoint=<path>]"
+	output >&2 "Usage: $( basename "${0}" ) <category/package_name [portage_atom...]> [--rebuild='<portage_atom...>'] [--force-keywords] [--cmd=<cmd>] [--entrypoint=<path>] [--memory=2g] [--memory-limit=8g]"
 	exit 0
 fi
 
@@ -67,6 +67,19 @@ for arg in "${@}"; do
 				shift
 			fi
 			;;
+		--memory=*)
+			PODMAN_MEMORY_RESERVATION="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			#if (( PODMAN_MEMORY_LIMIT < PODMAN_MEMORY_RESERVATION )); then
+			#	(( PODMAN_MEMORY_LIMIT = PODMAN_MEMORY_RESERVATION ))
+			#fi
+			;;
+		--memory-limit=*)
+			PODMAN_MEMORY_LIMIT="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			PODMAN_SWAP_LIMIT="${PODMAN_MEMORY_LIMIT}"
+			#if (( PODMAN_MEMORY_RESERVATION < PODMAN_MEMORY_LIMIT )); then
+			#	(( PODMAN_MEMORY_RESERVATION = PODMAN_MEMORY_LIMIT ))
+			#fi
+			;;
 		*)
 			args="${args:+${args} }${arg}"
 			set -- "${@}" "${arg}"
@@ -85,6 +98,8 @@ test -e /etc/portage/package.accept_keywords &&
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+,${docker_readonly}}"
 test -e /etc/portage/package.license &&
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+,${docker_readonly}}"
+test -e /etc/portage/profile/use.mask &&
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+${DOCKER_EXTRA_MOUNTS} }--mount type=bind,source=/etc/portage/profile/use.mask,destination=/etc/portage/profile/use.mask${docker_readonly:+,${docker_readonly}}"
 
 # Use host package.mask (if present), overriding the container build-time
 # default...
