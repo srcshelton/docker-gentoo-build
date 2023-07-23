@@ -550,9 +550,22 @@ if [ "${update:-0}" = '1' ]; then
 					$(
 						for pkg in /var/db/pkg/*/*; do
 							pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
+							# fam & gamin block each other, tend to have broken
+							# downstream dependencies, and will be pulled-in as
+							# necessary in any case;
+							# We want to use more modern pkgconf in place of
+							# legacy pkgconfig;
+							# container-init packages will block their
+							# namesakes providing actual binaries, so exclude
+							# them also
+							#
 							if echo "${pkg}" | grep -Eq '^app-admin/(fam|gamin)-|^container/|/pkgconfig-|/-MERGING-'; then
 								continue
 							fi
+							# Specify python packages at the level of, e.g.
+							# '3.11*' rather than a more specific minor-version
+							# or the major release only
+							#
 							if echo "${pkg}" | grep -q '^dev-lang/python'; then
 								echo "=${pkg%.*}*"
 							else
