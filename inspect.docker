@@ -25,7 +25,6 @@ export IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh >/dev/null
 
-export mount=''
 
 # Provide a '--name' to prevent the container being removed on exit.
 
@@ -44,7 +43,9 @@ export mount=''
 if [ -n "${*:-}" ]; then
 	if echo " ${*} " | grep -Eq -- ' -(h|-help) '; then
 		output >&2 "Usage: $( basename "${0}" ) [--image=<image>]" \
-			"[--name=<name>] [--remove] [--mount=<...>] [commands]"
+			"[--name=<name>] [--remove] [--mount=<...>]" \
+			"[--memory-reservation=<size>] [--memory-limit=<size>]" \
+			"[--swap-limit=<size>] [--device=<...>] [commands]"
 		exit 0
 	fi
 fi
@@ -56,69 +57,90 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 	fi
 fi
 
-declare -a args=() container_args=()
+declare -a args=() container_args=() mount=() device=()
+
+# declared in _docker_setup
+#declare image='' name=''
 
 _docker_parse() {
-	local arg=''
+	local arg='' next=''
 
 	for arg in "${@:-}"; do
-		if [ "${name}" = '<next>' ]; then
-			export name="${arg}"
+		if [[ -n "${next:-}" ]]; then
+			if [[ "${next}" == 'name' ]]; then
+				name="${arg}"
+				print "Setting container name to '${name}' in $( basename -- "${0#-}" )"
 
-		elif [ "${image}" = '<next>' ]; then
-			export image="${arg}"
+			elif [[ "${next}" == 'image' ]]; then
+				image="${arg}"
 
-		elif [ "${mount}" = '<next>' ]; then
-			export mount="${arg}"
+			elif [[ "${next}" == 'mount' ]]; then
+				mount+=( "${arg}" )
 
-		elif echo "${arg}" | grep -Eq -- '^-(n|-name)(=[a-z0-9]+([._-]{1,2}[a-z0-9]+)*)?$'; then
-			if echo "${arg}" | grep -Fq -- '=' ; then
+			elif [[ "${next}" = 'device' ]]; then
+				device+=( "${arg}" )
+			fi
+
+			next=''
+
+		# Name components may contain lowercase characters, digits and
+		# separators. A separator is defined as a period, one or two
+		# underscores, or one or more dashes. A name component may not start or
+		# end with a separator.
+		#
+		elif grep -Eq -- '^-(n|-name)(=[a-z0-9]+(([.]|[_]{1,2}|[-]+)[a-z0-9]+)*)?$' <<<"${arg}"; then
+			if [[ "${arg}" == *=* ]]; then
 				name="$( echo "${arg}" | cut -d'=' -f 2- )"
 				print "Setting container name to '${name}' in $( basename -- "${0#-}" )"
-				export name
 			else
-				name='<next>'
+				next='name'
 			fi
 
-		elif echo "${arg}" | grep -Eq -- '^-(i|-image)(=[a-z0-9]+([._-]{1,2}[a-z0-9]+)*)?(:.*)?$'; then
-			if echo "${arg}" | grep -Fq -- '=' ; then
+		# ... a tag name may contain lowercase and uppercase characters,
+		# digits, underscores, periods and dashes. A tag name may not start
+		# with a period or a dash and may contain a maximum of 128 characters.
+		#
+		elif grep -Eq -- '^-(i|-image)(=[a-z0-9]+(([.]|[_]{1,2}|[-]+)[a-z0-9]+)*(:[a-zA-Z0-9_][a-zA-Z0-9_.-]*)?)?$' <<<"${arg}"; then
+			if [[ "${arg}" == *=* ]]; then
 				image="$( echo "${arg}" | cut -d'=' -f 2- )"
-				export image
 			else
-				image='<next>'
+				next='image'
 			fi
 
-		elif echo "${arg}" | grep -Eq -- '^-(m|-mount)(=)?(:.*)?$'; then
-			if echo "${arg}" | grep -Fq -- '=' ; then
-				mount="$( echo "${arg}" | cut -d'=' -f 2- )"
-				export mount
+		elif grep -Eq -- '^-(m|-mount)(=.*)?$' <<<"${arg}"; then
+			if [[ "${arg}" == *=* ]]; then
+				mount+=( "$( echo "${arg}" | cut -d'=' -f 2- )" )
 			else
-				mount='<next>'
+				next='mount'
 			fi
 
-		elif echo "${arg}" | grep -Eq -- '^-(r|-rm|-remove)$'; then
+		elif grep -Eq -- '^-(d|-device)(=.*)?$' <<<"${arg}"; then
+			if [[ "${arg}" == *=* ]]; then
+				device+=( "$( echo "${arg}" | cut -d'=' -f 2- )" )
+			else
+				next='device'
+			fi
+
+		elif grep -Eq -- '^-(r|-rm|-remove)$' <<<"${arg}"; then
 			rm=1
 
 		else
-			#args="${args:+${args} }${arg}"
 			args+=( "${arg}" )
 		fi
 	done
-	if [ "${name}" = '<next>' ]; then
-		export name=''
+	if [[ -n "${next:-}" ]]; then
+		warn "Missing value for argument '--${next}'"
 	fi
-	if [ "${image}" = '<next>' ]; then
-		export image=''
-	fi
-	if [ "${mount}" = '<next>' ]; then
-		export mount=''
-	fi
+	(( ${#device[@]} )) && DOCKER_DEVICES="${device[*]}"
 
 	for arg in "${args[@]:-}"; do
 		container_args+=( "${arg}" )
 	done
 
-	unset arg
+	export name image DOCKER_DEVICES
+	export -a mount device container_args
+
+	unset arg next
 }  # _docker_parse
 
 # shellcheck disable=SC2120
@@ -164,6 +186,7 @@ docker_run() {
 	# shellcheck disable=SC2206
 	runargs+=(
 		--entrypoint '/bin/sh'
+		  ${DOCKER_DEVICES:-}
 		  ${ACCEPT_KEYWORDS:+--env ACCEPT_KEYWORDS}
 		  ${FEATURES:=--env FEATURES}
 		  ${TERM:+--env TERM}
@@ -229,8 +252,17 @@ docker_run() {
 	if [ -s "${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-${arch}}" ]; then
 		mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-${arch}}"]="/etc/portage/package.accept_keywords/${ARCH:-${arch}}"
 	fi
+	if [ -s "${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/use.mask" ]; then
+		mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/use.mask"]='/etc/portage/profile/use.mask'
+	fi
 	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.license"]='/etc/portage/package.license'
 	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.use.build"]='/etc/portage/package.use'
+	#if [ -s "/lib/modules/$( uname -r )/build/arch/x86/boot/vmlinux.bin" ]; then
+	#	mountpointsro["/lib/modules/$( uname -r )/build/arch/x86/boot/vmlinux.bin"]="/boot/vmlinux-$( uname -r )"
+	#fi
+	if [ -s "/lib/modules/$( uname -r )/vmlinux-$( uname -r )" ]; then
+		mirrormountpointsro+=( "/lib/modules/$( uname -r )/vmlinux-$( uname -r )" )
+	fi
 
 	for mp in ${mirrormountpointsro[@]+"${mirrormountpointsro[@]}"}; do
 		[ -n "${mp:-}" ] || continue
@@ -280,9 +312,13 @@ docker_run() {
 
 	runargs+=( --mount 'type=tmpfs,destination=/run,ro=false,tmpfs-size=10M,tmpfs-mode=0755' )
 
-	if [[ -n "${mount:-}" ]]; then
-		print "Adding command line mount option '--mount ${mount}' ..."
-		runargs+=( --mount "${mount}" )
+	if (( ${#mount[@]} )); then
+		for mp in "${mount[@]}"; do
+			if [[ -n "${mp:-}" ]]; then
+				print "Adding command line mount option '--mount ${mp}' ..."
+				runargs+=( --mount "${mp}" )
+			fi
+		done
 	fi
 
 	unset src mp
@@ -323,11 +359,14 @@ docker_run() {
 			local arg=''
 			print "Starting container with command '$docker container run \\"
 			for arg in "${runargs[@]}"; do
-				print "        ${arg} \\"
+				case "${arg}" in
+					--*)	print "    ${arg} \\" ;;
+					*)		print "        ${arg} \\" ;;
+				esac
 			done
-			print "    ${image}"
-			for arg in "${@}"; do
-				print "        ${arg} \\"
+			print "  ${image}${@:+" \\"}"
+			for arg in "${@:-}"; do
+				[[ -n "${arg:-}" ]] && print "    ${arg} \\"
 			done
 			print "'"
 			unset arg
@@ -418,6 +457,7 @@ main() {
 	local arg=''
 	local -a main_args=()
 
+	# N.B. _docker_parse does most of the argument-parsing...
 	if [[ -n "${*:-}" ]]; then
 		for arg in "${@:-}"; do
 			case "${arg:-}" in
