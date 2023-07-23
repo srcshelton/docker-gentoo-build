@@ -1,0 +1,6 @@
+
+# The dev-libs/openssl-3 upgrade is causing headaches for binary packages,
+# which don't always have a 'dev-libs/openssl:=' dependency :(
+<dev-libs/openssl-3
+
+# vi: set colorcolumn=80 syntax=gentoo-package-mask:
