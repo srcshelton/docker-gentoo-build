@@ -1039,7 +1039,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 
 		# Add '@preserved-rebuild' for potential outdated stage3 base-images...
 		post_pkgs='dev-util/pkgconf sys-libs/glibc @preserved-rebuild sys-apps/portage net-misc/curl dev-libs/nettle'
-		post_use="curl_ssl_openssl gmp multiarch native-extensions openssl ssl ssp"
+		post_use="curl_ssl_openssl gmp multiarch native-extensions openssl ssl -ssp"
 		if [[ -n "${python_use:-}" ]]; then
 			post_pkgs+=" dev-python/setuptools"
 			post_use+=" ${python_use}"

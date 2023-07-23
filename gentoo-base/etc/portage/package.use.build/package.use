@@ -1,6 +1,6 @@
 
 # General USE flags:
-#*/*					-* asm ipv6 ithreads mdev nptl split-usr ssp threads tls-heartbeat zlib ${use_cpu_flags}  # from 'use_essential'
+#*/*					-* asm ipv6 ithreads ktls mdev nptl split-usr -ssp threads ${use_cpu_flags}  # from 'use_essential'
 */*					-apache2 -awt acpi adns aio ao asm audit
 */*					-berkdb bash-completion bzip2
 */*					-cairo -cdb -common-lisp -cups caps chroot curl cxx
@@ -19,10 +19,10 @@
 */*					 readline rpc
 */*					-samba -sasl -slang -smartcard -source -startup-notification sctp
 */*					 seccomp server slp smtp snmp spell split-usr sql sqlite ssl syslog
-*/*					-test threads tls-heartbeat
+*/*					-test threads
 */*					-udev -usb unicode unwind urandom uuid
 */*					 vim-syntax
-*/*					-xcb xattr xinetd xml xxhash
+*/*					-xcb xattr xinetd xml xs xxhash
 */*					 yaml
 */*					 zlib zstd
 
@@ -51,7 +51,7 @@ app-benchmarks/bootchart		 acct
 app-benchmarks/bootchart2		-X
 app-crypt/gnupg				-ssl ecc idea mta
 #app-crypt/gpgme			-python  # requires dev-lang/swig, but only as a BDEPEND
-app-editors/vim				-cscope -sound terminal vim-pager
+app-editors/vim				-crypt -cscope -sound terminal vim-pager
 # move app-emulation/crun app-containers/crun
 app-containers/crun			-criu bpf
 # move app-emulation/libpod app-emulation/podman
@@ -92,10 +92,11 @@ dev-libs/libmemcached			 hsieh
 dev-libs/libnl				 utils
 #dev-libs/libpcre			-readline
 #dev-libs/libpcre2			-readline
+dev-libs/libpcre2			-pcre16
 dev-libs/libsecp256k1			 endomorphism  # ecdh experimental
 dev-libs/libxml2			 test
 dev-libs/oniguruma			 combination-explosion-check crnl-as-line-terminator
-dev-libs/openssl			-sslv3 rfc3779
+dev-libs/openssl			-sslv3 ktls rfc3779
 dev-perl/File-HomeDir			-xdg
 dev-perl/GD				 animgif test
 dev-perl/Spreadsheet-ParseExcel		 test
@@ -187,13 +188,14 @@ sys-apps/busybox			-pam -sep-usr -split-usr math  # static
 sys-apps/coreutils			-hostname  # conflicts sys-apps/net-tools[hostname]
 sys-apps/debianutils			-installkernel
 sys-apps/file				-python
+sys-apps/grep				-egrep-fgrep
 sys-apps/hal				 disk-partition
 sys-apps/help2man			-nls  # requires dev-perl/Locale-gettext, but then can't find it in many cases :(
 sys-apps/hwids				 usb
 sys-apps/hwloc				-svg
 sys-apps/ipmitool			 openipmi
 sys-apps/irqbalance			-numa
-sys-apps/kmod				 lzma
+sys-apps/kmod				 lzma pkcs7
 sys-apps/lm-sensors			-sensord
 sys-apps/man-db				-nls
 sys-apps/memtest86			 serial
@@ -221,7 +223,7 @@ sys-devel/clang-runtime			 compiler-rt libcxx
 #sys-devel/gcc				 go mudflap
 # gccgo from gcc-6.4.0 tries to include a deprecated glibc header, ustat.h, and fails.
 #~sys-devel/gcc-6.4.0			-go
-sys-devel/gcc				-fortran -graphite -lto -pgo -sanitize -vtv pch ssp zstd  # graphite has a runtime dependency on dev-libs/isl
+sys-devel/gcc				-fortran -graphite -lto -pgo -sanitize -ssp -vtv pch  # graphite has a runtime dependency on dev-libs/isl
 sys-devel/gettext			 cvs git
 sys-devel/llvm				 clang llvm-gcc udis86
 # move sys-apps/microcode-data sys-firmware/intel-microcode
@@ -235,7 +237,7 @@ sys-libs/compiler-rt			 clang
 sys-libs/compiler-rt-sanitizers		 clang
 sys-libs/cracklib			-python
 sys-libs/gdbm				 berkdb
-sys-libs/glibc				-gd clone3 nscd
+sys-libs/glibc				-gd -ssp clone3 nscd
 #sys-libs/libcap-ng			-python  # requires dev-lang/swig, but only as a DEPEND
 sys-libs/libnvme			 keyutils
 sys-libs/libomp				 hwloc offload ompt
