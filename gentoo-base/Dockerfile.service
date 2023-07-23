@@ -184,7 +184,7 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
         [ -e "${d}" ] && rm -rf "/${d}" ; \
     done ; \
     if [ "${service_name}" != 'mail-filter/spamassassin-update' ]; then \
-        d='usr/inclue' ; \
+        d='usr/include' ; \
         [ -e "${d}" ] && rm -rf "/${d}" ; \
     fi ; \
     if [ -d usr/share/gcc-data ]; then \
@@ -204,11 +204,22 @@ RUN test -s /usr/libexec/entrypoint.sh && \
     test -x /usr/libexec/entrypoint.sh ; \
     chmod 0755 /usr/libexec/entrypoint.d/*.sh || :
 
+RUN ldconfig ; \
+    find / -xdev -type f -executable -not -name '*.sh' | while read -r x; do \
+        ldd "${x}" 2>&1 | \
+            sed "s|^|${x}: |" | \
+            grep 'not found' && exit 1 || : ; \
+    done
+
 RUN echo "${service_cmd}" ; \
     test -x "${service_cmd}" && \
-    if ! [ "$( head -n 1 "${service_cmd}" | sed 's/\(..\).*$/\1/' )" = '#!' ] ; \
+    if ! [ "$( \
+        head -n 1 "${service_cmd}" | \
+        cut -c 1-2 | \
+        tr -d '\0' \
+    )" = '#!' ] ; \
     then \
-    ldd "${service_cmd}" | tee /dev/stdout | grep -qv 'not found' ; \
+        ldd "${service_cmd}" | tee /dev/stdout | grep -qv 'not found' ; \
     fi
 
 # No longer needed, since 'service_cmd' is exposed as an ENV ...
