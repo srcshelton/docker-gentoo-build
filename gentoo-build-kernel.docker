@@ -20,8 +20,16 @@ declare -ir build_space_reqiured=750
 declare -ir temp_space_required=2800
 declare -ir graph_space_required=8500
 
-declare -r rust_ver='1.62.0'
-declare -r bindgen_ver='0.56.0'
+declare rust_ver='1.62.0'
+# https://github.com/rust-lang/rust-bindgen/issues/2312
+declare bindgen_ver='0.56.0'
+
+declare binutils_min_ver='2.25.0'
+declare gcc_min_ver='5.1.0'  # 12.0.0 on PA-RISC
+declare llvm_min_ver='11.0.0'  # 15.0.0 on S390
+
+declare -i llvm_slot=14
+declare llvm_sub_slot='14.0.6'
 
 declare firmware=''
 declare microcode=''
@@ -57,6 +65,25 @@ readonly microcode microcode_blob
 declare IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh
+
+pkgslot() {
+	local pkg="${1:-}"
+	local ver="${2:-}"
+
+	[[ -n "${pkg:-}" ]] || return 1
+
+	if [[ -z "${ver:-}" ]]; then
+		printf '%s\n' "${pkg}"
+		return 1
+	fi
+
+	if [[ "${ver:0:1}" == ':' ]]; then
+		printf '%s:%s\n' "${pkg}" "${ver:1}"
+	else
+		[[ "${ver:0:1}" == '-' ]] || ver="-${ver}"
+		printf '>=%s%s\n' "${pkg}" "${ver}"
+	fi
+}  # pkgslot
 
 set -e
 
@@ -288,7 +315,7 @@ case "${package_version}" in
 	5.15.*|5.16.*)
 		#patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15%2B.patch' ;;
 		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15-5.16.patch' ;;
-	5.1[789].*|6.[0123].*)
+	5.1[789].*|6.[01234].*)
 		patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.17%2B.patch'
 		case "${package_version}" in
 			5.19.*)
@@ -309,6 +336,9 @@ case "${package_version}" in
 			warn "Disabling dev-lang/rust support prior to kernel 6.1.x"
 			rust=0
 		fi
+		;;
+	6.5.*)
+		rust_ver='1.68.2'
 		;;
 esac
 case "${arch:-"${ARCH:-}"}" in
@@ -356,7 +386,7 @@ if [ -z "${build_dir:-}" ]; then
 	#
 	declare name="${version:-"sys-kernel/gentoo-sources"}"
 	name="${name#*/}"
-	name="${name%-sources}"
+	name="${name%-sources*}"
 	build_dir="/usr/src/linux-${name}-build-${compiler}${unwind:+"-unwind"}-${build_version}.x"
 	unset name
 fi
@@ -430,7 +460,7 @@ declare openmp='openmp'
 declare pre_remove=''
 declare pre_pkgs=''
 declare pre_use=''
-declare compiler_pkgs=''
+declare -a compiler_pkgs=()
 declare compiler_USE=''
 declare container_CC='gcc'
 declare container_CXX='g++'
@@ -448,14 +478,62 @@ if (( opt_o3 )); then
 fi
 case "${compiler}" in
 	gcc)
-		compiler_pkgs='sys-devel/gcc'
+		compiler_pkgs=(
+			$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )
+			$( pkgslot sys-devel/gcc "${gcc_min_ver:-}" )
+		)
 		compiler_USE="-lib-only ${use_essential_gcc}"
 		;;
 	clang|llvm)
+		[[ -n "${llvm_slot:-}" ]] || die "'llvm_slot' is required for clang builds"
+
 		# As-of 5.10.1: "gold linker 'ld.gold' not supported"...
 		compiler='clang'
-		compiler_pkgs='sys-devel/binutils-config sys-devel/clang sys-devel/llvm sys-libs/libcxx sys-libs/libcxxabi sys-libs/compiler-rt sys-libs/llvm-libunwind sys-devel/lld' # sys-devel/llvmgold
+		compiler_pkgs=(
+			$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )
+			sys-devel/binutils-config
+			$( pkgslot sys-devel/clang "${llvm_min_ver:-}" )
+			$( pkgslot sys-devel/llvm "${llvm_min_ver:-}" )
+			$( pkgslot sys-devel/clang ":${llvm_slot}" )
+			$( pkgslot sys-devel/clang-common "${llvm_slot}" )
+			$( pkgslot sys-devel/clang-runtime ":${llvm_sub_slot}" )
+			$( pkgslot sys-devel/clang-toolchain-symlinks ":${llvm_slot}" )
+			$( pkgslot sys-devel/lld ":${llvm_slot}" )
+			$( pkgslot sys-devel/lld-toolchain-symlinks ":${llvm_slot}" )
+			#$( pkgslot sys-devel/llvmgold ":${llvm_slot}" )
+			$( pkgslot sys-devel/llvm ":${llvm_slot}" )
+			$( pkgslot sys-devel/llvm-common "${llvm_slot}" )
+			$( pkgslot sys-devel/llvm-toolchain-symlinks ":${llvm_slot}" )
+			$( pkgslot sys-libs/compiler-rt ":${llvm_sub_slot}" )
+			$( pkgslot sys-libs/compiler-rt-sanitizers ":${llvm_sub_slot}" )
+			$( pkgslot sys-libs/libcxx "${llvm_slot}" )
+			$( pkgslot sys-libs/libcxxabi "${llvm_slot}" )
+			$( pkgslot sys-libs/libomp "${llvm_slot}" )
+			$( pkgslot sys-libs/llvm-libunwind "${llvm_slot}" )
+		)
 		compiler_USE='clang default-compiler-rt default-libcxx default-lld' # gold
+
+		# https://github.com/rust-lang/rust-bindgen/issues/2312
+		#
+		# LLVM/clang 14 works with the kernel bindgen, but requires python3_10,
+		# so patching the older bindgen source seems to make more sense...
+		#
+		case "${bindgen_ver:-}" in
+			'0.56.0'*)
+				compiler_pkgs+=(
+					"<sys-devel/clang-$(( llvm_slot + 1 ))"
+					"<sys-devel/clang-common-$(( llvm_slot + 1 ))"
+					"<sys-devel/clang-runtime-$(( llvm_slot + 1 ))"
+					"<sys-devel/clang-toolchain-symlinks-$(( llvm_slot + 1 ))"
+					"<sys-devel/llvm-$(( llvm_slot + 1 ))"
+					"<sys-devel/llvm-common-$(( llvm_slot + 1 ))"
+					"<sys-devel/llvm-toolchain-symlinks-$(( llvm_slot + 1 ))"
+				)
+				compiler_USE+=' python_single_target_python3_10 python_targets_python3_10'
+				compiler_USE+=' -python_single_target_python3_11 -python_targets_python3_11'
+				compiler_USE+=' -python_single_target_python3_12 -python_targets_python3_12'
+				;;
+		esac
 		container_CC='clang'
 		container_CXX='clang++'
 		#container_LD='ld.bfd'
@@ -469,7 +547,9 @@ case "${compiler}" in
 esac
 case "${unwind:-}" in
 	llvm)
-		compiler_pkgs="${compiler_pkgs} sys-libs/llvm-libunwind"
+		compiler_pkgs+=(
+			sys-libs/llvm-libunwind
+		)
 		compiler_USE="${compiler_USE:+"${compiler_USE} "}llvm-libunwind"
 		#pre_remove="sys-libs/libunwind"
 		#pre_pkgs="sys-libs/llvm-libunwind"
@@ -504,6 +584,11 @@ if ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask" ]; then
 else
 	test -f "${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask" && test -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask" &&
 		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/base.mask${docker_readonly:+",${docker_readonly}"}"
+fi
+
+# shellcheck disable=SC2154
+if [ -f "${base_dir:+"${base_dir}/"}etc/portage/package.mask.kernel-sources" ] && [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask.kernel-sources" ]; then
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.kernel-sources,destination=/etc/portage/package.mask/kernel-sources.mask${docker_readonly:+",${docker_readonly}"}"
 fi
 
 if ! [ -d /etc/portage/package.use ]; then
@@ -545,7 +630,7 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 		export name image
 
 		declare -a pkgs=( # <- Syntax
-			${compiler_pkgs:-}
+			"${compiler_pkgs[@]:-}"
 			app-arch/bzip2
 			app-arch/cpio
 			app-arch/lz4
@@ -553,6 +638,7 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 			app-arch/xz-utils
 			app-arch/zstd
 			app-crypt/libb2
+			dev-util/pahole
 			dev-libs/libyaml
 			sys-apps/coreutils
 			sys-apps/kmod
@@ -575,6 +661,13 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 			${openmp:+--post-pkgs="sys-devel/gcc"}
 			${openmp:+--post-use="-lib-only"}
 		)
+
+		# DEBUG-enabled 'LD vmlinux.o' step fails with OOM with 2G
+		# reservation :(
+		#
+		#export PODMAN_MEMORY_RESERVATION="8g"
+		#export PODMAN_MEMORY_LIMIT="12g"
+		#export PODMAN_SWAP_LIMIT="${PODMAN_MEMORY_LIMIT}"
 
 		# shellcheck disable=SC2086,SC2154
 		time {
@@ -830,9 +923,11 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		make ${kernel_make_opts[@]} clean ;
 	fi ;
 	if [ $(( rust )) -ne 0 ]; then
+		export RUST_BACKTRACE=1
 		echo "${RUST_PATCH_B64}" | base64 -d | patch -p0 ;
 		make ${kernel_make_opts[@]} rustavailable ;
 		echo ;
+		clang --version ;
 	fi ;
 	if [ -e .config ]; then
 		echo "Configuration changes from '.config':" ;
@@ -842,8 +937,11 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	set -x ;
 	time make ${kernel_make_opts[@]} ${deforoldconfig} prepare ${menuconfig:+"menuconfig"} ${nconfig:+"nconfig"} vmlinux modules \${dtb:+"dtbs"} \${kernel} &&
 		rm -rf "/lib/modules/${package_version}${distro:-}" &&
-		make ${kernel_make_opts[@]} modules_install &&
+		make ${kernel_make_opts[@]} INSTALL_MOD_STRIP=1 modules_install &&
 		success=1 ;
+	sh scripts/extract-vmlinux ../build/arch/\${dir}/boot/\${kernel} > vmlinux &&
+		[ -f vmlinux ] &&
+		mv vmlinux ../build/ ;
 	if [ "${install}" = '1' ]; then
 		set +x ;
 		if [ -s /boot/boot.config -o -s /proc/bootconfig ] && [ -e /boot/initramfs.img ]; then
@@ -866,6 +964,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 			cp ../build/.config /boot/config-${package_version}${distro:-} ;
 			cp ../build/System.map /boot/System.map-${package_version}${distro:-} ;
 			cp ../build/arch/\${dir}/boot/\${kernel} /boot/kernel-${package_version}${distro:-} ;
+			cp ../build/vmlinux /lib/modules/${package_version}${distro:-}/vmlinux-${package_version}${distro:-} ;
 			set +x ;
 			echo 'Linux kernel-${package_version}${distro:-} successfully installed - please update your bootloader' ;
 		fi ;
