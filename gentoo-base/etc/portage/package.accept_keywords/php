@@ -2,6 +2,6 @@
 # app-select/eselect-php-0.9.6 is the first release with ROOT support
 ~app-eselect/eselect-php-0.9.6				~amd64 ~arm ~arm64 ~x86
 
-~dev-php/pecl-memcache-4.0.5.2				~amd64 ~arm ~arm64 ~x86
+~dev-php/pecl-memcache-8.0-r1				~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

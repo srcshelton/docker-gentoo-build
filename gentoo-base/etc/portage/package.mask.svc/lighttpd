@@ -1,7 +1,6 @@
 
-# We don't want to pull-in the latest stable version of PHP in addition to the
-# target verison...
-<dev-lang/php-7.4
->=dev-lang/php-8.0
+# PHP-8.0 and prior don't support dev-libs/openssl-3+
+#
+<dev-lang/php-8.1
 
 # vi: set colorcolumn=80 syntax=gentoo-package-mask:

@@ -1,4 +1,28 @@
 
+# Michał Górny <mgorny@gentoo.org> (2021-11-04)
+# Enable all LLVM targets unconditionally.  Unfortunately, disabling
+# targets tend to break reverse dependencies (e.g. Rust) and we are yet
+# to find a clean way of resolving that.  Compared to the damage
+# potential, the increase of build time is a minor problem.  Users who
+# really insist of building a smaller system can un-force the flags
+# at their own responsibility. See bug #767700.
+llvm_targets_AArch64
+llvm_targets_AMDGPU
+llvm_targets_ARM
+llvm_targets_AVR
+llvm_targets_Hexagon
+llvm_targets_Lanai
+llvm_targets_LoongArch
+llvm_targets_MSP430
+llvm_targets_Mips
+llvm_targets_NVPTX
+llvm_targets_PowerPC
+llvm_targets_RISCV
+llvm_targets_Sparc
+llvm_targets_SystemZ
+llvm_targets_VE
+llvm_targets_XCore
+
 # Prevent other Python implementations being pulled-in
 #
 # The version used by the upstream Gentoo stage3 image must also be unmasked,
@@ -12,5 +36,13 @@ python_targets_python3_9
 #python_targets_python3_10
 #python_targets_python3_11
 python_targets_python3_12
+
+# Prevent old PHP implementations beign pulled-in
+#
+# PHP versions prior to dev-lang/php-8.1 don't support >dev-libs/openssl-3
+#
+php_targets_php-7-4
+php_targets_php-8-0
+#php_targets_php-8-1
 
 # vi: set syntax=gentoo-package-mask:
