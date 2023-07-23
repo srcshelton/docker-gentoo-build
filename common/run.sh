@@ -110,7 +110,7 @@ print() {
 		if [ -z "${*:-}" ]; then
 			output >&2
 		else
-			output >&2 "DEBUG: ${BASH_SOURCE[0]:-"$( basename "${0}" )"}: ${*}"
+			output >&2 "DEBUG: ${BASH_SOURCE[-1]:-"$( basename "${0}" )"}/${BASH_SOURCE[0]}: ${*}"
 		fi
 		return 0
 	# Unhelpful with 'set -e' ...
@@ -968,11 +968,14 @@ _docker_run() {
 			local arg=''
 			print "Starting ${BUILD_CONTAINER:+build} container with command '${_command} container run \\"
 			for arg in "${runargs[@]}"; do
-				print "        ${arg} \\"
+				case "${arg}" in
+					--*)	print "    ${arg} \\" ;;
+					*)		print "        ${arg} \\" ;;
+				esac
 			done
-			print "    ${image}"
-			for arg in "${@}"; do
-				print "        ${arg} \\"
+			print "  ${image}${@:+" \\"}"
+			for arg in "${@:-}"; do
+				[[ -n "${arg:-}" ]] && print "    ${arg} \\"
 			done
 			print "'"
 			unset arg
