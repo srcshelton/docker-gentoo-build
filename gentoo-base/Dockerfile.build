@@ -171,6 +171,8 @@ RUN test -s "${environment_file}" && \
     chmod 0755 /usr/libexec/entrypoint.sh && \
     sh -n /usr/libexec/entrypoint.sh
 
+RUN test -x /usr/sbin/locale-gen && /usr/sbin/locale-gen
+
 # This container is anticipated to be inherited rather than run, or run with
 # (a) package atom(s) - but let's (re)emerge bash if executed directly without
 # parameters ...
