@@ -209,13 +209,17 @@ fi
 #          not to force this flag here...
 #
 #  dev-lang/perl:		ithreads
-#  dev-libs/openssl:	asm tls-heartbeat zlib
+#  dev-libs/openssl:	asm ktls ~tls-heartbeat~ ~zlib~
 #  net-misc/curl:	   ~curl_ssl_openssl~
 #  sys-apps/busybox:	mdev
-#  sys-devel/gcc:		nptl
-# (General:				ipv6 ~openssl~ ~ssl~ threads)
+#  sys-apps/portage:	native-extensions
+#  sys-devel/gcc:		nptl -ssp
+# (General:				ipv6 ~openssl~ split-usr ~ssl~ threads)
 #
-use_essential="asm ipv6 ithreads native-extensions mdev nptl split-usr ssp threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
+#  Remove ssp/default-stack-clash-protection as these are causing postinst
+#  failures with at least app-editors/vim :(
+#
+use_essential="asm ipv6 ithreads native-extensions ktls mdev nptl split-usr -ssp threads${use_cpu_flags:+ ${use_cpu_flags}}"
 
 # Even though we often want a minimal set of flags, gcc's flags are significant
 # since they may affect the compiler facilities available to all packages built
@@ -224,8 +228,11 @@ use_essential="asm ipv6 ithreads native-extensions mdev nptl split-usr ssp threa
 # N.B. USE='graphite' pulls-in dev-libs/isl which we don't want for host
 #      packages, but is reasonable for build-containers.
 #
+#  Remove ssp/default-stack-clash-protection as these are causing postinst
+#  failures with at least app-editors/vim :(
+#
 # FIXME: Source these flags from package.use
-use_essential_gcc="default-stack-clash-protection -default-znow -fortran graphite nptl openmp pch -sanitize ssp -vtv zstd"
+use_essential_gcc="-default-stack-clash-protection -default-znow -fortran graphite -jit nptl openmp pch -sanitize -ssp -vtv zstd"
 
 case "$( uname -m )" in
 	x86_64|i686)
