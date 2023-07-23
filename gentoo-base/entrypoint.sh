@@ -245,7 +245,7 @@ resolve_python_flags() {
 	resolve_info='' resolve_target=''
 	resolve_info="$( # <- Syntax
 		LC_ALL='C' SYSROOT="${ROOT:-/}" PORTAGE_CONFIGROOT="${ROOT:-/}" \
-			emerge --info --verbose
+			emerge --info --verbose=y
 	)"
 
 	# We seem to have a weird situation where USE and PYTHON_*
@@ -309,6 +309,172 @@ resolve_python_flags() {
 
 	return 0
 }  # resolve_python_flags
+
+do_emerge() {
+	emerge_arg=''
+	emerge_opts=''
+	emerge_rc=0
+
+	[ "${#}" -gt 0 ] || return 1
+
+	if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
+		# N.B.: --root-deps only affects ebuilds with EAPI=6 and prior...
+		#
+		emerge_opts='--root-deps'
+	fi
+
+	# --keep-going is universal
+	set -- "${@}" \
+		--keep-going=y
+
+	for emerge_arg in "${@}"; do
+		shift
+		case "${emerge_arg:-}" in
+			'')
+				:
+				;;
+
+			'--unmerge-defaults')
+				set -- "${@}" \
+					--implicit-system-deps=n \
+					--verbose=n \
+					--with-bdeps=n \
+					--with-bdeps-auto=n \
+					--unmerge
+				;;
+
+			'--depclean-defaults')
+				set -- "${@}" \
+					--implicit-system-deps=n \
+					--verbose=n \
+					--with-bdeps=n \
+					--with-bdeps-auto=n \
+					--depclean
+				;;
+
+			'--defaults'|--*-defaults)
+				set -- "${@}" \
+					--binpkg-respect-use=y \
+					--quiet-build=y \
+					  ${opts:-} \
+					--verbose=y \
+					--verbose-conflicts \
+					  ${emerge_opts}
+
+				case "${emerge_arg}" in
+					'--defaults')
+						:
+						;;
+
+					# --with-bdeps*=y
+					'--build-defaults')
+						# shellcheck disable=SC2086
+						set -- "${@}" \
+							  ${parallel} \
+							--binpkg-changed-deps=y \
+							--buildpkg=n \
+							--deep \
+							--usepkg=y \
+							--with-bdeps=y \
+							--with-bdeps-auto=y
+						;;
+
+					# --buildpkg=n
+					'--once-defaults'|'--single-defaults'|'--chost-defaults'| \
+					'--initial-defaults')
+						set -- "${@}" \
+							--buildpkg=n \
+							--usepkg=y \
+							--with-bdeps=n \
+							--with-bdeps-auto=n
+
+						case "${emerge_arg}" in
+							'--once-defaults')
+								set -- "${@}" \
+									--binpkg-changed-deps=y \
+									--oneshot
+								;;
+							'--chost-defaults')
+								# shellcheck disable=SC2086
+								set -- "${@}" \
+									  ${parallel} \
+									--binpkg-changed-deps=y \
+									--update
+								;;
+							'--initial-defaults')
+								# shellcheck disable=SC2086
+								set -- "${@}" \
+									  ${parallel} \
+									--binpkg-changed-deps=n \
+									--update
+								;;
+						esac
+						;;
+
+					# --buildpkg=y
+					'--multi-defaults'|'--rebuild-defaults'| \
+					'--system-defaults'|'--preserved-defaults')
+						# shellcheck disable=SC2086
+						set -- "${@}" \
+							  ${parallel} \
+							--binpkg-changed-deps=y \
+							--buildpkg=y \
+							--with-bdeps=n \
+							--with-bdeps-auto=n
+
+						case "${emerge_arg}" in
+							'--rebuild-defaults')
+								set -- "${@}" \
+									--oneshot \
+									--usepkg=y
+								;;
+							'--system-defaults')
+								set -- "${@}" \
+									--deep \
+									--emptytree \
+									--rebuild-if-new-slot=y \
+									--rebuilt-binaries=y \
+									--update \
+									--usepkg=y
+									#--oneshot
+								;;
+							'--preserved-defaults')
+								set -- "${@}" \
+									--oneshot \
+									--usepkg=n
+									#--buildpkg=n
+									#--emptytree
+									#--usepkg=y
+								;;
+						esac
+						;;
+
+					*)
+						warn "Unknown emerge defaults set '${emerge_arg}'"
+						;;
+				esac
+				;;
+
+			*)
+				set -- "${@}" "${emerge_arg}"
+				;;
+		esac
+	done
+
+	print "Running 'emerge ${*}'${USE:+" with USE='${USE}'"}" \
+		"${ROOT:+" with ROOT='${ROOT}'"}"
+	emerge --ignore-default-opts --color=y "${@:-}" || emerge_rc="${?}"
+
+	if [ $(( emerge_rc )) -eq 0 ]; then
+		[ -f /etc/._cfg0000_hosts ] && rm -f /etc/._cfg0000_hosts
+		etc-update -q --automode -5
+		LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
+	fi
+
+	unset emerge_opts emerge_arg
+
+	return ${emerge_rc}
+}  # do_emerge
 
 fix_sh_symlink() {
 	symlink_root="${1:-"${ROOT:-}"}"
@@ -466,10 +632,10 @@ fi
 	die "'/etc/portage/package.use' is missing"
 [ -s /etc/locale.gen ] ||
 	warn "'/etc/locale.gen' is missing or empty"
-# shellcheck disable=SC2166
-[ -s "${PKGDIR}"/Packages -a -d "${PKGDIR}"/virtual ] ||
+if ! [ -s "${PKGDIR}"/Packages ] || ! [ -d "${PKGDIR}"/virtual ]; then
 	warn "'${PKGDIR}/Packages' or '${PKGDIR}/virtual' are missing - package" \
 		"cache appears invalid"
+fi
 
 env | grep -F -- 'DIR=' | cut -d'=' -f 2- | while read -r d; do
 	if ! [ -d "${d}" ]; then
@@ -553,18 +719,23 @@ ld --version || :
 # We should *definitely* have this...
 package='virtual/libc'
 opts='--tree'
-# shellcheck disable=SC2015
-printf ' %s ' "${*}" | grep -Fq -- ' --nodeps ' && opts='' || :
+if printf ' %s ' "${*}" | grep -Fq -- ' --nodeps '; then
+	opts=''
+fi
 
 LC_ALL='C' eselect --colour=yes profile list
 LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" # 2>/dev/null
 
 LC_ALL='C' emaint --fix binhost
 
-# TODO: Is there any benefit in shorting stage3 news?
-LC_ALL='C' emerge --check-news
-LC_ALL='C' eselect --colour=yes news read
-printf '\n---\n\n'
+# TODO: Is there any benefit in showing stage3 news?
+#
+# Update: Let's show all news in one go, at the end of the process...
+#         ... but still run 'news read' now, to prevent annoying notices from
+#         'emerge' saying that news is pending!
+#LC_ALL='C' emerge --check-news
+LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
+#printf '\n---\n\n'
 
 #set -o xtrace
 
@@ -588,23 +759,7 @@ printf '\n---\n\n'
 	fi
 	# 'dhcpcd' is now built with USE='udev'...
 	#
-	# shellcheck disable=SC2012,SC2086,SC2046
-	emerge \
-			--ignore-default-opts \
-			--binpkg-changed-deps=y \
-			--binpkg-respect-use=y \
-			--buildpkg=n \
-			--color=y \
-			--keep-going=y \
-			--oneshot \
-			--quiet-build=y \
-			${opts:-} \
-			--usepkg=y \
-			--verbose=y \
-			--verbose-conflicts \
-			--with-bdeps=n \
-			--with-bdeps-auto=n \
-		net-misc/dhcpcd
+	do_emerge --once-defaults net-misc/dhcpcd
 
 	# To make the following output potentially clearer, attempt to remove any
 	# masked packages which exist in the image we're building from...
@@ -616,16 +771,7 @@ printf '\n---\n\n'
 	echo
 
 	# shellcheck disable=SC2086
-	emerge \
-			--ignore-default-opts \
-			--color=y \
-			--implicit-system-deps=n \
-			--keep-going=y \
-			--verbose=n \
-			--with-bdeps-auto=n \
-			--with-bdeps=n \
-			--unmerge \
-		${list} || :
+	do_emerge --unmerge-defaults ${list} || :
 
 	#virtual/udev-217-r3 pulled in by:
 	#    sys-apps/hwids-20210613-r1 requires virtual/udev
@@ -646,17 +792,8 @@ printf '\n---\n\n'
 	)"
 	echo "Package list: ${list}"
 	echo
-	# shellcheck disable=SC2046,SC2086
-	emerge \
-			--ignore-default-opts \
-			--color=y \
-			--implicit-system-deps=n \
-			--keep-going=y \
-			--verbose=y \
-			--with-bdeps-auto=n \
-			--with-bdeps=n \
-			--depclean \
-		${list}
+	# shellcheck disable=SC2086
+	do_emerge --depclean-defaults ${list}
 )
 
 if portageq get_repos / | grep -Fq -- 'srcshelton'; then
@@ -668,22 +805,7 @@ if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean -fakeroot"
 		export LC_ALL='C'
-		# shellcheck disable=SC2086
-		emerge \
-				--ignore-default-opts \
-				--binpkg-changed-deps=y \
-				--binpkg-respect-use=y \
-				--buildpkg=n \
-				--color=y \
-				--keep-going=y \
-				--quiet-build=y \
-				  ${opts:-} \
-				--usepkg=y \
-				--verbose-conflicts \
-				--verbose=y \
-				--with-bdeps-auto=n \
-				--with-bdeps=n \
-			'sys-apps/gentoo-functions::srcshelton'
+		do_emerge --single-defaults 'sys-apps/gentoo-functions::srcshelton'
 	)
 fi
 
@@ -695,22 +817,7 @@ echo
 	export USE
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean -fakeroot"
 	export LC_ALL='C'
-	# shellcheck disable=SC2086
-	emerge \
-			--ignore-default-opts \
-			--binpkg-changed-deps=y \
-			--binpkg-respect-use=y \
-			--buildpkg=n \
-			--color=y \
-			--keep-going=y \
-			--quiet-build=y \
-			${opts:-} \
-			--usepkg=y \
-			--verbose-conflicts \
-			--verbose=y \
-			--with-bdeps-auto=n \
-			--with-bdeps=n \
-		sys-apps/fakeroot
+	do_emerge --single-defaults sys-apps/fakeroot
 )
 export FEATURES="${FEATURES:+${FEATURES} }fakeroot"
 
@@ -735,23 +842,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		export USE
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 		export LC_ALL='C'
-		# shellcheck disable=SC2086
-		emerge \
-				--ignore-default-opts \
-				--binpkg-changed-deps=y \
-				--binpkg-respect-use=y \
-				--buildpkg=n \
-				--color=y \
-				--keep-going=y \
-				--quiet-build=y \
-				${opts:-} \
-				--update \
-				--usepkg=y \
-				--verbose-conflicts \
-				--verbose=y \
-				--with-bdeps-auto=n \
-				--with-bdeps=n \
-			'@system' '@world'
+		do_emerge --chost-defaults '@system' '@world'
 	)
 	LC_ALL='C' etc-update --quiet --preen
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
@@ -775,22 +866,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 			export USE
 			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 			export LC_ALL='C'
-			# shellcheck disable=SC2086
-			emerge \
-					--ignore-default-opts \
-					--binpkg-changed-deps=y \
-					--binpkg-respect-use=y \
-					--buildpkg=n \
-					--color=y \
-					--keep-going=y \
-					--quiet-build=y \
-					${opts:-} \
-					--usepkg=y \
-					--verbose=y \
-					--verbose-conflicts \
-					--with-bdeps=n \
-					--with-bdeps-auto=n \
-				"${pkg}"
+			do_emerge --single-defaults "${pkg}"
 		)
 		LC_ALL='C' etc-update --quiet --preen
 		find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
@@ -807,6 +883,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		# shellcheck disable=SC1091
 		[ -s /etc/profile ] && { . /etc/profile || : ; }
 	done
+	unset pkg
 	rm -r "/usr/${oldchost:?}" "/usr/bin/${oldchost:?}"*
 	#find \
 	#		/bin/ \
@@ -838,34 +915,20 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	#binutils-config -l
 	#gcc-config -l
 
-	# shellcheck disable=SC2041
 	#for pkg in 'dev-libs/libgpg-error' 'sys-devel/libtool'; do
+	# shellcheck disable=SC2041
 	for pkg in 'sys-devel/libtool'; do
 		(
 			USE="-* $( get_stage3 --values-only USE )"
 			export USE
 			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 			export LC_ALL='C'
-			# shellcheck disable=SC2086
-			emerge \
-					--ignore-default-opts \
-					--binpkg-changed-deps=y \
-					--binpkg-respect-use=y \
-					--buildpkg=n \
-					--color=y \
-					--keep-going=y \
-					--quiet-build=y \
-					${opts:-} \
-					--usepkg=y \
-					--verbose=y \
-					--verbose-conflicts \
-					--with-bdeps=n \
-					--with-bdeps-auto=n \
-				"${pkg}"
+			do_emerge --single-defaults "${pkg}"
 		)
 		LC_ALL='C' etc-update --quiet --preen
 		find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 	done
+	unset pkg
 	[ -x /usr/sbin/fix_libtool_files.sh ] &&
 		/usr/sbin/fix_libtool_files.sh "$( # <- Syntax
 			gcc -dumpversion
@@ -881,46 +944,12 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		# command-line fine-grained package flag control :(
 		exclude='sys-apps/coreutils sys-apps/net-tools sys-apps/util-linux sys-process/procps sys-apps/shadow'
 
-		# shellcheck disable=SC2012,SC2086,SC2046
-		emerge \
-				--ignore-default-opts \
-				--binpkg-changed-deps=y \
-				--binpkg-respect-use=y \
-				--buildpkg=n \
-				--color=y \
-				--exclude "${exclude}" \
-				--keep-going=y \
-				--oneshot \
-				--quiet-build=y \
-				${opts:-} \
-				--usepkg=y \
-				--verbose=y \
-				--verbose-conflicts \
-				--with-bdeps=n \
-				--with-bdeps-auto=n \
-			dev-libs/libgpg-error
+		do_emerge --once-defaults --exclude "${exclude}" dev-libs/libgpg-error
 		#ls -l "/usr/bin/${CHOST}-gpg-error-config"
 		#cat /var/db/pkg/dev-libs/libgpg-error*/CONTENTS
 
-		# shellcheck disable=SC2012,SC2086,SC2046
-		emerge \
-				--ignore-default-opts \
-				--binpkg-changed-deps=y \
-				--binpkg-respect-use=y \
-				--buildpkg=n \
-				--color=y \
-				--emptytree \
-				--exclude "${exclude}" \
-				--keep-going=y \
-				--oneshot \
-				--quiet-build=y \
-				${opts:-} \
-				--usepkg=y \
-				--verbose=y \
-				--verbose-conflicts \
-				--with-bdeps=n \
-				--with-bdeps-auto=n \
-			$( # <- Syntax
+		# shellcheck disable=SC2012,SC2046
+		do_emerge --preserved-defaults --exclude "${exclude}" $( # <- Syntax
 				for object in \
 						"/usr/bin/${oldchost}-"* \
 						"/usr/include/${oldchost}" \
@@ -937,9 +966,11 @@ if ! [ -d "/usr/${CHOST}" ]; then
 					head -n 1
 			)" '@preserved-rebuild'
 	)
-	# shellcheck disable=SC2015
-	LC_ALL='C' eselect --colour=yes news read new |
-		grep -Fv -- 'No news is good news.' && printf '\n---\n\n' || :
+	#if LC_ALL='C' eselect --colour=yes news read new |
+	#		grep -Fv -- 'No news is good news.'
+	#then
+	#	printf '\n---\n\n'
+	#fi
 
 	LC_ALL='C' etc-update --quiet --preen
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
@@ -967,22 +998,7 @@ echo
 	export USE
 	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 	export LC_ALL='C'
-	# shellcheck disable=SC2086
-	emerge \
-			--ignore-default-opts \
-			--binpkg-changed-deps=y \
-			--binpkg-respect-use=y \
-			--buildpkg=n \
-			--color=y \
-			--keep-going=y \
-			--quiet-build=y \
-			${opts:-} \
-			--usepkg=y \
-			--verbose=y \
-			--verbose-conflicts \
-			--with-bdeps=n \
-			--with-bdeps-auto=n \
-		sys-kernel/gentoo-sources
+	do_emerge --single-defaults sys-kernel/gentoo-sources
 )
 
 echo
@@ -1027,49 +1043,46 @@ do
 
 	(
 		USE="-* $( get_stage3 --values-only USE )"
+		# Add 'xml' to prevent an additional python install/rebuild for
+		#  sys-process/audit (which pulls-in dev-lang/python without USE='xml')
+		#  vs. dev-libs/libxml2 (which requires dev-lang/python[xml])
+		#
 		# shellcheck disable=SC2154
-		USE="${USE} ${use_essential_gcc}"
+		USE="${USE} ${use_essential_gcc} xml"
 		if [ "${arch}" = 'arm64' ]; then
 			USE="${USE} gold"
 		fi
+		export USE
+		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+		export LC_ALL='C'
 		case "${pkg}" in
-		#	sys-libs/libxcrypt|virtual/libcrypt)
-		#		USE="${USE} static-libs"
-		#		;;
-			dev-libs/libxml2)
-				USE="${USE} xml"
+			#sys-libs/libxcrypt|virtual/libcrypt)
+			#	USE="${USE} static-libs"
+			#	;;
+			sys-process/audit)
+				# sys-process/audit is the first package which can pull-in an
+				# older python release, which causes preserved libraries...
+				USE="${USE} -berkdb -gdbm"
 				;;
+			#dev-libs/libxml2)
+			#	USE="${USE} xml"
+			#	;;
 			#app-alternatives/awk)
 			#	USE="-busybox ${USE} gawk"
 			#	;;
 		esac
-		export USE
-		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
-		export LC_ALL='C'
-		# shellcheck disable=SC2086
-		emerge \
-				--ignore-default-opts \
-				--binpkg-changed-deps=y \
-				--binpkg-respect-use=y \
-				--buildpkg=n \
-				--color=y \
-				--keep-going=y \
-				--quiet-build=y \
-				${opts:-} \
-				--usepkg=y \
-				--verbose=y \
-				--verbose-conflicts \
-				--with-bdeps=n \
-				--with-bdeps-auto=n \
-			"${pkg}"
+		do_emerge --single-defaults "${pkg}"
 	)
-	# shellcheck disable=SC2015
-	LC_ALL='C' eselect --colour=yes news read new |
-		grep -Fv -- 'No news is good news.' && printf '\n---\n\n' || :
+	#if LC_ALL='C' eselect --colour=yes news read new |
+	#		grep -Fv -- 'No news is good news.'
+	#then
+	#	printf '\n---\n\n'
+	#fi
 
 	LC_ALL='C' etc-update --quiet --preen
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
-done
+done  # for pkg in ...
+unset pkg
 #LC_ALL='C' eselect awk set gawk || :
 
 # Now we can build our ROOT environment ...
@@ -1168,6 +1181,7 @@ fi
 if [ -n "${pkg_initial:-}" ]; then
 	export python_targets PYTHON_SINGLE_TARGET PYTHON_TARGETS
 	print "'python_targets' is '${python_targets:-}', 'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}', 'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
+
 	(
 		export LC_ALL='C'
 
@@ -1199,13 +1213,8 @@ if [ -n "${pkg_initial:-}" ]; then
 			export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 			print "'python_targets' is '${python_targets:-}', 'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}', 'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
 		fi
-		#case "${pkg}" in
-		#	*libcrypt|*libxcrypt)
-		#		USE="${USE} static-libs"
-		#		;;
-		#esac
 
-		info="$( emerge --info --verbose=y )"
+		info="$( LC_ALL='C' emerge --info --verbose=y )"
 		echo
 		echo 'Resolved build variables for initial packages:'
 		echo '---------------------------------------------'
@@ -1259,6 +1268,12 @@ if [ -n "${pkg_initial:-}" ]; then
 				export SYSROOT="${ROOT}"
 				export PORTAGE_CONFIGROOT="${SYSROOT}"
 
+				#case "${pkg}" in
+				#	*libcrypt|*libxcrypt)
+				#		USE="${USE:-} static-libs"
+				#		;;
+				#esac
+
 				# First package in '${pkg_initial}' to have python deps...
 				#
 				# TODO: It'd be nice to have a had_deps() function here to
@@ -1276,7 +1291,7 @@ if [ -n "${pkg_initial:-}" ]; then
 
 						eval "$( # <- Syntax
 							resolve_python_flags \
-									"${USE:-} ${use_essential:-} ${use_essential_gcc:-}" \
+									"${USE:-} ${use_essential} ${use_essential_gcc}" \
 									"${PYTHON_SINGLE_TARGET}" \
 									"${PYTHON_TARGETS}"
 						)"
@@ -1285,7 +1300,7 @@ if [ -n "${pkg_initial:-}" ]; then
 						fi
 						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
-						info="$( emerge --info --verbose=y )"
+						info="$( LC_ALL='C' emerge --info --verbose=y )"
 						echo
 						echo 'Resolved build variables for python builddeps:'
 						echo '---------------------------------------------'
@@ -1322,24 +1337,8 @@ if [ -n "${pkg_initial:-}" ]; then
 						echo
 						unset info
 
-						## shellcheck disable=SC2086
 						#USE="static-libs" \
-						#emerge \
-						#		--ignore-default-opts \
-						#		${parallel} \
-						#		--binpkg-respect-use=y \
-						#		--binpkg-changed-deps=y \
-						#		--buildpkg=n \
-						#		--color=y \
-						#		--deep \
-						#		--keep-going=y \
-						#		--quiet-build=y \
-						#		${opts:-} \
-						#		--usepkg=y \
-						#		--verbose=y \
-						#		--verbose-conflict \
-						#		--with-bdeps=y \
-						#		--with-bdeps-auto=y \
+						#do_emerge --build-defaults \
 						#	sys-libs/libxcrypt virtual/libcrypt
 
 						# FIXME: --emptytree is needed if that upstream stage3
@@ -1351,31 +1350,13 @@ if [ -n "${pkg_initial:-}" ]; then
 						#        binary packages in a more controlled
 						#        environment first?
 						#
-						# shellcheck disable=SC2086
-						emerge \
-								--ignore-default-opts \
-								${parallel} \
-								--binpkg-respect-use=y \
-								--binpkg-changed-deps=y \
-								--buildpkg=n \
-								--color=y \
-								--deep \
-								--keep-going=y \
-								--quiet-build=y \
-								${opts:-} \
-								--usepkg=y \
-								--verbose=y \
-								--verbose-conflict \
-								--with-bdeps=y \
-								--with-bdeps-auto=y \
-							dev-python/setuptools # || :
-								#--emptytree \
+						do_emerge --build-defaults dev-python/setuptools # || :
 					)
 					# Install same dependencies again within our build ROOT...
 					(
 						eval "$( # <- Syntax
 							resolve_python_flags \
-									"${USE:-} ${use_essential:-} ${use_essential_gcc:-}" \
+									"${USE:-} ${use_essential} ${use_essential_gcc}" \
 									"${PYTHON_SINGLE_TARGET}" \
 									"${PYTHON_TARGETS}"
 						)"
@@ -1384,68 +1365,20 @@ if [ -n "${pkg_initial:-}" ]; then
 						fi
 						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
-						# shellcheck disable=SC2086
-						emerge \
-								--ignore-default-opts \
-								${parallel} \
-								--binpkg-respect-use=y \
-								--binpkg-changed-deps=y \
-								--buildpkg=n \
-								--color=y \
-								--deep \
-								--keep-going=y \
-								--quiet-build=y \
-								${opts:-} \
-								--usepkg=y \
-								--verbose=y \
-								--verbose-conflict \
-								--with-bdeps=y \
-								--with-bdeps-auto=y \
-							dev-python/setuptools # || :
-								#--emptytree \
+						do_emerge --build-defaults dev-python/setuptools # || :
 					)
-				fi
+				fi  # [ "${pkg}" = 'sys-apps/help2man' ]
 
 				#if [ "${pkg}" = 'sys-apps/util-linux' ]; then
 				#	(
 				#	#USE="-busybox ${USE:-} gawk"
 				#
 				#	# shellcheck disable=SC2086
-				#	emerge \
-				#			--ignore-default-opts \
-				#			${parallel} \
-				#			--binpkg-changed-deps=n \
-				#			--binpkg-respect-use=y \
-				#			--buildpkg=n \
-				#			--color=y \
-				#			--keep-going=y \
-				#			--quiet-build=y \
-				#			${opts:-} \
-				#			--usepkg=y \
-				#			--verbose=y \
-				#			--verbose-conflict \
-				#			--with-bdeps=n \
-				#			--with-bdeps-auto=n \
-				#		${pkg} ${pkg_exclude:-} # || :
+				#	do_emerge --initial-defaults ${pkg} ${pkg_exclude:-} # || :
 				#	)
 				#else
 					# shellcheck disable=SC2086
-					emerge \
-							--ignore-default-opts \
-							${parallel} \
-							--binpkg-changed-deps=n \
-							--binpkg-respect-use=y \
-							--buildpkg=n \
-							--color=y \
-							--keep-going=y \
-							--quiet-build=y \
-							${opts:-} \
-							--usepkg=y \
-							--verbose=y \
-							--verbose-conflict \
-							--with-bdeps=n \
-							--with-bdeps-auto=n \
-						${pkg} ${pkg_exclude:-} # || :
+					do_emerge --initial-defaults ${pkg} ${pkg_exclude:-} # || :
 				#fi
 
 				etc-update --quiet --preen
@@ -1454,8 +1387,9 @@ if [ -n "${pkg_initial:-}" ]; then
 				if echo " ${pkg} " | grep -q -- ' app-shells/bash '; then
 					fix_sh_symlink "${ROOT}" 'pre-deploy'
 				fi
-			done
-		done
+			done  # for ROOT in $(...)
+		done  # for pkg in ${pkg_initial:-}
+		unset pkg
 	)
 fi  # [ -n "${pkg_initial:-}" ]
 
@@ -1488,7 +1422,7 @@ echo
 	export USE
 	export LC_ALL='C'
 	for ROOT in $( # <- Syntax
-			echo "${extra_root:-}" "${ROOT}" |
+			echo '/' "${extra_root:-}" "${ROOT}" |
 				xargs -rn 1 |
 				sort -u
 	); do
@@ -1500,7 +1434,7 @@ echo
 
 		info="$( LC_ALL='C' emerge --info --verbose=y )"
 		echo
-		echo 'Resolved build variables for @system:'
+		echo "Resolved build variables for @system in ROOT '${ROOT}':"
 		echo '------------------------------------'
 		echo
 		echo "ROOT                = $( # <- Syntax
@@ -1537,30 +1471,37 @@ echo
 		echo
 		unset info
 
+		# portage is tripping over sys-devel/gcc[openmp] :(
+		#
+		USE="${USE:+"${USE} "}openmp" \
+			do_emerge --system-defaults sys-devel/gcc
+
+		# ... likewise sys-apps/net-tools[hostname] (for which the recommended
+		# fix is sys-apps/coreutils[hostname]?)
+		#
+		USE="${USE:+"${USE} "}-hostname" \
+			do_emerge --system-defaults sys-apps/coreutils
+
+		USE="${USE:+"${USE} "}hostname" \
+			do_emerge --system-defaults sys-apps/net-tools
+
+		# Try to prevent preserved rebuilds being required...
+		#
 		# shellcheck disable=SC2086
-		emerge \
-				--ignore-default-opts \
-				${parallel} \
-				--binpkg-changed-deps=y \
-				--binpkg-respect-use=y \
-				--buildpkg=y \
-				--color=y \
-				--deep \
-				--emptytree \
-				--keep-going=y \
-				--rebuild-if-new-slot=y \
-				--rebuilt-binaries=y \
-				--quiet-build=y \
-				--root-deps \
-				${opts:-} \
-				--update \
-				--usepkg=y \
-				--verbose=y \
-				--verbose-conflicts \
-				--with-bdeps=n \
-				--with-bdeps-auto=n \
-			${pkg_system} # || :
-	done
+		USE="${USE:+"${USE} "}-asm -gdbm -gmp" \
+			do_emerge --once-defaults \
+				dev-libs/nettle \
+				net-libs/gnutls \
+				sys-libs/gdbm
+		do_emerge --system-defaults --update ${pkg_system} # || :
+
+		echo
+		echo " * Rebuilding any preserved dependencies ..."
+		echo
+		# We're hitting errors here that dev-libs/nettle[gmp] is required...
+		USE="${USE:+"${USE} "}gmp" \
+			do_emerge --preserved-defaults '@preserved-rebuild'
+	done  # for ROOT in $(...)
 )  # @system
 
 LC_ALL='C' etc-update --quiet --preen
@@ -1608,14 +1549,14 @@ if [ -n "$( # <- Syntax
 		)" ]
 then
 	mkdir -p "${PORTAGE_LOGDIR}"/failed
-	file=''
+	file='' cat='' pkg=''
 	for file in "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log; do
 		cat="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"
 		pkg="$( echo "${file}" | rev | cut -d'/' -f 3 | rev )"
 		mkdir -p "${PORTAGE_LOGDIR}/failed/${cat}"
 		mv "${file}" "${PORTAGE_LOGDIR}/failed/${cat}/${pkg}.log"
 	done
-	unset file
+	unset pkg cat file
 fi
 
 # Cleanup any failed bulids/temporary files ...
@@ -1637,9 +1578,11 @@ echo
 echo
 
 # Check for ROOT news ...
-# shellcheck disable=SC2015
-LC_ALL='C' eselect --colour=yes news read new |
-	grep -Fv -- 'No news is good news.' && printf '\n---\n\n' || :
+#if LC_ALL='C' eselect --colour=yes news read new |
+#		grep -Fv -- 'No news is good news.'
+#then
+#	printf '\n---\n\n'
+#fi
 
 # At this point, we should have a fully-built @system!
 
@@ -1719,10 +1662,6 @@ case "${1:-}" in
 		echo " * Building default '${package}' package ..."
 		echo
 
-		print "Running default 'emerge" \
-			"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
-			"\"${package}\"' with ROOT='${ROOT}'"
-
 		(
 			export LC_ALL='C'
 			for ROOT in $( # <- Syntax
@@ -1734,8 +1673,7 @@ case "${1:-}" in
 				export ROOT
 				export SYSROOT="${ROOT}"
 				export PORTAGE_CONFIGROOT="${SYSROOT}"
-				# shellcheck disable=SC2086
-				emerge ${parallel} ${opts} --usepkg=y "${package}" || rc=${?}
+				do_emerge --once-defaults "${package}" || rc=${?}
 				if [ $(( rc )) -ne 0 ]; then
 					break
 				fi
@@ -1768,10 +1706,6 @@ case "${1:-}" in
 			)' packages ..."
 			echo
 
-			# shellcheck disable=SC2016
-			print "Running 'emerge" \
-				"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
-				"${*}'${USE:+ with USE='${USE}'} with ROOT='${ROOT}'"
 			(
 				export LC_ALL='C'
 				for ROOT in $( # <- Syntax
@@ -1783,8 +1717,7 @@ case "${1:-}" in
 					export ROOT
 					export SYSROOT="${ROOT}"
 					export PORTAGE_CONFIGROOT="${SYSROOT}"
-					# shellcheck disable=SC2086
-					emerge ${parallel} ${opts} --usepkg=y "${@}" || rc=${?}
+					do_emerge --multi-defaults "${@}" || rc=${?}
 					if [ $(( rc )) -ne 0 ]; then
 						break
 					fi
@@ -1803,10 +1736,6 @@ case "${1:-}" in
 			)' packages (with post-package list) ..."
 			echo
 
-			# shellcheck disable=SC2016
-			print "Running 'emerge" \
-				"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
-				"${*}'${USE:+ with USE='${USE}'} with ROOT='${ROOT}'"
 			(
 				export LC_ALL='C'
 				for ROOT in $( # <- Syntax
@@ -1819,7 +1748,8 @@ case "${1:-}" in
 					export SYSROOT="${ROOT}"
 					export PORTAGE_CONFIGROOT="${SYSROOT}"
 					# shellcheck disable=SC2086
-					emerge ${parallel} ${opts} --usepkg=y "${@}" || rc=${?}
+					do_emerge --defaults ${parallel} --usepkg=y "${@}" ||
+						rc=${?}
 					if [ $(( rc )) -ne 0 ]; then
 						break
 					fi
@@ -1862,8 +1792,8 @@ case "${1:-}" in
 			echo
 			unset info
 
-			if [ -n "${EMERGE_OPTS:-}" ] && echo " ${EMERGE_OPTS} " |
-					grep -Eq -- ' --single(-post)? '
+			if [ -n "${EMERGE_OPTS:-}" ] &&
+				echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-post)? '
 			then
 				flags=''
 				for arg in "${@}" ${post_pkgs}; do
@@ -1890,10 +1820,6 @@ case "${1:-}" in
 							echo " * Building single post-package '${arg}'" \
 								"from '${post_pkgs}' ..."
 							echo
-							# shellcheck disable=SC2016
-							print "Running 'emerge" \
-								"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
-								"${arg}'${USE:+ with USE='${USE}'} with ROOT='${ROOT}'"
 							(
 								export LC_ALL='C'
 								export FEATURES='-fail-clean'
@@ -1907,7 +1833,7 @@ case "${1:-}" in
 									export SYSROOT="${ROOT}"
 									export PORTAGE_CONFIGROOT="${SYSROOT}"
 									# shellcheck disable=SC2086
-									emerge ${parallel} ${opts} \
+									do_emerge --defaults ${parallel} \
 										--usepkg=y ${flags:-} ${arg} || rc=${?}
 									if [ $(( rc )) -ne 0 ]; then
 										break
@@ -1917,16 +1843,12 @@ case "${1:-}" in
 							) || rc=${?}
 							;;
 					esac
-				done
+				done  # for arg in ${post_pkgs}
 
 			else # grep -Eq -- ' --single(-post)? ' <<<" ${EMERGE_OPTS} "
 				echo
 				echo " * Building post-packages '${post_pkgs}' ..."
 				echo
-				# shellcheck disable=SC2016
-				print "Running 'emerge" \
-					"${parallel:+${parallel} }${opts:+${opts} }--usepkg=y" \
-					"${post_pkgs}'${USE:+ with USE='${USE}'} with ROOT='${ROOT}'"
 				(
 					export LC_ALL='C'
 					for ROOT in $( # <- Syntax
@@ -1939,8 +1861,7 @@ case "${1:-}" in
 						export SYSROOT="${ROOT}"
 						export PORTAGE_CONFIGROOT="${SYSROOT}"
 						# shellcheck disable=SC2086
-						emerge ${parallel} ${opts} \
-								--usepkg=y \
+						do_emerge --defaults ${parallel} --usepkg=y \
 							${post_pkgs} || rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
 							break
@@ -2098,12 +2019,13 @@ case "${1:-}" in
 
 								case "${arg}" in
 									python_single_target_*)
-										continue ;;
+										continue
+										;;
 								esac
 								use="${use:+"${use} "}${arg}"
 								print "Added term - use is now '${use}'"
 							fi
-						done
+						done  # arg in ${USE}
 						print "use: '${use}'"
 
 						USE="$( # <- Syntax
@@ -2134,7 +2056,7 @@ case "${1:-}" in
 							LC_ALL='C' \
 							SYSROOT="${ROOT}" \
 							PORTAGE_CONFIGROOT="${ROOT}" \
-								emerge --info --verbose
+								emerge --info --verbose=y
 						)"
 						echo
 						echo 'Resolved build variables for python cleanup stage 1:'
@@ -2155,9 +2077,39 @@ case "${1:-}" in
 						echo "${info}" | format 'PYTHON_TARGETS'
 						print "pkgs: '${pkgs}'"
 
-						# openmp for gcc/libb2
+						# These packages seem to break dependencies, stating
+						# that gcc[openmp] is not present when it actually
+						# is...
 						#
-						# shellcheck disable=SC2086
+						for root in $( echo '/' "${ROOT:-}" | xargs -n 1 | sort | uniq ); do
+							for pkg in \
+									sys-devel/gcc \
+									app-crypt/libb2 \
+									app-portage/portage-utils
+							do
+								ROOT="${root}" \
+								SYSROOT="${root}" \
+								USE="$( # <- Syntax
+									echo " ${USE} " |
+										sed -r \
+											-e 's/ python_targets_[^ ]+ / /g' \
+											-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
+											-e 's/^ // ; s/ $//'
+								) openmp" \
+								PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
+								do_emerge \
+											--rebuild-defaults \
+											--deep \
+										"${pkg}" ||
+									rc=${?}
+								if [ $(( rc )) -ne 0 ]; then
+									echo "ERROR: Stage 1 cleanup: ${rc}"
+									break
+								fi
+							done  # pkg in ...
+							unset pkg
+						done  # root in $(...)
+						unset root
 						USE="$( # <- Syntax
 							echo " ${USE} " |
 								sed -r \
@@ -2166,24 +2118,21 @@ case "${1:-}" in
 									-e 's/^ // ; s/ $//'
 						) openmp" \
 						PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
-						emerge ${parallel} ${opts} \
-								--oneshot \
-								--update \
-								--usepkg=y \
-							${pkgs} || rc=${?}
+						do_emerge --rebuild-defaults --deep ${pkgs} ||
+							rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
 							echo "ERROR: Stage 1 cleanup: ${rc}"
 							break
 						fi
 
-						export USE="${USE} -openmp -tmpfiles"
+						export USE="${USE} -tmpfiles"
 						export PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
 
 						info="$( # <- Syntax
 							LC_ALL='C' \
 							SYSROOT="${ROOT}" \
 							PORTAGE_CONFIGROOT="${ROOT}" \
-								emerge --info --verbose
+								emerge --info --verbose=y
 						)"
 						echo
 						echo 'Resolved build variables for python cleanup stage 2:'
@@ -2232,46 +2181,44 @@ case "${1:-}" in
 						fi
 						print "pkgs: '${pkgs}'"
 
-						# shellcheck disable=SC2086
-						emerge ${parallel} ${opts} \
-								--oneshot \
-								--usepkg=y \
-							app-crypt/libb2 app-portage/portage-utils sys-devel/gcc sys-devel/gettext || rc=${?}
+						do_emerge --rebuild-defaults \
+								app-crypt/libb2 app-portage/portage-utils \
+								sys-devel/gcc sys-devel/gettext ||
+							rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
 							echo "ERROR: Stage 2 pre-cleanup: ${rc}"
 							break
 						fi
 
 						# shellcheck disable=SC2086
-						emerge ${parallel} ${opts} \
-								--oneshot \
-								--update \
-								--usepkg=y \
-							${pkgs} || rc=${?}
+						do_emerge --rebuild-defaults --update ${pkgs} ||
+							rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
 							echo "ERROR: Stage 2 cleanup: ${rc}"
 							break
 						fi
 
-						if [ $(( $( resolve_python_flags | grep -- '^PYTHON_TARGETS=' | cut -d'=' -f 2- | xargs -rn 1 | wc -l ) )) -gt 1 ]; then
-							# shellcheck disable=SC2086
-							emerge ${parallel} ${opts} \
-									--depclean \
-								"<${targetpkg}" || rc=${?}
+						if [ $(( $(
+							resolve_python_flags |
+								grep -- '^PYTHON_TARGETS=' |
+								cut -d'=' -f 2- |
+								xargs -rn 1 |
+								wc -l
+						) )) -gt 1 ]; then
+							do_emerge --depclean-defaults "<${targetpkg}" ||
+								rc=${?}
 							if [ $(( rc )) -ne 0 ]; then
 								echo "ERROR: Stage 2 package depclean: ${rc}"
 								break
 							fi
 						fi
 
-						# shellcheck disable=SC2086
-						emerge ${parallel} ${opts} \
-								--depclean || rc=${?}
+						do_emerge --depclean-defaults || rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
 							echo "ERROR: Stage 2 world depclean: ${rc}"
 							break
 						fi
-					done
+					done  # for ROOT in $(...)
 
 					exit ${rc}
 				) || rc=${?}
@@ -2288,14 +2235,11 @@ case "${1:-}" in
 		echo 'Final package cleanup:'
 		echo '---------------------'
 		echo
-		# shellcheck disable=SC2086
-		emerge ${parallel} ${opts} \
-				--unmerge dev-util/meson dev-util/meson-format-array || :
-		# shellcheck disable=SC2086
-		emerge ${parallel} ${opts} \
-				--depclean dev-libs/icu app-portage/gemato || :
-		# shellcheck disable=SC2046,SC2086
-		find "${ROOT}"/var/db/pkg/dev-python/ \
+		do_emerge --unmerge-defaults \
+			dev-util/meson dev-util/meson-format-array || :
+		do_emerge --depclean-defaults dev-libs/icu app-portage/gemato || :
+		# shellcheck disable=SC2046
+		set -- $( find "${ROOT}"/var/db/pkg/dev-python/ \
 				-mindepth 1 \
 				-maxdepth 1 \
 				-type d |
@@ -2303,12 +2247,25 @@ case "${1:-}" in
 			cut -d'/' -f 1-2 |
 			rev |
 			sed 's/^/=/' |
-			grep -v 'pypy3' |
-			xargs -r emerge ${parallel} ${opts} --depclean || :
+			grep -v 'pypy3'
+		)
+		if [ -n "${*:-}" ]; then
+			do_emerge --depclean-defaults "${@:-}"
+		fi
 
 		if [ $(( rc )) -ne 0 ]; then
 			echo "ERROR: Final package cleanup: ${rc}"
+		else
+			set +e
+			ROOT='/' SYSROOT='/' LC_ALL='C' emerge --check-news
+			ROOT='/' SYSROOT='/' LC_ALL='C' eselect --colour=yes news read |
+				grep -Fv -- 'No news is good news.'
+			printf '\n---\n\n'
+			LC_ALL='C' emerge --check-news
+			LC_ALL='C' eselect --colour=yes news read |
+				grep -Fv -- 'No news is good news.'
 		fi
+
 		exit ${rc}
 	;;
 esac
