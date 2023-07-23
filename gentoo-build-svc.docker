@@ -618,9 +618,12 @@ else
 	warn "Forcing creation of new 'service.${package_name}:${package_version}' image ..."
 fi
 
+#  Remove ssp/default-stack-clash-protection as these are causing postinst
+#  failures with at least app-editors/vim :(
+#
 # from common/vars.sh:
-#use_essential="asm ipv6 ithreads native-extensions mdev nptl split-usr ssp threads tls-heartbeat zlib${use_cpu_flags:+ ${use_cpu_flags}}"
-#use_essential_gcc="default-stack-clash-protection -default-znow -fortran graphite nptl openmp pch -sanitize ssp -vtv zstd"
+#use_essential="asm ipv6 ithreads native-extensions ktls mdev nptl split-usr -ssp threads${use_cpu_flags:+ ${use_cpu_flags}}"
+#use_essential_gcc="-default-stack-clash-protection -default-znow -fortran graphite nptl openmp pch -sanitize -ssp -vtv zstd"
 
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
@@ -653,7 +656,7 @@ else
 			php_targets="${original_service%[0-9]}-${original_service#php[0-9]}"
 			;;
 		*)
-			php_targets='php_targets_php7-4'
+			php_targets='php_targets_php8-1'
 			;;
 	esac
 fi
@@ -781,8 +784,9 @@ case "${package_name}" in
 		;;
 	*.lighttpd)
 		output "Setting build variables for package 'lighttpd' ..."
-		pre_pkgs='app-admin/gamin dev-lang/php media-gfx/imagemagick sys-apps/help2man sys-devel/gcc virtual/fam'
+		pre_pkgs='app-admin/gamin >=dev-lang/php-8.1 media-gfx/imagemagick sys-apps/help2man sys-devel/gcc virtual/fam'
 		pre_pkgs+=' acct-group/lighttpd acct-user/lighttpd'
+		pre_use="$( replace_flags '-graphite' '-lib-only' 'openmp' 'zstd' -- "${use_essential_gcc}" )"
 		extra_pkgs='
 			app-admin/gamin
 			dev-lang/perl
@@ -796,6 +800,7 @@ case "${package_name}" in
 		'
 		extra_pkgs+=' app-shells/bash'
 		gcc_extra_flags+=' openmp'
+		post_use="$( replace_flags '-graphite' 'lib-only' 'openmp' 'zstd' -- "${use_essential_gcc}" )"
 
 		#ports='80/tcp 443/tcp'
 		ports='7080/tcp 7443/tcp'
@@ -917,7 +922,9 @@ case "${package_name}" in
 		esac
 		output "Setting build variables for package 'php' ..."
 		# eselect-php-0.9.6+ required for ROOT support
-		pre_pkgs='dev-php/PEAR-PEAR media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6 acct-group/lighttpd acct-user/lighttpd acct-group/nobody'
+		pre_pkgs='dev-php/PEAR-PEAR media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6'
+		pre_pkgs+=' acct-group/lighttpd acct-user/lighttpd acct-group/nobody'
+		pre_use="$( replace_flags '-graphite' '-lib-only' 'openmp' 'zstd' -- "${use_essential_gcc}" )"
 		# TODO: There has to be a better way... ?
 		#extra_pkgs="acct-group/lighttpd dev-db/mysql-connector-c dev-php/pecl-imagick >=dev-php/pecl-memcache-4 media-gfx/imagemagick $(
 		#	roundcube_flags='change-password enigma exif managesieve mysql plugins ssl spell zxcvbn'
@@ -970,9 +977,11 @@ case "${package_name}" in
 			sys-apps/file
 			sys-apps/gentoo-functions
 			sys-apps/shadow
+			virtual/mta
 		'
 			#dev-util/strace
 		gcc_extra_flags+=' openmp'
+		post_use="$( replace_flags '-graphite' 'lib-only' 'openmp' 'zstd' -- "${use_essential_gcc}" )"
 
 		container_cmd="/usr/${LIB}/${PHP_SLOT}/bin/php-fpm"
 		etcdir='php'
@@ -1220,13 +1229,13 @@ case "${package_name}" in
 			)"
 		fi
 
-		masked_packages='=dev-python/setuptools-46.4.0-r3 sys-apps/util-linux' # sys-apps/file sys-apps/portage
+		masked_packages='dev-python/setuptools::unifi sys-apps/sandbox::unifi sys-apps/util-linux::unifi' # sys-apps/file sys-apps/portage
 		export L10N='en'
 		export CFLAGS="${CFLAGS:+"${CFLAGS} "}-w"  # mongodb is *really* noisy...
-		pre_use="$( replace_flags 'headless-awt' -- "${gcc_use}" )"
+		pre_use="$( replace_flags '-graphite' 'headless-awt' -- "${gcc_use}" )"
 		force_python='python2_7'
 		#pre_pkgs='dev-java/openjdk-bin:8 dev-lang/python:2.7 sys-devel/gcc'
-		pre_pkgs="${masked_packages} sys-devel/gcc acct-group/mongodb acct-group/unifi acct-user/mongodb acct-user/unifi"
+		pre_pkgs="${masked_packages} <sys-devel/gcc-11 acct-group/mongodb acct-group/unifi acct-user/mongodb acct-user/unifi"
 		#extra_pkgs='
 		#	  sys-devel/gcc
 		#	 =app-misc/pax-utils-1.2.4
@@ -1269,7 +1278,7 @@ case "${package_name}" in
 			5.*|6.*|7.0.*|7.1.*|7.2.*)
 				extra_pkgs='dev-java/openjdk-bin:8'
 				;;
-			#7.3.*)
+			#7.3.*|7.4.*)
 			*)
 				#extra_pkgs='dev-java/openjdk-bin:11'
 				extra_pkgs='dev-java/openjdk:11'
@@ -1278,8 +1287,8 @@ case "${package_name}" in
 		#post_remove="${extra_pkgs}"
 		extra_pkgs="${extra_pkgs} <dev-db/mongodb-4.2 dev-lang/python:2.7" # app-admin/eselect app-eselect/eselect-python'
 		extra_pkgs="${extra_pkgs} app-misc/ca-certificates${ECLASS_OVERRIDE:+"::${ECLASS_OVERRIDE}"}"
-		extra_pkgs="${extra_pkgs} ${masked_packages}"
-		with_use="python_targets_${force_python}"
+		extra_pkgs="${extra_pkgs} ${masked_packages} <sys-devel/gcc-11"
+		with_use="-graphite lib-only openmp zstd python_targets_${force_python}"
 
 		ports='3478/udp 5514/udp 8080/tcp 8443/tcp 8880/tcp 8843/tcp 6789/tcp 27117/tcp 10001/udp 1900/udp 5656-5699/udp'
 		user='unifi'
@@ -1293,7 +1302,9 @@ case "${package_name}" in
 		;;
 	*.vim)
 		output "Setting build variables for package 'vim' ..."
-		extra_pkgs='app-vim/dhcpd-syntax app-vim/eselect-syntax app-vim/gentoo-syntax app-vim/help-extra-syntax app-vim/info app-vim/json app-vim/nginx-syntax app-vim/ntp-syntax vim-spell-en'
+		pre_pkgs='sys-apps/net-tools'
+		pre_use='hostname'
+		extra_pkgs='app-vim/dhcpd-syntax app-vim/eselect-syntax app-vim/gentoo-syntax app-vim/help-extra-syntax app-vim/info app-vim/json app-vim/nginx-syntax app-vim/ntp-syntax app-vim/vim-spell-en sys-apps/net-tools'
 
 		container_cmd='/usr/bin/vim'
 		etcdir='vim'
@@ -1365,8 +1376,7 @@ case " ${pre_pkgs} " in
 		# spamassassin updates require perl and a functioning compiler
 		# in the container...
 		if [ "${original_service}" != 'spamassassin-update' ] && [ "${original_service}" != 'sa-update' ]; then
-			post_use="${post_use:+" ${post_use}"} ${gcc_extra_flags}"
-			post_use="$( replace_flags 'lib-only' -- "${post_use}" )"
+			post_use="$( replace_flags 'lib-only' ${gcc_extra_flags} -- "${post_use}" )"
 			if [ -n "${post_pkgs:-}" ]; then
 				warn "sys-devel/gcc needs to be rebuilt (without dependencies) but 'post_pkgs' is non-empty... suggest moving 'post_pkgs' to 'extra_pkgs'"
 				warn "post_pkgs contains '${post_pkgs}'"
@@ -1438,7 +1448,7 @@ case " ${gcc_extra_flags:-} " in
 esac
 
 if [[ -z "${post_use:-}" && -n "${with_use:-}" ]]; then
-	post_use="$( replace_flags 'lib-only' 'openmp' -- "${post_use}" )"
+	post_use="$( replace_flags 'lib-only' 'openmp' -- "${with_use}" )"
 fi
 
 if [ -z "${container_cmd:-}" ]; then
@@ -1517,11 +1527,11 @@ if [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/${package_mask_
 	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/${package_mask_svc_name}' to '/etc/portage/package.mask/${package_mask_svc_name}' ..."
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/${package_mask_svc_name},destination=/etc/portage/package.mask/${package_mask_svc_name}${docker_readonly:+",${docker_readonly}"}"
 elif [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/package.mask" ] && ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/package.mask" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/package.mask' to '/etc/portage/package.mask/package.mask' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+",${docker_readonly}"}"
+	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/package.mask' to '/etc/portage/package.mask/package.mask.svc' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/package.mask,destination=/etc/portage/package.mask/package.mask.svc${docker_readonly:+",${docker_readonly}"}"
 elif [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc" ] && ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc' to '/etc/portage/package.mask/package.mask' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc,destination=/etc/portage/package.mask/package.mask${docker_readonly:+",${docker_readonly}"}"
+	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc' to '/etc/portage/package.mask/package.mask.svc' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc,destination=/etc/portage/package.mask/package.mask.svc${docker_readonly:+",${docker_readonly}"}"
 else
 	note "No 'package.mask' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/'"
 fi
@@ -1531,11 +1541,11 @@ if [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask/${package_name#*.}"
 	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/${package_name#*.}' to '/etc/portage/package.mask/${package_name#*.}' ..."
 	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/${package_name#*.},destination=/etc/portage/package.mask/${package_name#*.}${docker_readonly:+",${docker_readonly}"}"
 elif [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask" ] && ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask' to '/etc/portage/package.mask/package.mask' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+",${docker_readonly}"}"
+	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask' to '/etc/portage/package.mask/package.mask.base' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/package.mask.base${docker_readonly:+",${docker_readonly}"}"
 elif [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask" ] && ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask' to '/etc/portage/package.mask/package.mask' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask,destination=/etc/portage/package.mask/package.mask${docker_readonly:+",${docker_readonly}"}"
+	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask' to '/etc/portage/package.mask/package.mask.base' ..."
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask,destination=/etc/portage/package.mask/package.mask.base${docker_readonly:+",${docker_readonly}"}"
 else
 	note "No 'package.mask' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/'"
 fi
@@ -1593,7 +1603,7 @@ else
 	trap - INT
 
 	# Remove glibc dependencies on gzip, grep, awk...
-	#build_use="${USE:+"${USE} "}compile-locales minimal ssp timezone-tools"
+	#build_use="${USE:+"${USE} "}compile-locales minimal -ssp timezone-tools"
 
 	DOCKER_CMD_VARS="${DOCKER_CMD_VARS:+"${DOCKER_CMD_VARS} "}--env VERY_BRAVE_OR_VERY_DUMB=\"yes\""
 	# shadow needed for /sbin/nologin; coreutils needed for chmod
