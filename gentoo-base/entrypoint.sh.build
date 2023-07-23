@@ -1562,11 +1562,21 @@ case "${1:-}" in
 							# ... then install again without '--usepkg':
 							#
 							# shellcheck disable=SC2016
-							print "Running 'emerge" \
-								"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-								"--usepkg=n --with-bdeps=n --with-bdeps-auto=n" \
-								"${flags:+"${flags} "}${arg}'${USE:+" with USE='${USE}'"}" \
-								"with ROOT='${ROOT}'"
+							#set -x
+							#print "Running 'emerge" \
+							#	"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+							#	"--usepkg=n --with-bdeps=n --with-bdeps-auto=n" \
+							#	"${flags:+"${flags} "}${arg}'${USE:+" with USE='${USE}'"}" \
+							#	"with ROOT='${ROOT}'"
+							#set +x
+							#/usr/libexec/entrypoint.sh: line 1566: arithmetic syntax error
+							printf "Running 'emerge %s%s--buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n %s%s'%s with ROOT='%s'" \
+								"${parallel:+"${parallel} "}" \
+								"${opts:+"${opts} "}" \
+								"${flags:+"${flags} "}" \
+								"${arg}" \
+								"${USE:+" with USE='${USE}'"}" \
+								"${ROOT}"
 							# shellcheck disable=SC2086
 							LC_ALL='C' FEATURES='-fail-clean' emerge \
 									  ${parallel} \
