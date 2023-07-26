@@ -1056,20 +1056,23 @@ do
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 		export LC_ALL='C'
 		case "${pkg}" in
+			#app-alternatives/awk)
+			#	USE="-busybox ${USE} gawk"
+			#	;;
+			dev-libs/libxml2)
+				USE="${USE} -lzma -python_targets_python3_10"
+				;;
+			sys-libs/libcap)
+				USE="${USE} -tools"
+				;;
 			#sys-libs/libxcrypt|virtual/libcrypt)
 			#	USE="${USE} static-libs"
 			#	;;
 			sys-process/audit)
 				# sys-process/audit is the first package which can pull-in an
 				# older python release, which causes preserved libraries...
-				USE="${USE} -berkdb -gdbm"
+				USE="${USE} -berkdb -ensurepip -gdbm -ncurses -readline -sqlite"
 				;;
-			#dev-libs/libxml2)
-			#	USE="${USE} xml"
-			#	;;
-			#app-alternatives/awk)
-			#	USE="-busybox ${USE} gawk"
-			#	;;
 		esac
 		do_emerge --single-defaults "${pkg}"
 	)
@@ -1487,19 +1490,38 @@ echo
 
 		# Try to prevent preserved rebuilds being required...
 		#
+		# -gmp blocks gnutls...
+		#
 		# shellcheck disable=SC2086
-		USE="${USE:+"${USE} "}-asm -gdbm -gmp" \
+		USE="${USE:+"${USE} "}asm cxx -ensurepip -gdbm gmp -ncurses openssl -readline -sqlite -zstd" \
 			do_emerge --once-defaults \
 				dev-libs/nettle \
 				net-libs/gnutls \
-				sys-libs/gdbm
-		do_emerge --system-defaults --update ${pkg_system} # || :
+				sys-libs/gdbm \
+				dev-lang/python \
+				dev-lang/perl
+		root_use=''
+		if [ -z "${ROOT:-}" ] || [ "${ROOT}" = '/' ]; then
+			root_use='-acl compat -bzip2 -e2fsprogs -expat -iconv -lzma -lzo -nettle -xattr -zstd'
+		fi
+
+		# For some reason, portage is selecting dropbear to satisfy
+		# virtual/ssh?
+		#
+		USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp -nettle -nls openssl" \
+			do_emerge \
+					--exclude='net-misc/dropbear' \
+					--exclude='dev-libs/libtomcrypt' \
+					--system-defaults \
+					--update \
+				${pkg_system} dev-libs/nettle net-libs/gnutls
+		unset root_use
 
 		echo
 		echo " * Rebuilding any preserved dependencies ..."
 		echo
 		# We're hitting errors here that dev-libs/nettle[gmp] is required...
-		USE="${USE:+"${USE} "}gmp" \
+		USE="${USE:+"${USE} "}asm -ensurepip -gdbm -ncurses openssl -readline -sqlite -zstd" \
 			do_emerge --preserved-defaults '@preserved-rebuild'
 	done  # for ROOT in $(...)
 )  # @system
@@ -2059,7 +2081,7 @@ case "${1:-}" in
 								emerge --info --verbose=y
 						)"
 						echo
-						echo 'Resolved build variables for python cleanup stage 1:'
+						echo "Resolved build variables for python cleanup stage 1 in ROOT '${ROOT}':"
 						echo '---------------------------------------------------'
 						echo
 						echo "ROOT                = $( # <- Syntax
@@ -2095,7 +2117,7 @@ case "${1:-}" in
 											-e 's/ python_targets_[^ ]+ / /g' \
 											-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
 											-e 's/^ // ; s/ $//'
-								) openmp" \
+								) -fortran graphite -jit -nls openmp -sanitize -ssp" \
 								PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
 								do_emerge \
 											--rebuild-defaults \
@@ -2103,7 +2125,7 @@ case "${1:-}" in
 										"${pkg}" ||
 									rc=${?}
 								if [ $(( rc )) -ne 0 ]; then
-									echo "ERROR: Stage 1 cleanup: ${rc}"
+									echo "ERROR: Stage 1 cleanup for root '${ROOT}': ${rc}"
 									break
 								fi
 							done  # pkg in ...
@@ -2121,7 +2143,7 @@ case "${1:-}" in
 						do_emerge --rebuild-defaults --deep ${pkgs} ||
 							rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
-							echo "ERROR: Stage 1 cleanup: ${rc}"
+							echo "ERROR: Stage 1 cleanup for root '${ROOT}': ${rc}"
 							break
 						fi
 
@@ -2135,7 +2157,7 @@ case "${1:-}" in
 								emerge --info --verbose=y
 						)"
 						echo
-						echo 'Resolved build variables for python cleanup stage 2:'
+						echo "Resolved build variables for python cleanup stage 2 in ROOT '${ROOT}':"
 						echo '---------------------------------------------------'
 						echo
 						echo "${info}" | format 'USE'
@@ -2181,12 +2203,13 @@ case "${1:-}" in
 						fi
 						print "pkgs: '${pkgs}'"
 
-						do_emerge --rebuild-defaults \
-								app-crypt/libb2 app-portage/portage-utils \
-								sys-devel/gcc sys-devel/gettext ||
-							rc=${?}
+						USE="${USE:+"${USE} "}-acl -cxx -fortran graphite -jit -ncurses -nls openmp -sanitize -ssp" \
+							do_emerge --rebuild-defaults \
+									app-crypt/libb2 app-portage/portage-utils \
+									sys-devel/gcc sys-devel/gettext ||
+								rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
-							echo "ERROR: Stage 2 pre-cleanup: ${rc}"
+							echo "ERROR: Stage 2 pre-cleanup for root '${ROOT}': ${rc}"
 							break
 						fi
 
@@ -2194,7 +2217,7 @@ case "${1:-}" in
 						do_emerge --rebuild-defaults --update ${pkgs} ||
 							rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
-							echo "ERROR: Stage 2 cleanup: ${rc}"
+							echo "ERROR: Stage 2 cleanup for root '${ROOT}': ${rc}"
 							break
 						fi
 
@@ -2232,7 +2255,7 @@ case "${1:-}" in
 		# TODO: The following package-lists are manually maintained :(
 		#
 		echo
-		echo 'Final package cleanup:'
+		echo 'Final package cleanup for root '${ROOT}':'
 		echo '---------------------'
 		echo
 		do_emerge --unmerge-defaults \
