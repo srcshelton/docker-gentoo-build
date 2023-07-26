@@ -1214,8 +1214,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 					"${use_pypy_use:+python_targets_pypy3 ${use_pypy_use:-}}" \
 					"${use_essential_gcc:-}"
 				  )" \
-			sys-devel/gcc sys-apps/sed sys-apps/util-linux dev-libs/icu dev-util/pkgconf \
-			sys-libs/libeudev @system \
+			dev-libs/icu dev-util/pkgconf sys-apps/locale-gen sys-apps/sed \
+			sys-apps/util-linux sys-devel/gcc sys-libs/libeudev @system \
 			${use_pypy:+sys-apps/portage ${use_pypy:-}} 2>&1 |
 		tee -a ../log/"docker.${build_name#*/}.log"
 	)

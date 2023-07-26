@@ -375,6 +375,24 @@ fi
 		die "gentoo-build:entrypoint.sh Unable to source" \
 			"'${environment_file}': ${?}"
 
+if [ -x /usr/sbin/locale-gen ]; then
+	if [ -n "${JOBS:-}" ]; then
+		case "${JOBS}" in
+			0|1|'*')
+				locale-gen --update
+				;;
+			[0-9]*)
+				locale-gen --update --jobs "${JOBS}"
+				;;
+			*)
+				locale-gen --update --jobs "${DEFAULT_JOBS}"
+				;;
+		esac
+	else
+		locale-gen --update --jobs "${DEFAULT_JOBS}"
+	fi
+fi
+
 if command -v env-update >/dev/null 2>&1; then
 	LC_ALL='C' env-update
 fi
@@ -714,8 +732,8 @@ if [ -n "${TUSE:-}" ]; then
 		USE="${TUSE}${use_essential:+ ${use_essential}}"
 	fi
 	export USE
-	unset TUSE
 fi
+unset TUSE
 
 info="$( # <- Syntax
 	LC_ALL='C' emerge --info --verbose=y
@@ -1176,6 +1194,11 @@ case "${1:-}" in
 		git_safedirectory_markall
 		;;
 	*)
+		has_locale_gen=0
+		if [ -x /usr/sbin/locale-gen ]; then
+			has_locale_gen=1
+		fi
+
 		# Extract first package, to pass to check() below...
 		#
 		for arg in "${@}"; do
@@ -1187,16 +1210,22 @@ case "${1:-}" in
 
 		echo
 
-		build_pkgs='app-containers/netavark'
-		build_list=''
-		for build_pkg in ${build_pkgs}; do
-			build_list="${build_list:+"${build_list}|"}${build_pkg#*/}|${build_pkg}"
+		# curl work-arounds... keep in sync with applyworkarounds()
+		curl_pkgs='app-containers/podman app-containers/netavark dev-lang/rust'
+		curl_list=''
+		for curl_pkg in ${curl_pkgs}; do
+			curl_list="${curl_list:+"${curl_list}|"}${curl_pkg#*/}|${curl_pkg}"
 		done
-		if echo " ${*} " | grep -Eq -- " ([<>]?=|~)?(${build_list})[ -]"; then
-			warn "Adding post-package entry 'net-misc/curl' due to presence of app-containers/netavark ..."
+		if curl_pkg="$( # <- Syntax
+				echo " ${*} " |
+					grep -Eo -- " ([<>]?=|~)?(${curl_list})[ -]"
+		)" && [ -n "${curl_pkg:-}" ]; then
+			curl_pkg="${curl_pkg#?}"
+			warn "Adding post-package entry 'net-misc/curl' due to presence" \
+				"of ${curl_pkg%?} ..."
 			post_pkgs="${post_pkgs:+${post_pkgs} }net-misc/curl"
 		fi
-		unset build_pkg build_list build_pkgs
+		unset curl_pkg curl_list curl_pkgs
 
 		echo " * Building requested '$( # <- Syntax
 			printf '%s' "${*}" | sed 's/--[^ ]\+ //g'
@@ -1633,6 +1662,24 @@ case "${1:-}" in
 				clearworkarounds
 			fi
 		fi # [ -n "${rebuild:-}" ]
+
+		if [ $(( has_locale_gen )) -eq 0 ] && [ -x /usr/sbin/locale-gen ]; then
+			if [ -n "${JOBS:-}" ]; then
+				case "${JOBS}" in
+					0|1|'*')
+						locale-gen --update
+						;;
+					[0-9]*)
+						locale-gen --update --jobs "${JOBS}"
+						;;
+					*)
+						locale-gen --update --jobs "${DEFAULT_JOBS}"
+						;;
+				esac
+			else
+				locale-gen --update --jobs "${DEFAULT_JOBS}"
+			fi
+		fi
 		;;
 esac
 

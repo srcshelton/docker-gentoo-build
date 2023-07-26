@@ -130,10 +130,12 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
         } ; \
     gcc-config 1 2>/dev/null ; \
     test -s /etc/profile && . /etc/profile ; \
-    if [ -n "${JOBS:-}" ] && [ $(( JOBS )) -gt 1 ]; then \
-        locale-gen -k -u ${JOBS:+-j ${JOBS}} ; \
-    else \
-        locale-gen -k -u ; \
+    if [ -x /usr/sbin/locale-gen ]; then \
+            if [ -n "${JOBS:-}" ] && [ $(( JOBS )) -gt 1 ]; then \
+                locale-gen -k -u ${JOBS:+-j ${JOBS}} ; \
+            else \
+                locale-gen -k -u ; \
+            fi ; \
     fi ; \
     printf "#FILTER: '%s'\n\n" "${environment_filter}" >"${environment_file}" && \
     export -p | \
@@ -171,7 +173,7 @@ RUN test -s "${environment_file}" && \
     chmod 0755 /usr/libexec/entrypoint.sh && \
     sh -n /usr/libexec/entrypoint.sh
 
-RUN test -x /usr/sbin/locale-gen && /usr/sbin/locale-gen
+RUN test ! -x /usr/sbin/locale-gen || /usr/sbin/locale-gen
 
 # This container is anticipated to be inherited rather than run, or run with
 # (a) package atom(s) - but let's (re)emerge bash if executed directly without
