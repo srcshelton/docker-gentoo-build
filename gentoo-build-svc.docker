@@ -383,7 +383,7 @@ replace_flags() {
 	done
 
 	if (( 0 == ${#flags} )); then
-		print "ERROR: No flags supplied to ${FUNCNAME[0]} - received '${*:-}'"
+		print "WARN: No flags supplied to ${FUNCNAME[0]} - received '${*:-}'"
 		return 1
 	fi
 
@@ -669,6 +669,7 @@ case "${package_name}" in
 		pre_pkgs='sys-apps/help2man sys-devel/gcc acct-group/named acct-user/named'
 		extra_pkgs='app-alternatives/bc dev-lang/perl sys-apps/coreutils sys-apps/file sys-apps/gentoo-functions'
 		extra_pkgs+=' app-shells/bash sys-devel/bc'
+		gcc_extra_flags+=' openmp'
 
 		ports='53/tcp 53/udp 953/tcp 8053/tcp'
 		container_cmd='/usr/sbin/named'
@@ -786,7 +787,6 @@ case "${package_name}" in
 		output "Setting build variables for package 'lighttpd' ..."
 		pre_pkgs='app-admin/gamin >=dev-lang/php-8.1 media-gfx/imagemagick sys-apps/help2man sys-devel/gcc virtual/fam'
 		pre_pkgs+=' acct-group/lighttpd acct-user/lighttpd'
-		pre_use="$( replace_flags '-graphite' '-lib-only' 'openmp' 'zstd' -- "${use_essential_gcc}" )"
 		extra_pkgs='
 			app-admin/gamin
 			dev-lang/perl
@@ -800,7 +800,6 @@ case "${package_name}" in
 		'
 		extra_pkgs+=' app-shells/bash'
 		gcc_extra_flags+=' openmp'
-		post_use="$( replace_flags '-graphite' 'lib-only' 'openmp' 'zstd' -- "${use_essential_gcc}" )"
 
 		#ports='80/tcp 443/tcp'
 		ports='7080/tcp 7443/tcp'
@@ -820,6 +819,7 @@ case "${package_name}" in
 	*.man-db)
 		output "Setting build variables for package 'man-db' ..."
 		pre_pkgs='sys-apps/help2man sys-apps/man-pages sys-apps/man-pages-posix sys-devel/gcc'
+		gcc_extra_flags+=' openmp'
 
 		container_cmd='/usr/bin/man'
 		;;
@@ -924,7 +924,6 @@ case "${package_name}" in
 		# eselect-php-0.9.6+ required for ROOT support
 		pre_pkgs='dev-php/PEAR-PEAR media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6'
 		pre_pkgs+=' acct-group/lighttpd acct-user/lighttpd acct-group/nobody'
-		pre_use="$( replace_flags '-graphite' '-lib-only' 'openmp' 'zstd' -- "${use_essential_gcc}" )"
 		# TODO: There has to be a better way... ?
 		#extra_pkgs="acct-group/lighttpd dev-db/mysql-connector-c dev-php/pecl-imagick >=dev-php/pecl-memcache-4 media-gfx/imagemagick $(
 		#	roundcube_flags='change-password enigma exif managesieve mysql plugins ssl spell zxcvbn'
@@ -981,7 +980,6 @@ case "${package_name}" in
 		'
 			#dev-util/strace
 		gcc_extra_flags+=' openmp'
-		post_use="$( replace_flags '-graphite' 'lib-only' 'openmp' 'zstd' -- "${use_essential_gcc}" )"
 
 		container_cmd="/usr/${LIB}/${PHP_SLOT}/bin/php-fpm"
 		etcdir='php'
@@ -1046,6 +1044,7 @@ case "${package_name}" in
 		output "Setting build variables for package 'powertop' ..."
 		pre_pkgs='sys-devel/gcc'
 		extra_pkgs='x11-apps/xset'
+		gcc_extra_flags+=' openmp'
 
 		container_cmd='/usr/sbin/powertop'
 		# Container requires '--privileged' to operate, data in /var/cache/powertop/
@@ -1370,13 +1369,17 @@ case " ${pre_pkgs} " in
 esac
 case " ${pre_pkgs} " in
 	*' sys-devel/gcc '*)
-		pre_use="${pre_use:+" ${pre_use}"}${use_essential_gcc:+"${use_essential_gcc}"} ${gcc_extra_flags}"
-		pre_use="$( replace_flags '-lib-only' 'openmp' -- "${pre_use}" )"
+		pre_use="$( replace_flags "${use_essential_gcc:-}" "${gcc_extra_flags:-}" -- "${pre_use:-}" )" || :
 		with_use="$( replace_flags '-lib-only' -- "${with_use}" )"
+		if [[ " ${gcc_extra_flags} " == *' openmp '* ]]; then
+			pre_use="$( replace_flags 'graphite' '-lib-only' 'openmp' 'zstd' -- "${pre_use:-}" )"
+			post_use="$( replace_flags '-graphite' 'lib-only' 'openmp' 'zstd' -- "${post_use:-}" )"
+			post_pkgs+=' app-crypt/libb2 app-portage/portage-utils'
+		fi
 		# spamassassin updates require perl and a functioning compiler
 		# in the container...
 		if [ "${original_service}" != 'spamassassin-update' ] && [ "${original_service}" != 'sa-update' ]; then
-			post_use="$( replace_flags 'lib-only' ${gcc_extra_flags} -- "${post_use}" )"
+			post_use="$( replace_flags 'lib-only' -- "${post_use}" )"
 			if [ -n "${post_pkgs:-}" ]; then
 				warn "sys-devel/gcc needs to be rebuilt (without dependencies) but 'post_pkgs' is non-empty... suggest moving 'post_pkgs' to 'extra_pkgs'"
 				warn "post_pkgs contains '${post_pkgs}'"
@@ -1450,6 +1453,16 @@ esac
 if [[ -z "${post_use:-}" && -n "${with_use:-}" ]]; then
 	post_use="$( replace_flags 'lib-only' 'openmp' -- "${with_use}" )"
 fi
+
+print "Final USE-flags:"
+print "pre_use: ${pre_use:-"<none>"}"
+print "with_use: ${with_use:-"<none>"}"
+print "post_use: ${post_use:-"<none>"}"
+print
+print "Final packages:"
+print "pre_pkgs: ${pre_pkgs:-"<none>"}"
+print "extra_pkgs: ${extra_pkgs:-"<none>"}"
+print "post_pkgs: ${post_pkgs:-"<none>"}"
 
 if [ -z "${container_cmd:-}" ]; then
 	die "No container command provided"
