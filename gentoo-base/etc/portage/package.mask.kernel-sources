@@ -1,0 +1,24 @@
+
+# The kernel (up to 6.4.x at least) Rust implementation requires old versions
+# dev-lang/rust and dev-util/bindgen, which currently depend on (specifically)
+# llvm:14 and python:3.10.  Let's try to prevent newer versions being pulled-in
+# and causig build issues...
+#
+>=sys-devel/clang-15
+>=sys-devel/clang-common-15
+>=sys-devel/clang-runtime-15
+>=sys-devel/clang-toolchain-symlinks-15
+>=sys-devel/lld-15
+>=sys-devel/lld-toolchain-symlinks-15
+>=sys-devel/llvmgold-15
+>=sys-devel/llvm-15
+>=sys-devel/llvm-common-15
+>=sys-devel/llvm-toolchain-symlinks-15
+>=sys-libs/compiler-rt-15
+>=sys-libs/compiler-rt-sanitizers-15
+>=sys-libs/libcxx-15
+>=sys-libs/libcxxabi-15
+>=sys-libs/libomp-15
+>=sys-libs/llvm-libunwind-15
+
+# vi: set colorcolumn=80 syntax=gentoo-package-mask:
