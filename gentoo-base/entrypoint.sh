@@ -1495,11 +1495,11 @@ echo
 		# shellcheck disable=SC2086
 		USE="${USE:+"${USE} "}asm cxx -ensurepip -gdbm gmp -ncurses openssl -readline -sqlite -zstd" \
 			do_emerge --once-defaults \
+				dev-lang/perl \
+				dev-lang/python \
 				dev-libs/nettle \
 				net-libs/gnutls \
-				sys-libs/gdbm \
-				dev-lang/python \
-				dev-lang/perl
+				sys-libs/gdbm
 		root_use=''
 		if [ -z "${ROOT:-}" ] || [ "${ROOT}" = '/' ]; then
 			root_use='-acl compat -bzip2 -e2fsprogs -expat -iconv -lzma -lzo -nettle -xattr -zstd'
@@ -1510,8 +1510,9 @@ echo
 		#
 		USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp -nettle -nls openssl" \
 			do_emerge \
-					--exclude='net-misc/dropbear' \
 					--exclude='dev-libs/libtomcrypt' \
+					--exclude='net-misc/dropbear' \
+					--exclude='sys-apps/net-tools' \
 					--system-defaults \
 					--update \
 				${pkg_system} dev-libs/nettle net-libs/gnutls
