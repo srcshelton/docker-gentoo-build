@@ -272,6 +272,17 @@ applyworkarounds() {
 		USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //')"}http2"
 		print "After work-around, USE is '${USE}'"
 	fi
+	aw_pkgs='dev-lang/php media-libs/freetype media-libs/harfbuzz'
+	aw_list=''
+	for aw_pkg in ${aw_pkgs}; do
+		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
+	done
+	if echo " ${aw_arg} " | grep -Eq -- " ([<>]?=|~)?(${aw_list})[ -]"; then
+		warn "Activating media-libs/harfbuzz work-arounds ..."
+		print "Before work-around, USE is '${USE}' ..."
+		USE="${USE:+"$( echo " ${USE} " | sed 's/ harfbuzz / / ; s/^ //')"}-harfbuzz"
+		print "After work-around, USE is '${USE}'"
+	fi
 	#aw_pkgs='app-containers/buildah'
 	#aw_list=''
 	#for aw_pkg in ${aw_pkgs}; do
@@ -1226,6 +1237,23 @@ case "${1:-}" in
 			post_pkgs="${post_pkgs:+${post_pkgs} }net-misc/curl"
 		fi
 		unset curl_pkg curl_list curl_pkgs
+
+		# harfbuzz work-arounds... keep in sync with applyworkarounds()
+		harfbuzz_pkgs='dev-lang/php media-libs/freetype media-libs/harfbuzz'
+		harfbuzz_list=''
+		for harfbuzz_pkg in ${harfbuzz_pkgs}; do
+			harfbuzz_list="${harfbuzz_list:+"${harfbuzz_list}|"}${harfbuzz_pkg#*/}|${harfbuzz_pkg}"
+		done
+		if harfbuzz_pkg="$( # <- Syntax
+				echo " ${*} " |
+					grep -Eo -- " ([<>]?=|~)?(${harfbuzz_list})[ -]"
+		)" && [ -n "${harfbuzz_pkg:-}" ]; then
+			harfbuzz_pkg="${harfbuzz_pkg#?}"
+			warn "Adding post-package entry 'media-libs/freetype' due to presence" \
+				"of ${harfbuzz_pkg%?} ..."
+			post_pkgs="${post_pkgs:+${post_pkgs} }media-libs/freetype"
+		fi
+		unset harfbuzz_pkg harfbuzz_list harfbuzz_pkgs
 
 		echo " * Building requested '$( # <- Syntax
 			printf '%s' "${*}" | sed 's/--[^ ]\+ //g'
