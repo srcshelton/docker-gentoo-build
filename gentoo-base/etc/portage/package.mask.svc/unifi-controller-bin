@@ -32,4 +32,11 @@ dev-util/meson
 >=virtual/jdk-12
 >=virtual/jre-12
 
+# mongod 4.0.28 is failing with:
+#
+#[signalProcessingThread] got signal 1 (Hangup), will terminate after current cmd ends
+#
+# ... or perhaps it's an LTO issue?
+>dev-db/mongodb-4.0.19
+
 # vi: set colorcolumn=80 syntax=gentoo-package-mask:

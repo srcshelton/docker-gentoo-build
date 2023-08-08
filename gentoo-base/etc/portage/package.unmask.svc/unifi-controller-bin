@@ -4,7 +4,8 @@
 # can move forward in cleaning python2 from tree. Bug #708954.
 # We keep the ebuilds available since some of those versions are still
 # supported by upstream. See: https://jira.mongodb.org/browse/SERVER-52687
-dev-db/mongodb::unifi
+#dev-db/mongodb::unifi
+=dev-db/mongodb-4.0.19::unifi
 
 app-arch/snappy::unifi
 app-misc/ca-certificates::unifi
