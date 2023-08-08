@@ -10,6 +10,7 @@ llvm_targets_AArch64
 llvm_targets_AMDGPU
 llvm_targets_ARM
 llvm_targets_AVR
+#llvm_targets_BPF
 llvm_targets_Hexagon
 llvm_targets_Lanai
 llvm_targets_LoongArch
@@ -21,7 +22,9 @@ llvm_targets_RISCV
 llvm_targets_Sparc
 llvm_targets_SystemZ
 llvm_targets_VE
+llvm_targets_WebAssembly
 llvm_targets_XCore
+#llvm_targets_X86
 
 # Prevent other Python implementations being pulled-in
 #
@@ -33,7 +36,7 @@ python_targets_python3_6
 python_targets_python3_7
 python_targets_python3_8
 python_targets_python3_9
-#python_targets_python3_10
+python_targets_python3_10
 #python_targets_python3_11
 python_targets_python3_12
 
