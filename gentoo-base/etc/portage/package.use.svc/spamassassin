@@ -6,6 +6,10 @@ app-text/poppler			 boost
 #app-text/tesseract			-doc float32 jpeg -opencl openmp png -static-libs tiff -training -webp
 app-text/tesseract			 float32
 
+# required by mail-filter/spamassassin-4.0.0-r4[extracttext]
+# required by app-text/tesseract-5.3.0
+media-libs/leptonica			 zlib
+
 #dev-perl/DBD-mysql			-mariadb +mysql test +(ssl)
 dev-perl/DBD-mysql			 mariadb mysql
 #dev-perl/Net-DNS-SEC			+dsa +ecdsa gost +private-key test

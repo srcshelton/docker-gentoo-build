@@ -12,6 +12,10 @@ dev-perl/Net-DNS-SEC			 dsa ecdsa private-key
 #mail-filter/spamassassin		+berkdb cron dkim dmarc extracttext geoip idn (ipv6) largenet ldap mysql office pacct postgres qmail razor +sa-update spf sqlite (ssl) systemd test unicode
 mail-filter/spamassassin		 extracttext mysql sa-update
 
+# required by mail-filter/spamassassin-4.0.0-r4[extracttext]
+# required by app-text/tesseract-5.3.0
+media-libs/leptonica			 zlib
+
 sys-apps/busybox			-make-symlinks
 #sys-apps/coreutils			 gmp
 # Keep the following in sync with common/vars.sh
