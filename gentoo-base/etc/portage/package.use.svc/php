@@ -25,6 +25,9 @@ dev-php/pecl-redis			 igbinary json lz4 session zstd
 #media-gfx/imagemagick			 X bzip2 corefonts +cxx djvu fftw fontconfig fpx graphviz hdri heif jbig jpeg jpeg2k lcms lqr lzma opencl openexr openmp pango perl png postscript q32 q8 raw static-libs svg test tiff truetype webp wmf xml (zlib)
 media-gfx/imagemagick			 bzip2 jpeg perl png # svg webp (xml)
 
+# dependency required by dev-php/PEAR-PEAR-1.10.13
+dev-lang/php				 zlib
+
 app-crypt/gnupg				-ssl
 # dependency required by dev-php/PEAR-Crypt_GPG-1.6.4
 # dependency required by app-crypt/gnupg-2.2.27[ssl]
