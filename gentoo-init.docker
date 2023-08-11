@@ -713,8 +713,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 
 		need_pull=0
 	elif
-		[[ -n "${repo_path_srcshelton:-}" ]] &&
-			[[ -d "${repo_path_srcshelton}" ]]
+			[[ -n "${repo_path_srcshelton:-}" ]] &&
+				[[ -d "${repo_path_srcshelton}" ]]
 	then
 		if [[ -s "${repo_path_srcshelton}/.image_digests" ]]; then
 			ref="$(
@@ -730,23 +730,49 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 				need_pull=1
 			else
 				info "Using '${gentoo_stage3_image}' pin '${ref}'"
-				$docker image pull "${gentoo_stage3_image}@${ref}" ||
-					rc=${?}
-				if ! (( rc )); then
-					$docker image untag \
-						"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null || :
+
+				# podman-4.6.x has strange behaviour where untagging an image
+				# also seems to lose the associated SHA256?
+				#
+				# See https://github.com/containers/podman/issues/19594
+				#
+				# We can work around this by untagging *before* pulling...
+				#
+				if [[ -n "$(
+					$docker image list \
+						-q \
+						--filter "reference=${gentoo_stage3_image}:${gentoo_stage3_tag}"
+				)" ]]
+				then
+					if ! $docker image untag \
+							"${gentoo_stage3_image}:${gentoo_stage3_tag}"
+					then
+						$docker --debug image untag \
+								"${gentoo_stage3_image}:${gentoo_stage3_tag}" ||
+							die "$docker image untag failed to remove" \
+								"'${gentoo_stage3_image}:${gentoo_stage3_tag}' tag"
+					fi
+				fi
+
+				if ! $docker image pull "${gentoo_stage3_image}@${ref}"; then
+					$docker --debug image pull "${gentoo_stage3_image}@${ref}" ||
+						rc=${?}
+				else
 					info "Tagging '${ref}' as" \
 						"'${gentoo_stage3_image}:${gentoo_stage3_tag}'"
-					$docker image tag "${gentoo_stage3_image}@${ref}" \
-							"${gentoo_stage3_image}:${gentoo_stage3_tag}" ||
-						rc=${?}
-				fi
-				if ! (( rc )); then
-					need_pull=0
-				else
-					warn "Pull of pinned image failed - reverting to tag" \
-						"'${gentoo_stage3_tag}'"
-					need_pull=1
+
+					if ! $docker image tag "${gentoo_stage3_image}@${ref}" \
+							"${gentoo_stage3_image}:${gentoo_stage3_tag}"
+					then
+						$docker --debug image tag "${gentoo_stage3_image}@${ref}" \
+								"${gentoo_stage3_image}:${gentoo_stage3_tag}" || :
+						warn "Pull of pinned image failed - reverting to tag" \
+							"'${gentoo_stage3_tag}'"
+						need_pull=1
+					else
+						rc=0
+						need_pull=0
+					fi
 				fi
 			fi
 		fi
@@ -754,17 +780,20 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 
 	if (( need_pull )); then
 		info "Pulling image '${gentoo_stage3_image}:${gentoo_stage3_tag}' ..."
-		$docker image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}" ||
+		if ! $docker image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}"; then
 			rc=${?}
+			$docker --debug image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}"
+		fi
 	fi
 
 	unset need_pull
 	trap - INT
 
-	[[ $(( rc )) -eq 0 ]] ||
+	if (( rc )); then
 		die "'$docker image pull' failed to retrieve image" \
 			"'${gentoo_stage3_image}:${gentoo_stage3_tag}' for architecture" \
 			"'${docker_arch}'"
+	fi
 
 	# 'podman image ls' won't show images by SHA256 reference...
 	#if [[ -n "${ref:-}" ]]; then
