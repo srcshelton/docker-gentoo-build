@@ -1,4 +1,5 @@
 
+~app-admin/checksec-2.6.0-r1				~amd64 ~arm ~arm64 ~x86
 # move app-arch/upx-ucl app-arch/upx
 ~app-arch/upx-4.0.2					       ~arm ~arm64
 ~app-misc/linux-logo-6.0				       ~arm ~arm64
