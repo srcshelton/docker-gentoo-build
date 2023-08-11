@@ -390,17 +390,17 @@ if [ -x /usr/sbin/locale-gen ]; then
 	if [ -n "${JOBS:-}" ]; then
 		case "${JOBS}" in
 			0|1|'*')
-				locale-gen --update
+				ROOT='' locale-gen --update
 				;;
 			[0-9]*)
-				locale-gen --update --jobs "${JOBS}"
+				ROOT='' locale-gen --update --jobs "${JOBS}"
 				;;
 			*)
-				locale-gen --update --jobs "${DEFAULT_JOBS}"
+				ROOT='' locale-gen --update --jobs "${DEFAULT_JOBS}"
 				;;
 		esac
 	else
-		locale-gen --update --jobs "${DEFAULT_JOBS}"
+		ROOT='' locale-gen --update --jobs "${DEFAULT_JOBS}"
 	fi
 fi
 
@@ -1338,25 +1338,25 @@ case "${1:-}" in
 						echo " * Building single package '${arg}' from '${*}' ..."
 						echo
 						(
-						USE="$( applyworkarounds "${arg}" "${USE}" )"
-						export USE
-						# shellcheck disable=SC2016
-						print "Running 'emerge" \
-							"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-							"--usepkg=y --with-bdeps=n" \
-							"--with-bdeps-auto=n" \
-							"${flags:+"${flags} "}${arg}'${USE:+" with USE='${USE}'"}" \
-							"with ROOT='${ROOT}'"
-						# shellcheck disable=SC2086
-						LC_ALL='C' FEATURES='-fail-clean' emerge \
-								  ${parallel} \
-								  ${opts} \
-								--buildpkg=y \
-								--usepkg=y \
-								--with-bdeps=n \
-								--with-bdeps-auto=n \
-								  ${flags:-} \
-							"${arg}"
+							USE="$( applyworkarounds "${arg}" "${USE}" )"
+							export USE
+							# shellcheck disable=SC2016
+							print "Running 'emerge" \
+								"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+								"--usepkg=y --with-bdeps=n" \
+								"--with-bdeps-auto=n" \
+								"${flags:+"${flags} "}${arg}'${USE:+" with USE='${USE}'"}" \
+								"with ROOT='${ROOT}'"
+							# shellcheck disable=SC2086
+							LC_ALL='C' FEATURES='-fail-clean' emerge \
+									  ${parallel} \
+									  ${opts} \
+									--buildpkg=y \
+									--usepkg=y \
+									--with-bdeps=n \
+									--with-bdeps-auto=n \
+									  ${flags:-} \
+								"${arg}"
 						) || rc=${?}
 						clearworkarounds
 						;;
@@ -1373,49 +1373,49 @@ case "${1:-}" in
 					echo " * Building first package '${first}' of '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' ..."
 					echo
 					(
-					USE="$( applyworkarounds "${arg}" "${USE}" )"
-					export USE
-					# shellcheck disable=SC2016
-					print "Running 'emerge" \
-						"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-						"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
-						"${flags:+"${flags} "}${first}'${USE:+" with USE='${USE}'"}" \
-						"with ROOT='${ROOT}'"
-					# shellcheck disable=SC2086
-					LC_ALL='C' FEATURES='-fail-clean' emerge \
-							  ${parallel} \
-							  ${opts} \
-							--buildpkg=y \
-							--usepkg=y \
-							--with-bdeps=n \
-							--with-bdeps-auto=n \
-							  ${flags:-} \
-						"${first}"
+						USE="$( applyworkarounds "${arg}" "${USE}" )"
+						export USE
+						# shellcheck disable=SC2016
+						print "Running 'emerge" \
+							"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+							"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
+							"${flags:+"${flags} "}${first}'${USE:+" with USE='${USE}'"}" \
+							"with ROOT='${ROOT}'"
+						# shellcheck disable=SC2086
+						LC_ALL='C' FEATURES='-fail-clean' emerge \
+								  ${parallel} \
+								  ${opts} \
+								--buildpkg=y \
+								--usepkg=y \
+								--with-bdeps=n \
+								--with-bdeps-auto=n \
+								  ${flags:-} \
+							"${first}"
 					) || rc=${?}
 					clearworkarounds
 			fi
 
 		else # ! echo " ${EMERGE_OPTS:-} " | grep -Eq -- ' --single(-build)? '; then
 			(
-			# We're not performing single-builds, so build everything at the
-			# same time (and potentially in parallel)
-			#
-			USE="$( applyworkarounds "${arg}" "${USE}" )"
-			export USE
-			# shellcheck disable=SC2016
-			print "Running 'emerge" \
-				"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-				"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
-				"${*}'${USE:+" with USE='${USE}'"} with ROOT='${ROOT}'"
-			# shellcheck disable=SC2086
-			LC_ALL='C' FEATURES='-fail-clean' emerge \
-					  ${parallel} \
-					  ${opts} \
-					--buildpkg=y \
-					--usepkg=y \
-					--with-bdeps=n \
-					--with-bdeps-auto=n \
-				"${@}"
+				# We're not performing single-builds, so build everything at the
+				# same time (and potentially in parallel)
+				#
+				USE="$( applyworkarounds "${arg}" "${USE}" )"
+				export USE
+				# shellcheck disable=SC2016
+				print "Running 'emerge" \
+					"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+					"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
+					"${*}'${USE:+" with USE='${USE}'"} with ROOT='${ROOT}'"
+				# shellcheck disable=SC2086
+				LC_ALL='C' FEATURES='-fail-clean' emerge \
+						  ${parallel} \
+						  ${opts} \
+						--buildpkg=y \
+						--usepkg=y \
+						--with-bdeps=n \
+						--with-bdeps-auto=n \
+					"${@}"
 			) || rc=${?}
 			clearworkarounds
 		fi
@@ -1592,25 +1592,25 @@ case "${1:-}" in
 							echo
 
 							(
-							# Reinstall package first to maximise dependency re-use...
-							#
-							USE="$( applyworkarounds "${arg}" "${USE}" )"
-							export USE
-							# shellcheck disable=SC2016
-							print "Running build-dependencies 'emerge" \
-								"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-								"--usepkg=y --with-bdeps=y" \
-								"${flags:+"${flags} "}${arg}'${USE:+" with USE='${USE}'"}" \
-								"with ROOT='${ROOT}'"
-							# shellcheck disable=SC2086
-							LC_ALL='C' FEATURES='-fail-clean' emerge \
-									  ${parallel} \
-									  ${opts} \
-									--buildpkg=y \
-									--usepkg=y \
-									--with-bdeps=y \
-									  ${flags:-} \
-								${arg}
+								# Reinstall package first to maximise dependency re-use...
+								#
+								USE="$( applyworkarounds "${arg}" "${USE}" )"
+								export USE
+								# shellcheck disable=SC2016
+								print "Running build-dependencies 'emerge" \
+									"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+									"--usepkg=y --with-bdeps=y" \
+									"${flags:+"${flags} "}${arg}'${USE:+" with USE='${USE}'"}" \
+									"with ROOT='${ROOT}'"
+								# shellcheck disable=SC2086
+								LC_ALL='C' FEATURES='-fail-clean' emerge \
+										  ${parallel} \
+										  ${opts} \
+										--buildpkg=y \
+										--usepkg=y \
+										--with-bdeps=y \
+										  ${flags:-} \
+									${arg}
 							) || rc=${?}
 							clearworkarounds
 
@@ -1650,23 +1650,23 @@ case "${1:-}" in
 
 			else # [ -z "${EMERGE_OPTS:-}" ] || ! echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-rebuild)? '; then
 				(
-				# Reinstall package first to maximise dependency re-use...
-				#
-				USE="$( applyworkarounds "${arg}" "${USE}" )"
-				export USE
-				# shellcheck disable=SC2016
-				print "Running build-dependencies 'emerge" \
-					"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-					"--usepkg=y --with-bdeps=y" \
-					"${rebuild}'${USE:"+ with USE='${USE}'"} with ROOT='${ROOT}'"
-				# shellcheck disable=SC2086
-				LC_ALL='C' FEATURES='-fail-clean' emerge \
-						  ${parallel} \
-						  ${opts} \
-						--buildpkg=y \
-						--usepkg=y \
-						--with-bdeps=y \
-					${rebuild}
+					# Reinstall package first to maximise dependency re-use...
+					#
+					USE="$( applyworkarounds "${arg}" "${USE}" )"
+					export USE
+					# shellcheck disable=SC2016
+					print "Running build-dependencies 'emerge" \
+						"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+						"--usepkg=y --with-bdeps=y" \
+						"${rebuild}'${USE:+" with USE='${USE}'"} with ROOT='${ROOT}'"
+					# shellcheck disable=SC2086
+					LC_ALL='C' FEATURES='-fail-clean' emerge \
+							  ${parallel} \
+							  ${opts} \
+							--buildpkg=y \
+							--usepkg=y \
+							--with-bdeps=y \
+						${rebuild}
 				) || rc=${?}
 
 				git_safedirectory_markall
@@ -1695,17 +1695,17 @@ case "${1:-}" in
 			if [ -n "${JOBS:-}" ]; then
 				case "${JOBS}" in
 					0|1|'*')
-						locale-gen --update
+						ROOT='' locale-gen --update
 						;;
 					[0-9]*)
-						locale-gen --update --jobs "${JOBS}"
+						ROOT='' locale-gen --update --jobs "${JOBS}"
 						;;
 					*)
-						locale-gen --update --jobs "${DEFAULT_JOBS}"
+						ROOT='' locale-gen --update --jobs "${DEFAULT_JOBS}"
 						;;
 				esac
 			else
-				locale-gen --update --jobs "${DEFAULT_JOBS}"
+				ROOT='' locale-gen --update --jobs "${DEFAULT_JOBS}"
 			fi
 		fi
 		;;
