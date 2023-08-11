@@ -1548,6 +1548,7 @@ if [ -s /etc/bash/bashrc.patch ]; then
 			echo ' * Patching /etc/bash/bashrc ...'
 			patch -p1 -r - -s </etc/bash/bashrc.patch ||
 				die "Applying patch to bashrc failed: ${?}"
+			rm /etc/bash/bashrc.patch
 		else
 			warn "'${ROOT%/}/etc/bash/bashrc' does not exist or is empty"
 		fi

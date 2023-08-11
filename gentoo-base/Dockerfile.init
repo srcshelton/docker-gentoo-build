@@ -59,6 +59,19 @@ RUN echo >&2 "Creating initial image from '${gentoo_stage3_image}' for '${ARCH}'
     mkdir /etc/portage
 
 COPY etc/ /etc/
+RUN for base in \
+        package.accept_keywords \
+        package.mask \
+        package.unmask \
+        package.use ; \
+    do \
+        for object in /etc/portage/${base}.*; do \
+            test "${object}" != '/etc/portage/package.use.init' || continue ; \
+            test "${object}" != '/etc/portage/package.use.build' || continue ; \
+            test ! -e "${object}" || rm -rf "${object}" ; \
+        done ; \
+    done
+
 
 # Confirm correct extraction...
 #
@@ -92,7 +105,8 @@ RUN test -s /etc/timezone && \
 # exec-form...
 RUN test -d /etc/portage/package.use.init && \
     test ! -e /etc/portage/package.use && \
-    mv /etc/portage/package.use.init /etc/portage/package.use
+    mv /etc/portage/package.use.init /etc/portage/package.use || : ; \
+    test -e /etc/portage/package.use
 
 RUN set -u ; \
     ln -sf /usr/share/portage/config/make.globals /etc/portage/make.globals ; \
