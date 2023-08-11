@@ -8,7 +8,7 @@
 */*					 encode expat
 */*					-fontconfig -fortran fam fftw filecaps ftp
 */*					-gnutls -gpm -graph -gtk -gtk3 -guile gd gdbm gmp
-*/*					-introspection icu idn inotify iodbc ipv6 ithreads
+*/*					-introspection icu idn inotify io-uring iodbc ipv6 ithreads
 */*					-java javascript jemalloc json
 */*					-kerberos
 */*					-libedit -ldap -lua libatomic libffi libidn2 libwww lighttpd lto lz4 lzma lzo
@@ -184,7 +184,7 @@ net-vpn/openvpn				 down-root eurephia iproute2 passwordsave
 perl-core/bignum			 test
 sci-mathematics/pari			-X
 sys-apps/baselayout			 varrun
-sys-apps/busybox			-pam -sep-usr -split-usr math  # static
+sys-apps/busybox			-pam -savedconfig -sep-usr -split-usr math  # static
 sys-apps/coreutils			-hostname  # conflicts sys-apps/net-tools[hostname]
 sys-apps/debianutils			-installkernel
 sys-apps/file				-python

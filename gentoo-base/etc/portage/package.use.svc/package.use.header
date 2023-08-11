@@ -21,5 +21,6 @@ dev-lang/perl				 minimal
 dev-lang/python-exec			 native-symlinks
 dev-libs/libgcrypt			 getentropy
 dev-util/pkgconf			 pkg-config
+sys-apps/busybox			-savedconfig
 sys-devel/gcc				-ssp
 sys-libs/glibc				 clone3 compile-locales minimal -ssp timezone-tools

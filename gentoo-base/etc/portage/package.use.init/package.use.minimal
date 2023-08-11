@@ -29,7 +29,7 @@ dev-libs/libgcrypt			 getentropy
 dev-util/pkgconf			 pkg-config
 net-misc/curl				-adns -ares -http2 openssl ssl
 sys-apps/baselayout			 varrun
-sys-apps/busybox			 mdev  # static
+sys-apps/busybox			-savedconfig mdev  # static
 sys-apps/grep				 pcre
 sys-apps/help2man			-nls
 sys-apps/kmod				 tools
