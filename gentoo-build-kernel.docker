@@ -612,7 +612,7 @@ fi
 if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" | wc -l )" = '2' ]; then
 	(
 		ACCEPT_LICENSE="linux-fw-redistributable no-source-code"
-		USE="extra-filters hostname${rustext:+" http2"} lzma${openmp:+" openmp"}${rustext:+" rust-src"} symlink threads zlib${compiler_USE:+" ${compiler_USE}"}"
+		USE="extra-filters${rustext:+" http2"} lzma${openmp:+" openmp"}${rustext:+" rust-src"} symlink threads zlib${compiler_USE:+" ${compiler_USE}"}"
 		if [[ -n "${firmware:-}" ]]; then
 			USE="firmware ${USE}"
 		else
@@ -923,11 +923,13 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		make ${kernel_make_opts[@]} clean ;
 	fi ;
 	if [ $(( rust )) -ne 0 ]; then
+		clang --version ;
+		echo ;
+		rustc --version ;
+		echo ;
 		export RUST_BACKTRACE=1
 		echo "${RUST_PATCH_B64}" | base64 -d | patch -p0 ;
-		make ${kernel_make_opts[@]} rustavailable ;
-		echo ;
-		clang --version ;
+		make --debug=print ${kernel_make_opts[@]} rustavailable ;
 	fi ;
 	if [ -e .config ]; then
 		echo "Configuration changes from '.config':" ;
