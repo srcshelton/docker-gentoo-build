@@ -308,8 +308,10 @@
 #~app-containers/containers-storage-1.45.5		 **
 #~app-containers/containers-storage-1.46.0		 **
 #~app-containers/containers-storage-1.46.1		 **
-~app-containers/containers-storage-1.47.0		 **
-~app-containers/containers-storage-1.48.0		 **
+#~app-containers/containers-storage-1.47.0		 **
+#~app-containers/containers-storage-1.48.0		 **
+~app-containers/containers-storage-1.48.1		 **
+~app-containers/containers-storage-1.49.0		 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
