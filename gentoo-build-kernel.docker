@@ -127,6 +127,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "       --no-install  Don't install build-products to /boot"
 	output >&2 "       --clean       Run 'make clean' before build"
 	output >&2 "       --clean-lto   Remove exisitng *.lto.o objects"
+	output >&2 "       --debug       Allocate more memory to build-container"
 	output >&2
 	output >&2 "Running on architecture '${arch:-"${ARCH:-}"}'"
 	output >&2
@@ -146,6 +147,7 @@ declare -i force=0
 declare -i install=1
 declare -i opt_o3=0
 declare -i rust=0
+declare -i raise_mem=0
 declare build_dir=''
 declare compiler='gcc'
 declare config=''
@@ -176,6 +178,9 @@ if echo " ${*:-} " | grep -q -- ' -O3 '; then
 fi
 if echo " ${*:-} " | grep -q -- ' --no-install '; then
 	install=0
+fi
+if echo " ${*:-} " | grep -q -- ' --debug '; then
+	raise_mem=1
 fi
 if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 	compiler='clang'
@@ -662,13 +667,6 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 			${openmp:+--post-use="-lib-only"}
 		)
 
-		# DEBUG-enabled 'LD vmlinux.o' step fails with OOM with 2G
-		# reservation :(
-		#
-		#export PODMAN_MEMORY_RESERVATION="8g"
-		#export PODMAN_MEMORY_LIMIT="12g"
-		#export PODMAN_SWAP_LIMIT="${PODMAN_MEMORY_LIMIT}"
-
 		# shellcheck disable=SC2086,SC2154
 		time {
 			_docker_run \
@@ -985,6 +983,19 @@ DOCKER_SCRIPT="$( echo "${DOCKER_SCRIPT}" | tr "${nl}" ' ' )"
 unset nl
 
 export DOCKER_ENTRYPOINT DOCKER_INTERACTIVE DOCKER_EXTRA_MOUNTS DOCKER_VOLUMES DOCKER_SCRIPT
+
+if (( raise_mem )); then
+	# DEBUG-enabled 'LD vmlinux.o' step fails with OOM with 2G
+	# reservation :(
+	#
+	export PODMAN_MEMORY_RESERVATION='8g'
+	export PODMAN_MEMORY_LIMIT='12g'
+	export PODMAN_SWAP_LIMIT="${PODMAN_MEMORY_LIMIT}"
+#else
+#	export PODMAN_MEMORY_RESERVATION='2g'
+#	export PODMAN_MEMORY_LIMIT='8g'
+#	export PODMAN_SWAP_LIMIT="${PODMAN_MEMORY_LIMIT}"
+fi
 
 time {
 	#set -x
