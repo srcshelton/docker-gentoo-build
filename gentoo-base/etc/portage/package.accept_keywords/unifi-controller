@@ -1,5 +1,14 @@
 
 ~net-misc/unifi-controller-bin-6.0.45			~amd64
+
+# Release 6.x after 6.0 have a less-functional UI divided into 'old' and 'new'
+# views, neither of which are as functional as the 6.0.x UI :(
+#
+~net-misc/unifi-controller-bin-6.1.71			~amd64
+~net-misc/unifi-controller-bin-6.2.26			~amd64
+~net-misc/unifi-controller-bin-6.4.54			~amd64
+~net-misc/unifi-controller-bin-6.5.55			~amd64
+
 ~net-misc/unifi-controller-bin-7.0.23			~amd64
 ~net-misc/unifi-controller-bin-7.1.61			~amd64
 ~net-misc/unifi-controller-bin-7.1.65			~amd64
@@ -10,18 +19,19 @@
 ~net-misc/unifi-controller-bin-7.2.94			~amd64
 ~net-misc/unifi-controller-bin-7.2.95			~amd64
 ~net-misc/unifi-controller-bin-7.2.97			~amd64
+
+#  Release 7.3.x and above support Java 11 rather than Java 1.8
+#
 ~net-misc/unifi-controller-bin-7.3.76			~amd64
 ~net-misc/unifi-controller-bin-7.3.83			~amd64
 ~net-misc/unifi-controller-bin-7.4.156			~amd64
 ~net-misc/unifi-controller-bin-7.4.162			~amd64
 
-# Releases 6.1.x and above have a less-functional UI divided into 'old' and
-# 'new' views, neither of which are as functional as the 6.0.x UI :(
+# Release 7.5.x and above support Java 17 and MongoDB versions up to (but not
+# including) 5.0
 #
-~net-misc/unifi-controller-bin-6.1.71			~amd64
-~net-misc/unifi-controller-bin-6.2.26			~amd64
-~net-misc/unifi-controller-bin-6.4.54			~amd64
-~net-misc/unifi-controller-bin-6.5.55			~amd64
+~net-misc/unifi-controller-bin-7.5.172			~amd64
+#~net-misc/unifi-controller-bin-7.5.174_rc		~amd64
 
 # Ensure the host package matches the version of the target container
 #
@@ -44,5 +54,7 @@
 ~container/unifi-controller-7.3.83			~amd64
 ~container/unifi-controller-7.4.156			~amd64
 ~container/unifi-controller-7.4.162			~amd64
+~container/unifi-controller-7.5.172			~amd64
+#~container/unifi-controller-7.5.174_rc			~amd64
 
 # vi: set syntax=gentoo-package-keywords:

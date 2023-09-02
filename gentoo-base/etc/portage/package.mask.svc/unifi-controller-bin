@@ -1,42 +1,42 @@
 
 # The meson build system isn't compatible with python2_7
-dev-util/meson
+#dev-util/meson
 
 # Don't install more recent util-linux
->sys-apps/util-linux-2.33.2
+#>sys-apps/util-linux-2.33.2
 
 # Mask ebuilds beyond what we've pinned...
->app-arch/snappy-1.1.9
->app-misc/pax-utils-1.3.3
->dev-db/mongodb-4.0.22
->dev-java/java-config-2.2.0-r4
->dev-libs/boost-1.72.0-r1
->dev-python/certifi-1
->dev-python/cheetah-2.4.4-r1
->dev-python/markdown-3.1.1-r1
->dev-python/pyyaml-5.3.1
->dev-python/regex-2020.4.4
->dev-python/setuptools-46.4.0-r3
->dev-python/typing-3.7.4.3
->dev-util/boost-build-1.72.0
->dev-util/cmake-3.9.6
->dev-util/scons-3.1.2
->sys-apps/file-5.37-r1
->sys-apps/portage-2.3.89-r1
+#>app-arch/snappy-1.1.9
+#>app-misc/pax-utils-1.3.3
+#>dev-db/mongodb-4.0.22
+#>dev-java/java-config-2.2.0-r4
+#>dev-libs/boost-1.72.0-r1
+#>dev-python/certifi-1
+#>dev-python/cheetah-2.4.4-r1
+#>dev-python/markdown-3.1.1-r1
+#>dev-python/pyyaml-5.3.1
+#>dev-python/regex-2020.4.4
+#>dev-python/setuptools-46.4.0-r3
+#>dev-python/typing-3.7.4.3
+#>dev-util/boost-build-1.72.0
+#>dev-util/cmake-3.9.6
+#>dev-util/scons-3.1.2
+#>sys-apps/file-5.37-r1
+#>sys-apps/portage-2.3.89-r1
 
 # Allow for JDK11 updates, but unifi-controller-bin is not yet validated
 # against JDK12+
->=dev-java/openjdk-12
->=dev-java/openjdk-bin-12
->=dev-java/openjdk-jre-bin-12
->=virtual/jdk-12
->=virtual/jre-12
+#>=dev-java/openjdk-12
+#>=dev-java/openjdk-bin-12
+#>=dev-java/openjdk-jre-bin-12
+#>=virtual/jdk-12
+#>=virtual/jre-12
 
 # mongod 4.0.28 is failing with:
 #
 #[signalProcessingThread] got signal 1 (Hangup), will terminate after current cmd ends
 #
 # ... or perhaps it's an LTO issue?
->dev-db/mongodb-4.0.19
+#>dev-db/mongodb-4.0.19
 
 # vi: set colorcolumn=80 syntax=gentoo-package-mask:

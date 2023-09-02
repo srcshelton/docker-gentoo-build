@@ -5,31 +5,31 @@
 # We keep the ebuilds available since some of those versions are still
 # supported by upstream. See: https://jira.mongodb.org/browse/SERVER-52687
 #dev-db/mongodb::unifi
-=dev-db/mongodb-4.0.19::unifi
-
-app-arch/snappy::unifi
-app-misc/ca-certificates::unifi
-app-misc/pax-utils::unifi
-dev-java/java-config::unifi
-dev-libs/boost::unifi
-dev-libs/snowball-stemmer::unifi
-dev-python/certifi::unifi
-dev-python/cheetah::unifi
-dev-python/markdown::unifi
-dev-python/pyblake2::unifi
-dev-python/pyyaml::unifi
-dev-python/setuptools::unifi
-dev-python/snowball-stemmer::unifi
-dev-python/typing::unifi
-dev-util/boost-build::unifi
-dev-util/cmake::unifi
-dev-util/meson-format-array::unifi
-dev-util/scons::unifi
-net-misc/unifi-controller-bin::unifi
-sys-apps/file::unifi
-sys-apps/portage::unifi
-sys-apps/sandbox::unifi
-
-=sys-apps/util-linux-2.33.2::unifi
+#=dev-db/mongodb-4.0.19::unifi
+#
+#app-arch/snappy::unifi
+#app-misc/ca-certificates::unifi
+#app-misc/pax-utils::unifi
+#dev-java/java-config::unifi
+#dev-libs/boost::unifi
+#dev-libs/snowball-stemmer::unifi
+#dev-python/certifi::unifi
+#dev-python/cheetah::unifi
+#dev-python/markdown::unifi
+#dev-python/pyblake2::unifi
+#dev-python/pyyaml::unifi
+#dev-python/setuptools::unifi
+#dev-python/snowball-stemmer::unifi
+#dev-python/typing::unifi
+#dev-util/boost-build::unifi
+#dev-util/cmake::unifi
+#dev-util/meson-format-array::unifi
+#dev-util/scons::unifi
+#net-misc/unifi-controller-bin::unifi
+#sys-apps/file::unifi
+#sys-apps/portage::unifi
+#sys-apps/sandbox::unifi
+#
+#=sys-apps/util-linux-2.33.2::unifi
 
 # vi: set syntax=gentoo-package-mask:
