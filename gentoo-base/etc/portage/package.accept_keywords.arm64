@@ -100,10 +100,6 @@
 # the specified overrides will quickly be superseded and no longer applicable,
 # while providing an initial base-line.
 
-=container/bind-9.16.37					~arm64
-
-=sys-apps/fakeroot-1.31					~arm64
-
 #=app-admin/webapp-config-1.55-r2			~arm64
 #=app-crypt/libb2-0.98.1-r2				~arm64
 =app-crypt/libb2-0.98.1-r3				~arm64
