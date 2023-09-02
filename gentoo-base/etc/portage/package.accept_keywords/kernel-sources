@@ -1,15 +1,18 @@
 
-# Current stable package is gentoo-sources-5.10.187
-~sys-kernel/gentoo-sources-5.10.191			~amd64 ~x86
+# Current stable package is gentoo-sources-5.10.191
+~sys-kernel/gentoo-sources-5.10.192			~amd64 ~x86
 
-# Current stable package is gentoo-sources-5.15.122
-~sys-kernel/gentoo-sources-5.15.127			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-5.15.127
+~sys-kernel/gentoo-sources-5.15.128			~amd64 ~arm ~arm64 ~x86
 
-# Current stable package is gentoo-sources-6.1.41
-=sys-kernel/gentoo-sources-6.1.46			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-6.1.46
+=sys-kernel/gentoo-sources-6.1.49			~amd64 ~arm ~arm64 ~x86
 
-~sys-kernel/gentoo-sources-6.4.9			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/vanilla-sources-6.4.9			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.4.12			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-6.4.12			~amd64 ~arm ~arm64 ~x86
+
+~sys-kernel/gentoo-sources-6.5.0			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-6.5.0			~amd64 ~arm ~arm64 ~x86
 
 # Required for rust modules...
 #
@@ -21,8 +24,8 @@
 =sys-devel/lld-toolchain-symlinks-14-r2			~amd64
 =sys-devel/llvm-toolchain-symlinks-14-r1		~amd64
 # 6.5.x
-#=virtual/rust-1.68.2					~amd64
-#=dev-lang/rust-1.68.2					~amd64
+=virtual/rust-1.68.2					~amd64
+=dev-lang/rust-1.68.2					~amd64
 
 # Additional kernel-modules...
 #~net-firewall/xtables-addons-3.18			~amd64 ~arm ~arm64 ~x86
