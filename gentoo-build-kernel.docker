@@ -98,36 +98,43 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 		"[--no-keep-build|--keep-build[=<dir>]]" \
 		"[--no-patch|--patch=<url>[,<url]]" \
 		"[--menuconfig|--nconfig]" \
-		"[--package=<atom>] [--firmware] [--clean]" \
-		"[--clang [--clean-lto] [--llvm-unwind] [--rust]] [-O3]"
+		"[--package=<atom>] [--no-firmware|--firmware] [--clean]" \
+		"[--clang [--clean-lto] [--llvm-unwind] [--rust]] [-O3]" \
+		"[--debug] [--force-llvm=<version>]"
 	)"
 	output "${usage}${options}" | fold -sw ${COLUMNS:-"80"} - | head -n 1 >&2
 	output "${options}" | fold -sw $(( ${COLUMNS:-"80"} - ${#usage} )) - | sed "s|^|${usage//?/ }|" | tail -n +2 >&2
 	output >&2
 	output >&2 "Options:"
-	output >&2 "       --config-from Use specified file as kernel base configuration"
-	output >&2 "                    (specify config.gz or /proc/config.gz to auto-extract the"
-	output >&2 "                     active kernel configuration)"
-	output >&2 "                     N.B. To keep the resultant configuration, use the"
-	output >&2 "                          '--keep-build' option to save the build output"
-	output >&2 "       --defconfig   preconfigure with specified 'make' target"
-	output >&2 "       --force       Overwrite build-cache configuration with specified file"
-	output >&2 "       --keep-build  Cache the kernel build artefacts for re-use"
-	output >&2 "                    (optionally in the specified directory)"
-	output >&2 "       --patch <url> Apply patch (-p1) from specified URL"
-	output >&2 "       --menuconfig  Interactively reconfigure the kernel via ncurses"
-	output >&2 "       --nconfig     Interactively reconfigure the kernel via nconfig"
-	output >&2 "       --package     Specify kernel package to build"
-	output >&2 "                    (default: sys-kernel/gentoo-sources)"
-	output >&2 "       --firmware    Include sys-kernel/linux-firmware"
-	output >&2 "       -O3           Add 'KCFLAGS=-O3' (and others - see [1])"
-	output >&2 "       --clang       Compile kernel with llvm"
-	output >&2 "       --llvm-unwind Install LLVM edition of libunwind"
-	output >&2 "       --rust        Pull-in 'rust' dependencies"
-	output >&2 "       --no-install  Don't install build-products to /boot"
-	output >&2 "       --clean       Run 'make clean' before build"
-	output >&2 "       --clean-lto   Remove exisitng *.lto.o objects"
-	output >&2 "       --debug       Allocate more memory to build-container"
+	output >&2 "       --config-from <file>     Use specified file as kernel base configuration"
+	output >&2 "                               (specify config.gz or /proc/config.gz to"
+	output >&2 "                                auto-extract the active kernel configuration)"
+	output >&2 "                                N.B. To keep the resultant configuration, use"
+	output >&2 "                                     the '--keep-build' option to save the"
+	output >&2 "                                     build output"
+	output >&2 "       --defconfig <target>     preconfigure with specified 'make' target"
+	output >&2 "       --config <target>        configure with specified 'make' target"
+	output >&2 "       --keep-build [dir]       Cache the kernel build artefacts for re-use"
+	output >&2 "                               (optionally in the specified directory)"
+	output >&2 "       --force                  Overwrite build-cache configuration with"
+	output >&2 "                                the specified file"
+	output >&2 "       --patch <url>            Apply patch (-p1) from specified URL"
+	output >&2 "       --menuconfig             Interactively reconfigure the kernel via ncurses"
+	output >&2 "       --nconfig                Interactively reconfigure the kernel via nconfig"
+	output >&2 "       --package <package>      Specify kernel package to build"
+	output >&2 "                               (default: 'sys-kernel/gentoo-sources')"
+	output >&2 "       --firmware               Include 'sys-kernel/linux-firmware'"
+	output >&2 "       -O3                      Add 'KCFLAGS=-O3' (and others - see [1])"
+	output >&2 "       --clang                  Compile kernel with llvm"
+	output >&2 "       --llvm-unwind            Install LLVM edition of libunwind"
+	output >&2 "       --rust                   Pull-in 'rust' dependencies"
+	output >&2 "       --force-llvm <version>   Force a specified LLVM version instead of '${llvm_sub_slot}'"
+	output >&2
+	output >&2 "       --no-install             Don't install build-products to /boot"
+	output >&2 "       --clean                  Run 'make clean' before build"
+	output >&2 "       --clean-lto              Remove exisitng *.lto.o objects"
+	output >&2
+	output >&2 "       --debug                  Allocate more memory to build-container"
 	output >&2
 	output >&2 "Running on architecture '${arch:-"${ARCH:-}"}'"
 	output >&2
@@ -157,6 +164,7 @@ declare nconfig=''
 declare patch=''
 declare unwind=''
 declare version=''
+declare rust_llvm_use=''
 
 if [[ -n "${kbuild_opt:-}" ]]; then
 	set -- "${*:-}" "${kbuild_opt}"
@@ -193,6 +201,17 @@ if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 	if echo " ${*:-} " | grep -Fq -- ' --rust '; then
 		rust=1
 	fi
+	if echo " ${*:-} " | grep -q -- ' --force-llvm'; then
+		if echo " ${*:-} " | grep -q -- ' --force-llvm=[^ ]\+ '; then
+			llvm_sub_slot="$( echo " ${*} " | grep -o -- '--force-llvm=[^ ]\+ ' | cut -d'=' -f 2- | sed 's/ $//' )"
+		elif echo " ${*:-} " | grep -q -- ' --force-llvm [^ -][^ ]* '; then
+			llvm_sub_slot="$( echo " ${*} " | grep -o -- '--force-llvm [^ ]\+ ' | cut -d' ' -f 2- | sed 's/ $//' )"
+		else
+			warn "Invalid LLVM version '$( echo " ${*:-} " | grep -o -- ' --force-llvm[^ ]\+ ' | sed 's/ $//' )'"
+		fi
+		(( llvm_slot = $( cut -d'.' -f 1 <<<"${llvm_sub_slot}" ) ))
+		rust_llvm_use='-system-llvm'
+	fi
 else
 	if echo " ${*:-} " | grep -Fq -- ' --clean-lto '; then
 		warn "'--clean-lto' is not a valid option without '--clang'"
@@ -202,6 +221,9 @@ else
 	fi
 	if echo " ${*:-} " | grep -Fq -- ' --rust '; then
 		warn "'--rust' is not a valid option without '--clang'"
+	fi
+	if echo " ${*:-} " | grep -Fq -- ' --force-llvm[ =]'; then
+		warn "'--force-llvm' is not a valid option without '--clang'"
 	fi
 fi
 if echo " ${*:-} " | grep -Eq -- ' --config(-from)?[= ]'; then
@@ -466,7 +488,7 @@ declare pre_remove=''
 declare pre_pkgs=''
 declare pre_use=''
 declare -a compiler_pkgs=()
-declare compiler_USE=''
+declare compiler_USE="${rust_llvm_use:-}"
 declare container_CC='gcc'
 declare container_CXX='g++'
 declare container_LLVM=''
@@ -484,39 +506,57 @@ fi
 case "${compiler}" in
 	gcc)
 		compiler_pkgs=(
-			$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )
-			$( pkgslot sys-devel/gcc "${gcc_min_ver:-}" )
+			"$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )"
+			"$( pkgslot sys-devel/gcc "${gcc_min_ver:-}" )"
 		)
 		compiler_USE="-lib-only ${use_essential_gcc}"
 		;;
 	clang|llvm)
 		[[ -n "${llvm_slot:-}" ]] || die "'llvm_slot' is required for clang builds"
 
-		# As-of 5.10.1: "gold linker 'ld.gold' not supported"...
+		# pkgslot() outputs a '>=' specifier if no slot is requested
+		#
+		# N.B. LLVM package SLOT values are no consistent across versions, so
+		#      for example sys-libs/compiler-rt-14.0.6 has slot '14.0.6',
+		#      whereas sys-libs/compiler-rt-16.0.6 has slot '16'.
+		#
 		compiler='clang'
+		inconsistent_slot="${llvm_sub_slot}"
+		if (( llvm_slot > 15 )); then
+			inconsistent_slot="${llvm_slot}"
+		fi
 		compiler_pkgs=(
-			$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )
+			"$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )"
+			"$( pkgslot sys-devel/clang "${llvm_min_ver:-}" )"
+			"$( pkgslot sys-devel/llvm "${llvm_min_ver:-}" )"
+
 			sys-devel/binutils-config
-			$( pkgslot sys-devel/clang "${llvm_min_ver:-}" )
-			$( pkgslot sys-devel/llvm "${llvm_min_ver:-}" )
-			$( pkgslot sys-devel/clang ":${llvm_slot}" )
-			$( pkgslot sys-devel/clang-common "${llvm_slot}" )
-			$( pkgslot sys-devel/clang-runtime ":${llvm_sub_slot}" )
-			$( pkgslot sys-devel/clang-toolchain-symlinks ":${llvm_slot}" )
-			$( pkgslot sys-devel/lld ":${llvm_slot}" )
-			$( pkgslot sys-devel/lld-toolchain-symlinks ":${llvm_slot}" )
-			#$( pkgslot sys-devel/llvmgold ":${llvm_slot}" )
-			$( pkgslot sys-devel/llvm ":${llvm_slot}" )
-			$( pkgslot sys-devel/llvm-common "${llvm_slot}" )
-			$( pkgslot sys-devel/llvm-toolchain-symlinks ":${llvm_slot}" )
-			$( pkgslot sys-libs/compiler-rt ":${llvm_sub_slot}" )
-			$( pkgslot sys-libs/compiler-rt-sanitizers ":${llvm_sub_slot}" )
-			$( pkgslot sys-libs/libcxx "${llvm_slot}" )
-			$( pkgslot sys-libs/libcxxabi "${llvm_slot}" )
-			$( pkgslot sys-libs/libomp "${llvm_slot}" )
-			$( pkgslot sys-libs/llvm-libunwind "${llvm_slot}" )
+
+			"$( pkgslot sys-devel/clang-common "${llvm_slot}" )" # SLOT=0
+			"$( pkgslot sys-devel/llvm-common "${llvm_slot}" )" # SLOT=0
+			# As-of 5.10.1: "gold linker 'ld.gold' not supported"...
+			#"$( pkgslot sys-devel/llvmgold "${llvm_slot}" )" # SLOT=0
+			"$( pkgslot sys-libs/libcxx "${llvm_slot}" )" # SLOT=0
+			"$( pkgslot sys-libs/libcxxabi "${llvm_slot}" )" # SLOT=0
+			"$( pkgslot sys-libs/llvm-libunwind "${llvm_slot}" )" # SLOT=0
+
+			"$( pkgslot sys-libs/libomp "${llvm_slot}" )" # SLOT=0, 0/16
+
+			"$( pkgslot sys-devel/clang ":${llvm_slot}" )" # SLOT=14, 16/16
+			"$( pkgslot sys-devel/llvm ":${llvm_slot}" )" # SLOT=14, 16/16
+
+			"$( pkgslot sys-devel/lld ":${llvm_slot}" )" # SLOT=14/14, 16/16
+
+			"$( pkgslot sys-devel/clang-toolchain-symlinks ":${llvm_slot}" )" # SLOT=14, 16
+			"$( pkgslot sys-devel/lld-toolchain-symlinks ":${llvm_slot}" )" # SLOT=14, 16
+			"$( pkgslot sys-devel/llvm-toolchain-symlinks ":${llvm_slot}" )" # SLOT=14, 16
+
+			"$( pkgslot sys-devel/clang-runtime ":${inconsistent_slot}" )" # SLOT=14.0.6, 16
+			"$( pkgslot sys-libs/compiler-rt ":${inconsistent_slot}" )" # SLOT=14.0.6, 16
+			"$( pkgslot sys-libs/compiler-rt-sanitizers ":${inconsistent_slot}" )" # SLOT=14.0.6, 16
 		)
-		compiler_USE='clang default-compiler-rt default-libcxx default-lld' # gold
+		unset inconsistent_slot
+		compiler_USE+=' clang default-compiler-rt default-libcxx default-lld' # gold
 
 		# https://github.com/rust-lang/rust-bindgen/issues/2312
 		#
@@ -534,11 +574,22 @@ case "${compiler}" in
 					"<sys-devel/llvm-common-$(( llvm_slot + 1 ))"
 					"<sys-devel/llvm-toolchain-symlinks-$(( llvm_slot + 1 ))"
 				)
-				compiler_USE+=' python_single_target_python3_10 python_targets_python3_10'
+				compiler_USE+='  python_single_target_python3_10  python_targets_python3_10'
 				compiler_USE+=' -python_single_target_python3_11 -python_targets_python3_11'
 				compiler_USE+=' -python_single_target_python3_12 -python_targets_python3_12'
 				;;
 		esac
+
+		# sys-libs/llvm-libunwind-14* depends on python3_10
+		#
+		case "$(( llvm_slot ))" in
+			'14')
+				compiler_USE+='  python_single_target_python3_10  python_targets_python3_10'
+				compiler_USE+=' -python_single_target_python3_11 -python_targets_python3_11'
+				compiler_USE+=' -python_single_target_python3_12 -python_targets_python3_12'
+				;;
+		esac
+
 		container_CC='clang'
 		container_CXX='clang++'
 		#container_LD='ld.bfd'
@@ -608,6 +659,11 @@ else
 	test -f /etc/portage/package.use/python_targets && test -s /etc/portage/package.use/python_targets &&
 		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.use/python_targets,destination=/etc/portage/package.use/python_targets${docker_readonly:+",${docker_readonly}"}"
 fi
+
+if [ -f /etc/portage/profile/package.use.mask ] && [ -s /etc/portage/profile/package.use.mask ]; then
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/profile/package.use.mask,destination=/etc/portage/profile/package.use.mask${docker_readonly:+",${docker_readonly}"}"
+fi
+
 [ -n "${DOCKER_EXTRA_MOUNTS:-}" ] && export DOCKER_EXTRA_MOUNTS
 
 declare rustext=''
@@ -634,6 +690,7 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 		image="${IMAGE}"
 		export name image
 
+		# shellcheck disable=SC2206
 		declare -a pkgs=( # <- Syntax
 			"${compiler_pkgs[@]:-}"
 			app-arch/bzip2
