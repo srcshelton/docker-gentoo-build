@@ -394,6 +394,10 @@ do_emerge() {
 									--binpkg-changed-deps=y \
 									--oneshot
 								;;
+							'--single-defaults')
+								set -- "${@}" \
+									--binpkg-changed-deps=y
+								;;
 							'--chost-defaults')
 								# shellcheck disable=SC2086
 								set -- "${@}" \
@@ -1177,8 +1181,9 @@ pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-l
 pkg_initial_use='-nls -pam -perl -python -su'
 pkg_exclude=''
 if [ -n "${features_libeudev}" ]; then
-	pkg_initial="${pkg_initial:+${pkg_initial} }sys-libs/libeudev virtual/libudev"
-	pkg_exclude="${pkg_exclude:+${pkg_exclude} }--exclude=virtual/udev"
+	pkg_initial="${pkg_initial:+"${pkg_initial} "}sys-libs/libeudev virtual/libudev"
+	pkg_initial_use="${pkg_initial_use:+"${pkg_initial_use} "}eudev"
+	pkg_exclude="${pkg_exclude:+"${pkg_exclude} "}--exclude=virtual/udev"
 fi
 
 if [ -n "${pkg_initial:-}" ]; then
@@ -1508,7 +1513,7 @@ echo
 		# For some reason, portage is selecting dropbear to satisfy
 		# virtual/ssh?
 		#
-		USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp -nettle -nls openssl" \
+		USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx eudev -extra-filters gmp -nettle -nls openssl" \
 			do_emerge \
 					--exclude='dev-libs/libtomcrypt' \
 					--exclude='net-misc/dropbear' \
