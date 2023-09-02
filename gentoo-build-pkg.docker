@@ -142,6 +142,11 @@ else
 	done < <( find /etc/portage/package.use/ -mindepth 1 -maxdepth 1 -type f -print0 | xargs -0rn 1 basename | grep -FvZ -e '.use' -e '_targets' )
 	unset file targets
 fi
+
+if [ -f /etc/portage/profile/package.use.mask ] && [ -s /etc/portage/profile/package.use.mask ]; then
+	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/profile/package.use.mask,destination=/etc/portage/profile/package.use.mask${docker_readonly:+",${docker_readonly}"}"
+fi
+
 #
 # Even with all of the below made available, linux-info.eclass still causes
 # builds to fail due to not being able to find a valid kernel configuration?!

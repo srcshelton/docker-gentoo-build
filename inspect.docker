@@ -257,6 +257,7 @@ docker_run() {
 	fi
 	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.license"]='/etc/portage/package.license'
 	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.use.build"]='/etc/portage/package.use'
+	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.mask"]='/etc/portage/profile/package.use.mask'
 	#if [ -s "/lib/modules/$( uname -r )/build/arch/x86/boot/vmlinux.bin" ]; then
 	#	mountpointsro["/lib/modules/$( uname -r )/build/arch/x86/boot/vmlinux.bin"]="/boot/vmlinux-$( uname -r )"
 	#fi

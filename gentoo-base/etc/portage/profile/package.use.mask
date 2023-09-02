@@ -1,0 +1,14 @@
+
+# Sam James <sam@gentoo.org> (2022-02-11)
+# Needs glibc-2.35(?) (or <2.34) which is not yet even keyworded but
+# won't be stable for a while. Can be unmasked then.
+# bug #806079
+# glibc-2.36 is now stable: unmasking
+sys-apps/nvme-cli -hugepages
+
+# Pacho Ramos <pacho@gentoo.org> (2020-08-21)
+# app-text/pandoc is hard to stabilize #737612
+sys-apps/earlyoom -docs
+sys-apps/earlyoom -man
+
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
