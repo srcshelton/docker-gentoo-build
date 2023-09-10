@@ -174,7 +174,7 @@ net-misc/dhcpcd				-compat privsep
 net-misc/ntp				-snmp openntpd
 <net-misc/openntpd-6.8_p1-r1		 libressl
 >=net-misc/openntpd-6.8_p1-r1		 constraints
-net-misc/openssh			-X509 ldns skey  # hpn deprecated
+net-misc/openssh			-X509 ldns pam skey  # hpn deprecated
 net-misc/rsync				 system-zlib
 net-misc/scponly			-sftp logging passwd quota scp wildcards
 net-misc/whois				 xcrypt
@@ -213,8 +213,8 @@ sys-apps/smartmontools			 update_drivedb update-drivedb
 sys-apps/usbutils			 experimental
 sys-apps/util-linux			 magic pam su tty-helpers  # conflicts sys-apps/shadow[su]
 sys-auth/opie				-server
-sys-auth/pambase			-passwdqc -sha512 pwquality yescrypt  # mktemp
-#sys-auth/pambase			-passwdqc -sha512 mktemp pwquality yescrypt
+#sys-auth/pambase			-debug -passwdqc -sha512 pwquality yescrypt  # mktemp
+sys-auth/pambase			-debug -passwdqc -sha512 mktemp pwquality yescrypt
 sys-auth/pam_mobile_otp			 manager
 sys-block/parted			 device-mapper
 sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
@@ -246,6 +246,7 @@ sys-libs/libomp				 hwloc offload ompt
 sys-libs/libseccomp			-python  # requires static-libs
 sys-libs/llvm-libunwind			 static-libs  # required by sys-devel/clang-common
 sys-libs/ncurses			 trace unicode
+sys-libs/pam				-debug
 sys-libs/timezone-data			 leaps-timezone leaps_timezone right_timezone # zic-slim
 sys-power/powertop			-X
 #sys-process/audit			-python  # requires dev-lang/swig, but only as a DEPEND
