@@ -44,8 +44,11 @@
 #
 # Update: 5GB isn't enough, but 6GB appears to be, just.  That's at least a 50%
 #         increase in memory required between gcc-11 and gcc-12 :(
+#         dev-python/pypy3_10-exe-7.3.12_p2 OOMs with 2GB reservation/8GB limit
+#         but appears to succeed with 10GB limit.
+#
 : "${PODMAN_MEMORY_RESERVATION:="2g"}"
-: "${PODMAN_MEMORY_LIMIT:="8g"}"
+: "${PODMAN_MEMORY_LIMIT:="10g"}"
 : "${PODMAN_SWAP_LIMIT:="${PODMAN_MEMORY_LIMIT}"}"
 
 _command='docker'
@@ -53,6 +56,9 @@ _command='docker'
 # shellcheck disable=SC2034
 debug=${DEBUG:-}
 trace=${TRACE:-}
+
+# Output functions...
+#
 
 output() {
 	if [ -z "${*:-}" ]; then
@@ -120,6 +126,79 @@ print() {
 }  # print
 
 export -f output die error warn note info print
+
+# Utility functions...
+#
+
+replace_flags() {
+	# list="$( replace_flags <new> [flags] [to] [add] -- existing_list[@] )"
+	local -a flags=() list=() output=()
+	local -i state=0
+	local arg='' flag=''
+
+	for arg in "${@:-}"; do
+		case "${arg:-}" in
+			--)
+				state=1
+				continue
+				;;
+			''|' ')
+				:
+				;;
+			*' '*)
+				if (( state )); then
+					# shellcheck disable=SC2206
+					list+=( ${arg} )
+				else
+					# shellcheck disable=SC2206
+					flags+=( ${arg} )
+				fi
+				;;
+			*)
+				if (( state )); then
+					list+=( "${arg}" )
+				else
+					flags+=( "${arg}" )
+				fi
+				;;
+		esac
+	done
+
+	if (( 0 == ${#flags} )); then
+		print "WARN: No flags supplied to ${FUNCNAME[0]} - received '${*:-}'"
+		return 1
+	fi
+
+	for flag in "${flags[@]}"; do
+		state=0
+		for arg in "${list[@]}"; do
+			case "${arg}" in
+				"-${flag#-}"|"${flag#-}"|'')
+					:
+					;;
+				*)
+					if (( 0 == state )); then
+						output+=( "${arg}" )
+						state=1
+					fi
+					;;
+			esac
+		done
+
+		case "${flag}" in
+			-*)
+				output=( "${flag}" "${output[@]:-}" )
+				;;
+			*)
+				output+=( "${flag}" )
+				;;
+		esac
+	done
+
+	echo "${output[*]:-}"
+}  # replace_flags
+
+export -f replace_flags
 
 #[ -n "${trace:-}" ] && set -o xtrace
 

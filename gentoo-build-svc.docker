@@ -349,73 +349,9 @@ fi
 #
 # END WRAPPER CODE
 
-replace_flags() {
-	# list="$( replace_flags <new> [flags] [to] [add] -- existing_list[@] )"
-	local -a flags=() list=() output=()
-	local -i state=0
-	local arg='' flag=''
-
-	for arg in "${@:-}"; do
-		case "${arg:-}" in
-			--)
-				state=1
-				continue
-				;;
-			'')
-				:
-				;;
-			*' '*)
-				if (( state )); then
-					# shellcheck disable=SC2206
-					list+=( ${arg} )
-				else
-					# shellcheck disable=SC2206
-					flags+=( ${arg} )
-				fi
-				;;
-			*)
-				if (( state )); then
-					list+=( "${arg}" )
-				else
-					flags+=( "${arg}" )
-				fi
-				;;
-		esac
-	done
-
-	if (( 0 == ${#flags} )); then
-		print "WARN: No flags supplied to ${FUNCNAME[0]} - received '${*:-}'"
-		return 1
-	fi
-
-	for flag in "${flags[@]}"; do
-		state=0
-		for arg in "${list[@]}"; do
-			case "${arg}" in
-				"-${flag#-}"|"${flag#-}"|'')
-					:
-					;;
-				*)
-					if (( 0 == state )); then
-						output+=( "${arg}" )
-						state=1
-					fi
-					;;
-			esac
-		done
-
-		case "${flag}" in
-			-*)
-				output=( "${flag}" "${output[@]:-}" )
-				;;
-			*)
-				output+=( "${flag}" )
-				;;
-		esac
-	done
-
-	echo "${output[*]:-}"
-} # replace_flags
+#replace_flags() {
+#	# Moved to common/run.sh!
+#} # replace_flags
 
 [ -n "${trace:-}" ] && set -o xtrace
 

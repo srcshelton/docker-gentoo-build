@@ -243,7 +243,9 @@ case "$( uname -m )" in
 			use_pypy="dev-python/pypy3"
 			use_pypy_use="bzip2 jit"
 			use_pypy_post_remove="dev-lang/python:2.7"
-			if [ $(( memtotal )) -gt 6 ]; then
+			# Update: dev-python/pypy3_10-exe-7.3.12_p2 now requires 10GB RAM
+			#         in order to build successfully :(
+			if [ $(( memtotal )) -gt 9 ]; then
 				use_pypy="${use_pypy} dev-python/pypy3-exe"
 			else
 				# On a system with 4GB of memory and python3.11, the install
