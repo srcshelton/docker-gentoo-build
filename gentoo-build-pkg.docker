@@ -185,20 +185,20 @@ for arg in "${@:-}"; do
 	case "$( echo "${arg}" | sed -r 's/^[<>]?=?//' )" in
 		media-libs/freetype|freetype|media-libs/freetype-*|freetype-*)
 			prepkg="${prepkg:+${prepkg} }${arg} media-libs/harfbuzz"
-			preuse="${preuse:+${preuse} }-harfbuzz -truetype"
+			preuse="$( replace_flags '-harfbuzz' '-truetype' -- "${preuse}" )"
 			;;
 		media-libs/harfbuzz|harfbuzz|media-libs/harfbuzz-*|harfbuzz-*)
 			prepkg="${prepkg:+${prepkg} }${arg} media-libs/freetype"
-			preuse="${preuse:+${preuse} }-harfbuzz -truetype"
+			preuse="$( replace_flags '-harfbuzz' '-truetype' -- "${preuse}" )"
 			;;
 		#sys-libs/glibc|glibc|sys-libs/glibc-*|glibc-*)
 		#	prepkg="${prepkg:+${prepkg} }${arg}"
 		#	;;
 	esac
 done
-preuse="${preuse:+${preuse} }-lib-only"
-use="${use:+${use} }-lib-only"
-postuse="${postuse:+${postuse} }lib-only"
+preuse="$( replace_flags '-lib-only' -- "${preuse:-}" )"
+use="$( replace_flags '-lib-only' -- "${use:-}" )"
+postuse="$( replace_flags 'lib-only' -- "${postuse:-}" )"
 if [ -n "${prepkg:-}" ]; then
 	note >&2 "Adding pre-build package(s) '$( xargs -r <<<"${prepkg}" )' to resolve depenency loops ..."
 	set -- "${@}" --pre-pkgs="${prepkg}"

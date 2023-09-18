@@ -606,7 +606,7 @@ case "${unwind:-}" in
 		compiler_pkgs+=(
 			sys-libs/llvm-libunwind
 		)
-		compiler_USE="${compiler_USE:+"${compiler_USE} "}llvm-libunwind"
+		compiler_USE="$( replace_flags 'llvm-libunwind' -- "${compiler_USE:-}" )"
 		#pre_remove="sys-libs/libunwind"
 		#pre_pkgs="sys-libs/llvm-libunwind"
 		;;
@@ -682,7 +682,7 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 		export ACCEPT_LICENSE USE
 		if [[ -n "${openmp:-}" ]]; then
 			pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}sys-devel/gcc app-crypt/libb2"
-			pre_use="${pre_use:+"${pre_use} "}-lib-only"
+			pre_use="$( replace_flags '-lib-only' -- "${pre_use:-}" )"
 		fi
 
 		name="${container_name}-${compiler}${rustext:+"-${rustext}"}"
