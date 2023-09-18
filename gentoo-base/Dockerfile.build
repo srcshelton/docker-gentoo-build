@@ -89,16 +89,13 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
     set -u ; \
     etc-update --quiet --preen 2>/dev/null && \
     find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete ; \
-    test -d /var/db/repo && \
-        find /var/db/repo/ -mindepth 1 -maxdepth 1 -type d | while read -r d; do \
-            rm -r -- "${d}" && mkdir -p -- "${d}" ; \
-        done ; \
     test ! -d "${PORTAGE_TMPDIR}/portage" || rm -r "${PORTAGE_TMPDIR}/portage" ; \
     test ! -d "${PORTAGE_LOGDIR}" || rm -r "${PORTAGE_LOGDIR}" ; \
     test ! -d "${DISTDIR}" || rm -r "${DISTDIR}" ; \
     test ! -d "${PKGDIR}" || rm -r "${PKGDIR}" ; \
     test ! -d "${ROOT}" || rm -r "${ROOT}" ; \
-    mkdir -p -- "${PORTAGE_LOGDIR}" "${DISTDIR}" "${PKGDIR}" ; \
+    test ! -d /var/db/repo || rm -r /var/db/repo ; \
+    mkdir -p -- "${PORTAGE_LOGDIR}" "${DISTDIR}" "${PKGDIR}" /var/db/repo ; \
     find /tmp/ -type f -delete ; \
     find /tmp/ -mindepth 1 -type d -delete ; \
     find /var/tmp/ -type f -delete ; \
