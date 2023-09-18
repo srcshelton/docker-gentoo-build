@@ -83,13 +83,6 @@ declare use_pypy_post_remove=''
 # shellcheck disable=SC1091
 [[ ! -s common/vars.sh ]] || . common/vars.sh
 
-if ! $docker --version >/dev/null 2>&1; then
-	die "'$docker' failed to execute: ${?}"
-elif ! $docker image build --help | grep -Fq -- '--platform'; then
-	die "'$docker image build' lacks '--platform' support (try podman-3.x or" \
-		"later)"
-fi
-
 [[ -n "${base_dir:-}" ]]
 [[ -d "${base_dir}" ]]
 [[ -e "${base_dir}"/Dockerfile.env ]]
@@ -100,6 +93,13 @@ fi
 IMAGE="${base_name}:latest"
 # shellcheck disable=SC1091
 [[ -s common/run.sh ]] && . common/run.sh
+
+if ! docker --version >/dev/null 2>&1; then
+	die "'${_command}' failed to execute: ${?}"
+elif ! docker image build --help | grep -Fq -- '--platform'; then
+	die "'${_command} image build' lacks '--platform' support (try" \
+		"podman-3.x or later)"
+fi
 
 if
 	[[ -z "${env_name:-}" ]] ||
@@ -225,18 +225,18 @@ checkids() {
 	if ! [[ "${name}" =~ / ]]; then
 		repo='localhost/'
 	fi
-	images="$( $docker image ls --noheading \
+	images="$( docker image ls --noheading \
 		"${repo}${name}:${tag}" 2>/dev/null
 	)"
 	# Older releases of 'podman' exclude the repo when it is 'localhost/'...
 	# FIXME: Can't we just check whether 'images' is set?
 	if grep -Eq -- "^(${repo:-"${name%/*}"})?${name#*/}" <<<"${images}"; then
-		if stage3_env_id="$(
+		if stage3_env_id="$( # <- Syntax
 				stage3_repo=''
 				if ! [[ "${stage3_name}" =~ / ]]; then
 					stage3_repo='localhost/'
 				fi
-				$docker image inspect \
+				docker image inspect \
 						--format='{{index .Config.Labels "environment-from"}}' \
 					"${stage3_repo:-}${stage3_name}:${tag}" 2>/dev/null
 			)" && [[ -n "${stage3_env_id:-}" ]]
@@ -256,13 +256,13 @@ checkids() {
 
 		if [[ -n "${gentoo_stage3_id:-}" ]]; then
 			# N.B.: Only valid for our 'init' and (local) 'stage3' images
-			if stage3_src_id="$(
-					$docker image inspect \
+			if stage3_src_id="$( # <- Syntax
+					docker image inspect \
 							--format='{{index .Config.Labels "stage3-from"}}' \
 						"${repo}${name}:${tag}" 2>/dev/null
 				)" && [[ -n "${stage3_src_id:-}" ]]
 			then
-				stage3_src_id="$(
+				stage3_src_id="$( # <- Syntax
 					echo "${stage3_src_id:-}" |
 					awk -F':' '{ print $NF }'
 				)"
@@ -341,7 +341,7 @@ if ! type -pf portageq >/dev/null 2>&1; then
 			for dir in /var/db/repo{,s} /var/db; do
 				if [[ -d "${dir}" ]]; then
 					# FIXME: Figure out best macOS implementation
-					if (( $(
+					if (( $( # <- Syntax
 						df --block-size=1G --output=avail "${dir}" |
 						tail -n 1
 					) < 2 )); then
@@ -416,10 +416,10 @@ if ! type -pf portageq >/dev/null 2>&1; then
 	declare ref=''
 	if
 		[[ -s "${repo_path_srcshelton}/.portage_commit" ]] &&
-			ref="$(
+			ref="$( # <- Syntax
 				grep -Fv '#' "${repo_path_srcshelton}/.portage_commit"
 			)" &&
-			[[ -n "${ref:-}" ]]
+				[[ -n "${ref:-}" ]]
 	then
 		if ! git config --global --get-all safe.directory |
 			grep -q "${repo_path_gentoo%/}"
@@ -504,10 +504,10 @@ else # type -pf portageq >/dev/null 2>&1; then
 	# FIXME: Discover default rather than assuming 'gentoo'?
 	declare repo_path_gentoo=''
 	declare ref=''
-	repo_path_gentoo="$(
+	repo_path_gentoo="$( # <- Syntax
 		portageq get_repo_path "${EROOT:-/}" 'gentoo' 2>/dev/null
 	)"
-	repo_path_srcshelton="$(
+	repo_path_srcshelton="$( # <- Syntax
 		portageq get_repo_path "${EROOT:-/}" 'srcshelton' 2>/dev/null
 	)"
 	if
@@ -516,10 +516,10 @@ else # type -pf portageq >/dev/null 2>&1; then
 	then
 		if
 			[[ -s "${repo_path_srcshelton}/.portage_commit" ]] &&
-				ref="$(
+				ref="$( # <- Syntax
 					grep -Fv '#' "${repo_path_srcshelton}/.portage_commit"
 				)" &&
-				[[ -n "${ref:-}" ]]
+					[[ -n "${ref:-}" ]]
 		then
 			if ! git config --global --get-all safe.directory |
 				grep -q "${repo_path_gentoo%/}"
@@ -599,18 +599,16 @@ case "${docker_arch}" in
 		[[ -z "${gcc_target_opts:-}" ]] &&
 			target_opt='-mcpu=native' ;;
 esac
-env_id="$(
-	$docker image ls --noheading \
-			--format='{{.ID}}' \
-		"${env_name}:latest"
+env_id="$( docker image ls --noheading \
+		--format='{{.ID}}' \
+	"${env_name}:latest"
 )" || die "Could not determine environment stage image name"
-local_stage3_id="$(
-	$docker image ls --noheading \
-			--format='{{.ID}}' \
-		"${stage3_name}:latest"
+local_stage3_id="$( docker image ls --noheading \
+		--format='{{.ID}}' \
+	"${stage3_name}:latest"
 )" || die "Could not determine local stage3 image name"
 
-[[ -n "${trace:-}" ]] && set -o xtrace
+[[ -z "${trace:-}" ]] || set -o xtrace
 
 # Create empty stage with shared environment variables ...
 #
@@ -624,35 +622,46 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 	# USES:
 	# USED_BY: stage3 build
 
-	# shellcheck disable=SC2086
-	$docker image build \
-			--platform "linux/${docker_arch}" \
-			--build-arg ARCH="${arch}" \
-			--build-arg PROFILE_PATH="${profile:-}" \
-			--build-arg CHOST="${chost:-}" \
-			${use_cpu_arch:+${use_cpu_flags_raw:+--build-arg CPU_FLAGS_${use_cpu_arch^^}="${use_cpu_flags_raw}"}} \
-			${target_opt:+--build-arg TARGET_OPT="${target_opt}"} \
-			--build-arg JOBS="${JOBS:-}" \
-			--build-arg MAXLOAD="${MAXLOAD:-}" \
-			--build-arg MAIL_FROM="${mail_from:-}" \
-			--build-arg MAIL_TO="${mail_to:-}" \
-			--build-arg MAIL_MTA="${mail_mta:-}" \
-			--build-arg SET_TERM="${TERM:-}" \
-			--build-arg SET_USE_ESSENTIAL="${use_essential:-}" \
-			--build-arg SET_USE_ESSENTIAL_GCC="${use_essential_gcc:-}" \
-			--compress \
-			--file 'Dockerfile.env' \
-			${debug:+--loglevel 3 ${DEBUG_EXTRA_ARGS:-}} \
-			--network none \
-			--no-cache \
-			--tag "${env_name}:latest" \
-			--rm \
-		. 2>&1 | tee ../log/"docker.${env_name#*/}.log"
+	declare -a build_args=()
+	build_args+=( # <- Syntax
+		--platform "linux/${docker_arch}"
+		--build-arg ARCH="${arch}"
+		--build-arg PROFILE_PATH="${profile:-}"
+		--build-arg CHOST="${chost:-}"
+		--build-arg JOBS="${JOBS:-}"
+		--build-arg MAXLOAD="${MAXLOAD:-}"
+		--build-arg MAIL_FROM="${mail_from:-}"
+		--build-arg MAIL_TO="${mail_to:-}"
+		--build-arg MAIL_MTA="${mail_mta:-}"
+		--build-arg SET_TERM="${TERM:-}"
+		--build-arg SET_USE_ESSENTIAL="${use_essential:-}"
+		--build-arg SET_USE_ESSENTIAL_GCC="${use_essential_gcc:-}"
+		--compress
+		--file 'Dockerfile.env'
+		--network none
+		--no-cache
+		--tag "${env_name}:latest"
+		--rm
+	)
+	[[ -z "${use_cpu_arch:-}" ]] || build_args+=( # <- Syntax
+		--build-arg "CPU_FLAGS_${use_cpu_arch^^}=${use_cpu_flags_raw}"
+	)
+	[[ -z "${target_opt:-}" ]] || build_args+=( # <- Syntax
+		--build-arg TARGET_OPT="${target_opt}"
+	)
+	# shellcheck disable=SC2206
+	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
+		--loglevel 3
+		${DEBUG_EXTRA_ARGS:-}
+	)
+	docker image build "${build_args[@]}" . 2>&1 |
+		tee ../log/"docker.${env_name#*/}.log"
 	output " -> ${?}"
+	unset build_args
 
 	[[ "${*:-}" = '--env' ]] && exit 0
 
-	env_id="$( $docker image ls --noheading \
+	env_id="$( docker image ls --noheading \
 			--format='{{.ID}}' \
 		"${env_name}:latest" 2>/dev/null
 	)"
@@ -687,29 +696,25 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 		info "Using upstream '${gentoo_stage3_image}' tag" \
 			"'${gentoo_stage3_tag}'"
 
-		if
-			$docker image pull --help |
-				grep -Fq -- '--platform'
-		then
-			$docker image pull "${gentoo_stage3_image}:latest" \
+		case "$( docker image pull --help )" in
+			*'--platform'*)
+				docker image pull "${gentoo_stage3_image}:latest" \
 					--platform "linux/${docker_arch}" || rc=${?}
-		elif
-			$docker image pull --help |
-				grep -Fq -- '--override-arch'
-		then
-			$docker image pull "${gentoo_stage3_image}:latest" \
+				;;
+			*'--override-arch'*)
+				docker image pull "${gentoo_stage3_image}:latest" \
 					--override-arch "${docker_arch}" || rc=${?}
-		elif
-			$docker image pull --help |
-				grep -Fq -- '--arch'
-		then
-			$docker image pull "${gentoo_stage3_image}:latest" \
+				;;
+			*'--arch'*)
+				docker image pull "${gentoo_stage3_image}:latest" \
 					--arch "${docker_arch}" || rc=${?}
-		else
-			die "Could not determine method to retrieve" \
-				"non-native architecture with" \
-				"'$docker image pull'"
-		fi
+				;;
+			*)
+				die "Could not determine method to retrieve" \
+					"non-native architecture with" \
+					"'${_command} image pull'"
+				;;
+		esac
 
 		need_pull=0
 	elif
@@ -717,7 +722,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 				[[ -d "${repo_path_srcshelton}" ]]
 	then
 		if [[ -s "${repo_path_srcshelton}/.image_digests" ]]; then
-			ref="$(
+			ref="$( # <- Syntax
 				grep -m 1 "^${docker_arch} " \
 						"${repo_path_srcshelton}/.image_digests" |
 					cut -d' ' -f 2-
@@ -738,34 +743,35 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 				#
 				# We can work around this by untagging *before* pulling...
 				#
-				if [[ -n "$(
-					$docker image list \
+				if [[ -n "$( # <- Syntax
+					docker image list \
 						-q \
 						--filter "reference=${gentoo_stage3_image}:${gentoo_stage3_tag}"
 				)" ]]
 				then
-					if ! $docker image untag \
+					if ! docker image untag \
 							"${gentoo_stage3_image}:${gentoo_stage3_tag}"
 					then
-						$docker --debug image untag \
+						docker --debug image untag \
 								"${gentoo_stage3_image}:${gentoo_stage3_tag}" ||
-							die "$docker image untag failed to remove" \
+							die "${_command} image untag failed to remove" \
 								"'${gentoo_stage3_image}:${gentoo_stage3_tag}' tag"
 					fi
 				fi
 
-				if ! $docker image pull "${gentoo_stage3_image}@${ref}"; then
-					$docker --debug image pull "${gentoo_stage3_image}@${ref}" ||
+				if ! docker image pull "${gentoo_stage3_image}@${ref}"; then
+					docker --debug image pull "${gentoo_stage3_image}@${ref}" ||
 						rc=${?}
 				else
 					info "Tagging '${ref}' as" \
 						"'${gentoo_stage3_image}:${gentoo_stage3_tag}'"
 
-					if ! $docker image tag "${gentoo_stage3_image}@${ref}" \
+					if ! docker image tag "${gentoo_stage3_image}@${ref}" \
 							"${gentoo_stage3_image}:${gentoo_stage3_tag}"
 					then
-						$docker --debug image tag "${gentoo_stage3_image}@${ref}" \
-								"${gentoo_stage3_image}:${gentoo_stage3_tag}" || :
+						docker --debug image tag \
+							"${gentoo_stage3_image}@${ref}" \
+							"${gentoo_stage3_image}:${gentoo_stage3_tag}" || :
 						warn "Pull of pinned image failed - reverting to tag" \
 							"'${gentoo_stage3_tag}'"
 						need_pull=1
@@ -780,9 +786,9 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 
 	if (( need_pull )); then
 		info "Pulling image '${gentoo_stage3_image}:${gentoo_stage3_tag}' ..."
-		if ! $docker image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}"; then
+		if ! docker image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}"; then
 			rc=${?}
-			$docker --debug image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}"
+			docker --debug image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}"
 		fi
 	fi
 
@@ -790,23 +796,21 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	trap - INT
 
 	if (( rc )); then
-		die "'$docker image pull' failed to retrieve image" \
+		die "'${_command} image pull' failed to retrieve image" \
 			"'${gentoo_stage3_image}:${gentoo_stage3_tag}' for architecture" \
 			"'${docker_arch}'"
 	fi
 
 	# 'podman image ls' won't show images by SHA256 reference...
 	#if [[ -n "${ref:-}" ]]; then
-	#	gentoo_stage3_id="$(
-	#		$docker image ls --noheading \
-	#				--format='{{.ID}}' \
-	#			"${gentoo_stage3_image}@${ref}" 2>/dev/null
+	#	gentoo_stage3_id="$( docker image ls --noheading \
+	#			--format='{{.ID}}' \
+	#		"${gentoo_stage3_image}@${ref}" 2>/dev/null
 	#	)" || :
 	#else
-		gentoo_stage3_id="$(
-			$docker image ls --noheading \
-					--format='{{.ID}}' \
-				"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null
+		gentoo_stage3_id="$( docker image ls --noheading \
+				--format='{{.ID}}' \
+			"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null
 		)" || :
 	#fi
 	unset ref
@@ -816,41 +820,48 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	# USES:    [gentoo/stage3-amd64] env
 	# USED_BY: init
 
-	# shellcheck disable=SC2086
-	$docker image build \
-			--platform "linux/${docker_arch}" \
-			--build-arg ARCH="${arch}" \
-			--build-arg env_name="${env_name}" \
-			--build-arg env_id="${env_id}" \
-			--build-arg gentoo_stage3_image="${gentoo_stage3_image}" \
-			--build-arg gentoo_stage3_tag="${gentoo_stage3_tag}" \
-			--build-arg gentoo_stage3_id="${gentoo_stage3_id}" \
-			${stage3_flags_file:+--build-arg stage3_flags_file="${stage3_flags_file}"} \
-			--compress \
-			--file 'Dockerfile.stage3' \
-			${debug:+--loglevel 3 ${DEBUG_EXTRA_ARGS:-}} \
-			--network none \
-			--no-cache \
-			--tag "${stage3_name}:latest" \
-		. 2>&1 | tee ../log/"docker.${stage3_name#*/}.log"
+	declare -a build_args=()
+	build_args+=( # <- Syntax
+		--platform "linux/${docker_arch}"
+		--build-arg ARCH="${arch}"
+		--build-arg env_name="${env_name}"
+		--build-arg env_id="${env_id}"
+		--build-arg gentoo_stage3_image="${gentoo_stage3_image}"
+		--build-arg gentoo_stage3_tag="${gentoo_stage3_tag}"
+		--build-arg gentoo_stage3_id="${gentoo_stage3_id}"
+		--compress
+		--file 'Dockerfile.stage3'
+		--network none
+		--no-cache
+		--tag "${stage3_name}:latest"
+	)
+	[[ -z "${stage3_flags_file:-}" ]] || build_args+=( # <- Syntax
+		--build-arg stage3_flags_file="${stage3_flags_file}"
+	)
+	# shellcheck disable=SC2206
+	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
+		--loglevel 3
+		${DEBUG_EXTRA_ARGS:-}
+	)
+	docker image build "${build_args[@]}" . 2>&1 |
+		tee ../log/"docker.${stage3_name#*/}.log"
 	output " -> ${?}"
+	unset build_args
 
 	[[ "${*:-}" == '--stage3' ]] && exit 0
 
-	local_stage3_id="$(
-		$docker image ls --noheading \
-				--format='{{.ID}}' \
-			"${stage3_name}:latest" 2>/dev/null
+	local_stage3_id="$( docker image ls --noheading \
+			--format='{{.ID}}' \
+		"${stage3_name}:latest" 2>/dev/null
 	)"
 
 	output
 	output " ${blue}*${reset} Stage 'stage3' complete, next is 'init' ..."
 	output
 else
-	gentoo_stage3_id="$(
-		$docker image ls --noheading \
-				--format='{{.ID}}' \
-			"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null
+	gentoo_stage3_id="$( docker image ls --noheading \
+			--format='{{.ID}}' \
+		"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null
 	)" || :
 fi
 
@@ -861,20 +872,18 @@ fi
 #      block below that IS executed.
 #
 if [[ -n "${*:-}" ]] && ! grep -Fq -- ' --init ' <<<" ${*} "; then
-	# Executed individually, `$docker image ls` and `grep` both succeed.
+	# Executed individually, `docker image ls` and `grep` both succeed.
 	# With 'pipefail' disabled, the following test does the right thing.
 	# However, with pipefail set the statement is interpreted to have
 	# failed when run in the same pipeline?!
 	#
-	images="$(
-		$docker image ls --noheading \
-			"${init_name}" 2>/dev/null
+	images="$( docker image ls --noheading \
+		"${init_name}" 2>/dev/null
 	)"
 	if grep -Eq -- "^(localhost/)?${init_name}" <<<"${images}"; then
-		imagesum="$(
-			$docker image inspect \
-					--format='{{index .Config.Labels "entrypoint-sum"}}' \
-				"${init_name}:latest" 2>/dev/null
+		imagesum="$( docker image inspect \
+				--format='{{index .Config.Labels "entrypoint-sum"}}' \
+			"${init_name}:latest" 2>/dev/null
 		)" || :
 		if [[ "${imagesum:-}" != "${sum}" ]]; then
 			if (( force )); then
@@ -923,7 +932,7 @@ fi
 if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 	if [[ -z "${local_stage3_id:-}" ]]; then
 		die "Local stage 3 image '${stage3_name}:latest'" \
-			"not found - please execute '$(
+			"not found - please execute '$( # <- Syntax
 				basename "${0}"
 			) --stage3'"
 	fi
@@ -939,26 +948,37 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 	# USES:    stage3
 	# USED_BY: base
 
-	# shellcheck disable=SC2086
-	$docker image build \
-			--platform "linux/${docker_arch}" \
-			--build-arg ARCH="${arch}" \
-			--build-arg gentoo_stage3_image="${gentoo_stage3_image}:${gentoo_stage3_tag}" \
-			--build-arg gentoo_stage3_id="${gentoo_stage3_id}" \
-			--build-arg stage3_name="${stage3_name}" \
-			--build-arg entrypoint_sum="${sum}" \
-			${stage3_flags_file:+--build-arg stage3_flags_file="${stage3_flags_file}"} \
-			${environment_file:+--build-arg environment_file="${environment_file}"} \
-			--build-arg environment_filter="${environment_filter}" \
-			--compress \
-			--file 'Dockerfile.init' \
-			${debug:+--loglevel 3 ${DEBUG_EXTRA_ARGS:-}} \
-			--network none \
-			--no-cache \
-			--tag "${init_name}:latest" \
-		. 2>&1 | tee ../log/"docker.${init_name#*/}.log"
-			#--network slirp4netns \
+	declare -a build_args=()
+	build_args+=( # <- Syntax
+		--platform "linux/${docker_arch}"
+		--build-arg ARCH="${arch}"
+		--build-arg gentoo_stage3_image="${gentoo_stage3_image}:${gentoo_stage3_tag}"
+		--build-arg gentoo_stage3_id="${gentoo_stage3_id}"
+		--build-arg stage3_name="${stage3_name}"
+		--build-arg entrypoint_sum="${sum}"
+		--build-arg environment_filter="${environment_filter}"
+		--compress
+		--file 'Dockerfile.init'
+		--network none
+		#--network slirp4netns
+		--no-cache
+		--tag "${init_name}:latest"
+	)
+	[[ -z "${stage3_flags_file:-}" ]] || build_args+=( # <- Syntax
+		--build-arg stage3_flags_file="${stage3_flags_file}"
+	)
+	[[ -z "${environment_file:-}" ]] || build_args+=( # <- Syntax
+		--build-arg environment_file="${environment_file}"
+	)
+	# shellcheck disable=SC2206
+	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
+		--loglevel 3
+		${DEBUG_EXTRA_ARGS:-}
+	)
+	docker image build "${build_args[@]}" . 2>&1 |
+		tee ../log/"docker.${init_name#*/}.log"
 	output " -> ${?}"
+	unset build_args
 
 	output
 	output " ${blue}*${reset} Stage 'init' complete, next is 'base' ..."
@@ -971,9 +991,9 @@ fi
 # snapshot the result to create a base image ...
 #
 if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
-	images="$( $docker image ls --noheading "${init_name}" 2>/dev/null )"
+	images="$( docker image ls --noheading "${init_name}" 2>/dev/null )"
 	if ! grep -Eq -- "^(localhost/)?${init_name#*/}" <<<"${images}"; then
-		die "Initial stage not found - please execute '$(
+		die "Initial stage not found - please execute '$( # <- Syntax
 			basename "${0}"
 		) --init'"
 	fi
@@ -987,9 +1007,9 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 
 	# Handle leftover container from previous run ...
 	trap '' INT
-	if $docker container ps -a | grep -q -- "${base_name#*/}$"; then
-		$docker container stop "${base_name#*/}"
-		$docker container rm --volumes "${base_name#*/}"
+	if docker container ps -a | grep -q -- "${base_name#*/}$"; then
+		docker container stop "${base_name#*/}"
+		docker container rm --volumes "${base_name#*/}"
 	fi
 	trap - INT
 
@@ -1015,14 +1035,18 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 					<<<"${python_target//_/.}" )*"
 			done
 
-			eval "$(
-				$docker container run \
-						--rm \
-						--entrypoint /bin/sh \
-						--name 'buildpkg.stage3_flags.read' \
-						--network none \
+			declare -a docker_run_args=()
+			docker_run_args+=( # <- Syntax
+				--entrypoint /bin/sh
+				--name 'buildpkg.stage3_flags.read'
+				--network none
+				--rm
+			)
+			eval "$( # <- Syntax
+				docker container run "${docker_run_args[@]}" \
 					"${init_name}:latest" -c "cat ${stage3_flags_file}"
 			)"
+			unset docker_run_args
 			if [[ -f "${base_dir}"/etc/portage/profile/use.mask ]]; then
 				declare target=''
 				if [[ -n "${STAGE3_PYTHON_SINGLE_TARGET:-}" ]]; then
@@ -1084,16 +1108,17 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		# shellcheck disable=SC2030
 		export image="${init_name}:latest"
 		export DOCKER_CMD_VARS="--env ARCH=${arch:-${ARCH}}"
-		# shellcheck disable=SC2086
-		_docker_run \
-				--post-pkgs="${post_pkgs}" \
-				--post-use="${post_use}" \
-				--python-targets="${python_targets}" \
-				--usepkg=y \
-				--with-bdeps-auto=n \
-				--with-bdeps=n \
-			virtual/libc ${python_pkgs:-} 2>&1 |
-		tee ../log/"docker.${base_name#*/}.log"
+		declare -a docker_run_args=()
+		docker_run_args+=( # <- Syntax
+			--post-pkgs="${post_pkgs}"
+			--post-use="${post_use}"
+			--python-targets="${python_targets}"
+			--usepkg=y
+			--with-bdeps-auto=n
+			--with-bdeps=n
+		)
+		_docker_run "${docker_run_args[@]}" virtual/libc ${python_pkgs:-} 2>&1 |
+			tee ../log/"docker.${base_name#*/}.log"
 	)
 	output " -> ${?}"
 
@@ -1104,14 +1129,18 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 
 	# shellcheck disable=SC2086
 	trap '' INT
-	if ! type -pf buildah >/dev/null 2>&1; then
-		$docker container commit "${base_name#*/}" "${base_name}:latest" 2>&1 |
+	#if ! type -pf buildah >/dev/null 2>&1; then
+		docker container commit \
+					--squash \
+				"${base_name#*/}" "${base_name}:latest" 2>&1 |
 			tee -a ../log/"docker.${base_name#*/}.log"
-	else
-		buildah commit --squash "${base_name#*/}" "${base_name}:latest" 2>&1 |
-			tee -a ../log/"docker.${base_name#*/}.log"
-	fi
-	$docker container rm --volumes "${base_name#*/}" 2>&1 |
+	#else
+	#	buildah commit \
+	#				--squash \
+	#			"${base_name#*/}" "${base_name}:latest" 2>&1 |
+	#		tee -a ../log/"docker.${base_name#*/}.log"
+	#fi
+	docker container rm --volumes "${base_name#*/}" 2>&1 |
 		tee -a ../log/"docker.${base_name#*/}.log"
 	trap - INT
 	output " -> ${?}"
@@ -1126,12 +1155,17 @@ fi
 # Ensure that @system is correctly installed to ROOT=/ and snapshot result as
 # build image.
 if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
-	images="$(
-		$docker image ls --noheading \
-			"${base_name}" 2>/dev/null
+	declare -a container_args=()
+	[[ -z "${IMAGE_ROOT:-}" ]] || container_args+=( # <- Syntax
+		--storage-opt="overlay.imagestore=${GRAPH_ROOT}"
+		--root "${IMAGE_ROOT}"
+	)
+
+	images="$( docker image ls --noheading \
+		"${base_name}" 2>/dev/null
 	)"
 	if ! grep -Eq -- "^(localhost/)?${base_name}" <<<"${images}"; then
-		die "Base stage not found - please execute '$(
+		die "Base stage not found - please execute '$( # <- Syntax
 			basename "${0}"
 		) --base'"
 	fi
@@ -1145,19 +1179,17 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	# Handle leftover container from previous run ...
 	trap '' INT
 	# shellcheck disable=SC2015
-	if $docker container ps -a | grep -q -- "${build_name#*/}$"; then
-		$docker container stop "${build_name#*/}"
-		$docker container rm --volumes "${build_name#*/}"
+	if docker container ps -a | grep -q -- "${build_name#*/}$"; then
+		docker container stop "${build_name#*/}"
+		docker container rm --volumes "${build_name#*/}"
 	fi
 	# shellcheck disable=SC2015
-	$docker image ls --noheading \
-		"${build_name}-root:latest" 2>/dev/null |
-	grep -Eq -- "^(localhost/)?${build_name}-root\s+latest\s" && {
-		# shellcheck disable=SC2140
-		$docker \
-				${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} \
-			image rm "${build_name}-root:latest"
-	} || :
+	if docker image ls --noheading \
+			"${build_name}-root:latest" 2>/dev/null |
+		grep -Eq -- "^(localhost/)?${build_name}-root\s+latest\s"
+	then
+		docker "${container_args[@]}" image rm "${build_name}-root:latest"
+	fi
 	trap - INT
 
 	# NAME:    build
@@ -1172,23 +1204,30 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	# services are re-squashed when 'gentoo-build'-svc.docker invokes
 	# 'Dockerfile.*service' to produce the service-container image.
 	#
-	# shellcheck disable=SC2086,SC2140
-	$docker ${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} \
-			image build \
-					--build-arg env_id="${env_id}" \
-					${environment_file:+--build-arg environment_file="${environment_file}"} \
-					--build-arg environment_filter="${environment_filter}" \
-					--compress \
-					--file 'Dockerfile.build' \
-					${debug:+--loglevel 3 ${DEBUG_EXTRA_ARGS:-}} \
-					--network none \
-					--no-cache \
-					--platform "linux/${docker_arch}" \
-					--squash-all \
-					--tag "${build_name}-root:latest" \
-				. 2>&1 |
+	declare -a build_args=()
+	build_args+=( # <- Syntax
+		--build-arg env_id="${env_id}"
+		--build-arg environment_filter="${environment_filter}"
+		--compress
+		--file 'Dockerfile.build'
+		--network none
+		#--network slirp4netns
+		--no-cache
+		--platform "linux/${docker_arch}"
+		--squash-all
+		--tag "${build_name}-root:latest"
+	)
+	[[ -z "${environment_file:-}" ]] || build_args+=( # <- Syntax
+		--build-arg environment_file="${environment_file}"
+	)
+	# shellcheck disable=SC2206
+	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
+		--loglevel 3
+		${DEBUG_EXTRA_ARGS:-}
+	)
+	docker "${container_args[@]}" image build "${build_args[@]}" . 2>&1 |
 		tee ../log/"docker.${build_name#*/}.log"
-					#--network slirp4netns \
+	unset build_args
 
 	(
 		# dev-libs/icu is needed for circular dependencies on
@@ -1210,77 +1249,134 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		export image="${build_name}-root:latest"
 		# shellcheck disable=SC2030
 		if [[ -n "${IMAGE_ROOT:-}" ]]; then
-			export DOCKER_VARS="--storage-opt=\"overlay.imagestore=${GRAPH_ROOT}\" --root \"${IMAGE_ROOT}\""
+			export DOCKER_VARS="${container_args[*]}"
 		fi
 		# shellcheck disable=SC2086
-		if eval $docker ${DOCKER_VARS:-} container exists --external "${name}"; then
+		if docker ${DOCKER_VARS:-} container exists --external "${name}"; then
 			warn "Container with name '${name}' already exists:"
-			eval $docker ${DOCKER_VARS:-} container ps --noheading -a |
+			docker ${DOCKER_VARS:-} container ps --noheading -a |
 				grep -F "${name}"
-			eval $docker ${DOCKER_VARS:-} container stop "${name}" || :
-			eval $docker ${DOCKER_VARS:-} container rm -v "${name}"
+			docker ${DOCKER_VARS:-} container stop "${name}" || :
+			docker ${DOCKER_VARS:-} container rm -v "${name}"
 		fi
-		# shellcheck disable=SC2046
-		_docker_run \
-				  ${use_pypy_pre:+--pre-pkgs="${use_pypy_pre}"} \
-				  ${use_pypy_pre_use:+--pre-use="${use_pypy_pre_use}"} \
-				--post-pkgs="app-arch/tar${use_pypy_post:+ ${use_pypy_post}}" \
-				--post-use="-* ${use_essential:-} xattr ${use_pypy_post_use:-}" \
-				  ${use_pypy_post_remove:+--post-remove="${use_pypy_post_remove}"} \
-				--update \
-				--usepkg=y \
-				--with-bdeps-auto=n \
-				--with-bdeps=n \
-				--with-use="$( echo \
-					"-* -lib-only" \
-					"pkg-config ${use_essential:-} curl_ssl_openssl openssl ssl " \
+		declare -a build_args=()
+		build_args+=( # <- Syntax
+			--post-pkgs="app-arch/tar${use_pypy_post:+ ${use_pypy_post}}"
+			--post-use="-* $( replace_flags \
+				'xattr' -- "${use_essential:-} ${use_pypy_post_use:-}"
+			  )"
+			--update
+			--usepkg=y
+			--with-bdeps-auto=n
+			--with-bdeps=n
+			--with-use="-* $( replace_flags \
+					'-lib-only' 'openmp' \
+					'pkg-config' \
+					'curl_ssl_openssl' 'openssl' 'ssl' \
 					"python_single_target_${python_single_target}" \
-					$(
+					$( # <- Syntax
 						for python_target in ${python_targets}; do
 							echo "python_targets_${python_target}"
 						done
 					) \
-					"${use_pypy_use:+python_targets_pypy3 ${use_pypy_use:-}}" \
-					"${use_essential_gcc:-}"
-				  )" \
-			dev-libs/icu dev-util/pkgconf sys-apps/locale-gen sys-apps/sed \
-			sys-apps/util-linux sys-devel/gcc sys-libs/libeudev @system \
-			${use_pypy:+sys-apps/portage ${use_pypy:-}} 2>&1 |
-		tee -a ../log/"docker.${build_name#*/}.log"
+					"${use_pypy_use:+"python_targets_pypy3"}" \
+					"${use_pypy_use:-}" \
+				-- \
+					"${use_essential:-} ${use_essential_gcc:-}"
+			  )"
+		)
+		[[ -z "${use_pypy_pre:-}" ]] || build_args+=( # <- Syntax
+			--pre-pkgs="${use_pypy_pre}"
+		)
+		[[ -z "${use_pypy_pre_use:-}" ]] || build_args+=( # <- Syntax
+			--pre-use="${use_pypy_pre_use}"
+		)
+		[[ -z "${use_pypy_post_remove:-}" ]] || build_args+=( # <- Syntax
+			--post-remove="${use_pypy_post_remove}"
+		)
+		_docker_run "${build_args[@]}" \
+				dev-libs/icu dev-util/pkgconf sys-apps/locale-gen \
+				sys-apps/sed sys-apps/util-linux sys-devel/gcc \
+				sys-libs/libeudev @system \
+				${use_pypy:+"sys-apps/portage"} \
+				${use_pypy:-} 2>&1 |
+			tee -a ../log/"docker.${build_name#*/}.log"
+		unset build_args
 	)
 	output " -> ${?}"
 
 	output
 	output " ${blue}*${reset} Saving container '${build_name#*/}' as image" \
-		"'${build_name}:latest' ..."
+		"'${build_name}-finalise:latest' ..."
 	output
 	trap '' INT
 	# shellcheck disable=SC2031,SC2086,SC2140
-	if ! type -pf buildah >/dev/null 2>&1; then
-		$docker \
-					${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
-				container commit "${build_name#*/}" "${build_name}:latest" |
+	#if ! type -pf buildah >/dev/null 2>&1; then
+		docker "${container_args[@]}" container commit \
+					--squash \
+				"${build_name#*/}" "${build_name}-finalise:latest" |
 			tee -a ../log/"docker.${build_name#*/}.log"
-	else
-		buildah \
-					${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
-				commit \
-						--squash \
-					"${build_name#*/}" "${build_name}:latest" |
-			tee -a ../log/"docker.${build_name#*/}.log"
-	fi
+	#else
+	#	buildah "${container_args[@]}" commit \
+	#				--squash \
+	#			"${build_name#*/}" "${build_name}:latest" |
+	#		tee -a ../log/"docker.${build_name#*/}.log"
+	#fi
 	# shellcheck disable=SC2031,SC2086,SC2140
-	$docker \
-				${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
-			container rm --volumes "${build_name#*/}" |
+	docker "${container_args[@]}" container rm --volumes "${build_name#*/}" |
 		tee -a ../log/"docker.${build_name#*/}.log"
 	# shellcheck disable=SC2031,SC2086,SC2140
-	$docker \
-				${IMAGE_ROOT:+--storage-opt="overlay.imagestore=${GRAPH_ROOT}" --root "${IMAGE_ROOT}"} 2>&1 \
-			image rm "${build_name}-root:latest" |
+	docker "${container_args[@]}" image rm "${build_name}-root:latest" |
 		tee -a ../log/"docker.${build_name#*/}.log"
 	output " -> ${?}"
 	trap - INT
+
+	# This is a potentially expensive additional step, but it ensures that
+	# portage doesn't complain noisily if the repos which exist on-disk when
+	# a build-container is run are fewer or different than those which existed
+	# when the build-image was assembled...
+	#
+	output
+	output " ${blue}*${reset} Finalising image " \
+		"'${build_name#*/}-finalise:latest' ..."
+	output
+	trap '' INT
+	docker "${container_args[@]}" container run \
+				--name "${build_name#*/}-finalise" \
+				--net none \
+			"${build_name}-finalise:latest" --finalise-container |
+		tee -a ../log/"docker.${build_name#*/}.log"
+	output " -> ${?}"
+	trap - INT
+
+	output
+	output " ${blue}*${reset} Saving container '${build_name#*/}-finalise'" \
+		"as image '${build_name}:latest' ..."
+	output
+	trap '' INT
+	# shellcheck disable=SC2031,SC2086,SC2140
+	#if ! type -pf buildah >/dev/null 2>&1; then
+		docker "${container_args[@]}" container commit \
+					--squash \
+				"${build_name#*/}-finalise" "${build_name}:latest" |
+			tee -a ../log/"docker.${build_name#*/}.log"
+	#else
+	#	buildah "${container_args[@]}" commit \
+	#				--squash \
+	#			"${build_name#*/}" "${build_name}:latest" |
+	#		tee -a ../log/"docker.${build_name#*/}.log"
+	#fi
+	# shellcheck disable=SC2031,SC2086,SC2140
+	docker "${container_args[@]}" container rm --volumes \
+			"${build_name#*/}-finalise" |
+		tee -a ../log/"docker.${build_name#*/}.log"
+	# shellcheck disable=SC2031,SC2086,SC2140
+	docker "${container_args[@]}" image rm "${build_name}-finalise:latest" |
+		tee -a ../log/"docker.${build_name#*/}.log"
+	output " -> ${?}"
+	trap - INT
+
+	unset container_args
 
 	output
 	output " ${blue}*${reset} Stage 'build' complete - all done"
@@ -1317,7 +1413,7 @@ then
 				"directory '${PWD}') to build non-Gentoo helper image"
 		else
 			#if ! ((
-			#	$docker image ls --noheading \
+			#	docker image ls --noheading \
 			#		"gentoo-helper:latest" 2>/dev/null | wc -l
 			#)); then
 				output " ${blue}*${reset} Building helper for non-Gentoo" \
@@ -1338,7 +1434,7 @@ then
 	fi
 fi
 
-[[ -n "${trace:-}" ]] && set +o xtrace
+[[ -z "${trace:-}" ]] || set +o xtrace
 
 popd >/dev/null
 

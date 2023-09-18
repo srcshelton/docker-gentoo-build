@@ -357,6 +357,58 @@ git_safedirectory_markall() {
 #	/usr/sbin/prelink -av ${PRELINK_OPTS}
 #}  # prelink
 
+do_locale_gen() {
+	if command -v locale-gen >/dev/null 2>&1; then
+		case "${JOBS:-}" in
+			0|1|'*')
+				ROOT='' locale-gen --update
+				;;
+			[0-9]*)
+				ROOT='' locale-gen --update --jobs "${JOBS}"
+				;;
+			''|*)
+				ROOT='' locale-gen --update --jobs "${DEFAULT_JOBS}"
+				;;
+		esac
+	fi
+}  # do_locale_gen
+
+do_container_setup() {
+	do_locale_gen
+	echo
+	if command -v env-update >/dev/null 2>&1; then
+		LC_ALL='C' env-update 2>/dev/null
+	fi
+	if [ -e /usr/gawk ] || [ -e /usr/bin/gawk ]; then
+		# Superseded by app-alternatives/awk...
+		#
+		if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]
+		then
+			eselect awk set gawk
+		fi
+	fi
+	[ -d /etc/env.d/binutils ] &&
+		command -v binutils-config >/dev/null 2>&1 &&
+			ROOT='' binutils-config 1 2>/dev/null |
+				grep -v -- '^\s*$' || :
+	echo
+	[ -d /etc/env.d/gcc ] &&
+		command -v gcc-config >/dev/null 2>&1 &&
+			ROOT='' gcc-config 1
+	echo
+
+	command -v etc-update >/dev/null 2>&1 &&
+		etc-update --automode -5 2>/dev/null |
+			grep -Fv -- 'Nothing left to do; exiting' || :
+}  # do_container_setup
+
+if echo " ${*:-} " | grep -Fq -- ' --finalise-container '; then
+	print "Finalising container image ..."
+	do_container_setup
+	rm -r /var/db/repo
+	exit ${?}
+fi
+
 if [ -n "${DEV_MODE:-}" ]; then
 	cat <<EOF
 
@@ -386,40 +438,6 @@ fi
 		die "gentoo-build:entrypoint.sh Unable to source" \
 			"'${environment_file}': ${?}"
 
-if [ -x /usr/sbin/locale-gen ]; then
-	if [ -n "${JOBS:-}" ]; then
-		case "${JOBS}" in
-			0|1|'*')
-				ROOT='' locale-gen --update
-				;;
-			[0-9]*)
-				ROOT='' locale-gen --update --jobs "${JOBS}"
-				;;
-			*)
-				ROOT='' locale-gen --update --jobs "${DEFAULT_JOBS}"
-				;;
-		esac
-	else
-		ROOT='' locale-gen --update --jobs "${DEFAULT_JOBS}"
-	fi
-fi
-
-if command -v env-update >/dev/null 2>&1; then
-	LC_ALL='C' env-update
-fi
-if [ -e /usr/gawk ] || [ -e /usr/bin/gawk ]; then
-	# Superseded by app-alternatives/awk...
-	#
-	if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]
-	then
-		eselect awk set gawk
-	fi
-fi
-[ -d /etc/env.d/gcc ] &&
-	ROOT='/' gcc-config 1
-[ -d /etc/env.d/binutils ] &&
-	command -v binutils-config >/dev/null 2>&1 &&
-	ROOT='/' binutils-config 1
 # shellcheck disable=SC1091
 [ -s /etc/profile ] && . /etc/profile
 
@@ -1205,8 +1223,12 @@ case "${1:-}" in
 		git_safedirectory_markall
 		;;
 	*)
+		# If 'locale-gen' is initially present, then we *should* already have
+		# run it... but then, we're invoking it with '--update' and so
+		# re-running should be a no-op?
+		#
 		has_locale_gen=0
-		if [ -x /usr/sbin/locale-gen ]; then
+		if command -v locale-gen >/dev/null 2>&1; then
 			has_locale_gen=1
 		fi
 
@@ -1691,22 +1713,8 @@ case "${1:-}" in
 			fi
 		fi # [ -n "${rebuild:-}" ]
 
-		if [ $(( has_locale_gen )) -eq 0 ] && [ -x /usr/sbin/locale-gen ]; then
-			if [ -n "${JOBS:-}" ]; then
-				case "${JOBS}" in
-					0|1|'*')
-						ROOT='' locale-gen --update
-						;;
-					[0-9]*)
-						ROOT='' locale-gen --update --jobs "${JOBS}"
-						;;
-					*)
-						ROOT='' locale-gen --update --jobs "${DEFAULT_JOBS}"
-						;;
-				esac
-			else
-				ROOT='' locale-gen --update --jobs "${DEFAULT_JOBS}"
-			fi
+		if [ $(( has_locale_gen )) -eq 0 ]; then
+			do_locale_gen
 		fi
 		;;
 esac
@@ -1827,6 +1835,11 @@ find /var/db/pkg/ -mindepth 2 -maxdepth 2 -type d -print |
 if [ -n "${ROOT:-}" ] && [ "${ROOT:-}" != '/' ]; then
 	find "${ROOT}/var/db/pkg/" -mindepth 2 -maxdepth 2 -type d -print |
 		sed 's|^.*/var/db/pkg/||' > "${ROOT:-}"/builddeps.txt
+fi
+
+if command -v eselect >/dev/null 2>&1; then
+	eselect news read new |
+		grep -Fv -- 'No news is good news.' || :
 fi
 
 exit ${rc}
