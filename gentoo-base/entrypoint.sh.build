@@ -230,6 +230,9 @@ applyworkarounds() {
 	aw_pkgs='' aw_list='' aw_pkg=''
 	#inherit use_essential_gcc USE
 
+	# N.B. Ensure any status/user-information output goes to &2!
+	#
+
 	[ -n "${aw_arg:-}" ] || return 1
 	if [ -n "${2:-}" ]; then
 		shift
@@ -239,11 +242,16 @@ applyworkarounds() {
 	fi
 
 	aw_pkgs='sys-devel/gcc'
+	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
 		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
 	done
-	if echo " ${aw_arg} " | grep -Eq -- " ([<>]?=|~)?(${aw_list})[ -]"; then
+	#print "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+	if echo " ${aw_arg} " |
+			sed 's/ /  /g' |
+			grep -Eq -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+	then
 		aw_gcc_use=''
 		warn "Activating sys-devel/gcc work-arounds ..."
 		print "Before work-around, USE is '${USE}' ..."
@@ -261,34 +269,48 @@ applyworkarounds() {
 		unset aw_gcc_use
 		print "After work-around, USE is '${USE}'"
 	fi
-	aw_pkgs='app-containers/podman app-containers/netavark dev-lang/rust'
+	aw_pkgs='app-containers/podman app-containers/netavark app-containers/aardvark-dns virtual/rust dev-lang/rust'
+	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
 		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
 	done
-	if echo " ${aw_arg} " | grep -Eq -- " ([<>]?=|~)?(${aw_list})[ -]"; then
+	#print "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+	if echo " ${aw_arg} " |
+			sed 's/ /  /g' |
+			grep -Eq -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+	then
 		warn "Activating app-containers/netavark work-arounds ..."
 		print "Before work-around, USE is '${USE}' ..."
 		USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //')"}http2"
 		print "After work-around, USE is '${USE}'"
 	fi
 	aw_pkgs='dev-lang/php media-libs/freetype media-libs/harfbuzz'
+	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
 		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
 	done
-	if echo " ${aw_arg} " | grep -Eq -- " ([<>]?=|~)?(${aw_list})[ -]"; then
+	#print "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+	if echo " ${aw_arg} " |
+			sed 's/ /  /g' |
+			grep -Eq -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+	then
 		warn "Activating media-libs/harfbuzz work-arounds ..."
 		print "Before work-around, USE is '${USE}' ..."
 		USE="${USE:+"$( echo " ${USE} " | sed 's/ harfbuzz / / ; s/^ //')"}-harfbuzz"
 		print "After work-around, USE is '${USE}'"
 	fi
 	#aw_pkgs='app-containers/buildah'
+	#info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	#aw_list=''
 	#for aw_pkg in ${aw_pkgs}; do
 	#	aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
 	#done
-	#if echo " ${aw_arg} " | grep -Eq -- " ([<>]?=|~)?(${aw_list})[ -]"; then
+	#if echo " ${aw_arg} " |
+	#		sed 's/ /  /g' |
+	#		grep -Eq -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+	#then
 	#	warn "Activating app-containers/buildah work-arounds ..."
 	#	print "Before work-around, USE is '${USE}' ..."
 	#	USE="${USE:+"$( echo " ${USE} " | sed 's/ -gold / / ; s/^ //' )"}gold"
@@ -296,11 +318,15 @@ applyworkarounds() {
 	#	print "After work-around, USE is '${USE}'"
 	#fi
 	#aw_pkgs='sys-apps/busybox sys-libs/libxcrypt virtual/libcrypt'
+	#info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	#aw_list=''
 	#for aw_pkg in ${aw_pkgs}; do
 	#	aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
 	#done
-	#if echo " ${aw_arg} " | grep -Eq -- " ([<>]?=|~)?(${aw_list})[ -]"; then
+	#if echo " ${aw_arg} " |
+	#		sed 's/ /  /g' |
+	#	grep -Eq -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+	#then
 	#	if ! command -V equery >/dev/null 2>&1; then
 	#		warn "Unable to activate sys-apps/busybox, sys-libs/libxcrypt &" \
 	#			"virtual/libcrypt work-arounds due to 'equery' missing"
@@ -619,6 +645,7 @@ for arg in "${@}"; do
 			;;
 	esac
 done
+unset arg
 
 if [ -e /etc/portage/repos.conf.host ]; then
 	echo
@@ -985,8 +1012,11 @@ fi
 	# TODO: Fix this better...
 	#
 	USE="${USE:-} gawk gnu reference"
+	# ... we also need 'http2' if any rust packages need to be updated...
+	#
+	USE="${USE:-} http2"
 	LC_ALL='C'
-	VERY_BRAVE_OR_VERY_DUMB='yes'  # for busybox
+	VERY_BRAVE_OR_VERY_DUMB='yes'  # for (old) busybox
 	export ROOT FEATURES USE LC_ALL VERY_BRAVE_OR_VERY_DUMB
 
 	for pkg_use_file in ${pkg_use_files}; do
@@ -1240,6 +1270,7 @@ case "${1:-}" in
 				*)	package="${arg}" ; break ;;
 			esac
 		done
+		unset arg
 
 		echo
 
@@ -1251,11 +1282,12 @@ case "${1:-}" in
 		done
 		if curl_pkg="$( # <- Syntax
 				echo " ${*} " |
-					grep -Eo -- " ([<>]?=|~)?(${curl_list})[ -]"
+					sed 's/ /  /g' |
+					grep -Eo -- " ([<>]?=|~)?(${curl_list})(-[^ ]+)? "
 		)" && [ -n "${curl_pkg:-}" ]; then
-			curl_pkg="${curl_pkg#?}"
+			curl_pkg="$( echo "${curl_pkg}" | xargs -r )"
 			warn "Adding post-package entry 'net-misc/curl' due to presence" \
-				"of ${curl_pkg%?} ..."
+				"of ${curl_pkg} ..."
 			post_pkgs="${post_pkgs:+${post_pkgs} }net-misc/curl"
 		fi
 		unset curl_pkg curl_list curl_pkgs
@@ -1268,11 +1300,12 @@ case "${1:-}" in
 		done
 		if harfbuzz_pkg="$( # <- Syntax
 				echo " ${*} " |
-					grep -Eo -- " ([<>]?=|~)?(${harfbuzz_list})[ -]"
+					sed 's/ /  /g' |
+					grep -Eo -- " ([<>]?=|~)?(${harfbuzz_list})(-[^ ]+)? "
 		)" && [ -n "${harfbuzz_pkg:-}" ]; then
-			harfbuzz_pkg="${harfbuzz_pkg#?}"
+			harfbuzz_pkg="$( echo "${harfbuzz_pkg}" | xargs -r )"
 			warn "Adding post-package entry 'media-libs/freetype' due to presence" \
-				"of ${harfbuzz_pkg%?} ..."
+				"of ${harfbuzz_pkg} ..."
 			post_pkgs="${post_pkgs:+${post_pkgs} }media-libs/freetype"
 		fi
 		unset harfbuzz_pkg harfbuzz_list harfbuzz_pkgs
@@ -1339,6 +1372,7 @@ case "${1:-}" in
 						;;
 				esac
 			done
+			unset arg
 
 			# ... then process any non-flag options as individual packages to
 			# rebuild, except when EMERGE_OPTS contains '--swap-build', in
@@ -1356,6 +1390,7 @@ case "${1:-}" in
 								continue
 							fi
 						fi
+
 						echo
 						echo " * Building single package '${arg}' from '${*}' ..."
 						echo
@@ -1386,6 +1421,7 @@ case "${1:-}" in
 
 				git_safedirectory_markall
 			done
+			unset arg
 
 			# ... and finally, if '--swap-build' is in effect, build the first
 			# original package specified now, at the end of the process.
@@ -1395,7 +1431,7 @@ case "${1:-}" in
 					echo " * Building first package '${first}' of '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' ..."
 					echo
 					(
-						USE="$( applyworkarounds "${arg}" "${USE}" )"
+						USE="$( applyworkarounds "${first}" "${USE}" )"
 						export USE
 						# shellcheck disable=SC2016
 						print "Running 'emerge" \
@@ -1416,13 +1452,14 @@ case "${1:-}" in
 					) || rc=${?}
 					clearworkarounds
 			fi
+			unset first
 
 		else # ! echo " ${EMERGE_OPTS:-} " | grep -Eq -- ' --single(-build)? '; then
 			(
 				# We're not performing single-builds, so build everything at the
 				# same time (and potentially in parallel)
 				#
-				USE="$( applyworkarounds "${arg}" "${USE}" )"
+				USE="$( applyworkarounds "${*}" "${USE}" )"
 				export USE
 				# shellcheck disable=SC2016
 				print "Running 'emerge" \
@@ -1604,6 +1641,8 @@ case "${1:-}" in
 							;;
 					esac
 				done
+				unset arg
+
 				for arg in ${rebuild}; do
 					case "${arg}" in
 						-*)	continue ;;
@@ -1669,12 +1708,13 @@ case "${1:-}" in
 							;;
 					esac
 				done
+				unset arg
 
 			else # [ -z "${EMERGE_OPTS:-}" ] || ! echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-rebuild)? '; then
 				(
 					# Reinstall package first to maximise dependency re-use...
 					#
-					USE="$( applyworkarounds "${arg}" "${USE}" )"
+					USE="$( applyworkarounds "${rebuild}" "${USE}" )"
 					export USE
 					# shellcheck disable=SC2016
 					print "Running build-dependencies 'emerge" \
@@ -1763,6 +1803,7 @@ if [ $(( depclean )) -ne 0 ]; then
 			echo "${arg}" | sed 's/^[<>]\?=\?// ; s/-[0-9].*$// ; s/::.*$//'
 		)"
 	done
+	unset arg
 	depclean_exclude="${filtered_depclean_exclude:-}"
 	unset filtered_depclean_exclude
 
@@ -1814,7 +1855,7 @@ fi
 if [ -d "${ROOT}"/usr/lib/gcc ]; then
 	if ! [ -d "${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}" ]; then
 		warn "Directory '${ROOT}/usr/lib/gcc' exists but '${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}' doesn't"
-		debug "$( ls -1AF "${ROOT}/usr/lib/gcc" )"
+		print "$( ls -1AF "${ROOT}/usr/lib/gcc" )"
 	else
 		if ! grep -Fqm 1 '/gcc/' "${ROOT}/etc/ld.so.conf"; then
 			find "${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}" \
@@ -1838,8 +1879,12 @@ if [ -n "${ROOT:-}" ] && [ "${ROOT:-}" != '/' ]; then
 fi
 
 if command -v eselect >/dev/null 2>&1; then
-	eselect news read new |
-		grep -Fv -- 'No news is good news.' || :
+	# Avoid, e.g. '!!! Warning: News item "2021-07-20-perl-5_34-upgrade" no longer exists'
+	eselect news read new 2>&1 |
+		grep -Fv \
+				-e 'No news is good news.' \
+				-e '!!! Warning: News item "' \
+			|| :
 fi
 
 exit ${rc}
