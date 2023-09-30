@@ -170,8 +170,9 @@
 
 # rust build dependencies for netavark/aardvark-dns
 #=dev-util/cargo-ebuild-0.5.1				~amd64
-=dev-util/cargo-ebuild-0.5.2				~amd64
+#=dev-util/cargo-ebuild-0.5.2				~amd64
 =dev-util/cargo-ebuild-0.5.4				~amd64
+=dev-util/cargo-ebuild-0.5.4-r1				~amd64
 
 #~app-containers/netavark-1.0.2				 **
 #~app-containers/netavark-1.0.3				 **
@@ -227,8 +228,9 @@
 #~app-containers/crun-1.8.3				 **
 #~app-containers/crun-1.8.4				 **
 #~app-containers/crun-1.8.5				 **
-~app-containers/crun-1.8.6				 **
+#~app-containers/crun-1.8.6				 **
 ~app-containers/crun-1.9				 **
+~app-containers/crun-1.9.1				 **
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -311,6 +313,7 @@
 #~app-containers/containers-storage-1.45.3		 **
 #~app-containers/containers-storage-1.45.4		 **
 #~app-containers/containers-storage-1.45.5		 **
+#~app-containers/containers-storage-1.45.6		 **
 #~app-containers/containers-storage-1.46.0		 **
 #~app-containers/containers-storage-1.46.1		 **
 #~app-containers/containers-storage-1.47.0		 **
