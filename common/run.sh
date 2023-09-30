@@ -119,7 +119,7 @@ print() {
 			output >&2 "DEBUG: ${BASH_SOURCE[-1]:-"$( basename "${0}" )"}/${BASH_SOURCE[0]}: ${*}"
 		fi
 		return 0
-	# Unhelpful with 'set -e' ...
+	# Unhelpful with 'set -e'...
 	#else
 	#	return 1
 	fi
@@ -151,7 +151,8 @@ replace_flags() {
 					list+=( ${arg} )
 				else
 					# shellcheck disable=SC2206
-					flags+=( ${arg} )
+					#flags+=( ${arg} )
+					xargs -rn 1 <<<"${arg}" | readarray -O "${#flags[@]}" flags
 				fi
 				;;
 			*)
@@ -164,28 +165,33 @@ replace_flags() {
 		esac
 	done
 
-	if (( 0 == ${#flags} )); then
+	if (( 0 == ${#flags[@]} )); then
 		print "WARN: No flags supplied to ${FUNCNAME[0]} - received '${*:-}'"
 		return 1
 	fi
 
 	for flag in "${flags[@]}"; do
-		state=0
+		# Remove existing instances of '(-)flag'...
+		#
 		for arg in "${list[@]}"; do
 			case "${arg}" in
 				"-${flag#-}"|"${flag#-}"|'')
+					# Do nothing, as we add the flag below...
 					:
 					;;
 				*)
-					if (( 0 == state )); then
-						output+=( "${arg}" )
-						state=1
-					fi
+					output+=( "${arg}" )
+					continue
 					;;
 			esac
 		done
 
+		# ... and then add '(-)flag' to the start of end of the list
+		#
 		case "${flag}" in
+			'')
+				:
+				;;
 			-*)
 				output=( "${flag}" "${output[@]:-}" )
 				;;
@@ -198,7 +204,104 @@ replace_flags() {
 	echo "${output[*]:-}"
 }  # replace_flags
 
-export -f replace_flags
+add_mount() {
+	# Mount a filesystem object into a container...
+	#
+	local -i dir=0
+	local -i append=1
+	local src='' dst='' arg='' ro="${docker_readonly:+",${docker_readonly}"}"
+
+	print "Received (1) '${1:-}' (2) '${2:-}' (3) '${3:-}' (4) '${4:-}'"
+
+	for arg in "${@:-}"; do
+		shift
+		case "${arg:-}" in
+			'')
+				: ;;
+			--dir)
+				dir=1 ;;
+			--export)
+				append=1 ;;
+			--print)
+				append=0 ;;
+			--ro)
+				: ;;
+			--noro|--no_ro|--no-ro)
+				ro='' ;;
+			*)
+				[[ -z "${arg:-}" ]] || set -- ${@+"${@}"} "${arg}" ;;
+		esac
+		print "arg is '${arg:-}', params are '${*}'"
+	done
+	unset arg
+	print "params are '${*}'"
+
+	if (( ${#} > 2 )); then
+		error "Too many arguments supplied to ${FUNCNAME[0]} - received '${*}'"
+		return 1
+	fi
+
+	src="${1:-}"
+	dst="${2:-}"
+	src_path="${src#%base%}"
+
+	if [[ -z "${src:-}" ]]; then
+		error "No source argument supplied to ${FUNCNAME[0]} - received '${src}' '${dst}' from '${*:-}'"
+		return 1
+	fi
+	if [[ -n "${dst:-}" && -n "${src_path:-}" ]]; then
+		if [[ "${dst}" == "${src_path}" ]]; then
+			warn "Overspecified call to ${FUNCNAME[0]}, 'dst' unnecessary in '${*}'"
+		elif [[ "${dst}" == "${src_path%/}"/* ]]; then
+			warn "Overspecified call to ${FUNCNAME[0]}, '...' possible at start of '${*}'"
+		elif [[ "${dst}" == */"${src_path#/}" ]]; then
+			warn "Overspecified call to ${FUNCNAME[0]}, '...' possible at end of '${*}'"
+		fi
+	elif [[ -z "${dst:-}" ]]; then
+		dst="${src_path}"
+	fi
+
+	if [[ "${src}" == '%base%/'* ]]; then
+		src="${PWD}/${base_dir:+"${base_dir}/"}${src_path#/}"
+	fi
+	if [[ "${src}" == *'/' ]]; then
+		# FIXME: Warn if auto-enabling directory mode?
+		dir=1
+	fi
+	if [[ "${dst}" == *'...' ]]; then
+		dst="${dst%...}/${src_path#/}"
+	elif [[ "${dst}" == '...'* ]]; then
+		dst="${src_path%/}/${dst#.../}"
+	fi
+	dst="${dst%/}"
+	unset src_path
+
+	if ! [[ -e "${src}" ]]; then
+		print "${FUNCNAME[0]} skipping source object '${src}': does not exist"
+		return 1
+	elif (( 0 == dir )) && [[ -d "${src}" ]]; then
+		print "${FUNCNAME[0]} skipping source object '${src}': is a directory"
+		return 1
+	elif (( 0 == dir )) && ! [[ -s "${src}" ]]; then
+		print "${FUNCNAME[0]} skipping source file '${src}': is empty"
+		return 1
+	fi
+
+	# [[ -e "${src}" && ( (( 1 == dir )) || ! -d "${src}" && -s "${src}" ) ]]
+	print "Mounting ${ro:+"read-only "}$( # <- Syntax
+		(( dir )) && echo 'directory' || echo 'file'
+	) '${src}' to '${dst}' ..."
+
+	if (( append )); then
+		export DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${src},destination=${dst}${ro:-}"
+	else
+		printf -- '--mount type=bind,source=%s,destination=%s%s' "${src}" "${dst}" "${ro:-}"
+	fi
+
+	return 0
+}  # add_mount
+
+export -f replace_flags add_mount
 
 #[ -n "${trace:-}" ] && set -o xtrace
 
@@ -208,7 +311,7 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 	}  # readlink
 fi
 
-# Mostly no longer needed, with Dockerfile.env ...
+# Mostly no longer needed, with Dockerfile.env...
 #
 _docker_setup() {
 	export -a args=() extra=()
@@ -325,7 +428,7 @@ _docker_parse() {
 
 			elif echo "${dp_arg}" | grep -Eq -- '((virtual|[a-z]{3,7}-[a-z]+)/)?[a-z0-9Z][a-zA-Z0-9_.+-]+\*?(:[0-9.]+\*?)?(::.*)?$'; then
 				# Currently category general names are between 3 and 7 ("gnustep") letters,
-				# Package names start with [023469Z] or lower-case ...
+				# Package names start with [023469Z] or lower-case...
 				if [ -z "${package:-}" ]; then
 					package="${dp_arg%::*}"
 					print "Setting package to '${package}'"
@@ -455,7 +558,7 @@ _docker_resolve() {
 					esac
 				done
 
-				# Assume we also lack 'portageq' ...
+				# Assume we also lack 'portageq'...
 				if [ -d /var/db/repos ]; then
 					repopath='/var/db/repos/gentoo'
 				elif [ -d /var/db/repo ]; then
@@ -765,7 +868,7 @@ _docker_run() {
 		esac
 		unset name
 		runargs+=(
-			  # FIXME: DEV_MODE currently hard-codes entrypoint.sh.build ...
+			  # FIXME: DEV_MODE currently hard-codes entrypoint.sh.build...
 			  --env DEV_MODE
 			  --env DEFAULT_JOBS="${JOBS}"
 			  --env DEFAULT_MAXLOAD="${MAXLOAD}"
@@ -1052,31 +1155,31 @@ _docker_run() {
 					*)		print "        ${arg} \\" ;;
 				esac
 			done
-			print "  ${image}${@:+" \\"}"
+			print "  ${image}${*:+" \\"}"
 			for arg in "${@:-}"; do
 				[[ -n "${arg:-}" ]] && print "    ${arg} \\"
 			done
 			print "'"
 			unset arg
 			if touch common.run.sh.debug.log; then
-				echo >common.run.sh.debug.log <<-EOF
+				cat > common.run.sh.debug.log <<-EOF
 					#! /bin/sh
 
 					set -eux
 
 				EOF
-				echo >>common.run.sh.debug.log "${_command} container run \\"
+				echo >> common.run.sh.debug.log "${_command} container run \\"
 				for arg in "${runargs[@]}"; do
 					echo >>common.run.sh.debug.log "        ${arg} \\"
 				done
-				echo >>common.run.sh.debug.log "    ${image} \\"
+				echo >> common.run.sh.debug.log "    ${image} \\"
 				# Start at $1 as $0 is the command itself...
 				local -i i=1
 				for (( ; i < ${#} ; i++ )); do
-					echo >>common.run.sh.debug.log "        ${!i} \\"
+					echo >> common.run.sh.debug.log "        ${!i} \\"
 				done
 				# At this point i == ${#}...
-				echo >>common.run.sh.debug.log "        ${!i}"
+				echo >> common.run.sh.debug.log "        ${!i}"
 				unset i
 			fi
 		fi
@@ -1106,7 +1209,7 @@ _docker_run() {
 			rc=${rcc}
 		fi
 	else
-		print "'${docker} container run' returned '${rc}'"
+		print "'${_command} container run' returned '${rc}'"
 	fi
 
 	[ -n "${trace:-}" ] && set +o xtrace
@@ -1145,20 +1248,20 @@ _docker_prune() {
 		cut -d' ' -f 1 |
 		rev |
 		grep -- '_' |
-		xargs -r docker ${DOCKER_VARS:-} container stop --time 2 >/dev/null
+		xargs -r /bin/sh -c docker ${DOCKER_VARS:-} container stop --time 2 >/dev/null
 	# shellcheck disable=SC2031,SC2086
 	docker ${DOCKER_VARS:-} container ps --noheading -a |
 		rev |
 		cut -d' ' -f 1 |
 		rev |
 		grep -- '_' |
-		xargs -r docker ${DOCKER_VARS:-} container rm --volumes >/dev/null
+		xargs -r /bin/sh -c docker ${DOCKER_VARS:-} container rm --volumes >/dev/null
 
 	# shellcheck disable=SC2031,SC2086
 	docker ${DOCKER_VARS:-} image ls |
 		grep -- '^<none>\s\+<none>' |
 		awk '{ print $3 }' |
-		xargs -r docker ${DOCKER_VARS:-} image rm
+		xargs -r /bin/sh -c docker ${DOCKER_VARS:-} image rm
 	trap - INT
 
 	return 0

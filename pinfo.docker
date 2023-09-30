@@ -15,9 +15,12 @@ if (( EUID )); then
 	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi
 
-DOCKER_EXTRA_MOUNTS="
-	--mount type=bind,source=/usr/share/info/,destination=/srv/host/usr/share/info${docker_readonly:+,${docker_readonly:-}}
-"
+declare -a docker_extra_mounts=()
+docker_extra_mounts+=( $( add_mount --print \
+		'/usr/share/info/'
+		'/srv/host/...'
+	) ) || :
+
 f=''
 for f in /etc/pinforc /etc/pinfo/pinforc /etc/pinfo/pinfo.rc; do
 	[ -s "${f}" ] && break
@@ -39,7 +42,9 @@ for id in $( podman container ps -a --filter 'name=^openrc-' --filter 'name=^web
 done
 unset id
 
-export DOCKER_EXTRA_MOUNTS DOCKER_VOLUMES
+export DOCKER_VOLUMES
+export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
+unset docker_extra_mounts
 
 #DOCKER_SCRIPT="$( cat <<-EOF
 #	set -eux ;

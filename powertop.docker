@@ -15,10 +15,12 @@ if (( EUID )); then
 	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi
 
-DOCKER_EXTRA_MOUNTS="
-	--mount type=bind,source=/var/cache/powertop/,destination=/var/cache/powertop
-"
-export DOCKER_EXTRA_MOUNTS
+declare -a docker_extra_mounts=()
+docker_extra_mounts+=( $( add_mount --print --no-ro \
+		'/var/cache/powertop/'
+	) ) || :
+export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
+unset docker_extra_mounts
 
 export DOCKER_CMD_VARS="--env LINES=${LINES} --env COLUMNS=${COLUMNS} --env TERM=${TERM}"
 
