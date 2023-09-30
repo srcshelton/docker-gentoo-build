@@ -167,8 +167,20 @@ declare version=''
 declare rust_llvm_use=''
 
 if [[ -n "${kbuild_opt:-}" ]]; then
+	declare arg=''
+	for arg in "${@:-}"; do
+		shift
+		if [[ -n "${arg:-}" ]] && ! [[ " ${*} ${kbuild_opt} " == *" ${arg} "* ]]; then
+			set -- ${@+"${@}"} "${arg}"
+		else
+			print "Skipping duplicate argument '${arg:-}'"
+		fi
+	done
+	unset arg
 	set -- "${*:-}" "${kbuild_opt}"
+	print "After processing environment variables, arguments are '${*:-}'"
 fi
+unset kbuild_opt
 
 if echo " ${*:-} " | grep -q -- ' --menuconfig '; then
 	menuconfig='menuconfig'  # Just has to be set...
@@ -203,12 +215,14 @@ if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 	fi
 	if echo " ${*:-} " | grep -q -- ' --force-llvm'; then
 		if echo " ${*:-} " | grep -q -- ' --force-llvm=[^ ]\+ '; then
-			llvm_sub_slot="$( echo " ${*} " | grep -o -- '--force-llvm=[^ ]\+ ' | cut -d'=' -f 2- | sed 's/ $//' )"
+			llvm_sub_slot="$( echo " ${*} " | grep -o -- '--force-llvm=[^ ]\+ ' | cut -d'=' -f 2- | sed 's/ $//' | sort -V | tail -n 1 )"
 		elif echo " ${*:-} " | grep -q -- ' --force-llvm [^ -][^ ]* '; then
-			llvm_sub_slot="$( echo " ${*} " | grep -o -- '--force-llvm [^ ]\+ ' | cut -d' ' -f 2- | sed 's/ $//' )"
+			llvm_sub_slot="$( echo " ${*} " | grep -o -- '--force-llvm [^ ]\+ ' | cut -d' ' -f 2- | sed 's/ $//' | sort -V | tail -n 1 )"
 		else
 			warn "Invalid LLVM version '$( echo " ${*:-} " | grep -o -- ' --force-llvm[^ ]\+ ' | sed 's/ $//' )'"
 		fi
+
+		print "llvm_sub_slot is '${llvm_sub_slot}' from '${*}'"
 		(( llvm_slot = $( cut -d'.' -f 1 <<<"${llvm_sub_slot}" ) ))
 		rust_llvm_use='-system-llvm'
 	fi
@@ -342,7 +356,7 @@ case "${package_version}" in
 	5.15.*|5.16.*)
 		#patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15%2B.patch' ;;
 		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15-5.16.patch' ;;
-	5.1[789].*|6.[01234].*)
+	5.1[789].*|6.[0123456].*)
 		patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.17%2B.patch'
 		case "${package_version}" in
 			5.19.*)
@@ -366,6 +380,10 @@ case "${package_version}" in
 		;;
 	6.5.*)
 		rust_ver='1.68.2'
+		;;
+	6.6.*)
+		rust_ver='1.71.1'
+		bindgen_ver='0.65.1'
 		;;
 esac
 case "${arch:-"${ARCH:-}"}" in
@@ -613,58 +631,97 @@ case "${unwind:-}" in
 esac
 
 # FIXME: Standardise on host or container configuration files
-DOCKER_EXTRA_MOUNTS=''
-test -e /etc/portage/package.accept_keywords &&
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+",${docker_readonly}"}"
-test -e /etc/portage/package.license &&
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+",${docker_readonly}"}"
+declare -a docker_extra_mounts=()
+docker_extra_mounts+=( $( add_mount --dir --print \
+		'/etc/portage/package.accept_keywords'
+	) ) || :
+docker_extra_mounts+=( $( add_mount --print \
+		'/etc/portage/package.license'
+	) ) || :
 
 if ! [ -d /etc/portage/package.mask ]; then
-	test -f /etc/portage/package.mask && test -s /etc/portage/package.mask &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.mask,destination=/etc/portage/package.mask/host.mask${docker_readonly:+",${docker_readonly}"}"
+	docker_extra_mounts+=( $( add_mount --print \
+			'/etc/portage/package.mask'
+		) ) || :
 else
-	test -f /etc/portage/package.mask/package.mask && test -s /etc/portage/package.mask/package.mask &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/host.mask${docker_readonly:+",${docker_readonly}"}"
+	docker_extra_mounts+=( $( add_mount --print \
+			'/etc/portage/package.mask/package.mask' \
+			'/etc/portage/package.mask/host.mask'
+		) ) || :
 	declare extra_mask='' file=''
 	while read -r extra_mask; do
 		file="$( basename "${extra_mask}" )"
-		test -s "/etc/portage/package.mask/${file}" &&
-			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.mask/${file},destination=/etc/portage/package.mask/${file}${docker_readonly:+",${docker_readonly}"}"
+		docker_extra_mounts+=( $( add_mount --print \
+				"/etc/portage/package.mask/${file}"
+			) ) || :
 	done < <( find /etc/portage/package.mask/ -mindepth 1 -maxdepth 1 -type f -not -name 'package.mask' -print0 | grep -vz -- '^repo-.*-mask' )
 	unset file extra_mask
 fi
-# shellcheck disable=SC2154
 if ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask" ]; then
-	test -f "${base_dir:+"${base_dir}/"}etc/portage/package.mask" && test -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask" &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask,destination=/etc/portage/package.mask/base.mask${docker_readonly:+",${docker_readonly}"}"
+	docker_extra_mounts+=( $( add_mount --print \
+			'%base%/etc/portage/package.mask' \
+			'.../base.mask'
+		) ) || :
 else
-	test -f "${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask" && test -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask" &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/base.mask${docker_readonly:+",${docker_readonly}"}"
+	docker_extra_mounts+=( $( add_mount --print \
+			'%base%/etc/portage/package.mask/package.mask' \
+			'/etc/portage/package.mask/base.mask'
+		) ) || :
 fi
 
-# shellcheck disable=SC2154
-if [ -f "${base_dir:+"${base_dir}/"}etc/portage/package.mask.kernel-sources" ] && [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask.kernel-sources" ]; then
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.kernel-sources,destination=/etc/portage/package.mask/kernel-sources.mask${docker_readonly:+",${docker_readonly}"}"
+if ! [ -d /etc/portage/package.unmask ]; then
+	docker_extra_mounts+=( $( add_mount --print \
+			'/etc/portage/package.unmask' \
+			'.../host.unmask'
+		) ) || :
+else
+	docker_extra_mounts+=( $( add_mount --print \
+			'/etc/portage/package.unmask/package.unmask' \
+			'.../host.unmask'
+		) ) || :
+	declare extra_unmask='' file=''
+	while read -r extra_unmask; do
+		file="$( basename "${extra_unmask}" )"
+		docker_extra_mounts+=( $( add_mount --print \
+				"/etc/portage/package.unmask/${file}"
+			) ) || :
+	done < <( find /etc/portage/package.unmask/ -mindepth 1 -maxdepth 1 -type f -not -name 'package.unmask' -print )
+	unset file extra_unmask
 fi
+
+docker_extra_mounts+=( $( add_mount --print \
+		'%base%/etc/portage/package.mask.kernel-sources' \
+		'/etc/portage/package.mask/kernel-sources.mask'
+	) ) || :
 
 if ! [ -d /etc/portage/package.use ]; then
-	test -f /etc/portage/package.use && test -s /etc/portage/package.use &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.use,destination=/etc/portage/package.use/package.use${docker_readonly:+",${docker_readonly}"}"
+	docker_extra_mounts+=( $( add_mount --print \
+			'/etc/portage/package.use' \
+			'.../package.use'
+		) ) || :
 else
 	# Add a prefix so that host.use can override package.use...
-	test -f /etc/portage/package.use/package.use && test -s /etc/portage/package.use/package.use &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.use/package.use,destination=/etc/portage/package.use/aa-package.use${docker_readonly:+",${docker_readonly}"}"
-	test -f /etc/portage/package.use/host.use && test -s /etc/portage/package.use/host.use &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.use/host.use,destination=/etc/portage/package.use/zz-host.use${docker_readonly:+",${docker_readonly}"}"
-	test -f /etc/portage/package.use/python_targets && test -s /etc/portage/package.use/python_targets &&
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.use/python_targets,destination=/etc/portage/package.use/python_targets${docker_readonly:+",${docker_readonly}"}"
+	docker_extra_mounts+=( # <- Syntax
+		$( add_mount --print \
+				'/etc/portage/package.use/package.use' \
+				'/etc/portage/package.use/aa-package.use'
+			)
+		$( add_mount --print \
+				'/etc/portage/package.use/host.use' \
+				'/etc/portage/package.use/zz-host.use'
+			)
+		$( add_mount --print \
+				'/etc/portage/package.use/python_targets'
+			)
+	) || :
 fi
 
-if [ -f /etc/portage/profile/package.use.mask ] && [ -s /etc/portage/profile/package.use.mask ]; then
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/profile/package.use.mask,destination=/etc/portage/profile/package.use.mask${docker_readonly:+",${docker_readonly}"}"
-fi
+docker_extra_mounts+=( $( add_mount --print \
+		'/etc/portage/profile/package.use.mask' --print
+	) ) || :
 
-[ -n "${DOCKER_EXTRA_MOUNTS:-}" ] && export DOCKER_EXTRA_MOUNTS
+export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
+unset docker_extra_mounts
 
 declare rustext=''
 if (( rust )); then
@@ -858,24 +915,30 @@ kernel_make_opts+=(
 	${kernel_debug:+"${kernel_debug}"}
 	O=../build
 )
-# Unpatched:
-#  /usr/src/linux-6.1.4-gentoo/scripts/rust_is_available_bindgen_libclang.h:2:9: warning: clang version 15.0.6  [-W#pragma-messages]
-# ... gives a result of '6.1.4' rather than '15.0.6' :(
-RUST_PATCH="$( cat <<-'EOF'
-	--- scripts/rust_is_available.sh
-	+++ scripts/rust_is_available.sh
-	@@ -104,7 +104,7 @@
-	 	LC_ALL=C "$BINDGEN" $(dirname $0)/rust_is_available_bindgen_libclang.h 2>&1 >/dev/null \
-	 		| grep -F 'clang version ' \
-	 		| grep -oE '[0-9]+\.[0-9]+\.[0-9]+' \
-	-		| head -n 1 \
-	+		| tail -n 1 \
-	 )
-	 bindgen_libclang_min_version=$($min_tool_version llvm)
-	 bindgen_libclang_cversion=$(get_canonical_version $bindgen_libclang_version)
-EOF
-)"
-RUST_PATCH_B64="$( echo "${RUST_PATCH}" | base64 -w 0 )"
+RUST_VERBOSE=''
+case "${package_version}" in
+	6.[1234].*|6.5.[123])
+		RUST_VERBOSE='-v'
+		# Unpatched:
+		#  /usr/src/linux-6.1.4-gentoo/scripts/rust_is_available_bindgen_libclang.h:2:9: warning: clang version 15.0.6  [-W#pragma-messages]
+		# ... gives a result of '6.1.4' rather than '15.0.6' :(
+		RUST_PATCH="$( cat <<-'EOF'
+			--- scripts/rust_is_available.sh
+			+++ scripts/rust_is_available.sh
+			@@ -104,7 +104,7 @@
+				LC_ALL=C "$BINDGEN" $(dirname $0)/rust_is_available_bindgen_libclang.h 2>&1 >/dev/null \
+					| grep -F 'clang version ' \
+					| grep -oE '[0-9]+\.[0-9]+\.[0-9]+' \
+			-		| head -n 1 \
+			+		| tail -n 1 \
+			 )
+			 bindgen_libclang_min_version=$($min_tool_version llvm)
+			 bindgen_libclang_cversion=$(get_canonical_version $bindgen_libclang_version)
+		EOF
+		)"
+		RUST_PATCH_B64="$( echo "${RUST_PATCH}" | base64 -w 0 )"
+		;;
+esac
 DOCKER_SCRIPT="$( cat <<-EOF
 	set -eu ;
 	[ -e /usr/src/linux ] || {
@@ -983,8 +1046,14 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		rustc --version ;
 		echo ;
 		export RUST_BACKTRACE=1
-		echo "${RUST_PATCH_B64}" | base64 -d | patch -p0 ;
-		make --debug=print ${kernel_make_opts[@]} rustavailable ;
+		[ -n "${RUST_PATCH_B64:-}" ] &&
+			echo "${RUST_PATCH_B64:-}" | base64 -d | patch -p0 ;
+		[ -n "${RUST_VERBOSE:-}" ] &&
+			sed -ri Makefile -e '/scripts\/rust_is_available.sh/s|(scripts/rust_is_available.sh)|\\1 ${RUST_VERBOSE}|' ;
+		make --debug=print ${kernel_make_opts[@]} rustavailable || {
+			echo >&2 "ERROR: rust_is_available.sh returns \${?}" ;
+			exit 1 ;
+		} ;
 	fi ;
 	if [ -e .config ]; then
 		echo "Configuration changes from '.config':" ;
@@ -994,11 +1063,11 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	set -x ;
 	time make ${kernel_make_opts[@]} ${deforoldconfig} prepare ${menuconfig:+"menuconfig"} ${nconfig:+"nconfig"} vmlinux modules \${dtb:+"dtbs"} \${kernel} &&
 		rm -rf "/lib/modules/${package_version}${distro:-}" &&
-		make ${kernel_make_opts[@]} INSTALL_MOD_STRIP=1 modules_install &&
-		success=1 ;
+			make ${kernel_make_opts[@]} INSTALL_MOD_STRIP=1 modules_install &&
+				success=1 ;
 	sh scripts/extract-vmlinux ../build/arch/\${dir}/boot/\${kernel} > vmlinux &&
 		[ -f vmlinux ] &&
-		mv vmlinux ../build/ ;
+			mv vmlinux ../build/ ;
 	if [ "${install}" = '1' ]; then
 		set +x ;
 		if [ -s /boot/boot.config -o -s /proc/bootconfig ] && [ -e /boot/initramfs.img ]; then
