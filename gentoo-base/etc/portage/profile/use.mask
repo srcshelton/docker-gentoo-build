@@ -42,7 +42,7 @@ python_targets_python3_9
 #python_targets_python3_11
 python_targets_python3_12
 
-# Prevent old PHP implementations beign pulled-in
+# Prevent old PHP implementations from being pulled-in
 #
 # PHP versions prior to dev-lang/php-8.1 don't support >dev-libs/openssl-3
 #
