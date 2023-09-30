@@ -64,9 +64,31 @@ done
 for file in color.map package.accept_keywords/* package.mask/* profile/use.mask savedconfig/*/*; do
 	[[ "${file}" == "${file#.}" ]] || continue
 	[[ -s "${file}" ]] || continue
+
 	diff -q "${file}" "/etc/portage/${file}" >/dev/null 2>&1 && continue
 	mkdir -p "$( dirname "/etc/portage/${file}" )"
 	cp -v "${file}" "$( find_seq "/etc/portage/${file}" )" ||
+		(( rc = 2 ))
+done
+
+for file in package.unmask "package.unmask.${ARCH}"; do
+	[[ "${file}" == "${file#.}" ]] || continue
+	[[ -s "${file}" ]] || continue
+
+	if [[ -f "/etc/portage/${file}" ]]; then
+		echo >&2 "WARN:  Migrating file '/etc/portage/${file}' to '/etc/portage/package.unmask/'"
+
+		if [[ "${file}" == 'package.unmask' ]]; then
+			file="${file}.tmp"
+			mv "/etc/portage/${file%.tmp}" "/etc/portage/${file}"
+		fi
+		mkdir -p /etc/portage/package.unmask
+		mv "/etc/portage/${file}" "/etc/portage/package.unmask/${file%.tmp}"
+	fi
+
+	diff -q "${file}" "/etc/portage/package.unmask/${file}" >/dev/null 2>&1 && continue
+	mkdir -p "$( dirname "/etc/portage/package.unmask/${file}" )"
+	cp -v "${file}" "$( find_seq "/etc/portage/package.unmask/${file}" )" ||
 		(( rc = 2 ))
 done
 
@@ -82,6 +104,7 @@ done
 for file in /etc/portage/savedconfig/*/*; do
 	[[ "${file}" == "${file#.}" ]] || continue
 	[[ -s "${file}" ]] || continue
+
 	diff -q "${file}" "/etc/portage/${file#/etc/portage/}" >/dev/null 2>&1 && continue
 	mkdir -p "$( dirname "${file#/etc/portage/}" )"
 	cp -v "${file}" "$( find_seq "${file#/etc/portage/}" )" ||
