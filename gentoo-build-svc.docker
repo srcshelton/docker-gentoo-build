@@ -112,6 +112,8 @@ for arg in "${args[@]:-}"; do
 			;;
 	esac
 done
+unset arg
+
 declare service="${1:-}"
 declare original_service="${service:-}"
 declare ports="${2:-0}"
@@ -144,6 +146,7 @@ if [[ -z "${*:-}" ]] || grep -Eq -- ' -(h|-help) ' <<<" ${*:-} "; then
 		output >&2 "  ${s}"
 	done
 	unset s
+
 	output >&2
 	output >&2 "  tools"
 	output >&2 "  installed"
@@ -199,10 +202,11 @@ for arg in "${@:-}"; do
 			:
 			;;
 		*)
-			set -- "${@:-}" "${arg}"
+			set -- ${@+"${@}"} "${arg}"
 			;;
 	esac
 done
+unset arg
 
 
 # BEGIN WRAPPER CODE
@@ -293,6 +297,7 @@ for arg in "${@:-}"; do
 			;;
 	esac
 done
+unset arg
 
 if (( service_list )); then
 	list=''
@@ -304,6 +309,7 @@ if (( service_list )); then
 			rc=1
 		fi
 	done
+	unset arg
 	(( rc )) && die "Unable to process service list"
 
 	# This logic isn't great - if we're given a (reduced) service list, then we
@@ -337,6 +343,8 @@ if (( all )); then
 			}
 			sleep 0.1 2>/dev/null || sleep 1
 		done
+		unset s
+
 		if (( rc )); then
 			warn "${rc} out of ${c} services failed to build:"
 			warn "Failed service builds: ${f}"
@@ -794,7 +802,7 @@ case "${package_name}" in
 		output "Setting build variables for package 'opendkim' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc'
 		pre_pkgs+=' acct-group/opendkim acct-user/opendkim'
-		pre_pkgs+=' acct-group/dkimsocket acct-group/mail'
+		pre_pkgs+=' acct-group/dkimsocket acct-group/mail acct-group/milter'
 		pre_pkgs+=' acct-group/unbound acct-user/unbound'
 		extra_pkgs='sys-libs/readline'
 
@@ -1287,6 +1295,7 @@ for arg in pre_remove pre_use pre_pkgs with_use extra_pkgs post_use post_pkgs \
 do
 	eval "${arg}=\$( tr $'\n' ' ' <<<\"\${${arg}}\" | tr -s '[:space:]' ' ' | sed 's/^ // ; s/ $//' )"
 done
+unset arg
 #print "Additional USE flags are '${with_use:-"<none>"}'"
 
 declare pkg=''
@@ -1299,6 +1308,7 @@ for pkg in ${post_pkgs:-}; do
 		warning=1
 	fi
 done
+unset pkg
 
 case " ${pre_pkgs} " in
 	*' dev-util/pkgconf '*)
@@ -1347,6 +1357,14 @@ case " ${pre_pkgs} " in
 			post_pkgs="${post_pkgs:+"${post_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
 		fi
 
+		if
+				echo " ${use_essential:-} ${use_essential_gcc:-}" \
+						"${pre_use:-} ${with_use:-} ${post_use:-}" \
+						"${gcc_extra_flags:-} " |
+					grep -q -- ' zstd '
+		then
+			post_pkgs="${post_pkgs:+"${post_pkgs} "}app-arch/zstd"
+		fi
 		;;
 esac
 (( warning )) && sleep 5
@@ -1431,63 +1449,93 @@ fi
 
 #[ -n "${trace:-}" ] && set -o xtrace
 
-DOCKER_EXTRA_MOUNTS=''
+declare -a docker_extra_mounts=()
 if [ -n "${etcdir:-}" ]; then
 	for dir in ${etcdir}; do
 		mkdir -p "/etc/${dir}"
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/${dir}/,destination=/service/etc/${dir}"
+		docker_extra_mounts+=( $( add_mount --print --no-ro \
+				"/etc/${dir}/" \
+				'/service/...'
+			) )
 		if [ "${dir}" = 'mail/spamassassin' ]; then
 			mkdir -p /var/lib/spamassassin /usr/share/spamassassin
-			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/var/lib/spamassassin/,destination=/service/var/lib/spamassassin"
-			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/usr/share/spamassassin/,destination=/service/usr/share/spamassassin"
+			docker_extra_mounts+=( # <- Syntax
+				$( add_mount --print --no-ro \
+						'/var/lib/spamassassin/' \
+						'/service/...'
+					)
+				$( add_mount --print --no-ro \
+						'/usr/share/spamassassin/' \
+						'/service/...'
+					)
+			)
 		fi
 	done
+	unset dir
 fi
-DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/default/,destination=/etc/default"
-DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/logrotate.d/,destination=/etc/logrotate.d"
-DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/ssl/,destination=/etc/ssl"
+for dir in default logrotate.d ssl; do
+	mkdir -p "/etc/${dir}/"
+	docker_extra_mounts+=( $( add_mount --print --no-ro \
+		"/etc/${dir}/"
+	) )
+done
+unset dir
 
 # package.accept_keywords
 #
 # FIXME: package.accept_keywords.${arch:-} is handled in common/run.sh rather
 #        than here - standardise this to do everything in one place or the
 #        other!
-if [ -e "${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords" ]; then
-	print "Mounting $( test -d "${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords" && echo 'directory' || echo 'file' ) '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords' to '/etc/portage/package.accept_keywords' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords,destination=/etc/portage/package.accept_keywords${docker_readonly:+",${docker_readonly}"}"
-else
+#
+if ! docker_extra_mounts+=( $( add_mount --dir --print \
+			'%base%/etc/portage/package.accept_keywords'
+		) )
+then
 	note "No 'package.accept_keywords' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/'"
 fi
 
 # package.license
-if [ -e "${base_dir:+"${base_dir}/"}etc/portage/package.license" ]; then
-	print "Mounting $( test -d "${base_dir:+"${base_dir}/"}etc/portage/package.license" && echo 'directory' || echo 'file' ) '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.license' to '/etc/portage/package.license' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.license,destination=/etc/portage/package.license${docker_readonly:+",${docker_readonly}"}"
-else
+#
+if ! docker_extra_mounts+=( $( add_mount --dir --print \
+			'%base%/etc/portage/package.license'
+		) )
+then
 	note "No 'package.license' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/'"
 fi
 
-# NB: test -s returns '0' when called on a directory (even if it's empty...)
+# package.unmask*
 #
-# package.unmask.svc
-if [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc/${package_name#*.}" ] && ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc/${package_name#*.}" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc/${package_name#*.}' to '/etc/portage/package.unmask/${package_name#*.}' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc/${package_name#*.},destination=/etc/portage/package.unmask/${package_name#*.}${docker_readonly:+",${docker_readonly}"}"
-elif [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc/package.unmask" ] && ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc/package.unmask" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc/package.unmask' to '/etc/portage/package.unmask/package.unmask' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc/package.unmask,destination=/etc/portage/package.unmask/package.unmask${docker_readonly:+",${docker_readonly}"}"
-elif [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc" ] && ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc' to '/etc/portage/package.unmask/package.unmask' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc,destination=/etc/portage/package.unmask/package.unmask${docker_readonly:+",${docker_readonly}"}"
-else
+if \
+		! docker_extra_mounts+=( $( add_mount --print \
+				"%base%/etc/portage/package.unmask.svc/${package_name#*.}" \
+				"/etc/portage/package.unmask/${package_name#*.}"
+			) ) &&
+		! docker_extra_mounts+=( $( add_mount --print \
+				"%base%/etc/portage/package.unmask.svc/package.unmask" \
+				"/etc/portage/package.unmask/package.unmask.service"
+			) ) &&
+		! docker_extra_mounts+=( $( add_mount --print \
+				"%base%/etc/portage/package.unmask.svc" \
+				"/etc/portage/package.unmask/package.unmask.service"
+			) )
+then
 	note "No 'package.unmask' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc/'"
 fi
-if [ -e "${base_dir:+"${base_dir}/"}etc/portage/package.unmask.${arch:-}" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask.${arch}' to '/etc/portage/package.unmask/${arch}' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask.${arch},destination=/etc/portage/package.unmask/${arch}${docker_readonly:+",${docker_readonly}"}"
-fi
+[[ -z "${arch:-}" ]] || docker_extra_mounts+=( $( add_mount --print \
+		"%base%/etc/portage/package.unmask.${arch}" \
+		"/etc/portage/package.unmask/${arch}"
+	) ) || :
+# Error: OCI runtime error: crun: open `/mnt/podman-storage/btrfs/subvolumes/ddc60a734ca210eb4ecc5f20e488b6d0e37064d3368ba80744cab07ef97b7bbd/etc/portage/package.unmask/package.unmask`: Not a directory
+docker_extra_mounts+=( $( add_mount --print \
+		"%base%/etc/portage/package.unmask" \
+		".../package.unmask"
+	) ) || :
+#docker_extra_mounts+=( $( add_mount --print \
+#		"%base%/etc/portage/package.unmask"
+#	) ) || :
 
 # package.mask.svc
+#
 package_mask_svc_name="${package_name#*.}"
 case "${package_mask_svc_name}-${package_version}" in
 	php-7.3.*) package_mask_svc_name='php73' ;;
@@ -1495,75 +1543,88 @@ case "${package_mask_svc_name}-${package_version}" in
 	php-8.0.*) package_mask_svc_name='php80' ;;
 	php-8.1.*) package_mask_svc_name='php81' ;;
 esac
-if [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/${package_mask_svc_name}" ] && ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/${package_mask_svc_name}" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/${package_mask_svc_name}' to '/etc/portage/package.mask/${package_mask_svc_name}' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/${package_mask_svc_name},destination=/etc/portage/package.mask/${package_mask_svc_name}${docker_readonly:+",${docker_readonly}"}"
-elif [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/package.mask" ] && ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/package.mask" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/package.mask' to '/etc/portage/package.mask/package.mask.svc' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/package.mask,destination=/etc/portage/package.mask/package.mask.svc${docker_readonly:+",${docker_readonly}"}"
-elif [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc" ] && ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc' to '/etc/portage/package.mask/package.mask.svc' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc,destination=/etc/portage/package.mask/package.mask.svc${docker_readonly:+",${docker_readonly}"}"
-else
+if \
+		! docker_extra_mounts+=( $( add_mount --print \
+				"%base%/etc/portage/package.mask.svc/${package_mask_svc_name}" \
+				"/etc/portage/package.mask/${package_mask_svc_name}"
+			) ) &&
+		! docker_extra_mounts+=( $( add_mount --print \
+				"%base%/etc/portage/package.mask.svc/package.mask" \
+				"/etc/portage/package.mask/package.mask.svc"
+			) ) &&
+		! docker_extra_mounts+=( $( add_mount --print \
+				"%base%/etc/portage/package.mask.svc"
+			) )
+then
 	note "No 'package.mask' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/'"
 fi
 
 # package.mask
-if [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask/${package_name#*.}" ] && ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask/${package_name#*.}" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/${package_name#*.}' to '/etc/portage/package.mask/${package_name#*.}' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/${package_name#*.},destination=/etc/portage/package.mask/${package_name#*.}${docker_readonly:+",${docker_readonly}"}"
-elif [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask" ] && ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask' to '/etc/portage/package.mask/package.mask.base' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/package.mask,destination=/etc/portage/package.mask/package.mask.base${docker_readonly:+",${docker_readonly}"}"
-elif [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.mask" ] && ! [ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask' to '/etc/portage/package.mask/package.mask.base' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask,destination=/etc/portage/package.mask/package.mask.base${docker_readonly:+",${docker_readonly}"}"
-else
+#
+if \
+		! docker_extra_mounts+=( $( add_mount --print \
+				"%base%/etc/portage/package.mask/${package_name#*.}"
+			) ) &&
+		! docker_extra_mounts+=( $( add_mount --print \
+				"%base%/etc/portage/package.mask/package.mask" \
+				"/etc/portage/package.mask/package.mask.base"
+			) ) &&
+		! docker_extra_mounts+=( $( add_mount --print \
+				"%base%/etc/portage/package.mask" \
+				".../package.mask.base"
+			) )
+then
 	note "No 'package.mask' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/'"
 fi
-if [ -e "${base_dir:+"${base_dir}/"}etc/portage/package.mask.${arch:-}" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.${arch}' to '/etc/portage/package.mask/${arch}' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.${arch},destination=/etc/portage/package.mask/${arch}${docker_readonly:+",${docker_readonly}"}"
-fi
+[[ -z "${arch:-}" ]] || docker_extra_mounts+=( $( add_mount --print \
+		"%base%/etc/portage/package.mask.${arch}" \
+		"/etc/portage/package.mask/${arch}"
+	) ) || :
 
 # host additional package.mask
 #if [ -d /etc/portage/package.mask ]; then
 #	declare extra_mask='' file=''
 #	while read -r extra_mask; do
 #		file="$( basename "${extra_mask}" )"
-#		if test -s "/etc/portage/package.mask/${file}"; then
-#			print "Mounting file '/etc/portage/package.mask/${file}' to '/etc/portage/package.mask/${file}' ..."
-#			DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=/etc/portage/package.mask/${file},destination=/etc/portage/package.mask/${file}${docker_readonly:+",${docker_readonly}"}"
-#		fi
+#		docker_extra_mounts+=( $( add_mount --print \
+#				"/etc/portage/package.mask/${file}"
+#			) )
 #	done < <( find /etc/portage/package.mask/ -mindepth 1 -maxdepth 1 -type f -not -name 'package.mask' | grep -v -- "repo-${ECLASS_OVERRIDE:-"__IGNORE__"}-mask" )
 #	unset file extra_mask
 #fi
 
 # package.use alternatives
-if [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/alternatives" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/alternatives' to '/etc/portage/package.use/package.use.override/alternatives' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/alternatives,destination=/etc/portage/package.use.override/alternatives${docker_readonly:+",${docker_readonly}"}"
-fi
+#
+docker_extra_mounts+=( $( add_mount --print \
+		"%base%/etc/portage/package.use.svc/alternatives" \
+		"/etc/portage/package.use.override/alternatives"
+	) ) || :
 
 # package.use.svc
-if [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/${package_name#*.}" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/package.use.header' to '/etc/portage/package.use/package.use.override/package.use.header' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/package.use.header,destination=/etc/portage/package.use.override/package.use.header${docker_readonly:+",${docker_readonly}"}"
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/${package_name#*.}' to '/etc/portage/package.use.override/${package_name#*.}' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/${package_name#*.},destination=/etc/portage/package.use.override/${package_name#*.}${docker_readonly:+",${docker_readonly}"}"
-elif [ -s "${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/package.use.header" ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/package.use.header' to '/etc/portage/package.use/package.use.override/package.use' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/package.use.header,destination=/etc/portage/package.use.override/package.use${docker_readonly:+",${docker_readonly}"}"
-else
+#
+if docker_extra_mounts+=( $( add_mount --print \
+		"%base%/etc/portage/package.use.svc/${package_name#*.}" \
+		"/etc/portage/package.use.override/${package_name#*.}"
+	) )
+then
+	docker_extra_mounts+=( $( add_mount --print \
+			'%base%/etc/portage/package.use.svc/package.use.header' \
+			'/etc/portage/package.use.override/package.use.header'
+		) ) || :
+elif ! docker_extra_mounts+=( $( add_mount --print \
+		'%base%/etc/portage/package.use.svc/package.use.header' \
+		'/etc/portage/package.use.override/package.use'
+	) )
+then
 	note "No 'package.use' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/'"
 fi
 
-if [ -f "${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.mask ] && [ -s "${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.mask ]; then
-	print "Mounting file '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.mask' to '/etc/portage/profile/package.use.mask' ..."
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:+"${DOCKER_EXTRA_MOUNTS} "}--mount type=bind,source=${PWD}/${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.mask,destination=/etc/portage/profile/package.use.mask${docker_readonly:+",${docker_readonly}"}"
-fi
+docker_extra_mounts+=( $( add_mount --print \
+		"%base%/etc/portage/profile/package.use.mask"
+	) ) || :
 
-export DOCKER_EXTRA_MOUNTS
+export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
+unset docker_extra_mounts
 
 images="$( docker image list --noheading "${container_prefix}-${package_name}:${package_version}" 2>&1 )"
 if echo "${images:-}" | grep -q -- "${container_prefix}-${package_name}\s\+${package_version}\s"; then
@@ -1598,6 +1659,8 @@ else
 		# shellcheck disable=2206,SC2191
 		[[ -n "${!arg:-}" ]] && args+=( --${arg//_/-}="${!arg}" )
 	done
+	unset arg
+
 	args+=( --depclean --with-bdeps=n --depclean-exclude="${pre_pkgs} ${extra_pkgs}" )
 	[[ -n "${post_remove:-}" ]] && args+=( --post-remove="${post_remove}" )
 	args+=(  # <- Syntax
@@ -1666,6 +1729,8 @@ for port in ${ports:-}; do
 		exposedports+="${exposedports:+"\\n"}EXPOSE ${port}"
 	fi
 done
+unset port
+
 if [[ -n "${exposedports:-}" ]]; then
 	awk -v p="${exposedports}" '{ gsub( "^EXPOSE .*$", p ) ; print ; }' <"${file}" >"${dockerfile_tmp}"
 else
