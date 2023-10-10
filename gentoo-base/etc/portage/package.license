@@ -73,6 +73,7 @@ dev-lang/python				 PSF-2
 net-misc/iputils			 rdisc
 sys-libs/db				 Sleepycat
 sys-apps/debianutils			 SMAIL
+net-dns/libidn2			 	 unicode
 app-editors/vim				 vim
 app-editors/vim-core			 vim
 app-vim/eselect-syntax			 vim
