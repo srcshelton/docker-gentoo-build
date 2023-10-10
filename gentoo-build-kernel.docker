@@ -717,11 +717,8 @@ else
 fi
 
 docker_extra_mounts+=( $( add_mount --print \
-		'/etc/portage/profile/package.use.mask' --print
+		'/etc/portage/profile/package.use.mask'
 	) ) || :
-
-export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
-unset docker_extra_mounts
 
 declare rustext=''
 if (( rust )); then
@@ -828,19 +825,26 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 	)
 fi
 
-#DOCKER_EXTRA_MOUNTS=''
-DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:-} --mount type=bind,source=/lib/modules/,destination=/lib/modules"
-DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:-} --mount type=bind,source=/boot/,destination=/boot"
+docker_extra_mounts+=( # <- Syntax
+	$( add_mount --dir --no-ro --print '/lib/modules/' )
+	$( add_mount --dir --no-ro --print '/boot' )
+) || :
 case "${arch:-"${ARCH:-}"}" in
 	arm64)
 		mkdir -p /boot/overlays
-		DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:-} --mount type=bind,source=/boot/overlays/,destination=/boot/dtbs" ;;
+		docker_extra_mounts+=( $( add_mount --dir --no-ro --print \
+			'/boot/overlays/' \
+			'/boot/dtbs'
+		) ) || :
 esac
 DOCKER_ENTRYPOINT='/bin/sh'
 DOCKER_INTERACTIVE=1
 deforoldconfig="${defconfig:-"defconfig"}"
 if [ "${build:-}" = '1' ]; then
-	DOCKER_EXTRA_MOUNTS="${DOCKER_EXTRA_MOUNTS:-} --mount type=bind,source=${build_dir},destination=/usr/src/build"
+	docker_extra_mounts+=( $( add_mount --dir --no-ro --print \
+		"${build_dir}/" \
+		'/usr/src/build'
+	) ) || :
 	if ! [ -d "${build_dir}" ]; then
 		warn "Build cache directory '${build_dir}' doesn't exists - creating ..."
 		mkdir -p "${build_dir}"
@@ -1108,7 +1112,10 @@ nl="$( printf '\n' )"
 DOCKER_SCRIPT="$( echo "${DOCKER_SCRIPT}" | tr "${nl}" ' ' )"
 unset nl
 
-export DOCKER_ENTRYPOINT DOCKER_INTERACTIVE DOCKER_EXTRA_MOUNTS DOCKER_VOLUMES DOCKER_SCRIPT
+export DOCKER_ENTRYPOINT DOCKER_INTERACTIVE DOCKER_VOLUMES DOCKER_SCRIPT
+export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
+unset docker_extra_mounts
+
 
 if (( raise_mem )); then
 	# DEBUG-enabled 'LD vmlinux.o' step fails with OOM with 2G
