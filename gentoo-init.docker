@@ -1061,7 +1061,9 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 								"is masked by" \
 								"'${base_dir}/etc/portage/profile/use.mask'"
 						fi
-						python_use+=" python_targets_${target}"
+						python_use="$( replace_flags \
+							"python_targets_${target}" -- "${python_use}"
+						)"
 					fi
 				fi  # [[ -n "${STAGE3_PYTHON_SINGLE_TARGET:-}" ]]
 
@@ -1078,7 +1080,9 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 										"is masked by" \
 										"'${base_dir}/etc/portage/profile/use.mask'"
 								fi
-								python_use+=" python_targets_${target}"
+								python_use="$( replace_flags \
+									"python_targets_${target}" -- "${python_use}"
+								)"
 								# shellcheck disable=SC2001
 								python_pkgs+=" =python-$( sed 's/^python//' \
 									<<<"${python_target//_/.}" )*"
@@ -1095,7 +1099,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		post_use="curl_ssl_openssl gmp multiarch native-extensions openssl ssl -ssp"
 		if [[ -n "${python_use:-}" ]]; then
 			post_pkgs+=" dev-python/setuptools"
-			post_use+=" ${python_use}"
+			post_use="$( replace_flags "${python_use}" -- "${post_use}" )"
 		fi
 		if type -pf portageq >/dev/null 2>&1; then
 			portageq get_repos / | grep -Fq -- 'srcshelton' &&
