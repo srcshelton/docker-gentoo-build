@@ -1123,7 +1123,21 @@ fi
 # configuration in the build-image feels like a better overall option...
 #
 mkdir -p "${SYSROOT}"/etc
+
+# FIXME: Do we want to unconditionally copy everything across, or instead
+#        select a minimal set here and rely on mounting the appropriate files
+#        into the container?
+#
 cp -r /etc/portage "${SYSROOT}"/etc/
+#f='' d=''
+#for f in color.map make.conf suidctl.conf; do
+#	cp /etc/portage/"${f}" "${SYSROOT}"/etc/portage/
+#done
+#for dir in profile repos.conf savedconfig; do
+#	cp -r /etc/portage/"${d}" "${SYSROOT}"/etc/portage/
+#done
+#unset d f
+
 [ -e "${SYSROOT}"/etc/portage/package.use ] ||
 	die "Mirroring /etc/portage to '${SYSROOT}' failed"
 
@@ -1182,7 +1196,7 @@ pkg_initial_use='-nls -pam -perl -python -su'
 pkg_exclude=''
 if [ -n "${features_libeudev}" ]; then
 	pkg_initial="${pkg_initial:+"${pkg_initial} "}sys-libs/libeudev virtual/libudev"
-	pkg_initial_use="${pkg_initial_use:+"${pkg_initial_use} "}eudev"
+	pkg_initial_use="${pkg_initial_use:+"${pkg_initial_use} "}libeudev eudev"
 	pkg_exclude="${pkg_exclude:+"${pkg_exclude} "}--exclude=virtual/udev"
 fi
 
@@ -1479,6 +1493,9 @@ echo
 		echo
 		unset info
 
+		[ ! -f "${ROOT%/}/var/lock" ] || rm "${ROOT%/}/var/lock"
+		do_emerge --system-defaults sys-apps/baselayout
+
 		# portage is tripping over sys-devel/gcc[openmp] :(
 		#
 		USE="${USE:+"${USE} "}openmp" \
@@ -1513,7 +1530,7 @@ echo
 		# For some reason, portage is selecting dropbear to satisfy
 		# virtual/ssh?
 		#
-		USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx eudev -extra-filters gmp -nettle -nls openssl" \
+		USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx libeudev eudev -extra-filters gmp -nettle -nls openssl" \
 			do_emerge \
 					--exclude='dev-libs/libtomcrypt' \
 					--exclude='net-misc/dropbear' \
