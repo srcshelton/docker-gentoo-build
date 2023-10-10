@@ -133,37 +133,47 @@ export -f output die error warn note info print
 replace_flags() {
 	# list="$( replace_flags <new> [flags] [to] [add] -- existing_list[@] )"
 	local -a flags=() list=() output=()
+	local -A seen=()
 	local -i state=0
 	local arg='' flag=''
 
 	for arg in "${@:-}"; do
 		case "${arg:-}" in
 			--)
+				#print "Switching state from 'list' ('${list[*]:-}') to 'flags' ('${flags[*]:-}') ..."
 				state=1
 				continue
 				;;
 			''|' ')
+				#print "Dropping arg '${arg:-}' ..."
 				:
 				;;
 			*' '*)
+				arg="$( sed 's/^ \+// ; s/ \+$//' <<<"${arg}" )"
 				if (( state )); then
-					# shellcheck disable=SC2206
-					list+=( ${arg} )
+					#print "Adding multi arg '${arg:-}' to list '${list[*]:-}' ..."
+					readarray -O "${#list[@]}" -t list < <( xargs -rn 1 <<<"${arg}" )
+					#print "... list is '${list[*]:-}'"
 				else
-					# shellcheck disable=SC2206
-					#flags+=( ${arg} )
-					xargs -rn 1 <<<"${arg}" | readarray -O "${#flags[@]}" flags
+					#print "Adding multi arg '${arg:-}' to flags '${flags[*]:-}' ..."
+					readarray -O "${#flags[@]}" -t flags < <( xargs -rn 1 <<<"${arg}" )
+					#print "... flags is '${flags[*]:-}'"
 				fi
 				;;
 			*)
 				if (( state )); then
+					#print "Adding arg '${arg:-}' to list '${list[*]:-}' ..."
 					list+=( "${arg}" )
+					#print "... list is '${list[*]:-}'"
 				else
+					#print "Adding arg '${arg:-}' to flags '${flags[*]:-}' ..."
 					flags+=( "${arg}" )
+					#print "... flags is '${flags[*]:-}'"
 				fi
 				;;
 		esac
 	done
+	#print "Adding flags '${flags[*]:-}' to list '${list[*]:-}'"
 
 	if (( 0 == ${#flags[@]} )); then
 		print "WARN: No flags supplied to ${FUNCNAME[0]} - received '${*:-}'"
@@ -178,9 +188,15 @@ replace_flags() {
 				"-${flag#-}"|"${flag#-}"|'')
 					# Do nothing, as we add the flag below...
 					:
+					# N.B. This means that if we have '-flag flag' then the
+					#      second occurence is dropped...
+					seen["${arg#-}"]=1
 					;;
 				*)
-					output+=( "${arg}" )
+					if ! (( seen["${arg}"] )); then
+						output+=( "${arg}" )
+						seen["${arg}"]=1
+					fi
 					continue
 					;;
 			esac
@@ -193,14 +209,24 @@ replace_flags() {
 				:
 				;;
 			-*)
-				output=( "${flag}" "${output[@]:-}" )
+				if [[ -z "${output[*]:-}" ]]; then
+					output=( "${flag}" )
+				else
+					output=( "${flag}" "${output[@]}" )
+				fi
+				#print "Adding flag '${flag}' to start of list ..."
 				;;
 			*)
-				output+=( "${flag}" )
+				if ! (( seen["${flag}"] )); then
+					output+=( "${flag}" )
+					seen["${flag}"]=1
+				fi
+				#print "Adding flag '${flag}' to end of list ..."
 				;;
 		esac
 	done
 
+	#print "replace_flags result: '${output[*]:-}'"
 	echo "${output[*]:-}"
 }  # replace_flags
 
