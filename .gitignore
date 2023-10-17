@@ -4,6 +4,7 @@
 # Don't archive logs
 /log/*
 /common.run.sh.debug.log
+/inspect.docker.debug.log
 
 # Exclude vim swapfiles
 **/.*.sw[a-p]
