@@ -260,6 +260,12 @@
 ~app-containers/runc-1.1.8				 **
 ~app-containers/runc-1.1.9				 **
 
+~app-containers/containers-common-0.56.0		 **
+
+~app-containers/containers-image-5.28.0			 **
+
+~app-containers/containers-shortnames-2023.02.20	 **
+
 # move app-emulation/containers-storage app-containers/containers-storage
 #~app-containers/containers-storage-1.27.0		 **
 #~app-containers/containers-storage-1.28.0		 **
