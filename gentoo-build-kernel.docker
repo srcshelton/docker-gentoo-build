@@ -1,20 +1,34 @@
 #! /usr/bin/env bash
 
-#debug="${DEBUG:-}"
-#trace="${TRACE:-}"
+declare trace="${TRACE:-}"
+# shellcheck disable=SC2034
+declare debug="${DEBUG:-}"
 
-set -u
+set -eu
 set -o pipefail
 
-#set -o xtrace
+[ -n "${trace:-}" ] && set -o xtrace
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
 # Set by common/vars.sh, sourced below...
-declare build_name=''
-declare docker='docker'
-declare docker_readonly='ro=true'
-declare use_essential_gcc=''
+#
+#declare build_name=''
+#declare _command='docker'
+#declare use_essential_gcc=''
+
+# shellcheck disable=SC1091
+[ ! -s common/vars.sh ] || . common/vars.sh
+# shellcheck disable=SC2034 # Set from common/vars.sh
+[[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
+	echo >&2 "FATAL: Inclusion of common defaults failed"
+	exit 1
+}
+
+# shellcheck disable=SC2154
+declare IMAGE="${build_name}:latest"
+# shellcheck disable=SC1091
+[ -s common/run.sh ] && . common/run.sh
 
 declare -ir build_space_reqiured=750
 declare -ir temp_space_required=2800
@@ -59,13 +73,6 @@ elif grep 'vendor_id' /proc/cpuinfo | awk '{ print $3 }' | grep -iqm 1 'amd'; th
 fi
 readonly microcode microcode_blob
 
-# shellcheck disable=SC1091
-[ ! -s common/vars.sh ] || . common/vars.sh
-
-declare IMAGE="${build_name}:latest"
-# shellcheck disable=SC1091
-[ -s common/run.sh ] && . common/run.sh
-
 pkgslot() {
 	local pkg="${1:-}"
 	local ver="${2:-}"
@@ -84,8 +91,6 @@ pkgslot() {
 		printf '>=%s%s\n' "${pkg}" "${ver}"
 	fi
 }  # pkgslot
-
-set -e
 
 _docker_setup
 
@@ -408,7 +413,8 @@ elif echo " ${*:-} " | grep -q -- ' --no-firmware'; then
 	firmware=''
 fi
 
-$docker image list "${IMAGE%:*}" | grep -Eq -- "^(localhost/)?${IMAGE%:*}" || die "docker image '${IMAGE%:*}' not found"
+# shellcheck disable=SC2154
+$_command image list "${IMAGE%:*}" | grep -Eq -- "^(localhost/)?${IMAGE%:*}" || die "docker image '${IMAGE%:*}' not found"
 
 if mount | grep ' on /boot ' | grep -Eq '(\(ro,|,ro,|,ro\))'; then
 	output >&2
@@ -527,6 +533,7 @@ case "${compiler}" in
 			"$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )"
 			"$( pkgslot sys-devel/gcc "${gcc_min_ver:-}" )"
 		)
+		# shellcheck disable=SC2154
 		compiler_USE="-lib-only ${use_essential_gcc}"
 		;;
 	clang|llvm)
@@ -630,7 +637,20 @@ case "${unwind:-}" in
 		;;
 esac
 
+# FIXME: shellcheck wants:
+#
+#          docker_extra_mounts+=( $( add_mount ... ) )
+#
+#        ... to be expressed in the form of:
+#
+#          readarray -O "${#docker_extra_mounts[@]}" -t docker_extra_mounts < <(
+#            add_mount ...
+#          )
+#
+#shellcheck disable=SC2207
+{
 # FIXME: Standardise on host or container configuration files
+#
 declare -a docker_extra_mounts=()
 docker_extra_mounts+=( $( add_mount --dir --print \
 		'/etc/portage/package.accept_keywords'
@@ -724,7 +744,8 @@ declare rustext=''
 if (( rust )); then
 	rustext='rustc'
 fi
-if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" | wc -l )" = '2' ]; then
+# shellcheck disable=SC2154
+if ! [ "$( $_command image list "${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" | wc -l )" = '2' ]; then
 	(
 		ACCEPT_LICENSE="linux-fw-redistributable no-source-code"
 		USE="extra-filters${rustext:+" http2"} lzma${openmp:+" openmp"}${rustext:+" rust-src"} symlink threads zlib${compiler_USE:+" ${compiler_USE}"}"
@@ -804,7 +825,7 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 		time {
 			trap '' INT
 			if ! command -v buildah >/dev/null 2>&1; then
-				$docker ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
+				$_command ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
 						container commit \
 							"${name}" \
 							"${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" 2>&1 |
@@ -818,7 +839,7 @@ if ! [ "$( $docker image list "${container_name%"-${package_version}"}.${compile
 					tee -a "log/docker.${logname}.log"
 			fi
 			output " -> ${?}"
-			$docker container rm --volumes "${name}" 2>&1 |
+			$_command container rm --volumes "${name}" 2>&1 |
 				tee -a "log/docker.${logname}.log"
 			trap - INT
 		}
@@ -905,8 +926,8 @@ kernel_debug=''
 [ -z "${COLUMNS:-}" ] && warn "'COLUMNS' not set - please export this variable"
 [ -z "${LINES:-}" ] && warn "'LINES' not set - please export this variable"
 
-: ${COLUMNS:=80}
-: ${LINES:=24}
+: ${COLUMNS:="80"}
+: ${LINES:="24"}
 
 declare -a kernel_make_opts=()
 # shellcheck disable=SC2206
@@ -1115,6 +1136,7 @@ unset nl
 export DOCKER_ENTRYPOINT DOCKER_INTERACTIVE DOCKER_VOLUMES DOCKER_SCRIPT
 export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 unset docker_extra_mounts
+}
 
 
 if (( raise_mem )); then
@@ -1147,6 +1169,8 @@ time {
 if [[ -d /boot/dtbs ]] && [[ "$( find /boot/dtbs -maxdepth 0 -empty )" == '/boot/dtbs' ]]; then
 	rmdir /boot/dtbs
 fi
+
+#set +o xtrace
 
 exit ${rc}
 
