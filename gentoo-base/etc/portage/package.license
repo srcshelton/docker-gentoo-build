@@ -113,14 +113,16 @@ dev-ruby/test-unit			 PSF-2
 # Service packages:
 #
 
-sys-firmware/intel-microcode		 intel-ucode
-sys-kernel/linux-firmware		 linux-fw-redistributable no-source-code # BSD-4
+dev-db/redis				 Boost-1.0
 
 dev-perl/Unicode-EastAsianWidth		 CC0-1.0
 
 mail-filter/dcc				 DCC
 
 sys-apps/tcp-wrappers			 tcp_wrappers_license
+
+sys-firmware/intel-microcode		 intel-ucode
+sys-kernel/linux-firmware		 linux-fw-redistributable no-source-code # BSD-4
 
 # required by service app-admin/syslog-ng
 net-libs/libnet				 HPND
