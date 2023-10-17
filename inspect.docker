@@ -1,11 +1,11 @@
 #! /usr/bin/env bash
 
-set -eu
-set -o pipefail
-
+declare trace="${TRACE:-}"
 # shellcheck disable=SC2034
 declare debug="${DEBUG:-}"
-declare trace="${TRACE:-}"
+
+set -eu
+set -o pipefail
 
 # If NO_REPO_MASKS is set in the environment then propagate it here so that we
 # are able to inspect a container with no masked repos without further hacking!
@@ -15,13 +15,20 @@ export NO_REPO_MASKS
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
-# Set by common/vars.sh
-declare build_name=''
+# Set by common/vars.sh, sourced below...
+#
+#declare build_name=''
 
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
+# shellcheck disable=SC2034 # Set from common/vars.sh
+[[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
+	echo >&2 "FATAL: Inclusion of common defaults failed"
+	exit 1
+}
 
-export IMAGE="${build_name}:latest"
+# shellcheck disable=SC2154
+declare IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh >/dev/null
 
@@ -166,7 +173,7 @@ docker_run() {
 			if
 				[[ "$( uname -s )" != 'Darwin' ]] &&
 					(( $( nproc ) > 1 )) &&
-					$docker info 2>&1 |
+					$_command info 2>&1 |
 						grep -q -- 'cpuset'
 			then
 				echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))"
@@ -188,7 +195,7 @@ docker_run() {
 		--entrypoint '/bin/sh'
 		  ${DOCKER_DEVICES:-}
 		  ${ACCEPT_KEYWORDS:+--env ACCEPT_KEYWORDS}
-		  ${FEATURES:=--env FEATURES}
+		  ${FEATURES:="--env FEATURES"}
 		  ${TERM:+--env TERM}
 		  ${USE:+--env USE}
 		--interactive
@@ -222,35 +229,35 @@ docker_run() {
 	mirrormountpointsro=(
 		# We need write access to be able to update eclasses...
 		#/etc/portage/repos.conf
-		${default_repo_path:-$( portageq get_repo_path "${EROOT:-/}" $( portageq get_repos "${EROOT:-/}" ) )}
-		#/usr/src  # Breaks gentoo-kernel-build package
-		#/var/db/repo/container
-		#/var/db/repo/gentoo
-		#/var/db/repo/srcshelton
-		#/var/db/repo/compat
+
+		"${default_repo_path:-"$( portageq get_repo_path "${EROOT:-"/"}" $( portageq get_repos "${EROOT:-"/"}" ) )"}"
+
+		/etc/locale.gen
+
+		#/usr/src  # FIXME: Breaks gentoo-kernel-build package, somehow?
 	)
 	mirrormountpoints=(
 		#/var/cache/portage/dist
-		"${default_distdir_path:-$( portageq distdir )}"
+		"${default_distdir_path:-"$( portageq distdir )"}"
 		'/var/log/portage'
 	)
 
-	#ENV PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
-	#local PKGCACHE="${PKGCACHE:=/var/cache/portage/pkg}"
-	#local PKGHOST="${PKGHOST:=docker}"
-	local PKGDIR="${PKGDIR:=${default_pkgdir_path:-$( portageq pkgdir )}}"
+	#ENV PKGDIR="${PKGCACHE:-"/var/cache/portage/pkg"}/${ARCH:-"amd64"}/${PKGHOST:-"docker"}"
+	#local PKGCACHE="${PKGCACHE:="/var/cache/portage/pkg"}"
+	#local PKGHOST="${PKGHOST:="docker"}"
+	local PKGDIR="${PKGDIR:="${default_pkgdir_path:-"$( portageq pkgdir )"}"}"
 
 	# Allow use of 'ARCH' variable as an override...
-	print "Using architecture '${ARCH:-${arch}}' ..."
-	mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-${arch}}/docker"
+	print "Using architecture '${ARCH:-"${arch}"}' ..."
+	mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
 	mountpoints['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
 	[ -S /var/run/syslog-ng/log ] && mountpoints['/var/run/syslog-ng/log']='/dev/log'
 
 	cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
 	print "Volume/mount base directory is '${cwd}'"
 	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords"]='/etc/portage/package.accept_keywords'
-	if [ -s "${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-${arch}}" ]; then
-		mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-${arch}}"]="/etc/portage/package.accept_keywords/${ARCH:-${arch}}"
+	if [ -s "${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]; then
+		mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/package.accept_keywords/${ARCH:-"${arch}"}"
 	fi
 	if [ -s "${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/use.mask" ]; then
 		mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/use.mask"]='/etc/portage/profile/use.mask'
@@ -267,45 +274,54 @@ docker_run() {
 		mirrormountpointsro+=( "/lib/modules/$( uname -r )/vmlinux-$( uname -r )" )
 	fi
 
-	for mp in ${mirrormountpointsro[@]+"${mirrormountpointsro[@]}"}; do
-		[ -n "${mp:-}" ] || continue
-		src="$( readlink -e "${mp}" )" || print "readlink() for mirrored read-only mountpoint '${mp}' failed: ${?}"
-		if [ -z "${src:-}" ]; then
-			warn "Skipping mountpoint '${mp}'"
-			: $(( skipped = skipped + 1 ))
-			continue
-		fi
-		runargs+=( --mount "type=bind,source=${src},destination=${mp}${docker_readonly:+,${docker_readonly}}" )
+	local mps=''
+	for mps in ${mirrormountpointsro[@]+"${mirrormountpointsro[@]}"}; do
+		[ -n "${mps:-}" ] || continue
+		for mp in ${mps}; do
+			src="$( readlink -e "${mp}" )" || print "readlink() for mirrored read-only mountpoint '${mp}' failed: ${?}"
+			if [ -z "${src:-}" ]; then
+				warn "$( basename "${0}" ) skipping mountpoint '${mp}'"
+				: $(( skipped = skipped + 1 ))
+				continue
+			fi
+			runargs+=( --mount "type=bind,source=${src},destination=${mp}${docker_readonly:+,${docker_readonly}}" )
+		done
 	done
-	for mp in ${mirrormountpoints[@]+"${mirrormountpoints[@]}"}; do
-		[ -n "${mp:-}" ] || continue
-		src="$( readlink -e "${mp}" )" || print "readlink() for mirrored mountpoint '${mp}' failed: ${?}"
-		if [ -z "${src:-}" ]; then
-			warn "Skipping mountpoint '${mp}'"
-			: $(( skipped = skipped + 1 ))
-			continue
-		fi
-		runargs+=( --mount "type=bind,source=${src},destination=${mp}" )
+	for mps in ${mirrormountpoints[@]+"${mirrormountpoints[@]}"}; do
+		[ -n "${mps:-}" ] || continue
+		for mp in ${mps}; do
+			src="$( readlink -e "${mp}" )" || print "readlink() for mirrored mountpoint '${mp}' failed: ${?}"
+			if [ -z "${src:-}" ]; then
+				warn "$( basename "${0}" ) skipping mountpoint '${mp}'"
+				: $(( skipped = skipped + 1 ))
+				continue
+			fi
+			runargs+=( --mount "type=bind,source=${src},destination=${mp}" )
+		done
 	done
-	for mp in ${mountpointsro[@]+"${!mountpointsro[@]}"}; do
-		[ -n "${mp:-}" ] || continue
-		src="$( readlink -e "${mp}" )" || print "readlink() for read-only mountpoint '${mp}' failed: ${?}"
-		if [ -z "${src:-}" ]; then
-			warn "Skipping mountpoint '${mp}' -> '${mountpointsro[${mp}]}'"
-			: $(( skipped = skipped + 1 ))
-			continue
-		fi
-		runargs+=( --mount "type=bind,source=${src},destination=${mountpointsro[${mp}]}${docker_readonly:+,${docker_readonly}}" )
+	for mps in ${mountpointsro[@]+"${!mountpointsro[@]}"}; do
+		[ -n "${mps:-}" ] || continue
+		for mp in ${mps}; do
+			src="$( readlink -e "${mp}" )" || print "readlink() for read-only mountpoint '${mp}' failed: ${?}"
+			if [ -z "${src:-}" ]; then
+				warn "$( basename "${0}" ) skipping mountpoint '${mp}' -> '${mountpointsro[${mp}]}'"
+				: $(( skipped = skipped + 1 ))
+				continue
+			fi
+			runargs+=( --mount "type=bind,source=${src},destination=${mountpointsro[${mp}]}${docker_readonly:+,${docker_readonly}}" )
+		done
 	done
-	for mp in ${mountpoints[@]+"${!mountpoints[@]}"}; do
-		[ -n "${mp:-}" ] || continue
-		src="$( readlink -e "${mp}" )" || print "readlink() for mountpoint '${mp}' failed (do you need to set 'PKGDIR'?): ${?}"
-		if [ -z "${src:-}" ]; then
-			warn "Skipping mountpoint '${mp}' -> '${mountpoints[${mp}]}'"
-			: $(( skipped = skipped + 1 ))
-			continue
-		fi
-		runargs+=( --mount "type=bind,source=${src},destination=${mountpoints[${mp}]}" )
+	for mps in ${mountpoints[@]+"${!mountpoints[@]}"}; do
+		[ -n "${mps:-}" ] || continue
+		for mp in ${mps}; do
+			src="$( readlink -e "${mp}" )" || print "readlink() for mountpoint '${mp}' failed (do you need to set 'PKGDIR'?): ${?}"
+			if [ -z "${src:-}" ]; then
+				warn "$( basename "${0}" ) skipping mountpoint '${mp}' -> '${mountpoints[${mp}]}'"
+				: $(( skipped = skipped + 1 ))
+				continue
+			fi
+			runargs+=( --mount "type=bind,source=${src},destination=${mountpoints[${mp}]}" )
+		done
 	done
 
 	if [ $(( skipped )) -ge 1 ]; then
@@ -324,7 +340,7 @@ docker_run() {
 		done
 	fi
 
-	unset src mp
+	unset src mps mp
 
 	if [ -n "${DOCKER_VERBOSE:-}" ]; then
 		output
@@ -360,27 +376,27 @@ docker_run() {
 	(
 		if (( debug )); then
 			local arg=''
-			print "Starting container with command '$docker container run \\"
+			print "Starting container with command '$_command container run \\"
 			for arg in "${runargs[@]}"; do
 				case "${arg}" in
 					--*)	print "    ${arg} \\" ;;
 					*)		print "        ${arg} \\" ;;
 				esac
 			done
-			print "  ${image}${@:+" \\"}"
+			print "  ${image}${*:+" \\"}"
 			for arg in "${@:-}"; do
 				[[ -n "${arg:-}" ]] && print "    ${arg} \\"
 			done
 			print "'"
 			unset arg
 			if touch inspect.docker.debug.log; then
-				echo >inspect.docker.debug.log <<-EOF
+				cat >inspect.docker.debug.log <<-EOF
 					#! /bin/sh
 
 					set -eux
 
 				EOF
-				printf >>inspect.docker.debug.log '%s container run \\\n' "${docker}"
+				printf >>inspect.docker.debug.log '%s container run \\\n' "${_command}"
 				for arg in "${runargs[@]}"; do
 					printf >>inspect.docker.debug.log '        %s \\\n' "${arg}"
 				done
@@ -397,7 +413,7 @@ docker_run() {
 			fi
 		fi
 		# shellcheck disable=SC2086
-		$docker \
+		$_command \
 				${DOCKER_VARS:-} \
 			container run \
 				"${runargs[@]}" \
@@ -454,7 +470,7 @@ docker_trap() {
 	trap '' INT
 	podman ${@+"${@}"}
 	trap - INT
-}  # docker-trap
+}  # docker_trap
 
 main() {
 	local arg=''
@@ -485,25 +501,25 @@ main() {
 
 	if [[ -z "${NO_MEMORY_LIMITS:-}" ]]; then
 		# Tiny
-		#: "${PODMAN_MEMORY_RESERVATION:=256m}"
-		#: "${PODMAN_MEMORY_LIMIT:=512m}"
-		#: "${PODMAN_SWAP_LIMIT:=1g}"
+		#: "${PODMAN_MEMORY_RESERVATION:="256m"}"
+		#: "${PODMAN_MEMORY_LIMIT:="512m"}"
+		#: "${PODMAN_SWAP_LIMIT:="1g"}"
 		# Small
-		#: "${PODMAN_MEMORY_RESERVATION:=512m}"
-		#: "${PODMAN_MEMORY_LIMIT:=1g}"
-		#: "${PODMAN_SWAP_LIMIT:=2g}"
+		#: "${PODMAN_MEMORY_RESERVATION:="512m"}"
+		#: "${PODMAN_MEMORY_LIMIT:="1g"}"
+		#: "${PODMAN_SWAP_LIMIT:="2g"}"
 		# Medium
-		#: "${PODMAN_MEMORY_RESERVATION:=1g}"
-		#: "${PODMAN_MEMORY_LIMIT:=2g}"
-		#: "${PODMAN_SWAP_LIMIT:=4g}"
+		#: "${PODMAN_MEMORY_RESERVATION:="1g"}"
+		#: "${PODMAN_MEMORY_LIMIT:="2g"}"
+		#: "${PODMAN_SWAP_LIMIT:="4g"}"
 		# Large
-		#: "${PODMAN_MEMORY_RESERVATION:=2g}"
-		#: "${PODMAN_MEMORY_LIMIT:=4g}"
-		#: "${PODMAN_SWAP_LIMIT:=8g}"
+		#: "${PODMAN_MEMORY_RESERVATION:="2g"}"
+		#: "${PODMAN_MEMORY_LIMIT:="4g"}"
+		#: "${PODMAN_SWAP_LIMIT:="8g"}"
 		# Extra-Large
-		#: "${PODMAN_MEMORY_RESERVATION:=4g}"
-		#: "${PODMAN_MEMORY_LIMIT:=8g}"
-		#: "${PODMAN_SWAP_LIMIT:=16g}"
+		#: "${PODMAN_MEMORY_RESERVATION:="4g"}"
+		#: "${PODMAN_MEMORY_LIMIT:="8g"}"
+		#: "${PODMAN_SWAP_LIMIT:="16g"}"
 		#
 		#: "${PODMAN_MEMORY_RESERVATION:="4g"}"
 		#: "${PODMAN_MEMORY_LIMIT:="6g"}"
@@ -565,9 +581,9 @@ main() {
 	_docker_setup
 	_docker_parse ${@+"${@}"}
 
-	image="${image:-${IMAGE}}"
+	image="${image:-"${IMAGE}"}"
 	# shellcheck disable=SC2001 # POSIX sh compatibility
-	name="${name:-$( echo "${image}" | sed 's|[:/]|_|g' )-inspect}"
+	name="${name:-"$( echo "${image}" | sed 's|[:/]|_|g' )-inspect"}"
 
 	if [ -n "${rm:-}" ]; then
 		docker_trap rm --volumes "${name}" 2>/dev/null || :
