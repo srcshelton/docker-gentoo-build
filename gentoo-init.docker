@@ -38,50 +38,53 @@ fi
 declare -i NOTIFY_MKDIR=0
 
 # Set by common/vars.sh
-declare docker='docker'
-declare mail_from=''
-declare mail_to=''
-declare mail_mta=''
-declare env_name=''
-declare stage3_name=''
-declare init_name=''
-declare base_name=''
-declare build_name=''
-declare stage3_flags_file=''
-declare environment_file=''
-declare environment_filter=''
-declare base_dir=''
-declare use_cpu_arch=''
-declare gcc_target_opts=''
+#
+#declare docker='docker'
+#declare mail_from=''
+#declare mail_to=''
+#declare mail_mta=''
+#declare env_name=''
+#declare stage3_name=''
+#declare init_name=''
+#declare base_name=''
+#declare build_name=''
+#declare stage3_flags_file=''
+#declare environment_file=''
+#declare environment_filter=''
+#declare base_dir=''
+#declare use_cpu_arch=''
+#declare gcc_target_opts=''
 #declare use_cpu_flags=''
-declare use_cpu_flags_raw=''
-declare use_essential=''
-declare use_essential_gcc=''
-declare python_default_target=''
-declare JOBS=''
-declare MAXLOAD=''
-declare bold=''
-declare red=''
-declare blue=''
+#declare use_cpu_flags_raw=''
+#declare use_essential=''
+#declare use_essential_gcc=''
+#declare python_default_target=''
+#declare JOBS=''
+#declare MAXLOAD=''
+#declare bold=''
+#declare red=''
+#declare blue=''
 #declare purple=''
-declare reset=''
+#declare reset=''
 
 # Set by common/run.sh _docker_setup()
-declare docker_arch=''
-declare arch=''
-
-declare target_opt=''
-declare -i build_helper=0
-declare -i force=0
+#
+#declare docker_arch=''
+#declare arch=''
 
 # use_pypy & use_pypy_use are defined in common/vars.sh
-declare use_pypy_pre=''
-declare use_pypy_pre_use=''
-declare use_pypy_post=''
-declare use_pypy_post_remove=''
+#declare use_pypy_pre=''
+#declare use_pypy_pre_use=''
+#declare use_pypy_post=''
+#declare use_pypy_post_remove=''
 
 # shellcheck disable=SC1091
 [[ ! -s common/vars.sh ]] || . common/vars.sh
+# shellcheck disable=SC2034 # Set from common/vars.sh
+[[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
+	echo >&2 "FATAL: Inclusion of common defaults failed"
+	exit 1
+}
 
 [[ -n "${base_dir:-}" ]]
 [[ -d "${base_dir}" ]]
@@ -94,7 +97,10 @@ IMAGE="${base_name}:latest"
 # shellcheck disable=SC1091
 [[ -s common/run.sh ]] && . common/run.sh
 
+# N.B. Below, 'docker' is a shell-function if no 'docker' binary exists...
+#
 if ! docker --version >/dev/null 2>&1; then
+	# shellcheck disable=SC2154
 	die "'${_command}' failed to execute: ${?}"
 elif ! docker image build --help | grep -Fq -- '--platform'; then
 	die "'${_command} image build' lacks '--platform' support (try" \
@@ -110,6 +116,10 @@ if
 then
 	die "Image names not correctly set in '$( pwd )/common/vars.sh'"
 fi
+
+declare target_opt=''
+declare -i build_helper=0
+declare -i force=0
 
 if [[ -n "${*:-}" ]]; then
 	if grep -Eq -- ' -(h|-help) ' <<<" ${*} "; then
@@ -198,7 +208,7 @@ pushd "${base_dir}" >/dev/null 2>&1 ||
 
 checkids() {
 	local name="${1:-}"
-	local tag="${2:-latest}"
+	local tag="${2:-"latest"}"
 
 	#inherit docker stage3_name env_id env_name gentoo_stage3_id bold reset red
 	local repo='' images='' stage3_env_id='' stage3_src_id=''
@@ -208,7 +218,7 @@ checkids() {
 		return 1
 	fi
 	if [[
-		-z "${docker:-}" ||
+		-z "${_command:-}" ||
 		-z "${stage3_name:-}" ||
 		-z "${env_name:-}" ||
 		-z "${env_id:-}"
@@ -468,8 +478,14 @@ if ! type -pf portageq >/dev/null 2>&1; then
 	unset private_gentoo_clone repo_path_gentoo
 
 	# Flags may have changed...
+	unset __COMMON_VARS_INCLUDED
 	# shellcheck disable=SC1091
 	[[ ! -s common/vars.sh ]] || . common/vars.sh
+	# shellcheck disable=SC2034 # Set from common/vars.sh
+	[[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
+		echo >&2 "FATAL: Inclusion of common defaults failed"
+		exit 1
+	}
 
 else # type -pf portageq >/dev/null 2>&1; then
 
@@ -493,10 +509,10 @@ else # type -pf portageq >/dev/null 2>&1; then
 					"/etc/portage/repos.conf"
 				rc=1
 			fi
-		done < <( portageq get_repo_path "${EROOT:-/}" "${repo}" )
+		done < <( portageq get_repo_path "${EROOT:-"/"}" "${repo}" )
 		unset dir
 
-	done < <( portageq get_repos "${EROOT:-/}" | xargs -n 1 )
+	done < <( portageq get_repos "${EROOT:-"/"}" | xargs -n 1 )
 	unset repo
 
 	(( rc )) && sleep 5
@@ -505,10 +521,10 @@ else # type -pf portageq >/dev/null 2>&1; then
 	declare repo_path_gentoo=''
 	declare ref=''
 	repo_path_gentoo="$( # <- Syntax
-		portageq get_repo_path "${EROOT:-/}" 'gentoo' 2>/dev/null
+		portageq get_repo_path "${EROOT:-"/"}" 'gentoo' 2>/dev/null
 	)"
 	repo_path_srcshelton="$( # <- Syntax
-		portageq get_repo_path "${EROOT:-/}" 'srcshelton' 2>/dev/null
+		portageq get_repo_path "${EROOT:-"/"}" 'srcshelton' 2>/dev/null
 	)"
 	if
 		[[ -n "${repo_path_gentoo:-}" && -d "${repo_path_gentoo}" ]] &&
@@ -580,6 +596,8 @@ gentoo_stage3_tag='latest'
 # Update: As-of 18th March 2022, the 'arm64' image is no longer being updated,
 # but the 'latest' image is now multi-arch, and there's an 'arm64-openrc' image
 # also...
+#
+# shellcheck disable=SC2154
 case "${docker_arch}" in
 	'amd64')
 		gentoo_stage3_tag="${docker_arch}-nomultilib-openrc" ;;
@@ -614,6 +632,7 @@ local_stage3_id="$( docker image ls --noheading \
 #
 if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 	output
+	# shellcheck disable=SC2154
 	output " ${blue}*${reset} Creating image '${env_name}:latest' ..."
 	output
 
@@ -890,7 +909,7 @@ if [[ -n "${*:-}" ]] && ! grep -Fq -- ' --init ' <<<" ${*} "; then
 				output >&2
 				output >&2 "${bold}WARN${reset}:  ${red}'entrypoint.sh'" \
 					"checksum from '${init_name}:latest' image" \
-					"(${imagesum:-<unknown>}) does not match file on disk" \
+					"(${imagesum:-"<unknown>"}) does not match file on disk" \
 					"(${sum}) - forcing continuation with existing embedded" \
 					"script ...${reset}"
 			else
@@ -905,7 +924,7 @@ if [[ -n "${*:-}" ]] && ! grep -Fq -- ' --init ' <<<" ${*} "; then
 					output >&2
 					output >&2 "${bold}WARN${reset}:  ${red}'entrypoint.sh'" \
 						"checksum from '${init_name}:latest' image" \
-						"(${imagesum:-<unknown>}) does not match file on" \
+						"(${imagesum:-"<unknown>"}) does not match file on" \
 						"disk (${sum}) - rebuilding initial image ...${reset}"
 					set -- "${@:-}" --init
 				fi
@@ -1111,7 +1130,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		export name="${base_name#*/}"
 		# shellcheck disable=SC2030
 		export image="${init_name}:latest"
-		export DOCKER_CMD_VARS="--env ARCH=${arch:-${ARCH}}"
+		export DOCKER_CMD_VARS="--env ARCH=${arch:-"${ARCH}"}"
 		declare -a docker_run_args=()
 		docker_run_args+=( # <- Syntax
 			--post-pkgs="${post_pkgs}"
@@ -1121,6 +1140,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 			--with-bdeps-auto=n
 			--with-bdeps=n
 		)
+		# shellcheck disable=SC2086
 		_docker_run "${docker_run_args[@]}" virtual/libc ${python_pkgs:-} 2>&1 |
 			tee ../log/"docker.${base_name#*/}.log"
 	)
@@ -1264,6 +1284,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 			docker ${DOCKER_VARS:-} container rm -v "${name}"
 		fi
 		declare -a build_args=()
+		# shellcheck disable=SC2046
 		build_args+=( # <- Syntax
 			--post-pkgs="app-arch/tar${use_pypy_post:+ ${use_pypy_post}}"
 			--post-use="-* $( replace_flags \
@@ -1298,6 +1319,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		[[ -z "${use_pypy_post_remove:-}" ]] || build_args+=( # <- Syntax
 			--post-remove="${use_pypy_post_remove}"
 		)
+		# shellcheck disable=SC2086
 		_docker_run "${build_args[@]}" \
 				dev-libs/icu dev-util/pkgconf sys-apps/locale-gen \
 				sys-apps/sed sys-apps/util-linux sys-devel/gcc \
