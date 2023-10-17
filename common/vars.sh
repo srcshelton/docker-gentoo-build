@@ -1,10 +1,11 @@
 #! /bin/sh
 # shellcheck disable=SC2034
 
-# Since we're now using 'podman system info' to determine the graphRoot
-# directory, we need to be root simply to setup the environment
+# Since we're now using '${_command} system info' to determine the graphRoot
+# directory, we need to be root solely to setup the environment
 # appropriately :(
-# Support 'core' user for podman+machine Fedora default user...
+#
+# Update: Support 'core' user for podman+machine Fedora default user...
 if [ "$( uname -s )" != 'Darwin' ]; then
 	if [ $(( $( id -u ) )) -ne 0 ] && [ "$( id -un )" != 'core' ]; then
 		echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
@@ -12,14 +13,20 @@ if [ "$( uname -s )" != 'Darwin' ]; then
 	fi
 fi
 
+# Guard to ensure that we don't accidentally reset the values below through
+# multiple inclusion - 'unset __COMMON_VARS_INCLUDED' is this is explcitly
+# required...
+#
 if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	export __COMMON_VARS_INCLUDED=1
 
 	# Alerting options...
+	#
 	mail_domain='localhost'
 	mail_from="portage@${mail_domain}"
 	mail_to='root@localhost'
 	mail_mta='localhost'
+	export mail_domain mail_from mail_to mail_mta
 
 	# Set docker image names...
 	#
@@ -28,27 +35,33 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	init_name='localhost/gentoo-init'
 	base_name='localhost/gentoo-base'
 	build_name='localhost/gentoo-build'
+	export env_name stage3_name init_name base_name build_name
 
 	# Set locations for inherited data...
 	#
 	stage3_flags_file='/usr/libexec/stage3_flags.sh'
 	environment_file='/usr/libexec/environment.sh'
+	export stage3_flags_file environment_file
 
 	# Default environment-variable filter
 	#
 	environment_filter='^(declare -x|export) (COLUMNS|EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?|LINES|LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)='
+	export environment_filter
 
-	# Set Containerfile, configuration, and entrypoint script relative filesystem
-	# location...
+	# Set Containerfile, configuration, and entrypoint script relative
+	# filesystem location...
 	#
 	# (N.B. This is different to 'base_name', above)
 	#
 	base_dir='gentoo-base'
+	export base_dir
 	if ! [ -d "${base_dir}" ]; then
-		base_dir=''
+		#base_dir=''
+		unset base_dir
 	fi
 
-	use_cpu_arch='' use_cpu_flags='' gcc_target_opts='-march=native'
+	use_cpu_arch='' use_cpu_flags='' use_cpu_flags_raw='' gcc_target_opts='-march=native'
+	description='' vendor=''
 	use_cpu_arch="$( uname -m | cut -c 1-3 | sed 's/aar/arm/' )"
 	if command -v cpuid2cpuflags >/dev/null 2>&1; then
 		use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- )"
@@ -56,17 +69,24 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 		if [ "$( uname -s )" = 'Darwin' ]; then
 			description="$( sysctl -n machdep.cpu.brand_string )"
 		elif [ -s /sys/firmware/devicetree/base/model ]; then
-			description="$( printf ': ' ; tr -d '\0' < /sys/firmware/devicetree/base/model )"
+			description="$( # <- Syntax
+				printf ': '
+				tr -d '\0' < /sys/firmware/devicetree/base/model
+			)" || :
 		else
-			description="$(
+			description="$( # <- Syntax
 				grep -E '(model name|Raspberry)' /proc/cpuinfo |
-				sort |
-				tail -n 1
+					sort |
+					tail -n 1
 			)" || :
 		fi
 		if [ -z "${description:-}" ]; then
 			# TODO: Is this a good UID to use (without further checks)?
-			description="$( grep -F 'CPU part' /proc/cpuinfo | sort | tail -n 1 )"
+			description="$( # <- Syntax
+				grep -F 'CPU part' /proc/cpuinfo |
+					sort |
+					tail -n 1
+			)" || :
 		fi
 
 		# Find '-march=native' flags:
@@ -142,8 +162,16 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				#gcc_target_opts='-march=armv8-a'
 				;;
 			*)
-				description="$( echo "${description}" | cut -d':' -f 2- | sed 's/^\s*// ; s/\s*$//' )"
-				vendor="$( grep -- '^vendor_id' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' )"
+				description="$( # <- Syntax
+					echo "${description}" |
+						cut -d':' -f 2- |
+						sed 's/^\s*// ; s/\s*$//'
+				)"
+				vendor="$( # <- Syntax
+					grep -- '^vendor_id' /proc/cpuinfo |
+						tail -n 1 |
+						awk -F': ' '{ print $2 }'
+				)"
 				if [ -r /proc/cpuinfo ]; then
 					case "${vendor}" in
 						GenuineIntel)
@@ -189,14 +217,16 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				fi
 				;;
 		esac
+		unset vendor description
 	fi
 	if [ -n "${use_cpu_flags:-}" ]; then
 		use_cpu_flags_raw="${use_cpu_flags}"
-		use_cpu_flags="$(
+		use_cpu_flags="$( # <- Syntax
 			echo "${use_cpu_flags_raw}" |
-			sed "s/^/cpu_flags_${use_cpu_arch:-x86}_/ ; s/ / cpu_flags_${use_cpu_arch:-x86}_/g"
+				sed "s/^/cpu_flags_${use_cpu_arch:-"x86"}_/ ; s/ / cpu_flags_${use_cpu_arch:-"x86"}_/g"
 		)"
 	fi
+	export use_cpu_arch use_cpu_flags gcc_target_opts
 
 	# Define essential USE flags
 	#
@@ -223,6 +253,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#  failures with at least app-editors/vim :(
 	#
 	use_essential="asm ipv6 ithreads native-extensions ktls mdev nptl split-usr -ssp threads${use_cpu_flags:+ ${use_cpu_flags}}"
+	export use_essential
 
 	# Even though we often want a minimal set of flags, gcc's flags are significant
 	# since they may affect the compiler facilities available to all packages built
@@ -236,6 +267,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#
 	# FIXME: Source these flags from package.use
 	use_essential_gcc="-default-stack-clash-protection -default-znow -fortran graphite -jit nptl openmp pch -sanitize -ssp -vtv zstd"
+	export use_essential_gcc
 
 	case "$( uname -m )" in
 		x86_64|i686)
@@ -258,6 +290,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 					use_pypy="${use_pypy} dev-python/pypy3-exe-bin"
 					use_pypy_use="${use_pypy_use} low-memory"
 				fi
+				export use_pypy use_pypy_use use_pypy_post_remove
 			fi
 			unset memtotal
 			;;
@@ -272,6 +305,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	purple="$( printf '\e[35m' )"
 	# Place 'reset' last to prevent coloured xtrace output!
 	reset="$( printf '\e[0m' )"
+	export bold red green blue purple reset
 
 	# Export portage job-control variables...
 	#
@@ -290,24 +324,28 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	unset load jobs
 
 	# Are we using docker or podman?
+	#
+	# N.B. This is overridden if/when common/run.sh is included
+	#
 	if ! command -v podman >/dev/null 2>&1; then
-		docker='docker'
+		_command='docker'
 
 		#extra_build_args=''
 		docker_readonly='readonly'
 	else
-		docker='podman'
+		_command='podman'
 
 		#extra_build_args='--format docker'
 		# From release 2.0.0, podman should accept docker 'readonly' attributes
 		docker_readonly='ro=true'
 	fi
+	export _command docker_readonly
 
 	# Allow a separate image directory for persistent images...
-	#store="$( $docker system info | grep -F 'overlay.imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
+	#store="$( $_command system info | grep -F 'overlay.imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
 	#if [ -n "${store}" ]; then
 	#	export IMAGE_ROOT="${store}"
-	#	store="$( $docker system info | grep 'graphRoot:' | cut -d':' -f 2- | awk '{ print $1 }' )"
+	#	store="$( $_command system info | grep 'graphRoot:' | cut -d':' -f 2- | awk '{ print $1 }' )"
 	#	if [ -n "${store}" ]; then
 	#		export GRAPH_ROOT="${store}"
 	#	fi
@@ -316,16 +354,17 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 
 	# Optional override to specify alternative build temporary directory
 	#export TMPDIR=/var/tmp
-	tmp="$( $docker system info | grep 'graphRoot:' | cut -d':' -f 2- | awk '{ print $1 }' )/tmp"
-	mkdir -p "${tmp:=/var/lib/containers/storage/tmp}"
+	tmp="$( $_command system info | grep 'graphRoot:' | cut -d':' -f 2- | awk '{ print $1 }' )/tmp"
+	mkdir -p "${tmp:="/var/lib/containers/storage/tmp"}"
 	export TMPDIR="${tmp}"
+	unset tmp
 
 	python_default_target='python3_11'
+	export python_default_target
 
 	if [ -f common/local.sh ]; then
 		# shellcheck disable=SC1091
 		. common/local.sh
-		export JOBS MAXJOBS TMPDIR
 	fi
 fi
 
