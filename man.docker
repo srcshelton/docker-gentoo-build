@@ -6,8 +6,14 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
+# shellcheck disable=SC2034 # Set from common/vars.sh
+[[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
+	echo >&2 "FATAL: Inclusion of common defaults failed"
+	exit 1
+}
 
-export IMAGE="none"
+# shellcheck disable=SC2034
+declare IMAGE="none"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh >/dev/null
 
@@ -15,43 +21,137 @@ if (( EUID )); then
 	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi
 
+declare CATEGORY='sys-apps'
+declare PN='man-db'
+
+declare page_volume="${PN}-pages"
+declare cache_volume="${PN}-cache"
+
+_docker_resolve 'sys-apps/man-pages' >/dev/null
+# ... sets package package_version package_name container_name
+declare original_page_volume="${page_volume}"
+page_volume="${page_volume}-${package_version}"
+unset package package_version package_name container_name
+
+if (( $( # <- Syntax
+		docker volume ls -n |
+			awk '{ print $2 }' |
+			grep -- "^${original_page_volume}" |
+			wc -l
+	) > 1 ))
+then
+	print "Removing old '${original_page_volume}'* volumes ..."
+	docker volume ls -n |
+		awk '{ print $2 }' |
+		grep -- "^${original_page_volume}" |
+		xargs -r -- "${_command}" volume rm >/dev/null
+fi
+unset original_page_volume
+
+# FIXME: shellcheck wants:
+#
+#          docker_extra_mounts+=( $( add_mount ... ) )
+#
+#        ... to be expressed in the form of:
+#
+#          readarray -O "${#docker_extra_mounts[@]}" -t docker_extra_mounts < <(
+#            add_mount ...
+#          )
+#
+#shellcheck disable=SC2207
+{
 declare -a docker_extra_mounts=()
+declare e=''
 docker_extra_mounts+=( $( add_mount --print \
-		'/usr/share/man/'
+		'/usr/share/man/' \
 		'/srv/host/...'
 	) ) || :
+for e in $( sed 's/:/ /g' <<<"${MANPATH:-}" ); do
+	if [[ -d "${e}" ]]; then
+		docker_extra_mounts+=( $( add_mount --print \
+			"${e}" \
+			'/srv/host/...'
+		) ) || :
+	fi
+done
+export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
+unset docker_extra_mounts
+}
 
 if [ -s '/etc/man_db.conf' ]; then
 	DOCKER_VOLUMES="
 		--volume /etc/man_db.conf:/etc/man_db.conf:ro
 	"
 fi
-#DOCKER_VOLUMES="${DOCKER_VOLUMES:+${DOCKER_VOLUMES}}
-#	--volume ${PWD}/${base_dir:+${base_dir}/}entrypoint.sh.service:/usr/libexec/entrypoint.sh:ro
-#"
+if [[ -n "${DEV_MODE:-}" ]]; then
+	DOCKER_VOLUMES+=" --volume ${PWD}/${base_dir:+${base_dir}/}entrypoint.sh.service:/usr/libexec/entrypoint.sh:ro"
+fi
 
 # Gather exported data from other created containers ...
 id=''
-for id in $( podman container ps -a --filter 'name=^openrc-' --filter 'name=^web-' --format '{{.ID}}' ); do
-	DOCKER_VOLUMES="${DOCKER_VOLUMES:+${DOCKER_VOLUMES} }--volumes-from ${id}:ro"
+for id in $( # <- Syntax
+		podman container ps \
+			--all \
+			--filter 'name=^openrc-' \
+			--filter 'name=^web-' \
+			--format '{{.ID}}'
+); do
+	DOCKER_VOLUMES+=" --volumes-from ${id}:ro"
 done
 unset id
 
-export DOCKER_VOLUMES
-export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
-unset docker_extra_mounts
+# Confusingly, if a volume is mounted from the host then the host contents are
+# exposed in the container (even if there are none), but if a (new)
+# named-volume is referenced then on first use the container contents are
+# mirrored into the named-volume instead...
+#
+DOCKER_VOLUMES=" --volume ${page_volume}:/srv/${PN}/usr/share/man"
+DOCKER_VOLUMES=" --volume ${cache_volume}:/var/cache/man"
 
-export DOCKER_CMD_VARS="--env LINES=${LINES} --env COLUMNS=${COLUMNS} --env TERM=${TERM}"
+export DOCKER_VOLUMES
+
+declare -a docker_cmd_vars=()
+declare lc=''
+docker_cmd_vars=(
+	--env "LINES=${LINES}"
+	--env "COLUMNS=${COLUMNS}"
+	--env "TERM=${TERM}"
+	# Ordering from man(1)...
+	--env MANPATH
+	--env MANROFFOPT
+	--env MANROFFSEQ
+	--env MANSECT
+	--env MANPAGER
+	--env PAGER
+	--env MANLESS
+	--env BROWSER
+	--env SYSTEM
+	--env MANOPT
+	--env MANWIDTH
+	--env MAN_KEEP_FORMATTING
+	--env MAN_KEEP_STDERR
+	--env MAN_DISABLE_SECCOMP
+	--env PIPELINE_DEBUG
+	#--env LANG
+	#--env LC_MESSAGES
+)
+for lc in $( locale | cut -d'=' -f 1 ); do
+	docker_cmd_vars+=( --env "${lc}" )
+done
+unset lc
+export DOCKER_CMD_VARS="${docker_cmd_vars[*]:-}"
+unset docker_cmd_vars
 
 export DOCKER_INTERACTIVE=1
 export NO_BUILD_MOUNTS='no_build_mounts' # ... any value will do
 #export DOCKER_ENTRYPOINT='/bin/sh'
-_docker_resolve 'sys-apps/man-db' 'run' >/dev/null
-image="$( docker_image_exists )"
+
+_docker_resolve "${CATEGORY}/${PN}" 'service' >/dev/null
+image="$( _docker_image_exists )"
 export image
 
 #set -o xtrace
 
-docker_run ${@+"${@}"}
+_docker_run ${@+"${@}"}
 
-# vi: set syntax=sh:
+# vi: set colorcolumn=80 syntax=sh:

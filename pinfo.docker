@@ -6,8 +6,14 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
+# shellcheck disable=SC2034 # Set from common/vars.sh
+[[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
+	echo >&2 "FATAL: Inclusion of common defaults failed"
+	exit 1
+}
 
-export IMAGE="none"
+# shellcheck disable=SC2034
+declare IMAGE="none"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh >/dev/null
 
@@ -15,13 +21,41 @@ if (( EUID )); then
 	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi
 
+declare CATEGORY='app-text'
+declare PN='pinfo'
+
+declare page_volume="${PN}-pages"
+
+# FIXME: shellcheck wants:
+#
+#          docker_extra_mounts+=( $( add_mount ... ) )
+#
+#        ... to be expressed in the form of:
+#
+#          readarray -O "${#docker_extra_mounts[@]}" -t docker_extra_mounts < <(
+#            add_mount ...
+#          )
+#
+#shellcheck disable=SC2207
+{
 declare -a docker_extra_mounts=()
 docker_extra_mounts+=( $( add_mount --print \
-		'/usr/share/info/'
+		'/usr/share/info/' \
 		'/srv/host/...'
 	) ) || :
+for e in $( sed 's/:/ /g' <<<"${INFOPATH:-}" ); do
+	if [[ -d "${e}" ]]; then
+		docker_extra_mounts+=( $( add_mount --print \
+			"${e}" \
+			'/srv/host/...'
+		) ) || :
+	fi
+done
+export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
+unset docker_extra_mounts
+}
 
-f=''
+declare f=''
 for f in /etc/pinforc /etc/pinfo/pinforc /etc/pinfo/pinfo.rc; do
 	[ -s "${f}" ] && break
 done
@@ -31,20 +65,31 @@ if [ -s "${f}" ]; then
 	"
 fi
 unset f
-#DOCKER_VOLUMES="${DOCKER_VOLUMES:+${DOCKER_VOLUMES}}
-#	--volume ${PWD}/${base_dir:+${base_dir}/}entrypoint.sh.service:/usr/libexec/entrypoint.sh:ro
-#"
+if [[ -n "${DEV_MODE:-}" ]]; then
+	DOCKER_VOLUMES+=" --volume ${PWD}/${base_dir:+${base_dir}/}entrypoint.sh.service:/usr/libexec/entrypoint.sh:ro"
+fi
 
 # Gather exported data from other created containers ...
 id=''
-for id in $( podman container ps -a --filter 'name=^openrc-' --filter 'name=^web-' --format '{{.ID}}' ); do
-	DOCKER_VOLUMES="${DOCKER_VOLUMES:+${DOCKER_VOLUMES} }--volumes-from ${id}:ro"
+for id in $( # <- Syntax
+		podman container ps \
+			--all \
+			--filter 'name=^openrc-' \
+			--filter 'name=^web-' \
+			--format '{{.ID}}'
+); do
+	DOCKER_VOLUMES+=" --volumes-from ${id}:ro"
 done
 unset id
 
+# Confusingly, if a volume is mounted from the host then the host contents are
+# exposed in the container (even if there are none), but if a (new)
+# named-volume is referenced then on first use the container contents are
+# mirrored into the named-volume instead...
+#
+DOCKER_VOLUMES=" --volume ${page_volume}:/srv/${PN}/usr/share/info"
+
 export DOCKER_VOLUMES
-export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
-unset docker_extra_mounts
 
 #DOCKER_SCRIPT="$( cat <<-EOF
 #	set -eux ;
@@ -60,21 +105,31 @@ unset docker_extra_mounts
 #nl="$( printf '\n' )"
 #DOCKER_SCRIPT="$( echo "${DOCKER_SCRIPT}" | tr "${nl}" ' ' )"
 #unset nl
-export DOCKER_CMD_VARS="--env LINES=${LINES} --env COLUMNS=${COLUMNS} --env TERM=${TERM}"
+declare -a docker_cmd_vars=()
+docker_cmd_vars=(
+	--env "LINES=${LINES}"
+	--env "COLUMNS=${COLUMNS}"
+	--env "TERM=${TERM}"
+)
+export DOCKER_CMD_VARS="${docker_cmd_vars[*]:-}"
+unset docker_cmd_vars
 
 export DOCKER_INTERACTIVE=1
 export NO_BUILD_MOUNTS='no_build_mounts' # ... any value will do
 #export DOCKER_ENTRYPOINT='/bin/sh'
-_docker_resolve 'app-text/pinfo' 'run' >/dev/null
-image="$( docker_image_exists )"
+
+_docker_resolve "${CATEGORY}/${PN}" 'service' >/dev/null
+image="$( _docker_image_exists )"
 export image
 
-if [ -n "${*:-}" ]; then
-	docker_run ${@+"${@}"}
-	#docker_run -c "${DOCKER_SCRIPT}" ${@+"${@}"}
+#set -o xtrace
+
+if [[ -n "${*:-}" ]]; then
+	#_docker_run -c "${DOCKER_SCRIPT}" ${@+"${@}"}
+	_docker_run ${@+"${@}"}
 else
-	docker_run 'dir'
-	#docker_run -c "${DOCKER_SCRIPT}" 'dir'
+	#_docker_run -c "${DOCKER_SCRIPT}" 'dir'
+	_docker_run 'dir'
 fi
 
-# vi: set syntax=sh:
+# vi: set colorcolumn=80 syntax=sh:

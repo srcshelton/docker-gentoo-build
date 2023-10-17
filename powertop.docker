@@ -6,8 +6,14 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
+# shellcheck disable=SC2034 # Set from common/vars.sh
+[[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
+	echo >&2 "FATAL: Inclusion of common defaults failed"
+	exit 1
+}
 
-export IMAGE="none"
+# shellcheck disable=SC2034
+declare IMAGE="none"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh >/dev/null
 
@@ -15,25 +21,50 @@ if (( EUID )); then
 	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi
 
+declare CATEGORY='sys-power'
+declare PN='powertop'
+
+# FIXME: shellcheck wants:
+#
+#          docker_extra_mounts+=( $( add_mount ... ) )
+#
+#        ... to be expressed in the form of:
+#
+#          readarray -O "${#docker_extra_mounts[@]}" -t docker_extra_mounts < <(
+#            add_mount ...
+#          )
+#
+#shellcheck disable=SC2207
+{
 declare -a docker_extra_mounts=()
 docker_extra_mounts+=( $( add_mount --print --no-ro \
 		'/var/cache/powertop/'
 	) ) || :
 export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 unset docker_extra_mounts
+}
 
-export DOCKER_CMD_VARS="--env LINES=${LINES} --env COLUMNS=${COLUMNS} --env TERM=${TERM}"
+declare -a docker_cmd_vars=()
+declare lc=''
+docker_cmd_vars=(
+	--env "LINES=${LINES}"
+	--env "COLUMNS=${COLUMNS}"
+	--env "TERM=${TERM}"
+)
+export DOCKER_CMD_VARS="${docker_cmd_vars[*]:-}"
+unset docker_cmd_vars
 
 export DOCKER_INTERACTIVE=1
 export DOCKER_PRIVILEGED=1
 export NO_BUILD_MOUNTS='no_build_mounts' # ... any value will do
 #export DOCKER_ENTRYPOINT='/bin/sh'
-_docker_resolve 'sys-power/powertop' 'run' >/dev/null
-image="$( docker_image_exists )"
+
+_docker_resolve "${CATEGORY}/${PN}" 'service' >/dev/null
+image="$( _docker_image_exists )"
 export image
 
 #set -o xtrace
 
-docker_run ${@+"${@}"}
+_docker_run ${@+"${@}"}
 
-# vi: set syntax=sh:
+# vi: set colorcolumn=80 syntax=sh:
