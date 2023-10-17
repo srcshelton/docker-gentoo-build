@@ -69,8 +69,8 @@ output() {
 }  # output
 
 die() {
-	#output >&2 "FATAL: ${BASH_SOURCE[0]:-"$( basename "${0}" )"}: ${*:-Unknown error}"
-	output >&2 "FATAL: ${*:-Unknown error}"
+	#output >&2 "FATAL: ${BASH_SOURCE[0]:-"$( basename "${0}" )"}: ${*:-"Unknown error"}"
+	output >&2 "FATAL: ${*:-"Unknown error"}"
 	exit 1
 }  # die
 
@@ -112,11 +112,15 @@ info() {
 }  # info
 
 print() {
-	if [ -n "${DEBUG:-}" ]; then
-		if [ -z "${*:-}" ]; then
+	if [[ -n "${DEBUG:-}" ]]; then
+		if [[ -z "${*:-}" ]]; then
 			output >&2
 		else
-			output >&2 "DEBUG: ${BASH_SOURCE[-1]:-"$( basename "${0}" )"}/${BASH_SOURCE[0]}: ${*}"
+			if [[ -n "${BASH_SOURCE[-1]:-}" ]]; then
+				output >&2 "DEBUG: $( basename "${BASH_SOURCE[-1]}" )->${BASH_SOURCE[0]}: ${*}"
+			else
+				output >&2 "DEBUG: $( basename "${0}" ): ${*}"
+			fi
 		fi
 		return 0
 	# Unhelpful with 'set -e'...
@@ -342,7 +346,7 @@ fi
 _docker_setup() {
 	export -a args=() extra=()
 	export package='' package_version='' package_name='' repo=''
-	export name='' container_name='' image="${IMAGE:-gentoo-build:latest}"
+	export name='' container_name='' image="${IMAGE:-"gentoo-build:latest"}"
 
 	# 'docker_arch' is the 'ARCH' component of Docker's 'platform' string, and
 	# is used to ensure that the correct image is pulled when multi-arch images
@@ -492,9 +496,9 @@ _docker_parse() {
 # Validates package and sets container
 #
 _docker_resolve() {
-	local dr_package="${1:-${package}}"
-	local prefix="${2:-buildpkg}"
-	local dr_name=''
+	local dr_package="${1:-"${package}"}"
+	local dr_prefix="${2:-"buildpkg"}"
+	local dr_name='' dr_pattern=''
 
 	if ! {
 		[ -x "$( command -v versionsort )" ] &&
@@ -623,7 +627,7 @@ _docker_resolve() {
 								grep 'SLOT=' \
 									"${repopath}/${cat}/${pkg%-[0-9]*}/${eb}"
 							)"
-							slot="${SLOT:-${slot}}"
+							slot="${SLOT:-"${slot}"}"
 							grep -Fq "~${arch}" \
 								"${repopath}/${cat}/${pkg%-[0-9]*}/${eb}" &&
 									keyworded='~'
@@ -697,7 +701,7 @@ _docker_resolve() {
 		unset TMP_KEYWORDS
 	fi
 	if [ -z "${dr_name:-}" ] || [ -z "${dr_package:-}" ]; then
-		warn "Failed to match portage atom to package name '${1:-${package}}'"
+		warn "Failed to match portage atom to package name '${1:-"${package}"}'"
 		return 1
 	fi
 	dr_package="${dr_name}-${dr_package}"
@@ -711,10 +715,10 @@ _docker_resolve() {
 	# shellcheck disable=SC2001 # POSIX sh compatibility
 	package_name="$( echo "${package%-"${package_version}"}" | sed 's/+/plus/g' )"
 	# shellcheck disable=SC2001 # POSIX sh compatibility
-	container_name="${prefix}.$( echo "${package_name}" | sed 's|/|.|g' )"
+	container_name="${dr_prefix}.$( echo "${package_name}" | sed 's|/|.|g' )"
 	export package package_version package_name container_name
 
-	[ -n "${trace:-}" ] && set +o xtrace
+	#[ -n "${trace:-}" ] && set +o xtrace
 
 	unset dr_package
 
@@ -722,8 +726,8 @@ _docker_resolve() {
 }  # _docker_resolve
 
 _docker_image_exists() {
-	image="${1:-${package}}"
-	version="${2:-${package_version}}"
+	image="${1:-"${container_name}"}"
+	version="${2:-"${package_version}"}"
 
 	[[ -n "${image:-}" ]] || return 1
 
@@ -795,12 +799,12 @@ _docker_run() {
 	trap '' INT
 	# shellcheck disable=SC2086
 	docker ${DOCKER_VARS:-} container ps --noheading |
-			grep -qw -- "${name:-${container_name}}$" &&
-		docker ${DOCKER_VARS:-} container stop --time 2 "${name:-${container_name}}" >/dev/null
+			grep -qw -- "${name:-"${container_name}"}$" &&
+		docker ${DOCKER_VARS:-} container stop --time 2 "${name:-"${container_name}"}" >/dev/null
 	# shellcheck disable=SC2086
 	docker ${DOCKER_VARS:-} container ps --noheading -a |
-			grep -qw -- "${name:-${container_name}}$" &&
-		docker ${DOCKER_VARS:-} container rm --volumes "${name:-${container_name}}" >/dev/null
+			grep -qw -- "${name:-"${container_name}"}$" &&
+		docker ${DOCKER_VARS:-} container rm --volumes "${name:-"${container_name}"}" >/dev/null
 	trap - INT
 
 	# FIXME: Make this package-specific hack generic (or unneeded!)
@@ -846,7 +850,7 @@ _docker_run() {
 			fi
 		)
 		--init
-		--name "${name:-${container_name}}"
+		--name "${name:-"${container_name}"}"
 		#--network slirp4netns
 		# Some elements such as podman's go code tries to fetch packages from
 		# IPv6-addressable hosts...
@@ -878,6 +882,11 @@ _docker_run() {
 		then
 			# shellcheck disable=SC1091
 			[[ ! -s common/vars.sh ]] || . common/vars.sh
+			# shellcheck disable=SC2034 # Set from common/vars.sh
+			[[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
+				echo >&2 "FATAL: Inclusion of common defaults failed"
+				exit 1
+			}
 		fi
 
 		local name='' ext=''
@@ -1010,13 +1019,14 @@ _docker_run() {
 
 		# shellcheck disable=SC2046,SC2206,SC2207
 		mirrormountpointsro=(
-			#/etc/portage/repos.conf  # We need write access to be able to update eclasses...
-			${default_repo_path:-$( portageq get_repo_path "${EROOT:-/}" $( portageq get_repos "${EROOT:-/}" ) )}
+			## We need write access to be able to update eclasses...
+			#/etc/portage/repos.conf
+
+			${default_repo_path:-"$( portageq get_repo_path "${EROOT:-"/"}" $( portageq get_repos "${EROOT:-"/"}" ) )"}
+
+			#/etc/locale.gen
+
 			#/usr/src  # Breaks gentoo-kernel-build package
-			#/var/db/repo/container
-			#/var/db/repo/gentoo
-			#/var/db/repo/srcshelton
-			#/var/db/repo/compat
 		)
 
 		# N.B.: Read repo-specific masks from the host system...
@@ -1029,7 +1039,7 @@ _docker_run() {
 		if [ -n "${BUILD_CONTAINER:-}" ]; then
 			mirrormountpoints=(
 				#/var/cache/portage/dist
-				"${default_distdir_path:-$( portageq distdir )}"
+				"${default_distdir_path:-"$( portageq distdir )"}"
 				'/etc/portage/savedconfig'
 				'/var/log/portage'
 			)
@@ -1038,19 +1048,19 @@ _docker_run() {
 				_docker_setup
 			fi
 
-			#ENV PKGDIR="${PKGCACHE:-/var/cache/portage/pkg}/${ARCH:-amd64}/${PKGHOST:-docker}"
-			#local PKGCACHE="${PKGCACHE:=/var/cache/portage/pkg}"
-			#local PKGHOST="${PKGHOST:=docker}"
-			local PKGDIR="${PKGDIR:=${default_pkgdir_path:-$( portageq pkgdir )}}"
+			#ENV PKGDIR="${PKGCACHE:-"/var/cache/portage/pkg"}/${ARCH:-"amd64"}/${PKGHOST:-"docker"}"
+			#local PKGCACHE="${PKGCACHE:="/var/cache/portage/pkg"}"
+			#local PKGHOST="${PKGHOST:="docker"}"
+			local PKGDIR="${PKGDIR:="${default_pkgdir_path:-"$( portageq pkgdir )"}"}"
 
 			# Allow use of 'ARCH' variable as an override...
-			print "Using architecture '${ARCH:-${arch}}' ..."
-			mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-${arch}}/docker"
+			print "Using architecture '${ARCH:-"${arch}"}' ..."
+			mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
 		fi
 		mountpoints['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
 
-		if [ -s "gentoo-base/etc/portage/package.accept_keywords.${ARCH:-${arch}}" ]; then
-			mountpointsro["${PWD%/}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-${arch}}"]="/etc/portage/package.accept_keywords/${ARCH:-${arch}}"
+		if [ -s "gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]; then
+			mountpointsro["${PWD%/}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/package.accept_keywords/${ARCH:-"${arch}"}"
 		fi
 
 		#cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
@@ -1059,45 +1069,54 @@ _docker_run() {
 		#mountpointsro["${cwd}/gentoo-base/etc/portage/package.license"]='/etc/portage/package.license'
 		#mountpointsro["${cwd}/gentoo-base/etc/portage/package.use.build"]='/etc/portage/package.use'
 
-		for mp in ${mirrormountpointsro[@]+"${mirrormountpointsro[@]}"}; do
-			[ -n "${mp:-}" ] || continue
-			src="$( readlink -e "${mp}" )" || die "readlink() on mirrored read-only mountpoint '${mp}' failed: ${?}"
-			if [ -z "${src:-}" ]; then
-				warn "Skipping mountpoint '${mp}'"
-				: $(( skipped = skipped + 1 ))
-				continue
-			fi
-			runargs+=( --mount "type=bind,source=${src},destination=${mp}${docker_readonly:+,${docker_readonly}}" )
+		local mps=''
+		for mps in ${mirrormountpointsro[@]+"${mirrormountpointsro[@]}"}; do
+			[ -n "${mps:-}" ] || continue
+			for mp in ${mps}; do
+				src="$( readlink -e "${mp}" )" || die "readlink() on mirrored read-only mountpoint '${mp}' failed: ${?}"
+				if [ -z "${src:-}" ]; then
+					warn "Skipping mountpoint '${mp}'"
+					: $(( skipped = skipped + 1 ))
+					continue
+				fi
+				runargs+=( --mount "type=bind,source=${src},destination=${mp}${docker_readonly:+,${docker_readonly}}" )
+			done
 		done
-		for mp in ${mirrormountpoints[@]+"${mirrormountpoints[@]}"}; do
-			[ -n "${mp:-}" ] || continue
-			src="$( readlink -e "${mp}" )" || die "readlink() on mirrored mountpoint '${mp}' failed: ${?}"
-			if [ -z "${src:-}" ]; then
-				warn "Skipping mountpoint '${mp}'"
-				: $(( skipped = skipped + 1 ))
-				continue
-			fi
-			runargs+=( --mount "type=bind,source=${src},destination=${mp}" )
+		for mps in ${mirrormountpoints[@]+"${mirrormountpoints[@]}"}; do
+			[ -n "${mps:-}" ] || continue
+			for mp in ${mps}; do
+				src="$( readlink -e "${mp}" )" || die "readlink() on mirrored mountpoint '${mp}' failed: ${?}"
+				if [ -z "${src:-}" ]; then
+					warn "Skipping mountpoint '${mp}'"
+					: $(( skipped = skipped + 1 ))
+					continue
+				fi
+				runargs+=( --mount "type=bind,source=${src},destination=${mp}" )
+			done
 		done
-		for mp in ${mountpointsro[@]+"${!mountpointsro[@]}"}; do
-			[ -n "${mp:-}" ] || continue
-			src="$( readlink -e "${mp}" )" || die "readlink() on read-only mountpoint '${mp}' failed: ${?}"
-			if [ -z "${src:-}" ]; then
-				warn "Skipping mountpoint '${mp}' -> '${mountpointsro[${mp}]}'"
-				: $(( skipped = skipped + 1 ))
-				continue
-			fi
-			runargs+=( --mount "type=bind,source=${src},destination=${mountpointsro[${mp}]}${docker_readonly:+,${docker_readonly}}" )
+		for mps in ${mountpointsro[@]+"${!mountpointsro[@]}"}; do
+			[ -n "${mps:-}" ] || continue
+			for mp in ${mps}; do
+				src="$( readlink -e "${mp}" )" || die "readlink() on read-only mountpoint '${mp}' failed: ${?}"
+				if [ -z "${src:-}" ]; then
+					warn "Skipping mountpoint '${mp}' -> '${mountpointsro[${mp}]}'"
+					: $(( skipped = skipped + 1 ))
+					continue
+				fi
+				runargs+=( --mount "type=bind,source=${src},destination=${mountpointsro[${mp}]}${docker_readonly:+,${docker_readonly}}" )
+			done
 		done
-		for mp in ${mountpoints[@]+"${!mountpoints[@]}"}; do
-			[ -n "${mp:-}" ] || continue
-			src="$( readlink -e "${mp}" )" || die "readlink() on mountpoint '${mp}' failed (do you need to set 'PKGDIR'?): ${?}"
-			if [ -z "${src:-}" ]; then
-				warn "Skipping mountpoint '${mp}' -> '${mountpoints[${mp}]}'"
-				: $(( skipped = skipped + 1 ))
-				continue
-			fi
-			runargs+=( --mount "type=bind,source=${src},destination=${mountpoints[${mp}]}" )
+		for mps in ${mountpoints[@]+"${!mountpoints[@]}"}; do
+			[ -n "${mps:-}" ] || continue
+			for mp in ${mps}; do
+				src="$( readlink -e "${mp}" )" || die "readlink() on mountpoint '${mp}' failed (do you need to set 'PKGDIR'?): ${?}"
+				if [ -z "${src:-}" ]; then
+					warn "Skipping mountpoint '${mp}' -> '${mountpoints[${mp}]}'"
+					: $(( skipped = skipped + 1 ))
+					continue
+				fi
+				runargs+=( --mount "type=bind,source=${src},destination=${mountpoints[${mp}]}" )
+			done
 		done
 
 		if [ -n "${name:-}" ] && [ -n "${base_name:-}" ] && [ -n "${init_name:-}" ]; then
@@ -1116,7 +1135,7 @@ _docker_run() {
 			sleep 5
 		fi
 
-		unset src mp
+		unset src mps mp
 	fi
 
 	if [ -n "${DOCKER_VERBOSE:-}" ]; then
@@ -1170,7 +1189,7 @@ _docker_run() {
 			docker container ps --noheading -a
 		fi
 
-		image="${image:-${IMAGE:-gentoo-build:latest}}"
+		image="${image:-"${IMAGE:-"gentoo-build:latest"}"}"
 
 		if (( debug )); then
 			local arg=''
@@ -1220,8 +1239,8 @@ _docker_run() {
 	# shellcheck disable=SC2031,SC2086
 	if
 		dr_id="$( docker ${DOCKER_VARS:-} container ps --noheading -a |
-				grep -- "\s${name:-${container_name}}$" |
-				awk '{ prnt $1 }' )" &&
+				grep -- "\s${name:-"${container_name}"}$" |
+				awk '{ print $1 }' )" &&
 			[ -n "${dr_id:-}" ]
 	then
 		rcc=$( docker ${DOCKER_VARS:-} container inspect --format='{{.State.ExitCode}}' "${dr_id}" ) || :
@@ -1250,7 +1269,7 @@ _docker_build_pkg() {
 	[ -n "${USE:-}" ] && info "USE override: '$( echo "${USE}" | xargs echo -n )'"
 
 	# shellcheck disable=SC2016
-	info "Building package '${package}' ${extra[*]+plus additional packages '${extra[*]}' }into container '${name:-${container_name}}' ..."
+	info "Building package '${package}' ${extra[*]+plus additional packages '${extra[*]}' }into container '${name:-"${container_name}"}' ..."
 
 	# shellcheck disable=SC2086
 	_docker_run "=${package}${repo:+::${repo}}" ${extra[@]+"${extra[@]}"} ${args[@]+"${args[@]}"}
