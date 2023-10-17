@@ -19,6 +19,21 @@ print() {
 	fi
 }  # print
 
+if [ -n "${DEV_MODE:-}" ]; then
+	cat <<EOF
+
+*******************************************************************************
+*                                                                             *
+* OPERATING IN DEV_MODE                                                       *
+*                                                                             *
+* This script is running as it exists on-disk, overriding the container image *
+* contents.  Do not use the output of this mode for reliable builds.          *
+*                                                                             *
+*******************************************************************************
+
+EOF
+fi
+
 [ -n "${trace:-}" ] && set -o xtrace
 
 if [ -z "${service_cmd:-}" ]; then
@@ -126,29 +141,61 @@ fi
 if [ "${service_cmd}" = '/usr/bin/man' ] && [ -x /usr/bin/mandb ] && getent passwd man >/dev/null && getent group man >/dev/null; then
 	rc=0
 
-	# Use same perms/settings as the ebuild.
+	# Use same perms/settings as the ebuild
 	cachedir="/var/cache/man"
 	if [ ! -d "${cachedir}" ]; then
 		mkdir -p "${cachedir}"
-		chown man:man "${cachedir}"
-		chmod 0755 "${cachedir}"
 	fi
+	chown man:man "${cachedir}"
+	chmod 0755 "${cachedir}"
 
 	echo >&2 "Synchronising man pages ..."
-	s='' f='' d=''
-	find /srv/ -mindepth 1 -maxdepth 1 -type d -print | while read -r s; do
-		find "${s}"/usr/share/man/ -type f | while read -r f; do
-			echo "${f}" | grep -q '/index.db' && continue
-			d="$( basename "$( dirname "${f}" )" )"
-			mkdir -p "/usr/share/man/${d}"
-			[ -e "/usr/share/man/${d}/$( basename "${f}" )" ] || cp "${f}" "/usr/share/man/${d}/"
-		done
+	s='' f='' d='' last_d=''
+	find /srv/ -mindepth 1 -maxdepth 1 -type d -print | sort -V | while read -r s; do
+		echo >&2 "  Synchronising man pages for '$( basename "${s}" )' ..."
+		if command -v rsync >/dev/null 2>&1; then
+			rsync \
+					--atimes \
+					--checksum \
+					--delete-excluded \
+					--devices \
+					--exclude 'index.db' \
+					--group \
+					--hard-links \
+					--links \
+					--numeric-ids \
+					--one-file-system \
+					--owner \
+					--perms \
+					--preallocate \
+					--prune-empty-dirs \
+					--quiet \
+					--recursive \
+					--size-only \
+					--sparse \
+					--specials \
+					--super \
+					--times \
+				"${s}"/usr/share/man/* \
+				/usr/share/man/
+		else
+			find "${s}"/usr/share/man/ -type f | sort -V | while read -r f; do
+				echo "${f}" | grep -q '/index.db' && continue
+				d="$( basename "$( dirname "${f}" )" )"
+				if ! [ "${last_d:-}" = "${d}" ]; then
+					echo >&2 "    ${d}"
+					last_d="${d}"
+				fi
+				mkdir -p "/usr/share/man/${d}"
+				[ -e "/usr/share/man/${d}/$( basename "${f}" )" ] || cp "${f}" "/usr/share/man/${d}/"
+			done
+		fi
 	done
-	unset s
+	unset last_d d f s
 
 	echo >&2 "Rebuilding man-db cache ..."
-	#nice mandb --no-purge --quiet || rc=${?}
-	nice mandb --no-purge --debug || rc=${?}
+	time nice mandb --no-purge --quiet || rc=${?}
+	#nice mandb --no-purge --debug || rc=${?}
 	print "mandb update returned ${rc}"
 fi
 
