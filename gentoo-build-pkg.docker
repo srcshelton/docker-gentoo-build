@@ -1,22 +1,30 @@
 #! /usr/bin/env bash
 
-set -eu
+declare trace="${TRACE:-}"
+# shellcheck disable=SC2034
+declare debug="${DEBUG:-}"
 
-trace=${TRACE:-}
+set -eu
+set -o pipefail
 
 [ -n "${trace:-}" ] && set -o xtrace
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
-build_name=''
-docker_readonly=''
+# Set by common/vars.sh, sourced below...
+#
+#declare build_name=''
 
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
+# shellcheck disable=SC2034 # Set from common/vars.sh
+[[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
+	echo >&2 "FATAL: Inclusion of common defaults failed"
+	exit 1
+}
 
-IMAGE="${build_name}:latest"
-export IMAGE
-
+# shellcheck disable=SC2034,SC2154
+declare IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh
 
@@ -68,6 +76,7 @@ for arg in "${@}"; do
 			fi
 			;;
 		--memory=*)
+			# shellcheck disable=SC2034
 			PODMAN_MEMORY_RESERVATION="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
 			#if (( PODMAN_MEMORY_LIMIT < PODMAN_MEMORY_RESERVATION )); then
 			#	(( PODMAN_MEMORY_LIMIT = PODMAN_MEMORY_RESERVATION ))
@@ -75,6 +84,7 @@ for arg in "${@}"; do
 			;;
 		--memory-limit=*)
 			PODMAN_MEMORY_LIMIT="$( printf '%s' "${arg}" | cut -d'=' -f 2- )"
+			# shellcheck disable=SC2034
 			PODMAN_SWAP_LIMIT="${PODMAN_MEMORY_LIMIT}"
 			#if (( PODMAN_MEMORY_RESERVATION < PODMAN_MEMORY_LIMIT )); then
 			#	(( PODMAN_MEMORY_RESERVATION = PODMAN_MEMORY_LIMIT ))
@@ -93,17 +103,24 @@ if [ -z "${args:-}" ] && [ -n "${rebuild:-}" ]; then
 	set -- "${rebuild%% *}" "${@}"
 fi
 
+# FIXME: shellcheck wants:
+#
+#          docker_extra_mounts+=( $( add_mount ... ) )
+#
+#        ... to be expressed in the form of:
+#
+#          readarray -O "${#docker_extra_mounts[@]}" -t docker_extra_mounts < <(
+#            add_mount ...
+#          )
+#
+#shellcheck disable=SC2207
+{
 declare -a docker_extra_mounts=()
 docker_extra_mounts+=(
-	$( add_mount --dir --print \
-			'/etc/portage/package.accept_keywords'
-		)
-	$( add_mount --print \
-			'/etc/portage/package.license'
-		)
-	$( add_mount --print \
-			'/etc/portage/profile/use.mask'
-		)
+	$( add_mount --print '/etc/locale.gen' )
+	$( add_mount --dir --print '/etc/portage/package.accept_keywords' )
+	$( add_mount --print '/etc/portage/package.license' )
+	$( add_mount --print '/etc/portage/profile/use.mask' )
 ) || :
 
 # Use host package.mask (if present), overriding the container build-time
@@ -227,6 +244,7 @@ docker_extra_mounts+=( $( add_mount --print \
 
 export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 unset docker_extra_mounts
+}
 
 if [ -n "${USE:-}" ]; then
 	# Without passing USE flags in this way, they appear to be getting lost (when /etc/portage/package.use exists?)
