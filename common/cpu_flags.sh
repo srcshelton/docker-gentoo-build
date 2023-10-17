@@ -2,7 +2,7 @@
 
 set -u
 
-debug="${DEBUG:-0}"
+debug="${DEBUG:-"0"}"
 
 def_repo="$( portageq repositories_configuration / | grep -m 1 '^\[DEFAULT\]$' -A 64 | grep -m 1 '^$' -B 64 | grep '^main-repo = ' | cut -d'=' -f 2- | xargs )"
 if [ -z "${def_repo:-}" ]; then
@@ -25,8 +25,8 @@ if echo " ${*} " | grep -Eq ' -(h|-help) '; then
 	exit 0
 fi
 
-if [ ! -s "${def_repo_path}/profiles/desc/cpu_flags_${1:-x86}.desc" ]; then
-	echo >&2 "FATAL: No CPU flags description found for architecture '${1:-x86}'"
+if [ ! -s "${def_repo_path}/profiles/desc/cpu_flags_${1:-"x86"}.desc" ]; then
+	echo >&2 "FATAL: No CPU flags description found for architecture '${1:-"x86"}'"
 	exit 1
 fi
 
@@ -51,6 +51,6 @@ while read -r line; do
 	fi
 	#echo "${flag:-}"
 	grep -- '^flags' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' | grep -Eq -- "${flag}" && echo "${flag}" | cut -d'|' -f 1
-done < "${def_repo_path}/profiles/desc/cpu_flags_${1:-x86}.desc"
+done < "${def_repo_path}/profiles/desc/cpu_flags_${1:-"x86"}.desc"
 
 exit 0

@@ -10,12 +10,12 @@ debug=${DEBUG:-}
 # shellcheck disable=SC2034
 trace=${TRACE:-}
 
-DEFAULT_JOBS="${DEFAULT_JOBS:-__JOBS__}"
-DEFAULT_MAXLOAD="${DEFAULT_MAXLOAD:-__MAXLOAD__}"
-environment_file="${environment_file:-__ENVFILE__}"
+DEFAULT_JOBS="${DEFAULT_JOBS:-"__JOBS__"}"
+DEFAULT_MAXLOAD="${DEFAULT_MAXLOAD:-"__MAXLOAD__"}"
+environment_file="${environment_file:-"__ENVFILE__"}"
 
 die() {
-	printf >&2 'FATAL: %s\n' "${*:-Unknown error}"
+	printf >&2 'FATAL: %s\n' "${*:-"Unknown error"}"
 	exit 1
 }  # die
 
@@ -43,7 +43,7 @@ format() {
 	# Pad $format_variable to $format_padding trailing spaces
 	#
 	format_variable="${1:-}"
-	format_padding="${2:-20}"
+	format_padding="${2:-"20"}"
 
 	[ -n "${format_variable:-}" ] || return 1
 
@@ -58,7 +58,7 @@ format() {
 		cat - |
 			grep -- "^${format_variable}=" |
 			cut -d'"' -f 2 |
-			fmt -w $(( ${COLUMNS:-80} - ( format_padding + 3 ) )) |
+			fmt -w $(( ${COLUMNS:-"80"} - ( format_padding + 3 ) )) |
 			sed "s/^/   ${format_spaces}/ ; 1 s/^\s\+//"
 	)"
 
@@ -126,14 +126,14 @@ checkmissing() {
 		if ls -1d "${ROOT:-}/var/db/pkg/${cm_package%::*}"* >/dev/null 2>&1
 		then
 			warn "emerge indicated success but package '${cm_package%::*}'" \
-				"still appears to be installed under root '${ROOT:-/}'"
+				"still appears to be installed under root '${ROOT:-"/"}'"
 			return 1
 		fi
 	else
 		if ls -1d "${ROOT:-}/var/db/pkg"/*/"${cm_package%::*}"* >/dev/null 2>&1
 		then
 			warn "emerge indicated success but package '${cm_package%::*}'" \
-				"still appears to be installed under root '${ROOT:-/}'"
+				"still appears to be installed under root '${ROOT:-"/"}'"
 			return 1
 		fi
 	fi
@@ -148,7 +148,7 @@ pkg_remove() {
 
 	(
 		for ROOT in $( echo "${ROOT:-}" '/' | xargs -n 1 | sort | uniq ); do
-			export ROOT="${ROOT:-/}"
+			export ROOT="${ROOT:-"/"}"
 			export LC_ALL='C'
 
 			[ -d "${ROOT}" ] || continue
@@ -442,7 +442,7 @@ if [ -n "${DEV_MODE:-}" ]; then
 *                                                                             *
 * OPERATING IN DEV_MODE                                                       *
 *                                                                             *
-* This script is running as it exists on-disk, overriding the Docker image    *
+* This script is running as it exists on-disk, overriding the container image *
 * contents.  Do not use the output of this mode for reliable builds.          *
 *                                                                             *
 *******************************************************************************
@@ -491,7 +491,7 @@ else
 fi
 
 if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
-	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-${DEFAULT_MAXLOAD}}"
+	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-"${DEFAULT_MAXLOAD}"}"
 fi
 
 #for f in $( grep -Rl -- 'collision' log/docker.*.log ); do
@@ -502,7 +502,7 @@ fi
 #		sed 's|/c.i-php.\../|/*/| ; s|/spamassassin/|/*/| ; s|$|/*|' |
 #		sort |
 #		uniq
-COLLISION_IGNORE="${COLLISION_IGNORE:-/lib/modules/*}
+COLLISION_IGNORE="${COLLISION_IGNORE:-"/lib/modules/*"}
 	/service/bin/*
 	/service/etc/php/*/ext-active/*
 	/service/sbin/*
@@ -1000,6 +1000,13 @@ if [ -s /etc/bash/bashrc ]; then
 	cp /etc/bash/bashrc /service/etc/bash/
 fi
 
+# Try not to use too much time building additional locales
+#
+if [ -s /etc/locale.gen ]; then
+	mkdir -p /service/etc
+	cp /etc/locale.gen /service/etc/
+fi
+
 #time (
 (
 	ROOT='/service'
@@ -1085,7 +1092,7 @@ fi
 
 	echo
 	echo " * Packages to install: ${service_pkgs}"
-	echo " * Packages to exclude: ${pre_remove:-<none>}"
+	echo " * Packages to exclude: ${pre_remove:-"<none>"}"
 
 	# shellcheck disable=SC2086,SC2046
 	if ! emerge \
@@ -1771,7 +1778,7 @@ fi
 
 if [ $(( depclean )) -ne 0 ]; then
 	echo
-	echo " * Running 'depclean' against ROOT '${ROOT:-/}' ..."
+	echo " * Running 'depclean' against ROOT '${ROOT:-"/"}' ..."
 
 	mkdir -p /etc/portage/profile
 	if [ -s /etc/portage/profile/package.provided ]; then
@@ -1853,12 +1860,12 @@ fi
 #do_prelink
 
 if [ -d "${ROOT}"/usr/lib/gcc ]; then
-	if ! [ -d "${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}" ]; then
-		warn "Directory '${ROOT}/usr/lib/gcc' exists but '${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}' doesn't"
+	if ! [ -d "${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}" ]; then
+		warn "Directory '${ROOT}/usr/lib/gcc' exists but '${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}' doesn't"
 		print "$( ls -1AF "${ROOT}/usr/lib/gcc" )"
 	else
 		if ! grep -Fqm 1 '/gcc/' "${ROOT}/etc/ld.so.conf"; then
-			find "${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}" \
+			find "${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}" \
 						-mindepth 1 \
 						-maxdepth 1 \
 						-type d \

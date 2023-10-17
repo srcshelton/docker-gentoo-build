@@ -49,7 +49,7 @@ if [ $(( updated )) -eq 1 ]; then
 
 	# Dockerfile.service needs to inherit from 'gentoo-env' rather than
 	# 'scratch' if we want to inherit this value automagically...
-	export CHOST="${CHOST:-x86_64-pc-linux-gnu}"
+	export CHOST="${CHOST:-"x86_64-pc-linux-gnu"}"
 
 	# Superseded by app-alternatives/awk...
 	if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]; then
@@ -58,17 +58,17 @@ if [ $(( updated )) -eq 1 ]; then
 	binutils-config 1
 
 	# Taken from /usr/bin/gcc-config, and adapted to sh
-	: "${ROOT:=/}"
+	: "${ROOT:="/"}"
 	echo "${ROOT}" | grep -q -- '/$' || ROOT="${ROOT}/"
 	echo "${ROOT}" | grep -q -- '^/' || ROOT="${PWD%/}/${ROOT}"
 	EPREFIX=""
 	echo "${ROOT}" | grep -q -- '^@.*@$' && EPREFIX=""
 	EROOT="${ROOT%/}${EPREFIX}/"
 
-	#if [ ! -w "${EROOT:-/}" ]; then
-		echo >&2 " * Making directory '${EROOT:-/}' writable ..."
-		chmod u+w "${EROOT:-/}"
-		#ls -ld "${EROOT:-/}"
+	#if [ ! -w "${EROOT:-"/"}" ]; then
+		echo >&2 " * Making directory '${EROOT:-"/"}' writable ..."
+		chmod u+w "${EROOT:-"/"}"
+		#ls -ld "${EROOT:-"/"}"
 	#fi
 	gcc-config -f 1
 	# shellcheck disable=SC1091

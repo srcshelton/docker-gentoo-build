@@ -10,12 +10,12 @@ debug=${DEBUG:-}
 # shellcheck disable=SC2034
 trace=${TRACE:-}
 
-DEFAULT_JOBS="${DEFAULT_JOBS:-__JOBS__}"
-DEFAULT_MAXLOAD="${DEFAULT_MAXLOAD:-__MAXLOAD__}"
-DEFAULT_PROFILE="${DEFAULT_PROFILE:-__PROFILE__}"
-stage3_flags_file="${stage3_flags_file:-__FLAGSFILE__}"
-environment_file="${environment_file:-__ENVFILE__}"
-environment_filter="${environment_filter:-__ENVFILTER__}"
+DEFAULT_JOBS="${DEFAULT_JOBS:-"__JOBS__"}"
+DEFAULT_MAXLOAD="${DEFAULT_MAXLOAD:-"__MAXLOAD__"}"
+DEFAULT_PROFILE="${DEFAULT_PROFILE:-"__PROFILE__"}"
+stage3_flags_file="${stage3_flags_file:-"__FLAGSFILE__"}"
+environment_file="${environment_file:-"__ENVFILE__"}"
+environment_filter="${environment_filter:-"__ENVFILTER__"}"
 
 python_default_targets='python3_11'
 stage3_flags=''
@@ -24,7 +24,7 @@ export arch="${ARCH}"
 unset -v ARCH
 
 die() {
-	printf >&2 'FATAL: %s\n' "${*:-Unknown error}"
+	printf >&2 'FATAL: %s\n' "${*:-"Unknown error"}"
 	exit 1
 }  # die
 
@@ -54,7 +54,7 @@ format() {
 	# Pad $format_variable to $format_padding trailing spaces
 	#
 	format_variable="${1:-}"
-	format_padding="${2:-20}"
+	format_padding="${2:-"20"}"
 
 	[ -n "${format_variable:-}" ] || return 1
 
@@ -69,7 +69,7 @@ format() {
 		cat - |
 			grep -- "^${format_variable}=" |
 			cut -d'"' -f 2 |
-			fmt -w $(( ${COLUMNS:-80} - ( format_padding + 3 ) )) |
+			fmt -w $(( ${COLUMNS:-"80"} - ( format_padding + 3 ) )) |
 			sed "s/^/   ${format_spaces}/ ; 1 s/^\s\+//"
 	)"
 
@@ -244,7 +244,7 @@ resolve_python_flags() {
 
 	resolve_info='' resolve_target=''
 	resolve_info="$( # <- Syntax
-		LC_ALL='C' SYSROOT="${ROOT:-/}" PORTAGE_CONFIGROOT="${ROOT:-/}" \
+		LC_ALL='C' SYSROOT="${ROOT:-"/"}" PORTAGE_CONFIGROOT="${ROOT:-"/"}" \
 			emerge --info --verbose=y
 	)"
 
@@ -542,7 +542,7 @@ else
 fi
 
 if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
-	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-${DEFAULT_MAXLOAD}}"
+	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-"${DEFAULT_MAXLOAD}"}"
 fi
 
 post_pkgs='' post_use='' python_targets="${python_default_targets:-}" rc=0
@@ -1210,7 +1210,7 @@ if [ -n "${pkg_initial:-}" ]; then
 		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
 
 		export USE="${pkg_initial_use}${use_essential:+ ${use_essential}}"
-		if [ "${ROOT:-/}" = '/' ]; then
+		if [ "${ROOT:-"/"}" = '/' ]; then
 			if [ -z "${stage3_flags:-}" ]; then
 				USE="${USE:+"${USE} "}$( get_stage3 --values-only USE )"
 				PYTHON_SINGLE_TARGET="${PYTHON_SINGLE_TARGET:+"${PYTHON_SINGLE_TARGET} "}$( get_stage3 --values-only PYTHON_SINGLE_TARGET )"

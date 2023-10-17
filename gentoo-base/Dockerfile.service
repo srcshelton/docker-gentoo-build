@@ -149,12 +149,12 @@ RUN i="${image_name}:${service_version}" ; \
         -e "s/__DOMAIN__/${smtp_domain}/" \
             /etc/msmtprc ; \
     if [ -d "${ROOT}"/usr/lib/gcc ]; then \
-        if ! [ -d "${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}" ]; then \
-            echo "WARN:  Directory '${ROOT}/usr/lib/gcc' exists but '${ROOT}/usr/lib/gcc/${CHOST:-__chost_not_set__}' doesn't exist" ; \
+        if ! [ -d "${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}" ]; then \
+            echo "WARN:  Directory '${ROOT}/usr/lib/gcc' exists but '${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}' doesn't exist" ; \
             ls -1AF "${ROOT}/usr/lib/gcc" | sed 's/^/DEBUG: /' ; \
         else \
             if ! grep -Fqm 1 '/gcc/' /etc/ld.so.conf; then \
-                find "/usr/lib/gcc/${CHOST:-__chost_not_set__}" \
+                find "/usr/lib/gcc/${CHOST:-"__chost_not_set__"}" \
                         -mindepth 1 \
                         -maxdepth 1 \
                         -type d \
@@ -247,7 +247,7 @@ RUN test ! -x /usr/bin/mandb || \
 # Run eselect for dependent components...
 RUN if [ -x /usr/bin/eselect ]; then \
         if [ -s /usr/share/eselect/modules/python.eselect ]; then \
-            if [ $(( ${EUID:-$( id -u )} )) -eq 0 ]; then \
+            if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \
                 echo "Setting python implementation ..." ; \
                 mkdir -p /etc/python-exec ; \
                 eselect python cleanup ; \
@@ -256,7 +256,7 @@ RUN if [ -x /usr/bin/eselect ]; then \
         fi ; \
         if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
             echo "Setting Java VM as initial user ..." ; \
-            if [ $(( ${EUID:-$( id -u )} )) -eq 0 ]; then \
+            if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \
                 eselect java-vm set --if-unset system 1 ; \
             else \
                 eselect java-vm set --if-unset user 1 ; \
@@ -279,8 +279,8 @@ USER "${service_user}:${service_group}"
 
 RUN if [ -x /usr/bin/eselect ]; then \
         if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
-            echo "Setting Java VM as '${service_user:-root}' ..." ; \
-            if [ $(( ${EUID:-$( id -u )} )) -eq 0 ]; then \
+            echo "Setting Java VM as '${service_user:-"root"}' ..." ; \
+            if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \
                 eselect java-vm set --if-unset system 1 ; \
             else \
                 eselect java-vm set --if-unset user 1 ; \

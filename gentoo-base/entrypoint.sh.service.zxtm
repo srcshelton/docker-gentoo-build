@@ -14,7 +14,7 @@ configsnapshot="${zeushome}/zxtm/bin/config-snapshot"
 watchdirectory="${zeushome}/zxtm/bin/watch-directory"
 
 plog() {
-	local level="${1:-INFO}" # INFO WARN ERROR FATAL
+	local level="${1:-"INFO"}" # INFO WARN ERROR FATAL
 	local msg="${2:-}"
 	local quiet="${3:-}"
 
