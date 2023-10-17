@@ -4,12 +4,15 @@
 trace="${TRACE:-}"
 
 # Copied from vars.sh - it's not worth running the whole script just for these!
+#
 bold="$( printf '\e[1m' )"
 red="$( printf '\e[31m' )"
 green="$( printf '\e[32m' )"
 blue="$( printf '\e[34m' )"
 purple="$( printf '\e[35m' )"
+#
 # Place 'reset' last to prevent coloured xtrace output!
+#
 reset="$( printf '\e[0m' )"
 export bold red green blue purple reset
 
@@ -76,7 +79,7 @@ fi
 tab="$( printf '\t' )"
 
 # The 'inspect' command works with containers (and container IDs) too...
-if [ "$( "${docker}" image list --noheading "${image}" | wc -l )" -gt '1' ]; then
+if [ "$( "${_command}" image list --noheading "${image}" | wc -l )" -gt '1' ]; then
 	echo >&2 "WARN:  Cannot determine unique image '${image}'"
 	#exit 1
 fi
@@ -89,7 +92,7 @@ fi
 #	sed -r 's/ ([A-Za-z][A-Za-z0-9_-]*)=/\n\1=/g' ; echo
 
 if [ $(( labels )) -ne 0 ]; then
-	"${docker}" image inspect --format '{{ .Config.Labels }}' "${image}" |
+	"${_command}" image inspect --format '{{ .Config.Labels }}' "${image}" |
 		eval "sed -r  \
 			-e 's/^map\[(.*)\]$/\1/' \
 			-e 's/^([A-Za-z][A-Za-z0-9._-]*):/\1: /' \
@@ -104,7 +107,7 @@ if [ $(( labels )) -ne 0 ]; then
 				fi
 			)"
 else
-	"${docker}" image inspect --format '{{ .Config.Env }}' "${image}" |
+	"${_command}" image inspect --format '{{ .Config.Env }}' "${image}" |
 		tr "${tab}" ' ' |
 		tr -s '[:space:]' |
 		eval "sed -r \

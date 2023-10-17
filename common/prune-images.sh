@@ -12,9 +12,9 @@ declare -i trace=$(( ${TRACE:-} ))
 
 (( trace )) && set -x
 
-docker='docker'
+_command='docker'
 if type -pf podman >/dev/null; then
-	docker='podman'
+	_command='podman'
 fi
 
 trap '' INT
@@ -38,14 +38,14 @@ case " ${*} " in
 		;;
 esac
 
-echo "Starting to prune ${docker} ${desc} ..."
+echo "Starting to prune ${_command} ${desc} ..."
 
 declare -i total=0 run=0 rc=0
 while true; do
-	(( run = $( eval "$docker ${cmd}" 2>/dev/null | grep -cv '^Deleted ' ) )) || rc=${?}
+	(( run = $( eval "$_command ${cmd}" 2>/dev/null | grep -cv '^Deleted ' ) )) || rc=${?}
 
 	if (( rc )); then
-		echo >&2 "${docker} ended: ${rc}"
+		echo >&2 "${_command} ended: ${rc}"
 		echo >&2
 		echo >&2 "Removed ${total} images so far, with ${run} indeterminate"
 		exit ${rc}

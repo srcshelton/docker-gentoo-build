@@ -30,13 +30,13 @@ do
 done
 unset script
 
-docker='docker'
+_command='docker'
 if command -v podman >/dev/null 2>&1; then
-	docker='podman'
+	_command='podman'
 fi
 
 # Allow a separate image directory for persistent images...
-#tmp="$( $docker system info | grep 'imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
+#tmp="$( $_command system info | grep 'imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
 #if [ -n "${tmp}" ]; then
 #	export IMAGE_ROOT="${tmp}"
 #fi
@@ -141,7 +141,7 @@ if [ $(( rebuildimgs )) -ne 1 ]; then
 	fi
 else  # if [ $(( rebuildimgs )) -eq 1 ]; then
 	if [ $(( skip )) -eq 1 ]; then
-		if [ "$( $docker image ls -n 'localhost/gentoo-build' | wc -l )" = '0' ]; then
+		if [ "$( $_command image ls -n 'localhost/gentoo-build' | wc -l )" = '0' ]; then
 			echo >&2 "WARN:  Option '--skip-build' is only valid with a pre-existing 'build' image"
 			echo >&2 "WARN:  Ignoring '--skip-build' and generating new image(s)"
 			skip=0
@@ -157,7 +157,7 @@ fi
 
 export TRACE="${CTRACE:-}" # Optinally enable child tracing
 
-if [ "${rebuildutils:-0}" = '1' ]; then
+if [ "${rebuildutils:-"0"}" = '1' ]; then
 	if ! [ -d "${basedir}/docker-dell" ]; then
 		if [ $(( haveargs )) -ne 0 ]; then
 			echo >&2 "FATAL: docker-dell tools not found on this system"
@@ -166,13 +166,13 @@ if [ "${rebuildutils:-0}" = '1' ]; then
 	else
 		mkdir -p log
 
-		if [ "$( $docker image ls -n 'localhost/dell-dsu' | wc -l )" = '0' ]; then
+		if [ "$( $_command image ls -n 'localhost/dell-dsu' | wc -l )" = '0' ]; then
 			"${basedir}"/docker-dell/dell.docker --dsu ${IMAGE_ROOT:+--root "${IMAGE_ROOT}"} \
 				>> log/dell.docker.dsu.log 2>&1 &
 			# shellcheck disable=SC3044
 			disown 2>/dev/null || :  # doesn't exist in POSIX sh :(
 		fi
-		if [ "$( $docker image ls -n 'localhost/dell-ism' | wc -l )" = '0' ]; then
+		if [ "$( $_command image ls -n 'localhost/dell-ism' | wc -l )" = '0' ]; then
 			"${basedir}"/docker-dell/dell.docker --ism ${IMAGE_ROOT:+--root "${IMAGE_ROOT}"} \
 				>> log/dell.docker.ism.log 2>&1 &
 			# shellcheck disable=SC3044
@@ -181,7 +181,7 @@ if [ "${rebuildutils:-0}" = '1' ]; then
 	fi
 fi
 
-if [ "${rebuildimgs:-0}" = '1' ]; then
+if [ "${rebuildimgs:-"0"}" = '1' ]; then
 	failures=''
 
 	if ! mkdir -p log; then
@@ -257,7 +257,7 @@ if [ "${rebuildimgs:-0}" = '1' ]; then
 	fi
 fi
 
-if [ "${pkgcache:-0}" = '1' ]; then
+if [ "${pkgcache:-"0"}" = '1' ]; then
 	# Build binary packages for 'init' stage installations (which aren't built
 	# with --buildpkgs=y because at this stage we've not built our own compiler
 	# or libraries)...
@@ -270,15 +270,15 @@ if [ "${pkgcache:-0}" = '1' ]; then
 		use=''
 		image=''
 		# shellcheck disable=SC2030
-		ARCH="${ARCH:-$( portageq envvar ARCH )}"
+		ARCH="${ARCH:-"$( portageq envvar ARCH )"}"
 
 		for image in 'localhost/gentoo-stage3' 'localhost/gentoo-init'; do
-			if [ "$( $docker image ls -n "${image}" | wc -l )" = '0' ]; then
+			if [ "$( $_command image ls -n "${image}" | wc -l )" = '0' ]; then
 				stage3_flags_file=''
 				# shellcheck disable=SC1091
 				. ./common/vars.sh
 				eval "$(
-					$docker container run \
+					$_command container run \
 							--rm \
 							--entrypoint /bin/sh \
 							--name 'buildpkg.stage3_flags.read' \
@@ -360,7 +360,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 				failures="${failures:+"${failures} "}gentoo-build-pkg;1:${err}"
 			fi
 
-			if ! USE="-* ${use} python_targets_${python_default_target:-python3_11}" \
+			if ! USE="-* ${use} python_targets_${python_default_target:-"python3_11"}" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -447,7 +447,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 			if [ "${ARCH}" = 'arm64' ]; then
 				USE="gold"
 			fi
-			if ! USE="-* ${alt_use} ${USE} python_targets_${python_default_target:-python3_11} pam tools" \
+			if ! USE="-* ${alt_use} ${USE} python_targets_${python_default_target:-"python3_11"} pam tools" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -479,7 +479,7 @@ if [ "${pkgcache:-0}" = '1' ]; then
 	fi
 fi
 
-if [ "${update:-0}" = '1' ]; then
+if [ "${update:-"0"}" = '1' ]; then
 	# Rebuild packages for host installation...
 
 	# (unzip[natspec] depends on libnatspec, which depends on python:2.7,
@@ -533,7 +533,7 @@ if [ "${update:-0}" = '1' ]; then
 	fi
 	# FIXME: Remove once golang on ARM no longer requires gold linker...
 	# shellcheck disable=SC2031
-	ARCH="${ARCH:-$( portageq envvar ARCH )}"
+	ARCH="${ARCH:-"$( portageq envvar ARCH )"}"
 	if echo "${ARCH}" | grep -q 'arm'; then
 		alt_use="${alt_use:+"${alt_use} "}gold"
 	fi
@@ -581,9 +581,9 @@ if [ "${update:-0}" = '1' ]; then
 	failures="${failures:+"${failures} "}gentoo-build-pkg;hostpkgs:${err}"
 
 	trap '' INT
-	$docker container ps -a |
+	$_command container ps -a |
 			grep -qw -- 'buildpkg.hostpkgs.update$' &&
-		$docker container rm --volumes 'buildpkg.hostpkgs.update'
+		$_command container rm --volumes 'buildpkg.hostpkgs.update'
 	trap - INT
 
 	if [ $(( rc )) -eq 0 ]; then
@@ -603,7 +603,7 @@ if [ "${update:-0}" = '1' ]; then
 		fi
 		(
 			# shellcheck disable=SC2031
-			export USE="${gcc_use} ${alt_use}"
+			export USE="${gcc_use} ${alt_use} python_targets_${python_default_target:-"python3_11"}"
 			{
 				./gentoo-build-pkg.docker \
 							--buildpkg=y \
@@ -619,14 +619,14 @@ if [ "${update:-0}" = '1' ]; then
 		failures="${failures:+"${failures} "}gentoo-build-pkg;gcc:${err}"
 
 		trap '' INT
-		$docker container ps -a |
+		$_command container ps -a |
 				grep -qw -- 'buildpkg.hostpkgs.gcc.update$' &&
-			$docker container rm --volumes 'buildpkg.hostpkgs.gcc.update'
+			$_command container rm --volumes 'buildpkg.hostpkgs.gcc.update'
 		trap - INT
 	fi
 fi
 
-if [ "${system:-0}" = '1' ]; then
+if [ "${system:-"0"}" = '1' ]; then
 	if [ $(( pretend )) -ne 0 ]; then
 		echo >&2 "Checking for updated packages ..."
 		pretend='--pretend'
