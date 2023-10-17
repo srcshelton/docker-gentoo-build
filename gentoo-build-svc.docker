@@ -1,30 +1,44 @@
 #! /usr/bin/env bash
 
+declare trace="${TRACE:-}"
+# shellcheck disable=SC2034
+declare debug="${DEBUG:-}"
+
 set -eu
 set -o pipefail
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
-declare build_name=''
-declare base_dir=''
+# Set in vars.sh
+#
+#declare build_name=''
+#declare base_dir=''
 #declare use_essential=''
-declare use_essential_gcc=''
-declare python_default_target=''
+#declare use_essential_gcc=''
+#declare python_default_target=''
+
 # Set in run.sh
+#
 #declare docker='docker'
 #declare docker_readonly=''
-declare environment_file=''
-declare environment_filter=''
-
-declare red=''
-declare blue=''
-declare reset=''
+#declare environment_file=''
+#declare environment_filter=''
+#
+#declare red=''
+#declare blue=''
+#declare reset=''
 
 # Redefined by common/local.sh, sourced by common/vars.sh
-declare mail_domain='localhost'
-declare mail_mta='localhost'
+#declare mail_domain='localhost'
+#declare mail_mta='localhost'
+
 # shellcheck disable=SC1091
 [[ ! -s common/vars.sh ]] || . common/vars.sh
+# shellcheck disable=SC2034 # Set from common/vars.sh
+[[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
+	echo >&2 "FATAL: Inclusion of common defaults failed"
+	exit 1
+}
 
 declare -a services=() args=()
 services=(
@@ -116,7 +130,7 @@ unset arg
 
 declare service="${1:-}"
 declare original_service="${service:-}"
-declare ports="${2:-0}"
+declare ports="${2:-"0"}"
 declare user="${3:-"root"}"
 declare group="${4:-"root"}"
 declare container_cmd="${5:-}"
@@ -130,14 +144,20 @@ set -- "${args[@]:-}"
 declare zxtm_service_version=''
 declare -i rc=0
 
+# shellcheck disable=SC2154
 declare IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
 [[ -s common/run.sh ]] && . common/run.sh >/dev/null
 
-if [[ -z "${*:-}" ]] || grep -Eq -- ' -(h|-help) ' <<<" ${*:-} "; then
-	output >&2 "Usage: $( basename "${0}" ) <service" \
-		"[<ports> <user> <group> <command> [directory [fs_name]]]|--services" \
-		"<service> [service...]> [--rebuild] [--force] [--force-keywords]" \
+usage() {
+	#output >&2 "Usage: $( basename "${0}" ) <service" \
+	#	"[<ports> <user> <group> <command> [directory [fs_name]]]|--services" \
+	#	"<service> [service...]> [--rebuild] [--force] [--force-keywords]" \
+	#	"[--debug]"
+	output >&2 "Usage: $( basename "${0}" ) <service>" \
+		"[<ports> <user> <group> <command> [directory [fs_name]]]"
+	output >&2 "Usage: $( basename "${0}" ) --services" \
+		"<service> [service...] [--rebuild] [--force] [--force-keywords]" \
 		"[--debug]"
 	output >&2
 	output >&2 "Known services:"
@@ -152,6 +172,10 @@ if [[ -z "${*:-}" ]] || grep -Eq -- ' -(h|-help) ' <<<" ${*:-} "; then
 	output >&2 "  installed"
 	output >&2 "  all"
 	output >&2
+} # usage
+
+if [[ -z "${*:-}" ]] || grep -Eq -- ' -(h|-help) ' <<<" ${*:-} "; then
+	usage
 	if [[ -z "${*:-}" ]]; then
 		exit 1
 	else
@@ -320,6 +344,15 @@ if (( service_list )); then
 	IFS=" " read -r -a services <<<"${list:-}"
 	service=''
 	all=1
+else
+	# 'ports' pattern is '([1-9][0-9]{0-4}(/(tc|ud)p)?) +'
+	if grep -q -- '[^0-9,/tcpud]' <<<"${ports}"; then
+		output >&2 "FATAL: Illegal value '${ports}' for 'ports' argument of" \
+			"component-based assembly"
+		output >&2
+		usage
+		exit 1
+	fi
 fi
 
 if (( all )); then
@@ -329,6 +362,7 @@ if (( all )); then
 		declare s='' f=''
 		for s in "${services[@]:-}"; do
 			output >&2
+			# shellcheck disable=SC2154
 			output >&2 " ${red}*${reset} Examining service '${s}'" \
 				"[${c}/${#services[@]}:${rc}] ..."
 			output >&2
@@ -552,7 +586,7 @@ if [ -z "${package_version:-}" ]; then
 	die "Cannot extract package version from service name '${service}' (${package})"
 fi
 
-if [ $(( ${force:-0} )) -eq 0 ]; then
+if [ $(( ${force:-"0"} )) -eq 0 ]; then
 	images="$( docker image list --noheading "service.${package_name}:${package_version}" 2>&1 )"
 	if echo "${images:-}" | grep -q -- "service.${package_name}\s\+${package_version}\s"; then
 		note "Docker image 'service.${package_name}:${package_version}' already exists - remove or use --force to rebuild"
@@ -595,7 +629,7 @@ if type -pf portageq >/dev/null 2>&1; then
 			;;
 	esac
 else
-	# FIXME: Hard-coded
+	# shellcheck disable=SC2154
 	python_single_target="${python_default_target##* }"
 	python_target="${python_single_target:-"${python_default_target}"}"
 	case "${original_service:-}" in
@@ -603,6 +637,7 @@ else
 			php_targets="${original_service%[0-9]}-${original_service#php[0-9]}"
 			;;
 		*)
+			# FIXME: Hard-coded
 			php_targets='php_targets_php8-1'
 			;;
 	esac
@@ -764,6 +799,8 @@ case "${package_name}" in
 	*.man-db)
 		output "Setting build variables for package 'man-db' ..."
 		pre_pkgs='sys-apps/help2man sys-apps/man-pages sys-apps/man-pages-posix sys-devel/gcc'
+		with_use='-timezone-tools compile-locales'
+		extra_pkgs='net-misc/rsync sys-apps/less sys-libs/ncurses sys-libs/timezone-data'
 
 		container_cmd='/usr/bin/man'
 		;;
@@ -930,7 +967,7 @@ case "${package_name}" in
 	*.pinfo)
 		output "Setting build variables for package 'pinfo' ..."
 		pre_pkgs='sys-apps/help2man'
-		extra_pkgs='sys-apps/texinfo'
+		extra_pkgs='net-misc/rsync sys-apps/less sys-apps/texinfo sys-libs/ncurses'
 
 		container_cmd='/usr/bin/pinfo'
 		;;
@@ -1175,6 +1212,7 @@ case "${package_name}" in
 				# shellcheck disable=SC2034
 				NO_REPO_MASKS='no_repo_masks'  # ... any value will do
 
+				# shellcheck disable=SC2154
 				gcc_use="$( replace_flags '-graphite' -- "${use_essential_gcc}" )"
 				# Look for "build" gcc USE-flags in package.use only (or use defaults above) ...
 				if [ -s /etc/portage/package.use/package.use ]; then
@@ -1354,6 +1392,12 @@ case " ${pre_pkgs} " in
 		if [[ " ${gcc_extra_flags} " == *' openmp '* ]]; then
 			pre_use="$( replace_flags 'graphite' '-lib-only' 'openmp' 'zstd' -- "${pre_use:-}" )"
 			post_use="$( replace_flags '-graphite' 'lib-only' 'openmp' 'zstd' -- "${post_use:-}" )"
+			pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
+			post_pkgs="${post_pkgs:+"${post_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
+		else
+			pre_use="$( replace_flags '-openmp' -- "${pre_use:-}" )"
+			post_use="$( replace_flags '-openmp' -- "${post_use:-}" )"
+			pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
 			post_pkgs="${post_pkgs:+"${post_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
 		fi
 
@@ -1431,6 +1475,25 @@ if [[ -z "${post_use:-}" && -n "${with_use:-}" ]]; then
 	post_use="$( replace_flags 'lib-only' 'openmp' -- "${with_use}" )"
 fi
 
+if
+		echo " ${use_essential:-} ${use_essential_gcc:-}" \
+				"${pre_use:-} ${with_use:-} ${post_use:-}" \
+				"${gcc_extra_flags:-} " |
+			grep -Fqe ' compile-locales ' -e ' minimal '
+then
+	pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}sys-libs/glibc"
+	extra_pkgs="${extra_pkgs:+"${extra_pkgs} "}sys-libs/glibc"
+	pre_use="$( replace_flags \
+		'compile-locales' 'minimal' -- "${pre_use}"
+	)"
+	with_use="$( replace_flags \
+		'compile-locales' 'minimal' -- "${with_use}"
+	)"
+	post_use="$( replace_flags \
+		'compile-locales' 'minimal' -- "${post_use}"
+	)"
+fi
+
 print "Final USE-flags:"
 print "pre_use: ${pre_use:-"<none>"}"
 print "with_use: ${with_use:-"<none>"}"
@@ -1447,8 +1510,18 @@ elif [ "${container_cmd}" = 'podman' ]; then
 	die "Invalid container command '${container_cmd}'"
 fi
 
-#[ -n "${trace:-}" ] && set -o xtrace
-
+# FIXME: shellcheck wants:
+#
+#          docker_extra_mounts+=( $( add_mount ... ) )
+#
+#        ... to be expressed in the form of:
+#
+#          readarray -O "${#docker_extra_mounts[@]}" -t docker_extra_mounts < <(
+#            add_mount ...
+#          )
+#
+#shellcheck disable=SC2207
+{
 declare -a docker_extra_mounts=()
 if [ -n "${etcdir:-}" ]; then
 	for dir in ${etcdir}; do
@@ -1625,13 +1698,16 @@ docker_extra_mounts+=( $( add_mount --print \
 
 export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 unset docker_extra_mounts
+}
 
 images="$( docker image list --noheading "${container_prefix}-${package_name}:${package_version}" 2>&1 )"
 if echo "${images:-}" | grep -q -- "${container_prefix}-${package_name}\s\+${package_version}\s"; then
 	output >&2
+	# shellcheck disable=SC2154
 	output >&2 " ${blue}*${reset} Re-using existing '${package_name}:${package_version}' root image ..."
 else
 	output >&2
+	# shellcheck disable=SC2154
 	output >&2 " ${blue}*${reset} Building '${package_name}:${package_version}' root image ..."
 	output >&2
 
@@ -1789,7 +1865,7 @@ rm "${dockerfile_tmp}"
 unset dockerfile_tmp
 output " -> ${rc}"
 
-if [ $(( ${rc:-1} )) -eq 0 ]; then
+if [ $(( ${rc:-"1"} )) -eq 0 ]; then
 	trap '' INT
 	docker image rm "${container_prefix}-${package_name}:${package_version}" 2>/dev/null || :
 	case "${package_name}" in
