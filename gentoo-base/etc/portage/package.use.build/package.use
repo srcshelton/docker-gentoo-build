@@ -239,7 +239,7 @@ sys-libs/compiler-rt			 clang
 sys-libs/compiler-rt-sanitizers		 clang
 sys-libs/cracklib			-python
 sys-libs/gdbm				 berkdb
-sys-libs/glibc				-gd -ssp clone3 nscd
+sys-libs/glibc				-gd clone3 compile-locales nscd ssp
 #sys-libs/libcap-ng			-python  # requires dev-lang/swig, but only as a DEPEND
 sys-libs/libnvme			 keyutils
 sys-libs/libomp				 hwloc offload ompt
