@@ -206,6 +206,17 @@ net-analyzer/gvm			 AGPL-3+
 net-analyzer/gvmd			 AGPL-3+
 net-analyzer/ospd-openvas		 AGPL-3+
 
+# required by net-analyzer/netdata
+app-containers/aardvark-dns		 0BSD Unicode-DFS-2016
+app-containers/netavark			 0BSD
+app-containers/podman			 CC-BY-SA-4.0 MPL-2.0
+app-misc/jq				 CC-BY-3.0
+dev-libs/libbsd				 BEER-WARE
+# required by net-analyzer/netdata[nodejs]
+net-libs/nodejs				 Apache-1.1
+# required by dev-python/jsonschema
+dev-python/rpds-py			 Apache-2.0-with-LLVM-exceptions MPL-2.0 Unicode-DFS-2016
+
 # required by service net-dns/bind
 container/bind				 HPND MPL-2.0
 dev-db/lmdb				 OPENLDAP

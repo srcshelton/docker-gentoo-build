@@ -60,6 +60,7 @@ services=(
 	memcached
 	metalog
 	named
+	netdata
 	opendkim
 	opendmarc
 	openntpd
@@ -449,6 +450,8 @@ case "${service:-}" in
 	named|bind)
 		#service='>=net-dns/bind-9.14.12::container'
 		service='>=net-dns/bind-9.16.6' ;;
+	netdata)
+		service='net-analyzer/netdata' ;;
 	ntpd|openntpd)
 		#service='>=net-misc/openntpd-6.8_p1::container' ;;  # turns out, it's broken :(
 		service='net-misc/openntpd::container' ;;
@@ -834,6 +837,20 @@ case "${package_name}" in
 		ports='514/udp'
 		container_cmd='/usr/sbin/metalog'
 		etcdir='metalog'
+		;;
+	*.netdata)
+		output "Setting build variables for package 'netdata' ..."
+		pre_pkgs='acct-group/netdata acct-user/netdata'
+		pre_pkgs+=' acct-group/dhcp acct-user/dhcp'
+		pre_pkgs+=' acct-group/dovecot acct-group/dovenull acct-user/dovecot'
+		pre_pkgs+=' acct-group/mysql acct-user/mysql acct-group/named'
+
+		ports='19999/tcp'
+		user='netdata'
+		group='netdata'
+		container_cmd='/usr/sbin/netdata'
+		container_cwd='/var/lib/netdata'
+		etcdir='netdata'
 		;;
 	*.opendkim)
 		output "Setting build variables for package 'opendkim' ..."

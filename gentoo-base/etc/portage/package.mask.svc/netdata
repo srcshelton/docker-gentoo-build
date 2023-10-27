@@ -1,0 +1,6 @@
+
+# We want to use netavark/aardvark-dns...
+#
+app-containers/cni-plugins
+
+# vi: set colorcolumn=80 syntax=gentoo-package-mask:

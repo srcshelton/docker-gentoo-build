@@ -1,0 +1,21 @@
+
+*/*					 caps filecaps http2
+
+#net-analyzer/netdata			 caps cloud +compression cpu_flags_x86_sse2 cups +dbengine dhcp dovecot +go ipmi +jsonc +lto mongodb mysql named nfacct nodejs nvme podman postgres prometheus +python sensors systemd tor xen
+net-analyzer/netdata			 cloud compression dbengine dhcp dovecot go jsonc lto mysql named nfacct nodejs nvme podman prometheus python sensors
+
+net-analyzer/tcpdump			 suid
+#net-libs/libwebsockets			 access-log caps cgi client dbus extensions generic-sessions http-proxy http2 ipv6 +lejp libev libevent libuv mbedtls peer-limits server-status smtp socks5 sqlite3 ssl threads zip
+net-libs/libwebsockets			 http2 ipv6 lejp libev libuv peer-limits sqlite3 ssl threads zip
+net-libs/nodejs				 icu snapshot system-icu system-ssl
+
+acct-user/netdata			 podman
+app-containers/netavark			 dns
+app-containers/podman			 wrapper
+dev-libs/libpcre2			 unicode
+dev-libs/nettle				 gmp
+net-firewall/iptables			 nftables
+sys-apps/nvme-cli			 json
+sys-libs/libnvme			 json
+
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
