@@ -53,7 +53,7 @@ app-crypt/gnupg				-ssl ecc idea mta
 #app-crypt/gpgme			-python  # requires dev-lang/swig, but only as a BDEPEND
 app-editors/vim				-crypt -cscope -sound terminal vim-pager
 # move app-emulation/crun app-containers/crun
-app-containers/crun			-criu bpf
+app-containers/crun			-criu bpf man
 # move app-emulation/libpod app-emulation/podman
 # move app-emulation/podman app-containers/podman
 app-containers/containers-storage	-device-mapper
