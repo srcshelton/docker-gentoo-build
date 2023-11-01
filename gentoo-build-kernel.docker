@@ -34,6 +34,12 @@ declare -ir build_space_reqiured=750
 declare -ir temp_space_required=2800
 declare -ir graph_space_required=8500
 
+declare package_default='sys-kernel/gentoo-sources'
+if grep -q -- 'Model.*Raspberry Pi' /proc/cpuinfo; then
+	package_default='sys-kernel/raspberrypi-sources'
+fi
+readonly package_default
+
 declare rust_ver='1.62.0'
 # https://github.com/rust-lang/rust-bindgen/issues/2312
 declare bindgen_ver='0.56.0'
@@ -127,7 +133,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "       --menuconfig             Interactively reconfigure the kernel via ncurses"
 	output >&2 "       --nconfig                Interactively reconfigure the kernel via nconfig"
 	output >&2 "       --package <package>      Specify kernel package to build"
-	output >&2 "                               (default: 'sys-kernel/gentoo-sources')"
+	output >&2 "                               (default: '${package_default}')"
 	output >&2 "       --firmware               Include 'sys-kernel/linux-firmware'"
 	output >&2 "       -O3                      Add 'KCFLAGS=-O3' (and others - see [1])"
 	output >&2 "       --clang                  Compile kernel with llvm"
@@ -168,7 +174,7 @@ declare menuconfig=''
 declare nconfig=''
 declare patch=''
 declare unwind=''
-declare version=''
+declare package_override=''
 declare rust_llvm_use=''
 
 if [[ -n "${kbuild_opt:-}" ]]; then
@@ -296,9 +302,9 @@ elif echo " ${*:-} " | grep -q -- ' --no-keep-build'; then
 fi
 if echo " ${*:-} " | grep -q -- ' --package'; then
 	if echo " ${*:-} " | grep -q -- ' --package=[^ ]\+ '; then
-		version="$( echo " ${*} " | grep -o -- '--package=[^ ]\+ ' | cut -d'=' -f 2- | sed 's/ $//' )"
+		package_override="$( echo " ${*} " | grep -o -- '--package=[^ ]\+ ' | cut -d'=' -f 2- | sed 's/ $//' )"
 	elif echo " ${*:-} " | grep -q -- ' --package [^ -][^ ]* '; then
-		version="$( echo " ${*} " | grep -o -- '--package [^ ]\+ ' | cut -d' ' -f 2- | sed 's/ $//' )"
+		package_override="$( echo " ${*} " | grep -o -- '--package [^ ]\+ ' | cut -d' ' -f 2- | sed 's/ $//' )"
 	else
 		warn "Invalid package option '$( echo " ${*:-} " | grep -o -- ' --package[^ ]\+ ' | sed 's/ $//' )'"
 	fi
@@ -308,7 +314,7 @@ declare package=''
 declare package_version=''
 declare container_name=''
 declare distro=''
-_docker_resolve "${version:-"sys-kernel/gentoo-sources"}"
+_docker_resolve "${package_override:-"${package_default}"}"
 if ! echo "${package}" | grep -Fq -- '/'; then
 	error "Resolved package '${package}' with version '${package_version}' lacks a category"
 	#note "(... we could always add in 'sys-kernel/' as an assumed prefix?)"
@@ -435,7 +441,7 @@ if [ -z "${build_dir:-}" ]; then
 	# Even if '--keep-build' hasn't been specified, we still set build_dir
 	# here, we just won't mount it from the host later...
 	#
-	declare name="${version:-"sys-kernel/gentoo-sources"}"
+	declare name="${package_override:-"${package_default}"}"
 	name="${name#*/}"
 	name="${name%-sources*}"
 	build_dir="/usr/src/linux-${name}-build-${compiler}${unwind:+"-unwind"}-${build_version}.x"
