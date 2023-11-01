@@ -1462,6 +1462,9 @@ case "${1:-}" in
 			unset first
 
 		else # ! echo " ${EMERGE_OPTS:-} " | grep -Eq -- ' --single(-build)? '; then
+			echo
+			echo " * Building packages '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' ..."
+			echo
 			(
 				# We're not performing single-builds, so build everything at the
 				# same time (and potentially in parallel)
