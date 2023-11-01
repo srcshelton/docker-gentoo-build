@@ -112,7 +112,7 @@ info() {
 }  # info
 
 print() {
-	if [[ -n "${DEBUG:-}" ]]; then
+	if [[ -n "${debug:-}" ]]; then
 		if [[ -z "${*:-}" ]]; then
 			output >&2
 		else
@@ -241,7 +241,8 @@ add_mount() {
 	local -i append=1
 	local src='' dst='' arg='' ro="${docker_readonly:+",${docker_readonly}"}"
 
-	print "Received (1) '${1:-}' (2) '${2:-}' (3) '${3:-}' (4) '${4:-}'"
+	(( debug > 1 )) &&
+		print "Received (1) '${1:-}' (2) '${2:-}' (3) '${3:-}' (4) '${4:-}'"
 
 	for arg in "${@:-}"; do
 		shift
@@ -261,10 +262,12 @@ add_mount() {
 			*)
 				[[ -z "${arg:-}" ]] || set -- ${@+"${@}"} "${arg}" ;;
 		esac
-		print "arg is '${arg:-}', params are '${*}'"
+		(( debug > 1 )) &&
+			print "arg is '${arg:-}', params are '${*}'"
 	done
 	unset arg
-	print "params are '${*}'"
+	(( debug > 1 )) &&
+		print "params are '${*}'"
 
 	if (( ${#} > 2 )); then
 		error "Too many arguments supplied to ${FUNCNAME[0]} - received '${*}'"
@@ -298,11 +301,12 @@ add_mount() {
 		# FIXME: Warn if auto-enabling directory mode?
 		dir=1
 	fi
-	if [[ "${dst}" == *'...' ]]; then
-		dst="${dst%...}/${src_path#/}"
-	elif [[ "${dst}" == '...'* ]]; then
-		dst="${src_path%/}/${dst#.../}"
-	fi
+	case "${dst}" in
+		*'/...') dst="${dst%/...}/${src_path#/}" ;;
+		*'...') dst="${dst%...}/${src_path#/}" ;;
+		'.../'*) dst="${src_path%/}/${dst#.../}" ;;
+		'...'*) dst="${src_path%/}/${dst#...}" ;;
+	esac
 	dst="${dst%/}"
 	unset src_path
 
@@ -890,20 +894,28 @@ _docker_run() {
 		fi
 
 		local name='' ext=''
-		name="${image#*/}"
-		case "${image#*/}" in
+		name="$( docker image ls | grep "${image}" | awk '{ print $1 ":" $2 }' )"
+		name="${name#*/}"
+		case "${name}" in
 			"${init_name#*/}:latest"|"${base_name#*/}:latest")
 				: ;;
 			"${build_name#*/}:latest")
 				ext='.build' ;;
+			service*:*)
+				ext='.service' ;;
 			*)
 				ext='.build'
 				warn "I don't know how to apply DEV_MODE to image '${image}' - guessing 'entrypoint.sh${ext}'"
 				;;
 		esac
 		unset name
-		runargs+=(
-			  # FIXME: DEV_MODE currently hard-codes entrypoint.sh.build...
+		if ! [[ -f "${PWD%/}/gentoo-base/entrypoint.sh${ext}" && -s "${PWD%/}/gentoo-base/entrypoint.sh${ext}" ]]; then
+			die "Cannot locate DEV_MODE entrypoint script '${PWD%/}/gentoo-base/entrypoint.sh${ext}'"
+		elif ! [[ -x "${PWD%/}/gentoo-base/entrypoint.sh${ext}" ]]; then
+			die "entrypoint script '${PWD%/}/gentoo-base/entrypoint.sh${ext}' is not executable"
+		fi
+		print "Running with 'entrypoint.sh${ext}' due to DEV_MODE"
+		runargs+=( # <- Syntax
 			  --env DEV_MODE
 			  --env DEFAULT_JOBS="${JOBS}"
 			  --env DEFAULT_MAXLOAD="${MAXLOAD}"
@@ -933,7 +945,7 @@ _docker_run() {
 		  ${TERM:+--env TERM}
 		  ${TRACE:+--env TRACE}
 		  ${USE:+--env "USE=${USE}"}
-		  ${DOCKER_CMD_VARS:-}
+		  ${DOCKER_CMD_VARS:-"${docker_cmd_vars[@]:-}"}
 		  ${DOCKER_INTERACTIVE:+--interactive --tty}
 		  ${DOCKER_PRIVILEGED:+--privileged}
 		  ${DOCKER_EXTRA_MOUNTS:-}
@@ -941,53 +953,79 @@ _docker_run() {
 		  ${DOCKER_HOSTNAME:+--hostname ${DOCKER_HOSTNAME}}
 	)
 	if [[ -z "${NO_MEMORY_LIMITS:-}" ]]; then
-		if [[ -r /proc/cgroups ]] && grep -q -- '^memory.*1$' /proc/cgroups &&
+		if [[ -r /proc/cgroups ]] && grep -q -- '^memory.*\s1$' /proc/cgroups &&
 			[[ -n "${PODMAN_MEMORY_RESERVATION:-}" || -n "${PODMAN_MEMORY_LIMIT}" || -n "${PODMAN_SWAP_LIMIT}" ]]
 		then
-			local -i swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) + 16 ) / 1024 / 1024 ))
-			local -i ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
-			local -i changed=0
-			if (( ram < ${PODMAN_MEMORY_LIMIT%g} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
-				output >&2 "INFO:  Host resources (rounded down to nearest 1GiB):"
-				output >&2 "         RAM:        ${ram}G"
-				output >&2 "         Swap:       ${swp}G"
-				output >&2 "INFO:  Original memory limits:"
-				output >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
-				output >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
-				output >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
-			fi
-			if (( ram < ${PODMAN_MEMORY_LIMIT%g} )); then
-				PODMAN_MEMORY_RESERVATION="$(( ram - 1 ))g"
-				PODMAN_MEMORY_LIMIT="$(( ram ))g"
-				#PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
-				if (( ram <= 1 )); then
-					PODMAN_SWAP_LIMIT="$(( ram * 2 ))g"
-				else
-					PODMAN_SWAP_LIMIT="$(( ram + $(
-						awk -v ram="${ram}" 'BEGIN{ print int( sqrt( ram ) + 0.5 ) }'
-					) ))g"
+			# FIXME: Assume that PODMAN_{SWAP_LIMIT,MEMORY_{LIMIT,RESERVATION}}
+			#        have the same order of magnitude...
+			local -i swp=0 ram=0 changed=0
+			local unit='' divider=''
+			case "${PODMAN_MEMORY_LIMIT^^}" in
+				*M)
+					unit='m'
+					divider='1024'
+					;;
+				*G)
+					unit='g'
+					divider='1024 / 1024'
+					;;
+			esac
+			if [[ -n "${unit:-}" ]]; then
+				# shellcheck disable=SC2004
+				eval swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) + 16 ) / ${divider} ))
+				# shellcheck disable=SC2004
+				eval ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / ${divider} ))
+				# shellcheck disable=SC2295
+				if (( ram < ${PODMAN_MEMORY_LIMIT%[${unit,,}${unit^^}]} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%[${unit,,}${unit^^}]} )); then
+					output >&2 "INFO:  Host resources (rounded down to nearest 1${unit^^}iB):"
+					output >&2 "         RAM:        ${ram}${unit^^}"
+					output >&2 "         Swap:       ${swp}${unit^^}"
+					output >&2 "INFO:  Original memory limits:"
+					# shellcheck disable=SC2295
+					output >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%[${unit,,}${unit^^}]}${unit^^}"
+					# shellcheck disable=SC2295
+					output >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%[${unit,,}${unit^^}]}${unit^^}"
+					# shellcheck disable=SC2295
+					output >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%[${unit,,}${unit^^}]}${unit^^}"
 				fi
-				changed=1
-			fi
-			if (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
-				#PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
-				if (( ram <= 1 )); then
-					PODMAN_SWAP_LIMIT="$(( ram * 2 ))g"
-				else
-					PODMAN_SWAP_LIMIT="$(( ram + $(
-						awk -v ram="${ram}" 'BEGIN{ print int( sqrt( ram ) + 0.5 ) }'
-					) ))g"
+				# shellcheck disable=SC2295
+				if (( ram < ${PODMAN_MEMORY_LIMIT%[${unit,,}${unit^^}]} )); then
+					PODMAN_MEMORY_RESERVATION="$(( ram - 1 ))${unit,,}"
+					PODMAN_MEMORY_LIMIT="$(( ram ))${unit,,}"
+					#PODMAN_SWAP_LIMIT="$(( ram + swp ))${unit,,}"
+					if (( ram <= 1 )); then
+						PODMAN_SWAP_LIMIT="$(( ram * 2 ))${unit,,}"
+					else
+						PODMAN_SWAP_LIMIT="$(( ram + $(
+							awk -v ram="${ram}" 'BEGIN{ print int( sqrt( ram ) + 0.5 ) }'
+						) ))${unit,,}"
+					fi
+					changed=1
 				fi
-				changed=1
+				# shellcheck disable=SC2295
+				if (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%[${unit,,}${unit^^}]} )); then
+					#PODMAN_SWAP_LIMIT="$(( ram + swp ))${unit,,}"
+					if (( ram <= 1 )); then
+						PODMAN_SWAP_LIMIT="$(( ram * 2 ))${unit,,}"
+					else
+						PODMAN_SWAP_LIMIT="$(( ram + $(
+							awk -v ram="${ram}" 'BEGIN{ print int( sqrt( ram ) + 0.5 ) }'
+						) ))${unit,,}"
+					fi
+					changed=1
+				fi
+				if (( changed )); then
+					output >&2 "NOTE:  Changed memory limits based on host configuration:"
+					# shellcheck disable=SC2295
+					output >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%[${unit,,}${unit^^}]}${unit^^}"
+					# shellcheck disable=SC2295
+					output >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%[${unit,,}${unit^^}]}${unit^^}"
+					# shellcheck disable=SC2295
+					output >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%[${unit,,}${unit^^}]}${unit^^}"
+					output >&2
+				fi
 			fi
-			if (( changed )); then
-				output >&2 "NOTE:  Changed memory limits based on host configuration:"
-				output >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
-				output >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
-				output >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
-				output >&2
-			fi
-			unset changed ram swp
+			unset changed ram swp divider unit
 
 			runargs+=(
 				${PODMAN_MEMORY_RESERVATION:+--memory-reservation ${PODMAN_MEMORY_RESERVATION}}
@@ -1186,7 +1224,8 @@ _docker_run() {
 			eval docker ${DOCKER_VARS:-} container ps --noheading -a
 			set +x
 			output "Defined ${BUILD_CONTAINER:+pre-build} container tasks:"
-			docker container ps --noheading -a
+			# shellcheck disable=SC2086
+			docker ${DOCKER_VARS:-} container ps --noheading -a
 		fi
 
 		image="${image:-"${IMAGE:-"gentoo-build:latest"}"}"
