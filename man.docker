@@ -21,6 +21,10 @@ if (( EUID )); then
 	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi
 
+declare PODMAN_MEMORY_RESERVATION='32m'
+declare PODMAN_MEMORY_LIMIT='64m'
+declare PODMAN_SWAP_LIMIT="${PODMAN_MEMORY_LIMIT}"
+
 declare CATEGORY='sys-apps'
 declare PN='man-db'
 
@@ -79,12 +83,7 @@ unset docker_extra_mounts
 }
 
 if [ -s '/etc/man_db.conf' ]; then
-	DOCKER_VOLUMES="
-		--volume /etc/man_db.conf:/etc/man_db.conf:ro
-	"
-fi
-if [[ -n "${DEV_MODE:-}" ]]; then
-	DOCKER_VOLUMES+=" --volume ${PWD}/${base_dir:+${base_dir}/}entrypoint.sh.service:/usr/libexec/entrypoint.sh:ro"
+	DOCKER_VOLUMES+=" --volume /etc/man_db.conf:/etc/man_db.conf:ro"
 fi
 
 # Gather exported data from other created containers ...
@@ -96,6 +95,7 @@ for id in $( # <- Syntax
 			--filter 'name=^web-' \
 			--format '{{.ID}}'
 ); do
+	print "Including volumes from conainer '${id}' ..."
 	DOCKER_VOLUMES+=" --volumes-from ${id}:ro"
 done
 unset id
@@ -105,28 +105,31 @@ unset id
 # named-volume is referenced then on first use the container contents are
 # mirrored into the named-volume instead...
 #
-DOCKER_VOLUMES=" --volume ${page_volume}:/srv/${PN}/usr/share/man"
-DOCKER_VOLUMES=" --volume ${cache_volume}:/var/cache/man"
+DOCKER_VOLUMES+=" --volume ${page_volume}:/srv/${PN}/usr/share/man"
+DOCKER_VOLUMES+=" --volume ${cache_volume}:/var/cache/man"
 
 export DOCKER_VOLUMES
 
 declare -a docker_cmd_vars=()
 declare lc=''
 docker_cmd_vars=(
-	--env "LINES=${LINES}"
-	--env "COLUMNS=${COLUMNS}"
-	--env "TERM=${TERM}"
+	--env COLUMNS
+	--env LESS='-R -M --shift 5'
+	--env LESSOPEN='|lesspipe %s'
+	--env LINES
+	--env TERM
 	# Ordering from man(1)...
 	--env MANPATH
 	--env MANROFFOPT
 	--env MANROFFSEQ
 	--env MANSECT
-	--env MANPAGER
-	--env PAGER
+	#--env MANPAGER='less -s -M +Gg'
+	--env MANPAGER='manpager'
+	--env PAGER='less'
 	--env MANLESS
 	--env BROWSER
 	--env SYSTEM
-	--env MANOPT
+	--env MANOPT='-a'
 	--env MANWIDTH
 	--env MAN_KEEP_FORMATTING
 	--env MAN_KEEP_STDERR
@@ -134,23 +137,20 @@ docker_cmd_vars=(
 	--env PIPELINE_DEBUG
 	#--env LANG
 	#--env LC_MESSAGES
+	--cap-add SYS_PTRACE
 )
 for lc in $( locale | cut -d'=' -f 1 ); do
 	docker_cmd_vars+=( --env "${lc}" )
 done
 unset lc
-export DOCKER_CMD_VARS="${docker_cmd_vars[*]:-}"
-unset docker_cmd_vars
+export docker_cmd_vars
 
 export DOCKER_INTERACTIVE=1
 export NO_BUILD_MOUNTS='no_build_mounts' # ... any value will do
-#export DOCKER_ENTRYPOINT='/bin/sh'
 
 _docker_resolve "${CATEGORY}/${PN}" 'service' >/dev/null
 image="$( _docker_image_exists )"
 export image
-
-#set -o xtrace
 
 _docker_run ${@+"${@}"}
 
