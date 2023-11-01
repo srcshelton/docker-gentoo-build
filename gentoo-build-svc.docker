@@ -803,7 +803,7 @@ case "${package_name}" in
 		output "Setting build variables for package 'man-db' ..."
 		pre_pkgs='sys-apps/help2man sys-apps/man-pages sys-apps/man-pages-posix sys-devel/gcc'
 		with_use='-timezone-tools compile-locales'
-		extra_pkgs='net-misc/rsync sys-apps/less sys-libs/ncurses sys-libs/timezone-data'
+		extra_pkgs='app-text/lesspipe app-text/manpager net-misc/rsync sys-apps/less'
 
 		container_cmd='/usr/bin/man'
 		;;
