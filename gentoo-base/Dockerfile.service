@@ -52,7 +52,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             grep -v -e '^export [a-z_]' -e '=""$' \
         >>"${ROOT}${environment_file}" && \
     grep >&2 -- ' ROOT=' "${ROOT}${environment_file}" && { \
-            printf >&2 "Invalid 'ROOT' directive in '%s':\n\n%s\n\n" "${ROOT%/}${environment_file}" "$( <"${ROOT}${environment_file}" )" ; \
+            printf >&2 "Invalid 'ROOT' directive in '%s':\n\n%s\n\n" "${ROOT%"/"}${environment_file}" "$( <"${ROOT}${environment_file}" )" ; \
             exit 1 ; \
         } || : ; \
     if [ -s /builddeps.txt ] && ! [ -s "${ROOT}/builddeps.txt" ]; then \

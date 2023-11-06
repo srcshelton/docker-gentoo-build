@@ -14,6 +14,7 @@ if [ -z "${def_repo_path:-}" ] || [ ! -d "${def_repo_path}" ]; then
 	echo >&2 "FATAL: Cannot access DEFAULT portage repo path '${def_repo_path:-}'"
 	exit 1
 fi
+# shellcheck disable=SC2010
 arch="$( ls -1 "${def_repo_path}"/profiles/desc/cpu_flags_*.desc | grep -o '...\.desc$' | cut -d'.' -f 1 )"
 if [ -z "${arch:-}" ]; then
 	echo >&2 "FATAL: Could not read 'cpu_flags_*.desc' file(s) from '${def_repo_path}/profiles/desc/'"
@@ -21,7 +22,7 @@ if [ -z "${arch:-}" ]; then
 fi
 
 if echo " ${*} " | grep -Eq ' -(h|-help) '; then
-	echo "Usage: $( basename "${0}" ) [$( printf "${arch}" | tr $'\n' '|' )]"
+	echo "Usage: $( basename "${0}" ) [$( printf '%s' "${arch}" | tr '\n' '|' )]"
 	exit 0
 fi
 

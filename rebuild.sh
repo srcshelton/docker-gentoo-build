@@ -167,13 +167,15 @@ if [ "${rebuildutils:-"0"}" = '1' ]; then
 		mkdir -p log
 
 		if [ "$( $_command image ls -n 'localhost/dell-dsu' | wc -l )" = '0' ]; then
-			"${basedir}"/docker-dell/dell.docker --dsu ${IMAGE_ROOT:+--root "${IMAGE_ROOT}"} \
+			"${basedir}"/docker-dell/dell.docker --dsu \
+					${IMAGE_ROOT:+"--root"} ${IMAGE_ROOT:+"${IMAGE_ROOT}"} \
 				>> log/dell.docker.dsu.log 2>&1 &
 			# shellcheck disable=SC3044
 			disown 2>/dev/null || :  # doesn't exist in POSIX sh :(
 		fi
 		if [ "$( $_command image ls -n 'localhost/dell-ism' | wc -l )" = '0' ]; then
-			"${basedir}"/docker-dell/dell.docker --ism ${IMAGE_ROOT:+--root "${IMAGE_ROOT}"} \
+			"${basedir}"/docker-dell/dell.docker --ism \
+					${IMAGE_ROOT:+"--root"} ${IMAGE_ROOT:+"${IMAGE_ROOT}"} \
 				>> log/dell.docker.ism.log 2>&1 &
 			# shellcheck disable=SC3044
 			disown 2>/dev/null || :  # doesn't exist in POSIX sh :(
@@ -299,7 +301,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 								continue ;;
 						esac
 						# shellcheck disable=SC2030
-						USE="${USE:+${USE} }${flag}"
+						USE="${USE:+"${USE} "}${flag}"
 					done
 					break
 				fi
@@ -308,13 +310,14 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 			fi
 		done
 		if [ -z "${USE:-}" ]; then
+			# shellcheck disable=SC2030
 			python_default_target=''
 			# shellcheck disable=SC1091
 			. ./common/vars.sh
 
 			# Assume that python_default_target has the most recent/primary
 			# version first...
-			python_single_target="${python_default_target%% *}"
+			python_single_target="${python_default_target%%" "*}"
 			use="
 				${use_essential_gcc}
 				${alt_use}
@@ -332,7 +335,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 			"
 			USE=''
 			for flag in ${use}; do
-				USE="${USE:+${USE} }${flag}"
+				USE="${USE:+"${USE} "}${flag}"
 			done
 		fi
 		unset image
@@ -567,7 +570,7 @@ if [ "${update:-"0"}" = '1' ]; then
 							# or the major release only
 							#
 							if echo "${pkg}" | grep -q '^dev-lang/python'; then
-								echo "=${pkg%.*}*"
+								echo "=${pkg%"."*}*"
 							else
 								echo ">=${pkg}"
 							fi
@@ -661,7 +664,7 @@ if [ "${system:-"0"}" = '1' ]; then
 						--binpkg-respect-use=y \
 						--keep-going \
 						--oneshot \
-						${pretend:+'--pretend'} \
+						${pretend:+"--pretend"} \
 						--tree \
 						--usepkg=y \
 						--verbose-conflicts \

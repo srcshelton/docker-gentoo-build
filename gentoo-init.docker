@@ -140,7 +140,7 @@ if [[ -n "${*:-}" ]]; then
 	fi
 fi
 
-declare python_single_target="${python_targets_override:+"${python_targets_override%% *}"}"
+declare python_single_target="${python_targets_override:+"${python_targets_override%%" "*}"}"
 declare python_targets="${python_targets_override:-}"
 if [[ -z "${python_targets:-}" ]] && type -pf portageq >/dev/null 2>&1; then
 	python_targets="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
@@ -228,7 +228,7 @@ checkids() {
 	fi
 
 	local relation="inherited by"
-	if [[ "${name#*/}" == "${stage3_name#*/}" ]]; then
+	if [[ "${name#*"/"}" == "${stage3_name#*"/"}" ]]; then
 		relation="about to be linked to"
 	fi
 
@@ -240,7 +240,8 @@ checkids() {
 	)"
 	# Older releases of 'podman' exclude the repo when it is 'localhost/'...
 	# FIXME: Can't we just check whether 'images' is set?
-	if grep -Eq -- "^(${repo:-"${name%/*}"})?${name#*/}" <<<"${images}"; then
+	if grep -Eq -- "^(${repo:-"${name%"/"*}"})?${name#*"/"}" <<<"${images}"
+	then
 		if stage3_env_id="$( # <- Syntax
 				stage3_repo=''
 				if ! [[ "${stage3_name}" =~ / ]]; then
@@ -258,9 +259,10 @@ checkids() {
 			# N.B.: 'env_id' inherited from global scope
 			if [[ "${env_id}" != "${stage3_env_id:-}" ]]; then
 				output >&2 "${bold:-}WARN${reset:-}:  ${red:-}" \
-					"The current '${env_name#*/}' image (${env_id}) differs" \
-					"from that used to build the '${stage3_name#*/}' image" \
-					"(${stage3_env_id:-}) ${relation} this stage${reset:-}"
+					"The current '${env_name#*"/"}' image (${env_id})" \
+					"differs from that used to build the" \
+					"'${stage3_name#*"/"}' image (${stage3_env_id:-})" \
+					"${relation} this stage${reset:-}"
 			fi
 		fi
 
@@ -282,7 +284,7 @@ checkids() {
 				if [[ "${gentoo_stage3_id}" != "${stage3_src_id:-}" ]]; then
 					output >&2 "${bold:-}WARN${reset:-}:  ${red:-}" \
 						"The upstream 'stage3' image (${gentoo_stage3_id})" \
-						"differs from that used to build the '${name#*/}'" \
+						"differs from that used to build the '${name#*"/"}'" \
 						"image (${stage3_src_id:-}) ${relation} this" \
 						"stage${reset}"
 				fi
@@ -378,7 +380,7 @@ if ! type -pf portageq >/dev/null 2>&1; then
 		git clone https://github.com/gentoo/gentoo.git "${repo_path_gentoo}" ||
 			die "git 'clone' operation failed: ${?}"
 		if ! git config --global --get-all safe.directory |
-			grep -q "${repo_path_gentoo%/}"
+			grep -q "${repo_path_gentoo%"/"}"
 		then
 			git config --global --add safe.directory "${repo_path_gentoo}" ||
 				die "git safe directory addition of '${repo_path_gentoo}'" \
@@ -411,7 +413,7 @@ if ! type -pf portageq >/dev/null 2>&1; then
 				"${repo_path_srcshelton}" ||
 			die "git 'clone' operation failed: ${?}"
 		if ! git config --global --get-all safe.directory |
-			grep -q "${repo_path_srcshelton%/}"
+			grep -q "${repo_path_srcshelton%"/"}"
 		then
 			git config --global --add safe.directory \
 					"${repo_path_srcshelton}" ||
@@ -432,7 +434,7 @@ if ! type -pf portageq >/dev/null 2>&1; then
 				[[ -n "${ref:-}" ]]
 	then
 		if ! git config --global --get-all safe.directory |
-			grep -q "${repo_path_gentoo%/}"
+			grep -q "${repo_path_gentoo%"/"}"
 		then
 			git config --global --add safe.directory "${repo_path_gentoo}" ||
 				die "git safe directory addition of '${repo_path_gentoo}'" \
@@ -538,7 +540,7 @@ else # type -pf portageq >/dev/null 2>&1; then
 					[[ -n "${ref:-}" ]]
 		then
 			if ! git config --global --get-all safe.directory |
-				grep -q "${repo_path_gentoo%/}"
+				grep -q "${repo_path_gentoo%"/"}"
 			then
 				git config --global --add safe.directory "${repo_path_gentoo}" ||
 					die "git safe directory addition of '${repo_path_gentoo}'" \
@@ -674,7 +676,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		${DEBUG_EXTRA_ARGS:-}
 	)
 	docker image build "${build_args[@]}" . 2>&1 |
-		tee ../log/"docker.${env_name#*/}.log"
+		tee ../log/"docker.${env_name#*"/"}.log"
 	output " -> ${?}"
 	unset build_args
 
@@ -746,7 +748,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 						"${repo_path_srcshelton}/.image_digests" |
 					cut -d' ' -f 2-
 			)"
-			if ! [[ "${ref%:*}" == 'sha256' ]]; then
+			if ! [[ "${ref%":"*}" == 'sha256' ]]; then
 				warn "Unable to retrieve SHA256 digest for image" \
 					"'${gentoo_stage3_image}:${gentoo_stage3_tag}' with" \
 					"with architecture '${docker_arch}' from file" \
@@ -863,7 +865,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 		${DEBUG_EXTRA_ARGS:-}
 	)
 	docker image build "${build_args[@]}" . 2>&1 |
-		tee ../log/"docker.${stage3_name#*/}.log"
+		tee ../log/"docker.${stage3_name#*"/"}.log"
 	output " -> ${?}"
 	unset build_args
 
@@ -995,7 +997,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 		${DEBUG_EXTRA_ARGS:-}
 	)
 	docker image build "${build_args[@]}" . 2>&1 |
-		tee ../log/"docker.${init_name#*/}.log"
+		tee ../log/"docker.${init_name#*"/"}.log"
 	output " -> ${?}"
 	unset build_args
 
@@ -1011,14 +1013,14 @@ fi
 #
 if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 	images="$( docker image ls --noheading "${init_name}" 2>/dev/null )"
-	if ! grep -Eq -- "^(localhost/)?${init_name#*/}" <<<"${images}"; then
+	if ! grep -Eq -- "^(localhost/)?${init_name#*"/"}" <<<"${images}"; then
 		die "Initial stage not found - please execute '$( # <- Syntax
 			basename "${0}"
 		) --init'"
 	fi
 
 	output
-	output " ${blue}*${reset} Deploying container '${base_name#*/}' from image" \
+	output " ${blue}*${reset} Deploying container '${base_name#*"/"}' from image" \
 		"'${init_name}:latest' ..."
 	output
 
@@ -1026,9 +1028,9 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 
 	# Handle leftover container from previous run ...
 	trap '' INT
-	if docker container ps -a | grep -q -- "${base_name#*/}$"; then
-		docker container stop "${base_name#*/}"
-		docker container rm --volumes "${base_name#*/}"
+	if docker container ps -a | grep -q -- "${base_name#*"/"}$"; then
+		docker container stop "${base_name#*"/"}"
+		docker container rm --volumes "${base_name#*"/"}"
 	fi
 	trap - INT
 
@@ -1127,7 +1129,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 			post_pkgs+=' sys-apps/gentoo-functions::srcshelton'
 		fi
 		# shellcheck disable=SC2030
-		export name="${base_name#*/}"
+		export name="${base_name#*"/"}"
 		# shellcheck disable=SC2030
 		export image="${init_name}:latest"
 		export DOCKER_CMD_VARS="--env ARCH=${arch:-"${ARCH}"}"
@@ -1142,12 +1144,12 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		)
 		# shellcheck disable=SC2086
 		_docker_run "${docker_run_args[@]}" virtual/libc ${python_pkgs:-} 2>&1 |
-			tee ../log/"docker.${base_name#*/}.log"
+			tee ../log/"docker.${base_name#*"/"}.log"
 	)
 	output " -> ${?}"
 
 	output
-	output " ${blue}*${reset} Saving container '${base_name#*/}' as image" \
+	output " ${blue}*${reset} Saving container '${base_name#*"/"}' as image" \
 		"'${base_name}:latest' ..."
 	output
 
@@ -1156,16 +1158,16 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 	#if ! type -pf buildah >/dev/null 2>&1; then
 		docker container commit \
 					--squash \
-				"${base_name#*/}" "${base_name}:latest" 2>&1 |
-			tee -a ../log/"docker.${base_name#*/}.log"
+				"${base_name#*"/"}" "${base_name}:latest" 2>&1 |
+			tee -a ../log/"docker.${base_name#*"/"}.log"
 	#else
 	#	buildah commit \
 	#				--squash \
-	#			"${base_name#*/}" "${base_name}:latest" 2>&1 |
-	#		tee -a ../log/"docker.${base_name#*/}.log"
+	#			"${base_name#*"/"}" "${base_name}:latest" 2>&1 |
+	#		tee -a ../log/"docker.${base_name#*"/"}.log"
 	#fi
-	docker container rm --volumes "${base_name#*/}" 2>&1 |
-		tee -a ../log/"docker.${base_name#*/}.log"
+	docker container rm --volumes "${base_name#*"/"}" 2>&1 |
+		tee -a ../log/"docker.${base_name#*"/"}.log"
 	trap - INT
 	output " -> ${?}"
 
@@ -1195,7 +1197,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	fi
 
 	output
-	output " ${blue}*${reset} Deploying container '${build_name#*/}' ..."
+	output " ${blue}*${reset} Deploying container '${build_name#*"/"}' ..."
 	output
 
 	checkids "${base_name}"
@@ -1203,9 +1205,9 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	# Handle leftover container from previous run ...
 	trap '' INT
 	# shellcheck disable=SC2015
-	if docker container ps -a | grep -q -- "${build_name#*/}$"; then
-		docker container stop "${build_name#*/}"
-		docker container rm --volumes "${build_name#*/}"
+	if docker container ps -a | grep -q -- "${build_name#*"/"}$"; then
+		docker container stop "${build_name#*"/"}"
+		docker container rm --volumes "${build_name#*"/"}"
 	fi
 	# shellcheck disable=SC2015
 	if docker image ls --noheading \
@@ -1250,7 +1252,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		${DEBUG_EXTRA_ARGS:-}
 	)
 	docker "${container_args[@]}" image build "${build_args[@]}" . 2>&1 |
-		tee ../log/"docker.${build_name#*/}.log"
+		tee ../log/"docker.${build_name#*"/"}.log"
 	unset build_args
 
 	(
@@ -1268,7 +1270,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		# FIXME: Source these flags from package.use
 		#
 		# shellcheck disable=SC2031
-		export name="${build_name#*/}"
+		export name="${build_name#*"/"}"
 		# shellcheck disable=SC2031
 		export image="${build_name}-root:latest"
 		# shellcheck disable=SC2030
@@ -1286,7 +1288,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		declare -a build_args=()
 		# shellcheck disable=SC2046
 		build_args+=( # <- Syntax
-			--post-pkgs="app-arch/tar${use_pypy_post:+ ${use_pypy_post}}"
+			--post-pkgs="app-arch/tar${use_pypy_post:+" ${use_pypy_post}"}"
 			--post-use="-* $( replace_flags \
 				'xattr' -- "${use_essential:-} ${use_pypy_post_use:-}"
 			  )"
@@ -1326,13 +1328,13 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 				sys-libs/libeudev @system \
 				${use_pypy:+"sys-apps/portage"} \
 				${use_pypy:-} 2>&1 |
-			tee -a ../log/"docker.${build_name#*/}.log"
+			tee -a ../log/"docker.${build_name#*"/"}.log"
 		unset build_args
 	)
 	output " -> ${?}"
 
 	output
-	output " ${blue}*${reset} Saving container '${build_name#*/}' as image" \
+	output " ${blue}*${reset} Saving container '${build_name#*"/"}' as image" \
 		"'${build_name}-finalise:latest' ..."
 	output
 	trap '' INT
@@ -1340,20 +1342,20 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	#if ! type -pf buildah >/dev/null 2>&1; then
 		docker "${container_args[@]}" container commit \
 					--squash \
-				"${build_name#*/}" "${build_name}-finalise:latest" |
-			tee -a ../log/"docker.${build_name#*/}.log"
+				"${build_name#*"/"}" "${build_name}-finalise:latest" |
+			tee -a ../log/"docker.${build_name#*"/"}.log"
 	#else
 	#	buildah "${container_args[@]}" commit \
 	#				--squash \
-	#			"${build_name#*/}" "${build_name}:latest" |
-	#		tee -a ../log/"docker.${build_name#*/}.log"
+	#			"${build_name#*"/"}" "${build_name}:latest" |
+	#		tee -a ../log/"docker.${build_name#*"/"}.log"
 	#fi
 	# shellcheck disable=SC2031,SC2086,SC2140
-	docker "${container_args[@]}" container rm --volumes "${build_name#*/}" |
-		tee -a ../log/"docker.${build_name#*/}.log"
+	docker "${container_args[@]}" container rm --volumes "${build_name#*"/"}" |
+		tee -a ../log/"docker.${build_name#*"/"}.log"
 	# shellcheck disable=SC2031,SC2086,SC2140
 	docker "${container_args[@]}" image rm "${build_name}-root:latest" |
-		tee -a ../log/"docker.${build_name#*/}.log"
+		tee -a ../log/"docker.${build_name#*"/"}.log"
 	output " -> ${?}"
 	trap - INT
 
@@ -1364,19 +1366,19 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	#
 	output
 	output " ${blue}*${reset} Finalising image " \
-		"'${build_name#*/}-finalise:latest' ..."
+		"'${build_name#*"/"}-finalise:latest' ..."
 	output
 	trap '' INT
 	docker "${container_args[@]}" container run \
-				--name "${build_name#*/}-finalise" \
+				--name "${build_name#*"/"}-finalise" \
 				--net none \
 			"${build_name}-finalise:latest" --finalise-container |
-		tee -a ../log/"docker.${build_name#*/}.log"
+		tee -a ../log/"docker.${build_name#*"/"}.log"
 	output " -> ${?}"
 	trap - INT
 
 	output
-	output " ${blue}*${reset} Saving container '${build_name#*/}-finalise'" \
+	output " ${blue}*${reset} Saving container '${build_name#*"/"}-finalise'" \
 		"as image '${build_name}:latest' ..."
 	output
 	trap '' INT
@@ -1384,21 +1386,21 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	#if ! type -pf buildah >/dev/null 2>&1; then
 		docker "${container_args[@]}" container commit \
 					--squash \
-				"${build_name#*/}-finalise" "${build_name}:latest" |
-			tee -a ../log/"docker.${build_name#*/}.log"
+				"${build_name#*"/"}-finalise" "${build_name}:latest" |
+			tee -a ../log/"docker.${build_name#*"/"}.log"
 	#else
 	#	buildah "${container_args[@]}" commit \
 	#				--squash \
-	#			"${build_name#*/}" "${build_name}:latest" |
-	#		tee -a ../log/"docker.${build_name#*/}.log"
+	#			"${build_name#*"/"}" "${build_name}:latest" |
+	#		tee -a ../log/"docker.${build_name#*"/"}.log"
 	#fi
 	# shellcheck disable=SC2031,SC2086,SC2140
 	docker "${container_args[@]}" container rm --volumes \
-			"${build_name#*/}-finalise" |
-		tee -a ../log/"docker.${build_name#*/}.log"
+			"${build_name#*"/"}-finalise" |
+		tee -a ../log/"docker.${build_name#*"/"}.log"
 	# shellcheck disable=SC2031,SC2086,SC2140
 	docker "${container_args[@]}" image rm "${build_name}-finalise:latest" |
-		tee -a ../log/"docker.${build_name#*/}.log"
+		tee -a ../log/"docker.${build_name#*"/"}.log"
 	output " -> ${?}"
 	trap - INT
 

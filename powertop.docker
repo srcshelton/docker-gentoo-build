@@ -34,7 +34,7 @@ declare PN='powertop'
 #            add_mount ...
 #          )
 #
-#shellcheck disable=SC2207
+# shellcheck disable=SC2207
 {
 declare -a docker_extra_mounts=()
 docker_extra_mounts+=( $( add_mount --print --no-ro \
@@ -45,7 +45,6 @@ unset docker_extra_mounts
 }
 
 declare -a docker_cmd_vars=()
-declare lc=''
 docker_cmd_vars=(
 	--env "LINES=${LINES}"
 	--env "COLUMNS=${COLUMNS}"

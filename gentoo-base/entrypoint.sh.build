@@ -88,16 +88,16 @@ check() {
 		check_pkg="$( echo "${check_pkg}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
 		if echo "${check_pkg}" | grep -Fq -- '/'; then
 			if ! ls -1d \
-				"${ROOT:-}/var/db/pkg/${check_pkg%::*}"* >/dev/null 2>&1
+				"${ROOT:-}/var/db/pkg/${check_pkg%"::"*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package '${check_pkg%::*}'" \
+				die "emerge indicated success but package '${check_pkg%"::"*}'" \
 					"does not appear to be installed"
 			fi
 		else
 			if ! ls -1d \
-				"${ROOT:-}/var/db/pkg"/*/"${check_pkg%::*}"* >/dev/null 2>&1
+				"${ROOT:-}/var/db/pkg"/*/"${check_pkg%"::"*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package '${check_pkg%::*}'" \
+				die "emerge indicated success but package '${check_pkg%"::"*}'" \
 					"does not appear to be installed"
 			fi
 		fi
@@ -123,16 +123,16 @@ checkmissing() {
 	done
 	cm_package="$( echo "${cm_package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
 	if echo "${cm_package}" | grep -Fq -- '/'; then
-		if ls -1d "${ROOT:-}/var/db/pkg/${cm_package%::*}"* >/dev/null 2>&1
+		if ls -1d "${ROOT:-}/var/db/pkg/${cm_package%"::"*}"* >/dev/null 2>&1
 		then
-			warn "emerge indicated success but package '${cm_package%::*}'" \
+			warn "emerge indicated success but package '${cm_package%"::"*}'" \
 				"still appears to be installed under root '${ROOT:-"/"}'"
 			return 1
 		fi
 	else
-		if ls -1d "${ROOT:-}/var/db/pkg"/*/"${cm_package%::*}"* >/dev/null 2>&1
+		if ls -1d "${ROOT:-}/var/db/pkg"/*/"${cm_package%"::"*}"* >/dev/null 2>&1
 		then
-			warn "emerge indicated success but package '${cm_package%::*}'" \
+			warn "emerge indicated success but package '${cm_package%"::"*}'" \
 				"still appears to be installed under root '${ROOT:-"/"}'"
 			return 1
 		fi
@@ -154,7 +154,7 @@ pkg_remove() {
 			[ -d "${ROOT}" ] || continue
 
 			echo
-			echo " * Removing specified ${pr_stage:+${pr_stage} }packages" \
+			echo " * Removing specified ${pr_stage:+"${pr_stage} "}packages" \
 				"'${pr_remove}' from root '${ROOT}'..."
 
 			# shellcheck disable=SC2086
@@ -182,11 +182,11 @@ pkg_remove() {
 			checkmissing ${pr_remove} || exit ${?}
 			#emerge --depclean -v
 			for pkg in ${pr_remove}; do
-				rm -vr "${ROOT%/}/var/db/pkg/"*"/${pkg}"* 2>/dev/null ||
-					rm -vr "${ROOT%/}/var/db/pkg/${pkg}"* 2>/dev/null || :
-				if [ -e "${ROOT%/}/var/lib/portage/world" ]; then
+				rm -vr "${ROOT%"/"}/var/db/pkg/"*"/${pkg}"* 2>/dev/null ||
+					rm -vr "${ROOT%"/"}/var/db/pkg/${pkg}"* 2>/dev/null || :
+				if [ -e "${ROOT%"/"}/var/lib/portage/world" ]; then
 					str="$( echo "${pkg}" | sed 's|/|\\/|g' )"
-					if sed -i "/${str}/ d" "${ROOT%/}/var/lib/portage/world"
+					if sed -i "/${str}/ d" "${ROOT%"/"}/var/lib/portage/world"
 					then
 						print "Manually removed '${pkg}' from world profile"
 					else
@@ -245,7 +245,7 @@ applyworkarounds() {
 	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
-		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
+		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
 	done
 	#print "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
 	if echo " ${aw_arg} " |
@@ -273,7 +273,7 @@ applyworkarounds() {
 	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
-		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
+		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
 	done
 	#print "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
 	if echo " ${aw_arg} " |
@@ -289,7 +289,7 @@ applyworkarounds() {
 	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
-		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
+		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
 	done
 	#print "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
 	if echo " ${aw_arg} " |
@@ -305,7 +305,7 @@ applyworkarounds() {
 	#info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	#aw_list=''
 	#for aw_pkg in ${aw_pkgs}; do
-	#	aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
+	#	aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
 	#done
 	#if echo " ${aw_arg} " |
 	#		sed 's/ /  /g' |
@@ -321,7 +321,7 @@ applyworkarounds() {
 	#info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	#aw_list=''
 	#for aw_pkg in ${aw_pkgs}; do
-	#	aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*/}|${aw_pkg}"
+	#	aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
 	#done
 	#if echo " ${aw_arg} " |
 	#		sed 's/ /  /g' |
@@ -413,6 +413,7 @@ do_container_setup() {
 			eselect awk set gawk
 		fi
 	fi
+	# shellcheck disable=SC2015
 	[ -d /etc/env.d/binutils ] &&
 		command -v binutils-config >/dev/null 2>&1 &&
 			ROOT='' binutils-config 1 2>/dev/null |
@@ -423,6 +424,7 @@ do_container_setup() {
 			ROOT='' gcc-config 1
 	echo
 
+	# shellcheck disable=SC2015
 	command -v etc-update >/dev/null 2>&1 &&
 		etc-update --automode -5 2>/dev/null |
 			grep -Fv -- 'Nothing left to do; exiting' || :
@@ -491,7 +493,7 @@ else
 fi
 
 if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
-	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-"${DEFAULT_MAXLOAD}"}"
+	parallel="${parallel:+"${parallel} "}--load-average=${MAXLOAD:-"${DEFAULT_MAXLOAD}"}"
 fi
 
 #for f in $( grep -Rl -- 'collision' log/docker.*.log ); do
@@ -763,7 +765,7 @@ fi
 #
 if [ -n "${post_use:-}" ]; then
 	if ! printf ' %s ' "${post_use:-}" | grep -Fq -- ' -* '; then
-		post_use="${USE:+${USE} }${post_use:-}"
+		post_use="${USE:+"${USE} "}${post_use:-}"
 	fi
 else
 	post_use="${USE:-}"
@@ -772,12 +774,12 @@ if [ -n "${use_essential:-}" ]; then
 	if ! echo "${post_use:-}" |
 			grep -Fq -- "${use_essential}"
 	then
-		post_use="${post_use:+${post_use} }${use_essential}"
+		post_use="${post_use:+"${post_use} "}${use_essential}"
 	fi
 fi
 if [ -n "${TUSE:-}" ]; then
 	if ! printf '%s' " ${TUSE} " | grep -Fq -- ' -* '; then
-		TUSE="${USE:+${USE} }${TUSE}"
+		TUSE="${USE:+"${USE} "}${TUSE}"
 	fi
 	if
 		[ -n "${use_essential:-}" ] &&
@@ -785,7 +787,7 @@ if [ -n "${TUSE:-}" ]; then
 	then
 		USE="${TUSE}"
 	else
-		USE="${TUSE}${use_essential:+ ${use_essential}}"
+		USE="${TUSE}${use_essential:+" ${use_essential}"}"
 	fi
 	export USE
 fi
@@ -841,37 +843,37 @@ if [ -n "${ECLASS_OVERRIDE:-}" ]; then
 
 	(
 		for ROOT in $( echo '/' "${ROOT:-}" | xargs -n 1 | sort | uniq ); do
-			if [ -e "${ROOT%/}/etc/portage/repos.conf" ]; then
-				if grep -qR -- '^\s*eclass-overrides' "${ROOT%/}/etc/portage/repos.conf"; then
+			if [ -e "${ROOT%"/"}/etc/portage/repos.conf" ]; then
+				if grep -qR -- '^\s*eclass-overrides' "${ROOT%"/"}/etc/portage/repos.conf"; then
 					echo "INFO:  Adding eclass override '${ECLASS_OVERRIDE}' to repos.conf for installation root '${ROOT}' ..."
-					if [ -f "${ROOT%/}/etc/portage/repos.conf" ]; then
+					if [ -f "${ROOT%"/"}/etc/portage/repos.conf" ]; then
 						sed -e "/^\s*eclass-overrides/ s/\(\s*$\|\s*#.*$\)/ ${ECLASS_OVERRIDE}\1/" \
-								-i "${ROOT%/}/etc/portage/repos.conf" ||
-							die "Failed to update '${ROOT%/}/etc/portage/repos.conf': ${?}"
-					elif [ -f "${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf" ]; then
+								-i "${ROOT%"/"}/etc/portage/repos.conf" ||
+							die "Failed to update '${ROOT%"/"}/etc/portage/repos.conf': ${?}"
+					elif [ -f "${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf" ]; then
 						sed -e "/^\s*eclass-overrides/ s/\(\s*$\|\s*#.*$\)/ ${ECLASS_OVERRIDE}\1/" \
-								-i "${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf" ||
-							die "Failed to update '${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf': ${?}"
+								-i "${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf" ||
+							die "Failed to update '${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf': ${?}"
 					else
 						die "Could not find repo configuration file to update for installation root '${ROOT}'"
 					fi
 				else
 					echo "Setting eclass override '${ECLASS_OVERRIDE}' in repos.conf for installation root '${ROOT}' ..."
-					if [ -f "${ROOT%/}/etc/portage/repos.conf" ]; then
+					if [ -f "${ROOT%"/"}/etc/portage/repos.conf" ]; then
 						printf '\neclass-overrides = %s\n' "${ECLASS_OVERRIDE}" \
-								>> "${ROOT%/}/etc/portage/repos.conf" ||
-							die "Failed to update '${ROOT%/}/etc/portage/repos.conf': ${?}"
-					elif [ -f "${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf" ]; then
+								>> "${ROOT%"/"}/etc/portage/repos.conf" ||
+							die "Failed to update '${ROOT%"/"}/etc/portage/repos.conf': ${?}"
+					elif [ -f "${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf" ]; then
 						printf '\neclass-overrides = %s\n' "${ECLASS_OVERRIDE}" \
-								>> "${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf" ||
-							die "Failed to update '${ROOT%/}/etc/portage/repos.conf/DEFAULT.conf': ${?}"
+								>> "${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf" ||
+							die "Failed to update '${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf': ${?}"
 					else
 						die "Could not find repo configuration file to update for installation root '${ROOT}'"
 					fi
 				fi
 				{
 					echo "Active overrides:"
-					grep -HR -- '^\s*eclass-overrides' "${ROOT%/}/etc/portage/repos.conf/"
+					grep -HR -- '^\s*eclass-overrides' "${ROOT%"/"}/etc/portage/repos.conf/"
 				} | sed 's/^/       /'
 			else
 				warn "Could not find repo configuration for installation root '${ROOT}'"
@@ -886,7 +888,7 @@ if [ -n "${pre_remove:-}" ]; then
 fi
 
 if [ -n "${force_python:-}" ]; then
-	pre_pkgs="${pre_pkgs:+${pre_pkgs} }dev-lang/python:$( echo "${force_python}" | sed 's/^python// ; s/_/./' )"
+	pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}dev-lang/python:$( echo "${force_python}" | sed 's/^python// ; s/_/./' )"
 fi
 if [ -n "${pre_pkgs:-}" ]; then
 	echo
@@ -894,7 +896,7 @@ if [ -n "${pre_pkgs:-}" ]; then
 	(
 		if [ -n "${pre_use:-}" ]; then
 			if ! printf ' %s ' "${pre_use}" | grep -Fq -- ' -* '; then
-				pre_use="${USE:+${USE} }${pre_use}"
+				pre_use="${USE:+"${USE} "}${pre_use}"
 			fi
 			if [ -n "${use_essential:-}" ] && echo "${pre_use}" | grep -Fq -- "${use_essential}"; then
 				USE="${pre_use}"
@@ -907,11 +909,11 @@ if [ -n "${pre_pkgs:-}" ]; then
 				grep -Pq -- ' ([=<>!~][=!]?)?(sys-devel/)?gcc(-[0-9.r-]+)?[*]?(:(?:[*]|[0-9.]*)=?)? ' >dev/null 2>&1
 		then
 			# shellcheck disable=SC2154
-			USE="${USE:+${USE} }${use_essential_gcc}"
+			USE="${USE:+"${USE} "}${use_essential_gcc}"
 		fi
 		export ROOT='/'
 		export USE
-		export FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
+		export FEATURES="${FEATURES:+"${FEATURES} "}-fail-clean"
 		export LC_ALL='C'
 
 		info="$( emerge --info --verbose=y )"
@@ -1010,7 +1012,7 @@ fi
 #time (
 (
 	ROOT='/service'
-	FEATURES="${FEATURES:+${FEATURES} }-fail-clean"
+	FEATURES="${FEATURES:+"${FEATURES} "}-fail-clean"
 	USE="-* -lib-only make-symlinks mdev openmp timezone-tools"
 	# Since app-alternatives/* packages are now mandatory, the USE flags these
 	# packages rely upon must also be set in order to avoid REQUIRED_USE
@@ -1085,7 +1087,7 @@ fi
 	exclude=''
 	if [ -n "${pre_remove}" ]; then
 		for pkg in ${pre_remove}; do
-			exclude="${exclude:+${exclude} }--exclude ${pkg}"
+			exclude="${exclude:+"${exclude} "}--exclude ${pkg}"
 		done
 		unset pkg
 	fi
@@ -1152,16 +1154,16 @@ fi
 				uniq
 	); do
 		export ROOT
-		if [ -x "${ROOT%/}"/usr/bin/eselect ]; then
-			if [ -s "${ROOT%/}"/usr/share/eselect/modules/python.eselect ]; then
+		if [ -x "${ROOT%"/"}"/usr/bin/eselect ]; then
+			if [ -s "${ROOT%"/"}"/usr/share/eselect/modules/python.eselect ]; then
 				echo "Setting python implementation for installation root '${ROOT}' ..."
-				mkdir -p "${ROOT%/}"/etc/python-exec
+				mkdir -p "${ROOT%"/"}"/etc/python-exec
 
 				eselect python cleanup
 				eselect python update --if-unset
 				if [ -n "${force_python:-}" ]; then
 					print "python-exec supported interpreters: $( python-exec2c -l | xargs echo )"
-					if [ "${force_python#python2}" != "${force_python}" ]; then
+					if [ "${force_python#"python2"}" != "${force_python}" ]; then
 						eselect python set --python2 "$( echo "${force_python}" | tr '_' '.' )"
 					else
 						eselect python set "$( echo "${force_python}" | tr '_' '.' )"
@@ -1171,7 +1173,7 @@ fi
 				#eselect python --show --python2
 				#eselect python --show --python3
 			fi
-			if [ -s "${ROOT%/}"/usr/share/eselect/modules/java-vm.eselect ]; then
+			if [ -s "${ROOT%"/"}"/usr/share/eselect/modules/java-vm.eselect ]; then
 				echo "Setting Java VM for installation root '${ROOT}' ..."
 				eselect java-vm set system 1
 				[ $(( $( id -u ) )) -eq 0 ] || eselect java-vm set user 1
@@ -1180,11 +1182,11 @@ fi
 		# python-exec now no longer requires the 'eselect' interface...
 		#
 		if [ -n "${force_python:-}" ]; then
-			if [ -s "${ROOT%/}"/etc/python-exec/python-exec.conf ]; then
+			if [ -s "${ROOT%"/"}"/etc/python-exec/python-exec.conf ]; then
 				sed -e 's/^\([^#]\)/#\1/' \
-					-i "${ROOT%/}"/etc/python-exec/python-exec.conf
+					-i "${ROOT%"/"}"/etc/python-exec/python-exec.conf
 			fi
-			echo "${force_python}" >> "${ROOT%/}"/etc/python-exec/python-exec.conf
+			echo "${force_python}" >> "${ROOT%"/"}"/etc/python-exec/python-exec.conf
 		fi
 	done
 )
@@ -1285,7 +1287,7 @@ case "${1:-}" in
 		curl_pkgs='app-containers/podman app-containers/netavark dev-lang/rust'
 		curl_list=''
 		for curl_pkg in ${curl_pkgs}; do
-			curl_list="${curl_list:+"${curl_list}|"}${curl_pkg#*/}|${curl_pkg}"
+			curl_list="${curl_list:+"${curl_list}|"}${curl_pkg#*"/"}|${curl_pkg}"
 		done
 		if curl_pkg="$( # <- Syntax
 				echo " ${*} " |
@@ -1295,7 +1297,7 @@ case "${1:-}" in
 			curl_pkg="$( echo "${curl_pkg}" | xargs -r )"
 			warn "Adding post-package entry 'net-misc/curl' due to presence" \
 				"of ${curl_pkg} ..."
-			post_pkgs="${post_pkgs:+${post_pkgs} }net-misc/curl"
+			post_pkgs="${post_pkgs:+"${post_pkgs} "}net-misc/curl"
 		fi
 		unset curl_pkg curl_list curl_pkgs
 
@@ -1303,7 +1305,7 @@ case "${1:-}" in
 		harfbuzz_pkgs='dev-lang/php media-libs/freetype media-libs/harfbuzz'
 		harfbuzz_list=''
 		for harfbuzz_pkg in ${harfbuzz_pkgs}; do
-			harfbuzz_list="${harfbuzz_list:+"${harfbuzz_list}|"}${harfbuzz_pkg#*/}|${harfbuzz_pkg}"
+			harfbuzz_list="${harfbuzz_list:+"${harfbuzz_list}|"}${harfbuzz_pkg#*"/"}|${harfbuzz_pkg}"
 		done
 		if harfbuzz_pkg="$( # <- Syntax
 				echo " ${*} " |
@@ -1313,7 +1315,7 @@ case "${1:-}" in
 			harfbuzz_pkg="$( echo "${harfbuzz_pkg}" | xargs -r )"
 			warn "Adding post-package entry 'media-libs/freetype' due to presence" \
 				"of ${harfbuzz_pkg} ..."
-			post_pkgs="${post_pkgs:+${post_pkgs} }media-libs/freetype"
+			post_pkgs="${post_pkgs:+"${post_pkgs} "}media-libs/freetype"
 		fi
 		unset harfbuzz_pkg harfbuzz_list harfbuzz_pkgs
 
@@ -1325,14 +1327,14 @@ case "${1:-}" in
 		if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ] && [ -n "${COLLISION_IGNORE:-}" ]; then
 			COLLISION_IGNORE="${COLLISION_IGNORE} $( # <- Syntax
 				echo "${COLLISION_IGNORE}" |
-					sed "s|${ROOT%/}||g"
+					sed "s|${ROOT%"/"}||g"
 			)"
 		fi
 		COLLISION_IGNORE="$( # <- Syntax
 			echo "${COLLISION_IGNORE}" |
 				xargs -r printf '%s '
 		)"
-		COLLISION_IGNORE="${COLLISION_IGNORE% }"
+		COLLISION_IGNORE="${COLLISION_IGNORE%" "}"
 		export COLLISION_IGNORE
 
 		info="$( LC_ALL='C' emerge --info --verbose=y )"
@@ -1375,7 +1377,7 @@ case "${1:-}" in
 			for arg in "${@}"; do
 				case "${arg}" in
 					-*)
-						flags="${flags:+${flags} }${arg}"
+						flags="${flags:+"${flags} "}${arg}"
 						;;
 				esac
 			done
@@ -1647,7 +1649,7 @@ case "${1:-}" in
 				for arg in "${@}" ${rebuild}; do
 					case "${arg}" in
 						-*)
-							flags="${flags:+${flags} }${arg}"
+							flags="${flags:+"${flags} "}${arg}"
 							;;
 					esac
 				done
@@ -1875,7 +1877,7 @@ if [ -d "${ROOT}"/usr/lib/gcc ]; then
 					-print0 |
 				xargs -0rn 1 |
 				sed "s|^${ROOT}||" >> "${ROOT}/etc/ld.so.conf"
-			ldconfig ${ROOT:+-r "${ROOT}"} -f "${ROOT}/etc/ld.so.conf"
+			ldconfig ${ROOT:+"-r"} ${ROOT:+"${ROOT}"} -f "${ROOT:-}/etc/ld.so.conf"
 		fi
 	fi
 fi

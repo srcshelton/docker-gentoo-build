@@ -21,9 +21,9 @@ if (( EUID )); then
 	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi
 
-declare PODMAN_MEMORY_RESERVATION='32m'
-declare PODMAN_MEMORY_LIMIT='64m'
-declare PODMAN_SWAP_LIMIT="${PODMAN_MEMORY_LIMIT}"
+export PODMAN_MEMORY_RESERVATION='32m'
+export PODMAN_MEMORY_LIMIT='64m'
+export PODMAN_SWAP_LIMIT="${PODMAN_MEMORY_LIMIT}"
 
 declare CATEGORY='sys-apps'
 declare PN='man-db'
@@ -34,17 +34,18 @@ declare cache_volume="${PN}-cache"
 _docker_resolve 'sys-apps/man-pages' >/dev/null
 # ... sets package package_version package_name container_name
 declare original_page_volume="${page_volume}"
+# shellcheck disable=SC2154
 page_volume="${page_volume}-${package_version}"
 unset package package_version package_name container_name
 
 if (( $( # <- Syntax
 		docker volume ls -n |
 			awk '{ print $2 }' |
-			grep -- "^${original_page_volume}" |
-			wc -l
+			grep -c -- "^${original_page_volume}"
 	) > 1 ))
 then
 	print "Removing old '${original_page_volume}'* volumes ..."
+	# shellcheck disable=SC2154
 	docker volume ls -n |
 		awk '{ print $2 }' |
 		grep -- "^${original_page_volume}" |
@@ -62,7 +63,7 @@ unset original_page_volume
 #            add_mount ...
 #          )
 #
-#shellcheck disable=SC2207
+# shellcheck disable=SC2207
 {
 declare -a docker_extra_mounts=()
 declare e=''
@@ -70,14 +71,17 @@ docker_extra_mounts+=( $( add_mount --print \
 		'/usr/share/man/' \
 		'/srv/host/...'
 	) ) || :
-for e in $( sed 's/:/ /g' <<<"${MANPATH:-}" ); do
-	if [[ -d "${e}" ]]; then
-		docker_extra_mounts+=( $( add_mount --print \
-			"${e}" \
-			'/srv/host/...'
-		) ) || :
-	fi
-done
+if [[ -n "${MANPATH:-}" ]]; then
+	# shellcheck disable=SC2116
+	for e in $( echo "${MANPATH//:/ }" ); do
+		if [[ -d "${e}" ]]; then
+			docker_extra_mounts+=( $( add_mount --print \
+				"${e}" \
+				'/srv/host/...'
+			) ) || :
+		fi
+	done
+fi
 export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 unset docker_extra_mounts
 }

@@ -60,10 +60,10 @@ if [ $(( updated )) -eq 1 ]; then
 	# Taken from /usr/bin/gcc-config, and adapted to sh
 	: "${ROOT:="/"}"
 	echo "${ROOT}" | grep -q -- '/$' || ROOT="${ROOT}/"
-	echo "${ROOT}" | grep -q -- '^/' || ROOT="${PWD%/}/${ROOT}"
+	echo "${ROOT}" | grep -q -- '^/' || ROOT="${PWD%"/"}/${ROOT}"
 	EPREFIX=""
 	echo "${ROOT}" | grep -q -- '^@.*@$' && EPREFIX=""
-	EROOT="${ROOT%/}${EPREFIX}/"
+	EROOT="${ROOT%"/"}${EPREFIX}/"
 
 	#if [ ! -w "${EROOT:-"/"}" ]; then
 		echo >&2 " * Making directory '${EROOT:-"/"}' writable ..."

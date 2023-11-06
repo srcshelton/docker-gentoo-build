@@ -22,7 +22,7 @@ if echo " ${*:-} " | grep -Fq -- ' --latest '; then
 fi
 
 images="$(
-	eval "podman image list --noheading ${all:+ ${all}}"			|
+	eval "podman image list --noheading ${all:+" ${all}"}"			|
 		cut -d' ' -f 1							|
 		grep -v '<none>'						|
 		sort								|

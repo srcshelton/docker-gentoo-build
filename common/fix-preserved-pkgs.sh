@@ -25,7 +25,7 @@ echo "${list}" | while read -r p; do
 	sudo find "${pkgdir}/" -mindepth 3 -maxdepth 3 -type f -name "${pn}-[0-9].xpak" -exec rm -v {} +
 done
 
-#shellcheck disable=SC2046
+# shellcheck disable=SC2046
 sudo ./gentoo-build-pkg.docker virtual/libc $( echo "${list}" | sed 's/^/>=/' )
-#shellcheck disable=SC2046
+# shellcheck disable=SC2046
 sudo emerge -Kva $( echo "${list}" | sed 's/^/>=/' )

@@ -63,7 +63,8 @@ fi
 print "Checking for root access ..."
 # shellcheck disable=SC2039
 if [ -z "${EUID:-}" ]; then
-	export EUID="$( id -u )"
+	EUID="$( id -u )"
+	export EUID
 fi
 
 if [ $(( EUID )) -eq 0 ]; then

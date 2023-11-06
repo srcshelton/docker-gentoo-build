@@ -65,12 +65,12 @@ for arg in "${@}"; do
 			continue
 			;;
 		--rebuild=*)
-			rebuild="${rebuild:+${rebuild} }${arg#--rebuild=}"
+			rebuild="${rebuild:+"${rebuild} "}${arg#"--rebuild="}"
 			set -- "${@}" "${arg}"
 			;;
 		--rebuild)
 			if [[ -n "${1:-}" ]]; then
-				rebuild="${rebuild:+${rebuild} }${1}"
+				rebuild="${rebuild:+"${rebuild} "}${1}"
 				set -- "${@}" "${arg}=${1}"
 				shift
 			fi
@@ -91,7 +91,7 @@ for arg in "${@}"; do
 			#fi
 			;;
 		*)
-			args="${args:+${args} }${arg}"
+			args="${args:+"${args} "}${arg}"
 			set -- "${@}" "${arg}"
 			;;
 	esac
@@ -100,7 +100,7 @@ done
 if [ -z "${args:-}" ] && [ -n "${rebuild:-}" ]; then
 	# We only need to specify one package, as the rebuild logic will
 	# pull-in each original package prior to recompiling it...
-	set -- "${rebuild%% *}" "${@}"
+	set -- "${rebuild%%" "*}" "${@}"
 fi
 
 # FIXME: shellcheck wants:
@@ -113,7 +113,7 @@ fi
 #            add_mount ...
 #          )
 #
-#shellcheck disable=SC2207
+# shellcheck disable=SC2207
 {
 declare -a docker_extra_mounts=()
 docker_extra_mounts+=(
@@ -246,21 +246,24 @@ export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 unset docker_extra_mounts
 }
 
-if [ -n "${USE:-}" ]; then
-	# Without passing USE flags in this way, they appear to be getting lost (when /etc/portage/package.use exists?)
-	set -- "${@}" --with-use="${USE}"
-fi
+# We're including USE later (via ${use}/--with-use) and so this block was
+# simply duplicating arguments...
+#
+#if [ -n "${USE:-}" ]; then
+#	# Without passing USE flags in this way, they appear to be getting lost (when /etc/portage/package.use exists?)
+#	set -- "${@}" --with-use="${USE}"
+#fi
 
 #note >&2 "Adding circular-dependency fixes ..."
 #if echo "${*}" | grep -q -- 'app-arch/libarchive'; then
-#	pkg="${pkg:+${pkg} }$( echo " ${*} " | sed -r 's|^.*\s([^[:space:]]*app-arch/libarchive[^[:space:]]*)\s.*$|\1|' )"
+#	pkg="${pkg:+"${pkg} "}$( echo " ${*} " | sed -r 's|^.*\s([^[:space:]]*app-arch/libarchive[^[:space:]]*)\s.*$|\1|' )"
 #else
-#	pkg="${pkg:+${pkg} }app-arch/libarchive"
+#	pkg="${pkg:+"${pkg} "}app-arch/libarchive"
 #fi
 ##if echo "${*}" | grep -q -- 'dev-util/pkgconfig'; then
-##	pkg="${pkg:+${pkg} }$( echo " ${*} " | sed -r 's|^.*\s([^[:space:]]*dev-util/pkgconfig[^[:space:]]*)\s.*$|\1|' )"
+##	pkg="${pkg:+"${pkg} "}$( echo " ${*} " | sed -r 's|^.*\s([^[:space:]]*dev-util/pkgconfig[^[:space:]]*)\s.*$|\1|' )"
 ##else
-##	pkg="${pkg:+${pkg} }dev-util/pkgconfig"
+##	pkg="${pkg:+"${pkg} "}dev-util/pkgconfig"
 ##fi
 #set -- "${@}" --pre-pkgs="${pkg}" --pre-use='-lz4 internal-glib'
 #unset pkg
@@ -273,15 +276,15 @@ postuse="${POSTUSE:-}"
 for arg in "${@:-}"; do
 	case "$( echo "${arg}" | sed -r 's/^[<>]?=?//' )" in
 		media-libs/freetype|freetype|media-libs/freetype-*|freetype-*)
-			prepkg="${prepkg:+${prepkg} }${arg} media-libs/harfbuzz"
+			prepkg="${prepkg:+"${prepkg} "}${arg} media-libs/harfbuzz"
 			preuse="$( replace_flags '-harfbuzz' '-truetype' -- "${preuse}" )"
 			;;
 		media-libs/harfbuzz|harfbuzz|media-libs/harfbuzz-*|harfbuzz-*)
-			prepkg="${prepkg:+${prepkg} }${arg} media-libs/freetype"
+			prepkg="${prepkg:+"${prepkg} "}${arg} media-libs/freetype"
 			preuse="$( replace_flags '-harfbuzz' '-truetype' -- "${preuse}" )"
 			;;
 		#sys-libs/glibc|glibc|sys-libs/glibc-*|glibc-*)
-		#	prepkg="${prepkg:+${prepkg} }${arg}"
+		#	prepkg="${prepkg:+"${prepkg} "}${arg}"
 		#	;;
 	esac
 done

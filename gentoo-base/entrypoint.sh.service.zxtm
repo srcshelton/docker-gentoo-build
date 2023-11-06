@@ -77,6 +77,7 @@ declare join='n' register='n' hostport=''
 #      point in time
 declare badlink=''
 find /var/ -mindepth 1 -maxdepth 1 -type l ! -exec test -e {} \; -print | while read -r badlink; do
+	# shellcheck disable=SC2174
 	mkdir -p -m 0755 "$( readlink -f "${badlink}" )" || plog ERROR "Unable to remap broken symlink '${badlink}'"
 done
 unset badlink

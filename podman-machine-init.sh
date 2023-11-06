@@ -36,13 +36,13 @@ for arg in "${@:-}"; do
 			exit 0
 			;;
 		-c|--cores)
-			cores="${arg#*-}"
+			cores="${arg#*"-"}"
 			;;
 		-i|--init)
 			init=1
 			;;
 		-m=*|--machine=*)
-			MACHINE="${arg#*=}"
+			MACHINE="${arg#*"="}"
 			;;
 		-t|--xfer|--transfer|--transfer-cache)
 			xfer=1

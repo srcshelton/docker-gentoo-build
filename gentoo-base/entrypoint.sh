@@ -103,16 +103,16 @@ check() {
 		check_pkg="$( echo "${check_pkg}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
 		if echo "${check_pkg}" | grep -Fq -- '/'; then
 			if ! ls -1d \
-				"${ROOT:-}/var/db/pkg/${check_pkg%::*}"* >/dev/null 2>&1
+				"${ROOT:-}/var/db/pkg/${check_pkg%"::"*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package '${check_pkg%::*}'" \
+				die "emerge indicated success but package '${check_pkg%"::"*}'" \
 					"does not appear to be installed"
 			fi
 		else
 			if ! ls -1d \
-				"${ROOT:-}/var/db/pkg"/*/"${check_pkg%::*}"* >/dev/null 2>&1
+				"${ROOT:-}/var/db/pkg"/*/"${check_pkg%"::"*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package '${check_pkg%::*}'" \
+				die "emerge indicated success but package '${check_pkg%"::"*}'" \
 					"does not appear to be installed"
 			fi
 		fi
@@ -255,7 +255,7 @@ resolve_python_flags() {
 	)" # ' # <- Syntax
 	resolve_python_single_target="${PYTHON_SINGLE_TARGET:-} ${resolve_python_single_target:-} $( # <- Syntax
 		echo "${resolve_info}" | grep -- "^PYTHON_SINGLE_TARGET=" | cut -d'"' -f 2
-	)${python_targets:+" ${python_targets%% *}"}" # ' # <- Syntax
+	)${python_targets:+" ${python_targets%%" "*}"}" # ' # <- Syntax
 	resolve_python_targets="${PYTHON_TARGETS:-} ${resolve_python_targets:-} $( # <- Syntax
 		echo "${resolve_info}" | grep -- "^PYTHON_TARGETS=" | cut -d'"' -f 2
 	) ${python_targets:-}" # ' # <- Syntax
@@ -542,7 +542,7 @@ else
 fi
 
 if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
-	parallel="${parallel:+${parallel} }--load-average=${MAXLOAD:-"${DEFAULT_MAXLOAD}"}"
+	parallel="${parallel:+"${parallel} "}--load-average=${MAXLOAD:-"${DEFAULT_MAXLOAD}"}"
 fi
 
 post_pkgs='' post_use='' python_targets="${python_default_targets:-}" rc=0
@@ -610,7 +610,7 @@ fi
 #
 if [ -n "${post_use:-}" ]; then
 	if ! printf ' %s ' "${post_use:-}" | grep -Fq -- ' -* '; then
-		post_use="${USE:+${USE} }${post_use:-}"
+		post_use="${USE:+"${USE} "}${post_use:-}"
 	fi
 else
 	post_use="${USE:-}"
@@ -619,7 +619,7 @@ if [ -n "${use_essential:-}" ]; then
 	if ! echo "${post_use:-}" |
 			grep -Fq -- "${use_essential}"
 	then
-		post_use="${post_use:+${post_use} }${use_essential}"
+		post_use="${post_use:+"${post_use} "}${use_essential}"
 	fi
 fi
 
@@ -755,7 +755,7 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 
 	USE="-* $( get_stage3 --values-only USE ) -udev"
 	export USE
-	export FEATURES="${FEATURES:+${FEATURES} }-fakeroot"
+	export FEATURES="${FEATURES:+"${FEATURES} "}-fakeroot"
 	export LC_ALL='C'
 	list='virtual/dev-manager'
 	if portageq get_repos / | grep -Fq -- 'srcshelton'; then
@@ -807,7 +807,7 @@ if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 	(
 		USE="-* $( get_stage3 --values-only USE )"
 		export USE
-		export FEATURES="${FEATURES:+${FEATURES} }fail-clean -fakeroot"
+		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean -fakeroot"
 		export LC_ALL='C'
 		do_emerge --single-defaults 'sys-apps/gentoo-functions::srcshelton'
 	)
@@ -819,11 +819,11 @@ echo
 (
 	USE="-* $( get_stage3 --values-only USE )"
 	export USE
-	export FEATURES="${FEATURES:+${FEATURES} }fail-clean -fakeroot"
+	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean -fakeroot"
 	export LC_ALL='C'
 	do_emerge --single-defaults sys-apps/fakeroot
 )
-export FEATURES="${FEATURES:+${FEATURES} }fakeroot"
+export FEATURES="${FEATURES:+"${FEATURES} "}fakeroot"
 
 if ! [ -d "/usr/${CHOST}" ]; then
 	echo
@@ -844,7 +844,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		# ('livecd' for patched busybox)
 		USE="-* livecd nptl $( get_stage3 --values-only USE )"
 		export USE
-		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 		export LC_ALL='C'
 		do_emerge --chost-defaults '@system' '@world'
 	)
@@ -868,7 +868,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		(
 			USE="-* nptl $( get_stage3 --values-only USE )"
 			export USE
-			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+			export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 			export LC_ALL='C'
 			do_emerge --single-defaults "${pkg}"
 		)
@@ -925,7 +925,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		(
 			USE="-* $( get_stage3 --values-only USE )"
 			export USE
-			export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+			export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 			export LC_ALL='C'
 			do_emerge --single-defaults "${pkg}"
 		)
@@ -941,7 +941,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	(
 		USE="-* nptl $( get_stage3 --values-only USE )"
 		export USE
-		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 		export LC_ALL='C'
 
 		# clashing USE flags can't be resolved with current level of
@@ -1000,7 +1000,7 @@ echo
 	#
 	#USE="${USE} gawk gnu"
 	export USE
-	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 	export LC_ALL='C'
 	do_emerge --single-defaults sys-kernel/gentoo-sources
 )
@@ -1057,7 +1057,7 @@ do
 			USE="${USE} gold"
 		fi
 		export USE
-		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 		export LC_ALL='C'
 		case "${pkg}" in
 			#app-alternatives/awk)
@@ -1172,7 +1172,7 @@ LC_ALL='C' emerge --check-news
 #
 # Let's try to fix that...
 #
-export USE="${USE:+${USE} }${use_essential} nptl"
+export USE="${USE:+"${USE} "}${use_essential} nptl"
 
 # FIXME: Expose this somewhere?
 features_libeudev=1
@@ -1207,9 +1207,9 @@ if [ -n "${pkg_initial:-}" ]; then
 	(
 		export LC_ALL='C'
 
-		export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
+		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 
-		export USE="${pkg_initial_use}${use_essential:+ ${use_essential}}"
+		export USE="${pkg_initial_use}${use_essential:+" ${use_essential}"}"
 		if [ "${ROOT:-"/"}" = '/' ]; then
 			if [ -z "${stage3_flags:-}" ]; then
 				USE="${USE:+"${USE} "}$( get_stage3 --values-only USE )"
@@ -1224,7 +1224,7 @@ if [ -n "${pkg_initial:-}" ]; then
 			fi
 		else
 			print "'python_targets' is '${python_targets:-}', 'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}', 'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
-			PYTHON_SINGLE_TARGET="${python_targets:+"${python_targets%% *}"}"
+			PYTHON_SINGLE_TARGET="${python_targets:+"${python_targets%%" "*}"}"
 			PYTHON_TARGETS="${python_targets:-}"
 			eval "$( # <- Syntax
 				resolve_python_flags \
@@ -1431,14 +1431,14 @@ echo
 	#
 	pkg_system="@system sys-devel/gcc sys-apps/shadow dev-libs/icu app-arch/libarchive ${pkg_initial:-} ${pkg_exclude:-}"
 
-	export FEATURES="${FEATURES:+${FEATURES} }fail-clean"
-	USE="${USE:+${USE} }${use_essential_gcc}"
+	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
+	USE="${USE:+"${USE} "}${use_essential_gcc}"
 	if
 		  echo " ${USE} " | grep -q -- ' -nptl ' ||
 		! echo " ${USE} " | grep -q -- ' nptl '
 	then
 		warn "USE flag 'nptl' missing from or disabled in \$USE"
-		USE="${USE:+$( echo "${USE}" | sed 's/ \?-\?nptl \?/ /' ) }nptl"
+		USE="${USE:+"$( echo "${USE}" | sed 's/ \?-\?nptl \?/ /' ) "}nptl"
 		info "USE is now '${USE}'"
 	fi
 	export USE
@@ -1493,7 +1493,7 @@ echo
 		echo
 		unset info
 
-		[ ! -f "${ROOT%/}/var/lock" ] || rm "${ROOT%/}/var/lock"
+		[ ! -f "${ROOT%"/"}/var/lock" ] || rm "${ROOT%"/"}/var/lock"
 		do_emerge --system-defaults sys-apps/baselayout
 
 		# portage is tripping over sys-devel/gcc[openmp] :(
@@ -1530,6 +1530,7 @@ echo
 		# For some reason, portage is selecting dropbear to satisfy
 		# virtual/ssh?
 		#
+		# shellcheck disable=SC2086
 		USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx libeudev eudev -extra-filters gmp -nettle -nls openssl" \
 			do_emerge \
 					--exclude='dev-libs/libtomcrypt' \
@@ -1572,7 +1573,7 @@ if [ -s /etc/bash/bashrc.patch ]; then
 				die "Applying patch to bashrc failed: ${?}"
 			rm /etc/bash/bashrc.patch
 		else
-			warn "'${ROOT%/}/etc/bash/bashrc' does not exist or is empty"
+			warn "'${ROOT%"/"}/etc/bash/bashrc' does not exist or is empty"
 		fi
 
 		#popd >/dev/null  # bash only
@@ -1632,7 +1633,7 @@ echo
 
 # At this point, we should have a fully-built @system!
 
-export EMERGE_DEFAULT_OPTS="${EMERGE_DEFAULT_OPTS:+${EMERGE_DEFAULT_OPTS} } --with-bdeps=y --with-bdeps-auto=y"
+export EMERGE_DEFAULT_OPTS="${EMERGE_DEFAULT_OPTS:+"${EMERGE_DEFAULT_OPTS} "} --with-bdeps=y --with-bdeps-auto=y"
 
 info="$( LC_ALL='C' emerge --info --verbose=y )"
 echo
@@ -1686,18 +1687,18 @@ printf "#FILTER: '%s'\n\n" \
 	"${environment_filter}" > "${ROOT}${environment_file}"
 export -p |
 		grep -E -- '^(declare -x|export) .*=' |
-		grep -Ev -- "${environment_filter%)=}|format_fn_code)=" | \
+		grep -Ev -- "${environment_filter%")="}|format_fn_code)=" | \
 		sed -r 's/\s+/ /g ; s/^(export [a-z][a-z0-9_]+=")\s+/\1/i' | \
 		grep -v \
 				-e '^export [a-z_]' \
 				-e '=""$' \
 	>> "${ROOT}${environment_file}" || :
 test -e "${ROOT}${environment_file}" ||
-	warn "'${ROOT%/}${environment_file}' does not exist"
+	warn "'${ROOT%"/"}${environment_file}' does not exist"
 test -s "${ROOT}${environment_file}" ||
-	warn "'${ROOT%/}${environment_file}' is empty"
+	warn "'${ROOT%"/"}${environment_file}' is empty"
 grep -- ' ROOT=' "${ROOT}${environment_file}" &&
-	die "Invalid 'ROOT' directive in '${ROOT%/}${environment_file}'"
+	die "Invalid 'ROOT' directive in '${ROOT%"/"}${environment_file}'"
 #printf " * Initial propagated environment:\n\n%s\n\n" "$( # <- Syntax
 #	<"${ROOT}${environment_file}"
 #)"
@@ -1845,7 +1846,7 @@ case "${1:-}" in
 				for arg in "${@}" ${post_pkgs}; do
 					case "${arg}" in
 						-*)
-							flags="${flags:+${flags} }${arg}"
+							flags="${flags:+"${flags} "}${arg}"
 							;;
 					esac
 				done
@@ -1928,7 +1929,7 @@ case "${1:-}" in
 		fi
 
 		BUILD_USE="${USE:-}"
-		BUILD_PYTHON_SINGLE_TARGET="${python_targets:+"${python_targets%% *}"}"
+		BUILD_PYTHON_SINGLE_TARGET="${python_targets:+"${python_targets%%" "*}"}"
 		BUILD_PYTHON_TARGETS="${python_targets:-}"
 		eval "$( # <- Syntax
 			resolve_python_flags \
@@ -2049,8 +2050,8 @@ case "${1:-}" in
 								print "Matched - use is now '${use}'"
 
 								pkgs="${pkgs:-} $( # <- Syntax
-									#grep -Flw -- "${arg}" "${ROOT%/}"/var/db/pkg/*/*/IUSE |
-									find "${ROOT%/}/var/db/pkg/" \
+									#grep -Flw -- "${arg}" "${ROOT%"/"}"/var/db/pkg/*/*/IUSE |
+									find "${ROOT%"/"}/var/db/pkg/" \
 											-mindepth 3 \
 											-maxdepth 3 \
 											-type f \
@@ -2089,8 +2090,8 @@ case "${1:-}" in
 								"${PYTHON_TARGETS}"
 						)"
 						pkgs="${pkgs:-} $( # <- Syntax
-							#ls -1d "${ROOT%/}"/var/db/pkg/dev-python/* |
-							find "${ROOT%/}/var/db/pkg/dev-python/" \
+							#ls -1d "${ROOT%"/"}"/var/db/pkg/dev-python/* |
+							find "${ROOT%"/"}/var/db/pkg/dev-python/" \
 									-mindepth 1 \
 									-maxdepth 1 \
 									-type d \
@@ -2143,11 +2144,11 @@ case "${1:-}" in
 											-e 's/^ // ; s/ $//'
 								) -fortran graphite -jit -nls openmp -sanitize -ssp" \
 								PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
-								do_emerge \
-											--rebuild-defaults \
-											--deep \
-										"${pkg}" ||
-									rc=${?}
+									do_emerge \
+												--rebuild-defaults \
+												--deep \
+											"${pkg}" ||
+										rc=${?}
 								if [ $(( rc )) -ne 0 ]; then
 									echo "ERROR: Stage 1 cleanup for root '${ROOT}': ${rc}"
 									break
@@ -2156,6 +2157,7 @@ case "${1:-}" in
 							unset pkg
 						done  # root in $(...)
 						unset root
+						# shellcheck disable=SC2015,SC2086
 						USE="$( # <- Syntax
 							echo " ${USE} " |
 								sed -r \
@@ -2164,8 +2166,8 @@ case "${1:-}" in
 									-e 's/^ // ; s/ $//'
 						) openmp" \
 						PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
-						do_emerge --rebuild-defaults --deep ${pkgs} ||
-							rc=${?}
+							do_emerge --rebuild-defaults --deep ${pkgs} ||
+								rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
 							echo "ERROR: Stage 1 cleanup for root '${ROOT}': ${rc}"
 							break
@@ -2199,7 +2201,7 @@ case "${1:-}" in
 							if echo "${remove}" | grep -qw -- "${arg}"; then
 								pkgs="${pkgs:-} $( # <- Syntax
 									#grep -Flw -- "${arg}" "${ROOT}"/var/db/pkg/*/*/IUSE |
-									find "${ROOT%/}/var/db/pkg/" \
+									find "${ROOT%"/"}/var/db/pkg/" \
 											-mindepth 3 \
 											-maxdepth 3 \
 											-type f \
@@ -2213,7 +2215,7 @@ case "${1:-}" in
 						done
 						pkgs="${pkgs:-} $( # <- Syntax
 							#ls -1d "${ROOT}"/var/db/pkg/dev-python/* |
-							find "${ROOT%/}/var/db/pkg/dev-python/" \
+							find "${ROOT%"/"}/var/db/pkg/dev-python/" \
 									-mindepth 1 \
 									-maxdepth 1 \
 									-type d \

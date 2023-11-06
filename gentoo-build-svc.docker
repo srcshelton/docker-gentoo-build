@@ -398,9 +398,9 @@ fi
 
 [ -n "${trace:-}" ] && set -o xtrace
 
-images="$( docker image list --noheading "${IMAGE%:*}" 2>&1 )"
-if ! echo "${images}" | grep -Eq -- "^(localhost/)?${IMAGE%:*}"; then
-	die "svc stage: docker image '${IMAGE%:*}' not found"
+images="$( docker image list --noheading "${IMAGE%":"*}" 2>&1 )"
+if ! echo "${images}" | grep -Eq -- "^(localhost/)?${IMAGE%":"*}"; then
+	die "svc stage: docker image '${IMAGE%":"*}' not found"
 fi
 unset images
 
@@ -554,7 +554,7 @@ package_version=''
 repo=''
 container_name=''
 container_prefix='buildsvc'
-_docker_resolve "${service%::*}" "${container_prefix}"
+_docker_resolve "${service%"::"*}" "${container_prefix}"
 # shellcheck disable=SC2001 # POSIX sh compatibility
 container_name="$( echo "${package}" | sed 's|/|.|' )"
 # shellcheck disable=SC2001 # POSIX sh compatibility
@@ -574,7 +574,7 @@ case "${package_name}" in
 		;;
 esac
 export container_name package_name
-echo "${service}" | grep -Fq -- '::' && repo="${service#*::}"
+echo "${service}" | grep -Fq -- '::' && repo="${service#*"::"}"
 
 if [ "${container_name}" = 'podman' ]; then
 	die "Suspicious container name '${container_name}'"
@@ -606,7 +606,7 @@ fi
 #  failures with at least app-editors/vim :(
 #
 # from common/vars.sh:
-#use_essential="asm ipv6 ithreads native-extensions ktls mdev nptl split-usr -ssp threads${use_cpu_flags:+ ${use_cpu_flags}}"
+#use_essential="asm ipv6 ithreads native-extensions ktls mdev nptl split-usr -ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
 #use_essential_gcc="-default-stack-clash-protection -default-znow -fortran graphite nptl openmp pch -sanitize -ssp -vtv zstd"
 
 force_python=''
@@ -625,7 +625,7 @@ if type -pf portageq >/dev/null 2>&1; then
 	python_target="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
 	case "${original_service:-}" in
 		php[0-9][0-9])
-			php_targets="${original_service%[0-9]}-${original_service#php[0-9]}"
+			php_targets="${original_service%[0-9]}-${original_service#"php"[0-9]}"
 			;;
 		*)
 			php_targets="$( for t in $( portageq envvar 'PHP_TARGETS' ); do echo "php_targets_${t}"; done | sort -V | tail -n 1 )"
@@ -633,11 +633,11 @@ if type -pf portageq >/dev/null 2>&1; then
 	esac
 else
 	# shellcheck disable=SC2154
-	python_single_target="${python_default_target##* }"
+	python_single_target="${python_default_target##*" "}"
 	python_target="${python_single_target:-"${python_default_target}"}"
 	case "${original_service:-}" in
 		php[0-9][0-9])
-			php_targets="${original_service%[0-9]}-${original_service#php[0-9]}"
+			php_targets="${original_service%[0-9]}-${original_service#"php"[0-9]}"
 			;;
 		*)
 			# FIXME: Hard-coded
@@ -912,7 +912,7 @@ case "${package_name}" in
 		LIB='lib64'
 		case "${original_service:-}" in
 			php[0-9][0-9])
-				PHP_SLOT="${original_service%[0-9]}.${original_service#php[0-9]}"
+				PHP_SLOT="${original_service%[0-9]}.${original_service#"php"[0-9]}"
 				;;
 			*)
 				PHP_SLOT="$( for t in $( portageq envvar 'PHP_TARGETS' ); do echo "${t/-/.}"; done | sort -V | tail -n 1 )"
@@ -1537,7 +1537,7 @@ fi
 #            add_mount ...
 #          )
 #
-#shellcheck disable=SC2207
+# shellcheck disable=SC2207
 {
 declare -a docker_extra_mounts=()
 if [ -n "${etcdir:-}" ]; then
@@ -1597,8 +1597,8 @@ fi
 #
 if \
 		! docker_extra_mounts+=( $( add_mount --print \
-				"%base%/etc/portage/package.unmask.svc/${package_name#*.}" \
-				"/etc/portage/package.unmask/${package_name#*.}"
+				"%base%/etc/portage/package.unmask.svc/${package_name#*"."}" \
+				"/etc/portage/package.unmask/${package_name#*"."}"
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
 				"%base%/etc/portage/package.unmask.svc/package.unmask" \
@@ -1626,7 +1626,7 @@ docker_extra_mounts+=( $( add_mount --print \
 
 # package.mask.svc
 #
-package_mask_svc_name="${package_name#*.}"
+package_mask_svc_name="${package_name#*"."}"
 case "${package_mask_svc_name}-${package_version}" in
 	php-7.3.*) package_mask_svc_name='php73' ;;
 	php-7.4.*) package_mask_svc_name='php74' ;;
@@ -1653,7 +1653,7 @@ fi
 #
 if \
 		! docker_extra_mounts+=( $( add_mount --print \
-				"%base%/etc/portage/package.mask/${package_name#*.}"
+				"%base%/etc/portage/package.mask/${package_name#*"."}"
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
 				"%base%/etc/portage/package.mask/package.mask" \
@@ -1693,8 +1693,8 @@ docker_extra_mounts+=( $( add_mount --print \
 # package.use.svc
 #
 if docker_extra_mounts+=( $( add_mount --print \
-		"%base%/etc/portage/package.use.svc/${package_name#*.}" \
-		"/etc/portage/package.use.override/${package_name#*.}"
+		"%base%/etc/portage/package.use.svc/${package_name#*"."}" \
+		"/etc/portage/package.use.override/${package_name#*"."}"
 	) )
 then
 	docker_extra_mounts+=( $( add_mount --print \
@@ -1818,7 +1818,7 @@ dockerfile_tmp="$( mktemp --tmpdir 'Dockerfile.service.XXXXXXXX' )" ||
 	die "mktemp() failed: ${?}"
 exposedports=''
 for port in ${ports:-}; do
-	if [[ -n "${port:-}" ]] && (( ${port%/*} )); then
+	if [[ -n "${port:-}" ]] && (( ${port%"/"*} )); then
 		exposedports+="${exposedports:+"\\n"}EXPOSE ${port}"
 	fi
 done
@@ -1851,7 +1851,7 @@ args+=(
 args+=(
 	--build-arg service_group="${group}"
 	--build-arg service_name="${package_name/.//}"
-	--build-arg service_name_short="${package_name#*.}"
+	--build-arg service_name_short="${package_name#*"."}"
 	--build-arg service_ports="${ports}"
 	--build-arg service_user="${user}"
 	--build-arg service_version="${package_version}"

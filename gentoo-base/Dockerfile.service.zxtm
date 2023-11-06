@@ -86,7 +86,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             grep -v -e '^export [a-z_]' -e '=""$' \
         >>"${ROOT}${environment_file}" && \
     grep >&2 -- ' ROOT=' "${ROOT}${environment_file}" && { \
-            printf >&2 "Invalid 'ROOT' directive in '%s':\n\n%s\n\n" "${ROOT%/}${environment_file}" "$( <"${ROOT}${environment_file}" )" ; \
+            printf >&2 "Invalid 'ROOT' directive in '%s':\n\n%s\n\n" "${ROOT%"/"}${environment_file}" "$( <"${ROOT}${environment_file}" )" ; \
             exit 1 ; \
         } || : ; \
     if [ -s /builddeps.txt ] && ! [ -s "${ROOT}/builddeps.txt" ]; then \
@@ -353,9 +353,9 @@ RUN for dir in updater stingrayafm; do \
                         [ -s "${dstpath}/${name}" ] || \
                         [ -s "${dstpath}/${name}.bz2" ] ; \
                     then \
-                        cp "${file}" "${dstpath}/${name%.1}_zeus.1" && \
-                        rm -f "${dstpath}/${name%.1}_zeus.1.bz2" && \
-                        bzip2 "${dstpath}/${name%.1}_zeus.1" ; \
+                        cp "${file}" "${dstpath}/${name%".1"}_zeus.1" && \
+                        rm -f "${dstpath}/${name%".1"}_zeus.1.bz2" && \
+                        bzip2 "${dstpath}/${name%".1"}_zeus.1" ; \
                     else \
                         cp "${file}" "${dstpath}/" && \
                         bzip2 "${dstpath}/${name}" ; \

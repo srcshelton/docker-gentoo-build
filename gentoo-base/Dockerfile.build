@@ -129,7 +129,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
     test -s /etc/profile && . /etc/profile ; \
     if [ -x /usr/sbin/locale-gen ]; then \
             if [ -n "${JOBS:-}" ] && [ $(( JOBS )) -gt 1 ]; then \
-                locale-gen -k -u ${JOBS:+-j ${JOBS}} ; \
+                locale-gen -k -u ${JOBS:+"-j"} ${JOBS:+"${JOBS}"} ; \
             else \
                 locale-gen -k -u ; \
             fi ; \

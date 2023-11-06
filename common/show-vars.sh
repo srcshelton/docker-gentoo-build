@@ -37,17 +37,17 @@ for arg in "${@:-}"; do
 			;;
 		-v*)
 			if [ -z "${value:-}" ]; then
-				value="${arg#-v}"
+				value="${arg#"-v"}"
 			else
-				echo >&2 "FATAL: Too many values ('${value} ${arg#-v}') - only one supported"
+				echo >&2 "FATAL: Too many values ('${value} ${arg#"-v"}') - only one supported"
 				exit 1
 			fi
 			;;
 		--value=*)
 			if [ -z "${value:-}" ]; then
-				value="${arg#--value=}"
+				value="${arg#"--value="}"
 			else
-				echo >&2 "FATAL: Too many values ('${value} ${arg#--value=}') - only one supported"
+				echo >&2 "FATAL: Too many values ('${value} ${arg#"--value="}') - only one supported"
 				exit 1
 			fi
 			;;
@@ -73,7 +73,7 @@ if [ $(( $( id -u ) )) -ne 0 ]; then
 fi
 
 if command -v podman >/dev/null 2>&1; then
-	docker='podman'
+	_command='podman'
 fi
 
 tab="$( printf '\t' )"

@@ -36,21 +36,24 @@ declare page_volume="${PN}-pages"
 #            add_mount ...
 #          )
 #
-#shellcheck disable=SC2207
+# shellcheck disable=SC2207
 {
 declare -a docker_extra_mounts=()
 docker_extra_mounts+=( $( add_mount --print \
 		'/usr/share/info/' \
 		'/srv/host/...'
 	) ) || :
-for e in $( sed 's/:/ /g' <<<"${INFOPATH:-}" ); do
-	if [[ -d "${e}" ]]; then
-		docker_extra_mounts+=( $( add_mount --print \
-			"${e}" \
-			'/srv/host/...'
-		) ) || :
-	fi
-done
+# shellcheck disable=SC2116
+if [[ -n "${INFOPATH:-}" ]]; then
+	for e in $( echo "${INFOPATH//:/ }" ); do
+		if [[ -d "${e}" ]]; then
+			docker_extra_mounts+=( $( add_mount --print \
+				"${e}" \
+				'/srv/host/...'
+			) ) || :
+		fi
+	done
+fi
 export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 unset docker_extra_mounts
 }
@@ -66,7 +69,7 @@ if [ -s "${f}" ]; then
 fi
 unset f
 if [[ -n "${DEV_MODE:-}" ]]; then
-	DOCKER_VOLUMES+=" --volume ${PWD}/${base_dir:+${base_dir}/}entrypoint.sh.service:/usr/libexec/entrypoint.sh:ro"
+	DOCKER_VOLUMES+=" --volume ${PWD}/${base_dir:+"${base_dir}/"}entrypoint.sh.service:/usr/libexec/entrypoint.sh:ro"
 fi
 
 # Gather exported data from other created containers ...

@@ -205,7 +205,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 									use_cpu_flags="${use_cpu_flags:-}$( grep -E -- '^(Features|flags)' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' | grep -Eq -- "${flag}" && echo " ${flag}" | cut -d'|' -f 1 )"
 								done < /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc
 
-								use_cpu_flags="${use_cpu_flags# }"
+								use_cpu_flags="${use_cpu_flags#" "}"
 								echo >&2 "Auto-discovered CPU feature-flags '${use_cpu_flags}'"
 							fi
 							;;
@@ -252,7 +252,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#  Remove ssp/default-stack-clash-protection as these are causing postinst
 	#  failures with at least app-editors/vim :(
 	#
-	use_essential="asm ipv6 ithreads native-extensions ktls mdev nptl split-usr -ssp threads${use_cpu_flags:+ ${use_cpu_flags}}"
+	use_essential="asm ipv6 ithreads native-extensions ktls mdev nptl split-usr -ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
 	export use_essential
 
 	# Even though we often want a minimal set of flags, gcc's flags are significant
