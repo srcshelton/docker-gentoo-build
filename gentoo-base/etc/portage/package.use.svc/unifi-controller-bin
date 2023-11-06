@@ -56,7 +56,7 @@ dev-libs/libxml2			 python
 # required by net-print/cups-filters-1.27.4
 app-text/poppler			 cxx lcms utils
 
-net-print/cups				-ssl
+net-print/cups				 openssl ssl
 # required by virtual/jre-1.8.0-r3
 # required by virtual/jdk-1.8.0-r5
 # required by dev-java/openjdk-8.265_p01
