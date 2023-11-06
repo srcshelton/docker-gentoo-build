@@ -420,7 +420,7 @@ elif echo " ${*:-} " | grep -q -- ' --no-firmware'; then
 fi
 
 # shellcheck disable=SC2154
-$_command image list "${IMAGE%:*}" | grep -Eq -- "^(localhost/)?${IMAGE%:*}" || die "docker image '${IMAGE%:*}' not found"
+$_command image list "${IMAGE%":"*}" | grep -Eq -- "^(localhost/)?${IMAGE%":"*}" || die "docker image '${IMAGE%":"*}' not found"
 
 if mount | grep ' on /boot ' | grep -Eq '(\(ro,|,ro,|,ro\))'; then
 	output >&2
@@ -442,8 +442,8 @@ if [ -z "${build_dir:-}" ]; then
 	# here, we just won't mount it from the host later...
 	#
 	declare name="${package_override:-"${package_default}"}"
-	name="${name#*/}"
-	name="${name%-sources*}"
+	name="${name#*"/"}"
+	name="${name%"-sources"*}"
 	build_dir="/usr/src/linux-${name}-build-${compiler}${unwind:+"-unwind"}-${build_version}.x"
 	unset name
 fi
@@ -476,7 +476,7 @@ if [ -n "${config:-}" ]; then
 				note >&2 "Extracting /proc/config.gz to '${config}' ..."
 				zcat /proc/config.gz > "${config}" || die "zcat failed: ${?}"
 			else
-				config="${TMPDIR:-"/tmp"}/linux-${package_version%-r[0-9]}.config"
+				config="${TMPDIR:-"/tmp"}/linux-${package_version%"-r"[0-9]}.config"
 				if [ -e "${config}" ]; then
 					die "configuration file '${config}' already exists"
 				fi
@@ -653,7 +653,7 @@ esac
 #            add_mount ...
 #          )
 #
-#shellcheck disable=SC2207
+# shellcheck disable=SC2207
 {
 # FIXME: Standardise on host or container configuration files
 #
@@ -798,11 +798,10 @@ if ! [ "$( $_command image list "${container_name%"-${package_version}"}.${compi
 			--changed-use
 			--update
 			--usepkg=y
-			${pre_remove:+--pre-remove="${pre_remove}"}
-			${pre_pkgs:+--pre-pkgs="${pre_pkgs}"}
-			${pre_use:+--pre-use="${pre_use}"}
-			${openmp:+--post-pkgs="sys-devel/gcc"}
-			${openmp:+--post-use="-lib-only"}
+			$( add_arg pre_remove "--pre-remove=${pre_remove}" )
+			$( add_arg pre_pkgs "--pre-pkgs=${pre_pkgs}" )
+			$( add_arg pre_use "--pre-use=${pre_use}" )
+			$( add_arg openmp "--post-pkgs=sys-devel/gcc" "--post-use=-lib-only" )
 		)
 
 		# shellcheck disable=SC2086,SC2154
@@ -831,13 +830,15 @@ if ! [ "$( $_command image list "${container_name%"-${package_version}"}.${compi
 		time {
 			trap '' INT
 			if ! command -v buildah >/dev/null 2>&1; then
-				$_command ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
+				# shellcheck disable=SC2046
+				$_command $( add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT}" ) \
 						container commit \
 							"${name}" \
 							"${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" 2>&1 |
 					tee -a "log/docker.${logname}.log"
 			else
-				buildah ${IMAGE_ROOT:+--storage-opt='' --root "${IMAGE_ROOT}"} \
+				# shellcheck disable=SC2046
+				buildah $( add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT}" ) \
 						commit \
 								--squash \
 							"${name}" \

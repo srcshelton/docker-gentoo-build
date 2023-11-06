@@ -76,7 +76,7 @@ _docker_parse() {
 		if [[ -n "${next:-}" ]]; then
 			if [[ "${next}" == 'name' ]]; then
 				name="${arg}"
-				print "Setting container name to '${name}' in $( basename -- "${0#-}" )"
+				print "Setting container name to '${name}' in $( basename -- "${0#"-"}" )"
 
 			elif [[ "${next}" == 'image' ]]; then
 				image="${arg}"
@@ -98,7 +98,7 @@ _docker_parse() {
 		elif grep -Eq -- '^-(n|-name)(=[a-z0-9]+(([.]|[_]{1,2}|[-]+)[a-z0-9]+)*)?$' <<<"${arg}"; then
 			if [[ "${arg}" == *=* ]]; then
 				name="$( echo "${arg}" | cut -d'=' -f 2- )"
-				print "Setting container name to '${name}' in $( basename -- "${0#-}" )"
+				print "Setting container name to '${name}' in $( basename -- "${0#"-"}" )"
 			else
 				next='name'
 			fi
@@ -187,17 +187,17 @@ docker_run() {
 		# IPv6-addressable hosts...
 		--network host
 		--pids-limit 1024
-		  ${rm:+--rm}
+		$( add_arg rm --%% )
 		--ulimit nofile=1024:1024
 	)
-	# shellcheck disable=SC2206
+	# shellcheck disable=SC2206,SC2207
 	runargs+=(
 		--entrypoint '/bin/sh'
 		  ${DOCKER_DEVICES:-}
-		  ${ACCEPT_KEYWORDS:+--env ACCEPT_KEYWORDS}
-		  ${FEATURES:="--env FEATURES"}
-		  ${TERM:+--env TERM}
-		  ${USE:+--env USE}
+		  $( add_arg ACCEPT_KEYWORDS --env %% )
+		  $( add_arg FEATURES --env %% )
+		  $( add_arg TERM --env %% )
+		  $( add_arg USE --env %% )
 		--interactive
 		--tty
 		  ${DOCKER_EXTRA_MOUNTS:-}
@@ -206,10 +206,11 @@ docker_run() {
 	if [[ -r /proc/cgroups ]] && grep -q -- '^memory.*1$' /proc/cgroups &&
 		[[ -n "${PODMAN_MEMORY_RESERVATION:-}" || -n "${PODMAN_MEMORY_LIMIT}" || -n "${PODMAN_SWAP_LIMIT}" ]]
 	then
+		# shellcheck disable=SC2207
 		runargs+=(
-			${PODMAN_MEMORY_RESERVATION:+--memory-reservation ${PODMAN_MEMORY_RESERVATION}}
-			${PODMAN_MEMORY_LIMIT:+--memory ${PODMAN_MEMORY_LIMIT}}
-			${PODMAN_SWAP_LIMIT:+--memory-swap ${PODMAN_SWAP_LIMIT}}
+			$( add_arg PODMAN_MEMORY_RESERVATION --memory-reservation "${PODMAN_MEMORY_RESERVATION}" )
+			$( add_arg PODMAN_MEMORY_LIMIT --memory "${PODMAN_MEMORY_LIMIT}" )
+			$( add_arg PODMAN_SWAP_LIMIT --memory-swap "${PODMAN_SWAP_LIMIT}" )
 		)
 	fi
 
@@ -284,7 +285,7 @@ docker_run() {
 				: $(( skipped = skipped + 1 ))
 				continue
 			fi
-			runargs+=( --mount "type=bind,source=${src},destination=${mp}${docker_readonly:+,${docker_readonly}}" )
+			runargs+=( --mount "type=bind,source=${src},destination=${mp}${docker_readonly:+",${docker_readonly}"}" )
 		done
 	done
 	for mps in ${mirrormountpoints[@]+"${mirrormountpoints[@]}"}; do
@@ -308,7 +309,7 @@ docker_run() {
 				: $(( skipped = skipped + 1 ))
 				continue
 			fi
-			runargs+=( --mount "type=bind,source=${src},destination=${mountpointsro[${mp}]}${docker_readonly:+,${docker_readonly}}" )
+			runargs+=( --mount "type=bind,source=${src},destination=${mountpointsro[${mp}]}${docker_readonly:+",${docker_readonly}"}" )
 		done
 	done
 	for mps in ${mountpoints[@]+"${!mountpoints[@]}"}; do
@@ -364,7 +365,7 @@ docker_run() {
 					;;
 			esac
 			if [[ "${arg}" =~ ^--(mount|volume)$ ]]; then
-				next="${arg#--}"
+				next="${arg#"--"}"
 			else
 				next=''
 			fi
@@ -481,13 +482,13 @@ main() {
 		for arg in "${@:-}"; do
 			case "${arg:-}" in
 				--memory-reservation=*)
-					PODMAN_MEMORY_RESERVATION="${arg#*=}"
+					PODMAN_MEMORY_RESERVATION="${arg#*"="}"
 					;;
 				--memory-limit=*)
-					PODMAN_MEMORY_LIMIT="${arg#*=}"
+					PODMAN_MEMORY_LIMIT="${arg#*"="}"
 					;;
 				--swap-limit=*)
-					PODMAN_SWAP_LIMIT="${arg#*=}"
+					PODMAN_SWAP_LIMIT="${arg#*"="}"
 					;;
 				*)
 					main_args+=( "${arg}" )
@@ -530,50 +531,76 @@ main() {
 		: "${PODMAN_MEMORY_LIMIT:="6g"}"
 		: "${PODMAN_SWAP_LIMIT:="${PODMAN_MEMORY_LIMIT}"}"
 
-		local -i swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) + 16 ) / 1024 / 1024 ))
-		local -i ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
-		local -i changed=0
-		if (( ram < ${PODMAN_MEMORY_LIMIT%g} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
-			echo >&2 "INFO:  Host resources (rounded down to nearest 1GiB):"
-			echo >&2 "         RAM:        ${ram}G"
-			echo >&2 "         Swap:       ${swp}G"
-			echo >&2 "INFO:  Original memory limits:"
-			echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
-			echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
-			echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
-		fi
-		if (( ram < ${PODMAN_MEMORY_LIMIT%g} )); then
-			PODMAN_MEMORY_RESERVATION="$(( ram - 1 ))g"
-			PODMAN_MEMORY_LIMIT="$(( ram ))g"
-			#PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
-			if (( ram <= 1 )); then
-				PODMAN_SWAP_LIMIT="$(( ram * 2 ))g"
-			else
-				PODMAN_SWAP_LIMIT="$(( ram + $(
-					awk -v ram="${ram}" 'BEGIN{ print int( sqrt( ram ) + 0.5 ) }'
-				) ))g"
+		# FIXME: Assume that PODMAN_{SWAP_LIMIT,MEMORY_{LIMIT,RESERVATION}}
+		#        have the same order of magnitude...
+		local -i swp=0 ram=0 changed=0
+		local unit='' divider=''
+		case "${PODMAN_MEMORY_LIMIT^^}" in
+			*M)
+				unit='m'
+				divider='1024'
+				;;
+			*G)
+				unit='g'
+				divider='1024 / 1024'
+				;;
+		esac
+		if [[ -n "${unit:-}" ]]; then
+			# shellcheck disable=SC2004
+			eval swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) + 16 ) / ${divider} ))
+			# shellcheck disable=SC2004
+			eval ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / ${divider} ))
+			# shellcheck disable=SC2295
+			if (( ram < ${PODMAN_MEMORY_LIMIT%[${unit,,}${unit^^}]} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%[${unit,,}${unit^^}]} )); then
+				output >&2 "INFO:  Host resources (rounded down to nearest 1${unit^^}iB):"
+				output >&2 "         RAM:        ${ram}${unit^^}"
+				output >&2 "         Swap:       ${swp}${unit^^}"
+				output >&2 "INFO:  Original memory limits:"
+				# shellcheck disable=SC2295
+				output >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%[${unit,,}${unit^^}]}${unit^^}"
+				# shellcheck disable=SC2295
+				output >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%[${unit,,}${unit^^}]}${unit^^}"
+				# shellcheck disable=SC2295
+				output >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%[${unit,,}${unit^^}]}${unit^^}"
 			fi
-			changed=1
-		fi
-		if (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%g} )); then
-			#PODMAN_SWAP_LIMIT="$(( ram + swp ))g"
-			if (( ram <= 1 )); then
-				PODMAN_SWAP_LIMIT="$(( ram * 2 ))g"
-			else
-				PODMAN_SWAP_LIMIT="$(( ram + $(
-					awk -v ram="${ram}" 'BEGIN{ print int( sqrt( ram ) + 0.5 ) }'
-				) ))g"
+			# shellcheck disable=SC2295
+			if (( ram < ${PODMAN_MEMORY_LIMIT%[${unit,,}${unit^^}]} )); then
+				PODMAN_MEMORY_RESERVATION="$(( ram - 1 ))${unit,,}"
+				PODMAN_MEMORY_LIMIT="$(( ram ))${unit,,}"
+				#PODMAN_SWAP_LIMIT="$(( ram + swp ))${unit,,}"
+				if (( ram <= 1 )); then
+					PODMAN_SWAP_LIMIT="$(( ram * 2 ))${unit,,}"
+				else
+					PODMAN_SWAP_LIMIT="$(( ram + $(
+						awk -v ram="${ram}" 'BEGIN{ print int( sqrt( ram ) + 0.5 ) }'
+					) ))${unit,,}"
+				fi
+				changed=1
 			fi
-			changed=1
+			# shellcheck disable=SC2295
+			if (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%[${unit,,}${unit^^}]} )); then
+				#PODMAN_SWAP_LIMIT="$(( ram + swp ))${unit,,}"
+				if (( ram <= 1 )); then
+					PODMAN_SWAP_LIMIT="$(( ram * 2 ))${unit,,}"
+				else
+					PODMAN_SWAP_LIMIT="$(( ram + $(
+						awk -v ram="${ram}" 'BEGIN{ print int( sqrt( ram ) + 0.5 ) }'
+					) ))${unit,,}"
+				fi
+				changed=1
+			fi
+			if (( changed )); then
+				output >&2 "NOTE:  Changed memory limits based on host configuration:"
+				# shellcheck disable=SC2295
+				output >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%[${unit,,}${unit^^}]}${unit^^}"
+				# shellcheck disable=SC2295
+				output >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%[${unit,,}${unit^^}]}${unit^^}"
+				# shellcheck disable=SC2295
+				output >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%[${unit,,}${unit^^}]}${unit^^}"
+				output >&2
+			fi
 		fi
-		if (( changed )); then
-			echo >&2 "NOTE:  Changed memory limits based on host configuration:"
-			echo >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%g}G"
-			echo >&2 "         Hard limit: ${PODMAN_MEMORY_LIMIT%g}G"
-			echo >&2 "         RAM + Swap: ${PODMAN_SWAP_LIMIT%g}G"
-			echo >&2
-		fi
-		unset changed ram swp
+		unset changed ram swp divider unit
 	fi
 
 	declare rm=''
