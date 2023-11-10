@@ -11,16 +11,10 @@
 ~dev-util/bcc-0.28.0					~amd64
 ~dev-util/dropwatch-1.4_p20150706			~amd64 ~arm ~arm64 ~x86
 ~net-analyzer/masscan-1.3.2				~amd64 ~arm ~arm64 ~x86
-~net-analyzer/netdata-1.39.1				~amd64 ~arm ~arm64 ~x86
+~net-analyzer/netdata-1.43.2				~amd64 ~arm ~arm64 ~x86
 ~net-im/bitlbee-3.6-r3					       ~arm ~arm64
 ~net-nds/phpldapadmin-1.2.6.3				~amd64 ~arm ~arm64 ~x86
 ~sys-apps/bpftune-0.1.3_p20230802			~amd64 ~arm ~arm64 ~x86
 ~sys-process/ctop-0.7.7					~amd64 ~arm ~arm64 ~x86
-
-# Keyword remaining unstable packages needed to support python3_11...
-#=net-misc/rsync-3.2.7-r2				~amd64 ~arm ~arm64 ~x86
-#=net-libs/ldns-1.8.3-r1				~amd64 ~arm ~arm64 ~x86
-#=sys-libs/cracklib-2.9.11				~amd64 ~arm ~arm64 ~x86
-#=sys-process/iotop-0.6_p20230124			~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:
