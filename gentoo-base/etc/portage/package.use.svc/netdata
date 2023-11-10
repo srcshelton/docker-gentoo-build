@@ -9,7 +9,7 @@ net-analyzer/tcpdump			 suid
 net-libs/libwebsockets			 http2 ipv6 lejp libev libuv peer-limits sqlite3 ssl threads zip
 net-libs/nodejs				 icu snapshot system-icu system-ssl
 
-acct-user/netdata			 podman
+acct-user/netdata			 podman ssl
 app-containers/netavark			 dns
 app-containers/podman			 wrapper
 dev-libs/libpcre2			 unicode
