@@ -1014,7 +1014,11 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	kernel='bzImage' ;
 	dir='x86' ;
 	dtb='' ;
+	extract=0 ;
 	case "${arch:-"${ARCH:-}"}" in
+		x86|amd64)
+			extract=1 ;
+			;;
 		arm64)
 			kernel='Image.gz' ;
 			dir='arm64'
@@ -1097,9 +1101,10 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		rm -rf "/lib/modules/${package_version}${distro:-}" &&
 			make ${kernel_make_opts[@]} INSTALL_MOD_STRIP=1 modules_install &&
 				success=1 ;
-	sh scripts/extract-vmlinux ../build/arch/\${dir}/boot/\${kernel} > vmlinux &&
-		[ -f vmlinux ] &&
-			mv vmlinux ../build/ ;
+	if [ "\{extract}" = '1' ]; then
+		sh scripts/extract-vmlinux ../build/arch/\${dir}/boot/\${kernel} > vmlinux &&
+			[ -f vmlinux ] && mv vmlinux ../build/ || success=0 ;
+	fi ;
 	if [ "${install}" = '1' ]; then
 		set +x ;
 		if [ -s /boot/boot.config -o -s /proc/bootconfig ] && [ -e /boot/initramfs.img ]; then
@@ -1122,7 +1127,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 			cp ../build/.config /boot/config-${package_version}${distro:-} ;
 			cp ../build/System.map /boot/System.map-${package_version}${distro:-} ;
 			cp ../build/arch/\${dir}/boot/\${kernel} /boot/kernel-${package_version}${distro:-} ;
-			cp ../build/vmlinux /lib/modules/${package_version}${distro:-}/vmlinux-${package_version}${distro:-} ;
+			[ -f ../build/vmlinux ] && cp ../build/vmlinux /lib/modules/${package_version}${distro:-}/vmlinux-${package_version}${distro:-} ;
 			set +x ;
 			echo 'Linux kernel-${package_version}${distro:-} successfully installed - please update your bootloader' ;
 		fi ;
