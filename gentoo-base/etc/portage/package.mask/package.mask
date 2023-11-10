@@ -42,6 +42,6 @@ sys-apps/gentoo-functions::gentoo
 
 # Mask python-3.12 until everything we care about is compatible
 # (... and let's not forget to revert this, next time!)
-#>=dev-lang/python-3.12
+>=dev-lang/python-3.12
 
 # vi: set colorcolumn=80 syntax=gentoo-package-mask:
