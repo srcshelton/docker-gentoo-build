@@ -48,7 +48,7 @@
 #         but appears to succeed with 10GB limit.
 #
 : "${PODMAN_MEMORY_RESERVATION:="2g"}"
-: "${PODMAN_MEMORY_LIMIT:="10g"}"
+: "${PODMAN_MEMORY_LIMIT:="12g"}"
 : "${PODMAN_SWAP_LIMIT:="${PODMAN_MEMORY_LIMIT}"}"
 
 _command='docker'
