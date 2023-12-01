@@ -268,6 +268,7 @@ sys-auth/elogind			 CC0-1.0
 # required by dev-lang/spidermonkey-78.6.0
 # required by virtual/rust-1.47.0
 dev-lang/rust				 UoI-NCSA # BSD-1
+dev-lang/rust-bin			 UoI-NCSA
 
 # required by web-content
 mail-client/roundcube			 PHP-2.02 PHP-3
