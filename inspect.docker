@@ -208,9 +208,9 @@ docker_run() {
 	then
 		# shellcheck disable=SC2207
 		runargs+=(
-			$( add_arg PODMAN_MEMORY_RESERVATION --memory-reservation "${PODMAN_MEMORY_RESERVATION}" )
-			$( add_arg PODMAN_MEMORY_LIMIT --memory "${PODMAN_MEMORY_LIMIT}" )
-			$( add_arg PODMAN_SWAP_LIMIT --memory-swap "${PODMAN_SWAP_LIMIT}" )
+			$( add_arg PODMAN_MEMORY_RESERVATION --memory-reservation "${PODMAN_MEMORY_RESERVATION:-}" )
+			$( add_arg PODMAN_MEMORY_LIMIT --memory "${PODMAN_MEMORY_LIMIT:-}" )
+			$( add_arg PODMAN_SWAP_LIMIT --memory-swap "${PODMAN_SWAP_LIMIT:-}" )
 		)
 	fi
 

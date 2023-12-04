@@ -798,9 +798,9 @@ if ! [ "$( $_command image list "${container_name%"-${package_version}"}.${compi
 			--changed-use
 			--update
 			--usepkg=y
-			$( add_arg pre_remove "--pre-remove=${pre_remove}" )
-			$( add_arg pre_pkgs "--pre-pkgs=${pre_pkgs}" )
-			$( add_arg pre_use "--pre-use=${pre_use}" )
+			$( add_arg pre_remove "--pre-remove=${pre_remove:-}" )
+			$( add_arg pre_pkgs "--pre-pkgs=${pre_pkgs:-}" )
+			$( add_arg pre_use "--pre-use=${pre_use:-}" )
 			$( add_arg openmp "--post-pkgs=sys-devel/gcc" "--post-use=-lib-only" )
 		)
 
@@ -831,14 +831,14 @@ if ! [ "$( $_command image list "${container_name%"-${package_version}"}.${compi
 			trap '' INT
 			if ! command -v buildah >/dev/null 2>&1; then
 				# shellcheck disable=SC2046
-				$_command $( add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT}" ) \
+				$_command $( add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT:-}" ) \
 						container commit \
 							"${name}" \
 							"${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" 2>&1 |
 					tee -a "log/docker.${logname}.log"
 			else
 				# shellcheck disable=SC2046
-				buildah $( add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT}" ) \
+				buildah $( add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT:-}" ) \
 						commit \
 								--squash \
 							"${name}" \
