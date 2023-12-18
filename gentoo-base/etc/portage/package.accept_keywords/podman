@@ -383,8 +383,9 @@
 #~app-containers/conmon-2.1.4				 **
 #~app-containers/conmon-2.1.5				 **
 #~app-containers/conmon-2.1.6				 **
-~app-containers/conmon-2.1.7				 **
+#~app-containers/conmon-2.1.7				 **
 ~app-containers/conmon-2.1.8				 **
+~app-containers/conmon-2.1.9				 **
 
 # originally required by app-emulation/podman-1.9.3[rootless]
 # move app-emulation/slirp4netns app-containers/slirp4netns
