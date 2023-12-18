@@ -1096,8 +1096,10 @@ fi
 	echo " * Packages to install: ${service_pkgs}"
 	echo " * Packages to exclude: ${pre_remove:-"<none>"}"
 
+	# 'minimal' required to avoid sys-libs/glibc -> sys-apps/gentoo-functions -> sys-apps/busybox -> virtual/libc -> sys-libs/glibc circular dependency...
+	#
 	# shellcheck disable=SC2086,SC2046
-	if ! emerge \
+	if ! USE="${USE:+"${USE} "}minimal" emerge \
 			--ignore-default-opts \
 			  ${parallel} \
 			--binpkg-changed-deps=y \
