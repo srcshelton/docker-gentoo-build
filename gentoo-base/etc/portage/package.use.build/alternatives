@@ -5,6 +5,7 @@ app-alternatives/bzip2			 reference  # pbzip2 lbzip2
 app-alternatives/cpio			 gnu  # libarchive
 app-alternatives/gzip			 reference  # pigz
 app-alternatives/lex			 flex  # reflex
+app-alternatives/ninja			 reference  # samurai
 app-alternatives/sh			 bash  # busybox dash ksh lksh mksh
 app-alternatives/tar			 gnu  # libarchive
 app-alternatives/yacc			-reference bison  # byacc
