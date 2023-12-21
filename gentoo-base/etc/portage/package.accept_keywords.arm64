@@ -94,6 +94,7 @@
 =sys-kernel/raspberrypi-sources-5.15.84_p20230306	~arm64
 =sys-kernel/raspberrypi-sources-6.1.19_p20230317	~arm64
 =sys-kernel/raspberrypi-sources-6.1.21_p20230405	~arm64
+=sys-kernel/raspberrypi-sources-6.1.58_p20231024	~arm64
 =sys-kernel/raspberrypi-sources-6.1.63_p20231123	~arm64
 
 # arm64 is currently not well-keyworded, so match specific 'arm' stable
