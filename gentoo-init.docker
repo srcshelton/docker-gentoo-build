@@ -72,11 +72,10 @@ declare -i NOTIFY_MKDIR=0
 #declare docker_arch=''
 #declare arch=''
 
-# use_pypy & use_pypy_use are defined in common/vars.sh
-#declare use_pypy_pre=''
-#declare use_pypy_pre_use=''
-#declare use_pypy_post=''
-#declare use_pypy_post_remove=''
+# pkg_pypy, pkg_pypy_use & pkg_pypy_post_remove are defined in common/vars.sh
+#declare pkg_pypy=''
+#declare pkg_pypy_use=''
+#declare pkg_pypy_post_remove=''
 
 # shellcheck disable=SC1091
 [[ ! -s common/vars.sh ]] || . common/vars.sh
@@ -1288,10 +1287,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		declare -a build_args=()
 		# shellcheck disable=SC2046
 		build_args+=( # <- Syntax
-			--post-pkgs="app-arch/tar${use_pypy_post:+" ${use_pypy_post}"}"
-			--post-use="-* $( replace_flags \
-				'xattr' -- "${use_essential:-} ${use_pypy_post_use:-}"
-			  )"
+			--post-use="-* $( replace_flags 'xattr' -- "${use_essential:-}" )"
 			--update
 			--usepkg=y
 			--with-bdeps-auto=n
@@ -1306,28 +1302,22 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 							echo "python_targets_${python_target}"
 						done
 					) \
-					"${use_pypy_use:+"python_targets_pypy3"}" \
-					"${use_pypy_use:-}" \
+					"${pkg_pypy_use:+"python_targets_pypy3"}" \
+					"${pkg_pypy_use:-}" \
 				-- \
 					"${use_essential:-} ${use_essential_gcc:-}"
 			  )"
 		)
-		[[ -z "${use_pypy_pre:-}" ]] || build_args+=( # <- Syntax
-			--pre-pkgs="${use_pypy_pre}"
-		)
-		[[ -z "${use_pypy_pre_use:-}" ]] || build_args+=( # <- Syntax
-			--pre-use="${use_pypy_pre_use}"
-		)
-		[[ -z "${use_pypy_post_remove:-}" ]] || build_args+=( # <- Syntax
-			--post-remove="${use_pypy_post_remove}"
+		[[ -z "${pkg_pypy_post_remove:-}" ]] || build_args+=( # <- Syntax
+			--post-remove="${pkg_pypy_post_remove}"
 		)
 		# shellcheck disable=SC2086
 		_docker_run "${build_args[@]}" \
 				dev-libs/icu dev-util/pkgconf sys-apps/locale-gen \
 				sys-apps/sed sys-apps/util-linux sys-devel/gcc \
 				sys-libs/libeudev @system \
-				${use_pypy:+"sys-apps/portage"} \
-				${use_pypy:-} 2>&1 |
+				${pkg_pypy:+"sys-apps/portage"} \
+				${pkg_pypy:-} 2>&1 |
 			tee -a ../log/"docker.${build_name#*"/"}.log"
 		unset build_args
 	)

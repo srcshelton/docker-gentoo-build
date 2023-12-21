@@ -275,22 +275,22 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			# memtotal is rounded-down, so 4GB systems have a memtotal of 3...
 			if [ $(( memtotal )) -ge 4 ]; then
 				# Enable pypy support for Portage accleration of ~35%!
-				use_pypy="dev-python/pypy3"
-				use_pypy_use="bzip2 jit"
-				use_pypy_post_remove="dev-lang/python:2.7"
+				pkg_pypy="dev-python/pypy3"
+				pkg_pypy_use="bzip2 jit"
+				pkg_pypy_post_remove="dev-lang/python:2.7"
 				# Update: dev-python/pypy3_10-exe-7.3.12_p2 now requires 10GB RAM
 				#         in order to build successfully :(
 				if [ $(( memtotal )) -gt 9 ]; then
-					use_pypy="${use_pypy} dev-python/pypy3-exe"
+					pkg_pypy="${pkg_pypy} dev-python/pypy3_10-exe"
 				else
 					# On a system with 4GB of memory and python3.11, the install
 					# process for dev-python/pypy3-7.3.11_p1 now hangs indefinitely
 					# after issuing a message reading:
 					#concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
-					use_pypy="${use_pypy} dev-python/pypy3-exe-bin"
-					use_pypy_use="${use_pypy_use} low-memory"
+					pkg_pypy="${pkg_pypy} dev-python/pypy3_10-exe-bin"
+					pkg_pypy_use="${pkg_pypy_use} low-memory"
 				fi
-				export use_pypy use_pypy_use use_pypy_post_remove
+				export pkg_pypy pkg_pypy_use pkg_pypy_post_remove
 			fi
 			unset memtotal
 			;;
