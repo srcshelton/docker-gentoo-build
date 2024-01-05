@@ -1,15 +1,21 @@
 
 # Upgrade past last remaining packages which don't work with python:3.8...
-=dev-libs/libnl-3.5.0::srcshelton			~amd64
-=sys-apps/kmod-27-r2					~amd64
+#=dev-libs/libnl-3.5.0::srcshelton			~amd64
+#=sys-apps/kmod-27-r2					~amd64
 
 # Causes build conflict...
-=dev-python/more-itertools-8.14.0			~amd64 ~arm64
+#=dev-python/more-itertools-8.14.0			~amd64 ~arm64
 
 # python packages are deprecated quickly, and sometimes the stage3 image we're
-# building off has moved ahead of our packages between sync's...
-=dev-python/ensurepip-wheels-63.4.3.22.2.2		~amd64
-=dev-python/typing-extensions-4.5.0			~amd64
-=dev-python/platformdirs-3.1.1				~amd64 ~arm64
+# building from has moved ahead of our packages between sync's...
+#=dev-python/ensurepip-wheels-63.4.3.22.2.2		~amd64
+#=dev-python/typing-extensions-4.5.0			~amd64
+#=dev-python/platformdirs-3.1.1				~amd64 ~arm64
+
+# python cleanup is pulling in keyworded packages...
+=dev-libs/libxslt-1.1.39				~amd64
+=dev-python/hatchling-1.21.0				~amd64
+=dev-python/pathspec-0.12.1				~amd64
+=dev-python/typing-extensions-4.9.0			~amd64
 
 # vi: set syntax=gentoo-package-keywords:
