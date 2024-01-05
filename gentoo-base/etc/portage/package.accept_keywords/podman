@@ -92,8 +92,9 @@
 #~app-containers/podman-4.7.2				 **
 #~app-containers/podman-4.8.0_rc1			 **
 #~app-containers/podman-4.8.0				 **
-~app-containers/podman-4.8.1				 **
+#~app-containers/podman-4.8.1				 **
 ~app-containers/podman-4.8.2				 **
+~app-containers/podman-4.8.3				 **
 
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				 **
@@ -278,8 +279,9 @@
 #~app-containers/runc-1.1.6				 **
 #~app-containers/runc-1.1.7				 **
 #~app-containers/runc-1.1.8				 **
-~app-containers/runc-1.1.9				 **
+#~app-containers/runc-1.1.9				 **
 ~app-containers/runc-1.1.10				 **
+~app-containers/runc-1.1.11				 **
 
 #~app-containers/containers-common-0.56.0		 **
 ~app-containers/containers-common-0.57.0		 **
