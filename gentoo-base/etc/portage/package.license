@@ -60,6 +60,7 @@ app-misc/c_rehash			 openssl
 dev-libs/openssl			 openssl
 dev-libs/openssl-compat			 openssl
 sys-auth/passwdqc			 Openwall
+dev-python/docutils			 PSF-2
 dev-python/typing-extensions		 PSF-2
 dev-lang/php				 PHP-3.01 Zend-2.0 gd
 dev-lang/python				 PSF-2
