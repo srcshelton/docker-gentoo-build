@@ -34,7 +34,8 @@ llvm_targets_XCore
 # The version used by the upstream Gentoo stage3 image must also be unmasked,
 # otherwise python-exec will fail to build...
 #
-# N.B. python_targets_python3_10 still required for kernel rust support
+# N.B. python_targets_python3_10 still required for kernel rust support prior
+#      to kernel-6.5.0
 #
 #python_targets_pypy3
 python_targets_python3_6
