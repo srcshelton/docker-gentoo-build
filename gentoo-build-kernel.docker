@@ -40,16 +40,9 @@ if grep -q -- 'Model.*Raspberry Pi' /proc/cpuinfo; then
 fi
 readonly package_default
 
-declare rust_ver='1.62.0'
-# https://github.com/rust-lang/rust-bindgen/issues/2312
-declare bindgen_ver='0.56.0'
-
 declare binutils_min_ver='2.25.0'
 declare gcc_min_ver='5.1.0'  # 12.0.0 on PA-RISC
 declare llvm_min_ver='11.0.0'  # 15.0.0 on S390
-
-declare -i llvm_slot=14
-declare llvm_sub_slot='14.0.6'
 
 declare firmware=''
 declare microcode=''
@@ -105,9 +98,9 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	usage="Usage: $( basename "${0}" ) "
 	# shellcheck disable=SC2116 # echo used for line-splitting
 	options="$( echo \
-		"[--config-from=<file> [--force]]|[--config=<defconfig>]" \
+		"[--config-from=<file> [--force]]|[--defconfig=<target>]" \
 		"[--no-keep-build|--keep-build[=<dir>]]" \
-		"[--no-patch|--patch=<url>[,<url]]" \
+		"[--no-patch|--patch=<path|url> [<path|url> ...]]" \
 		"[--menuconfig|--nconfig]" \
 		"[--package=<atom>] [--no-firmware|--firmware] [--clean]" \
 		"[--clang [--clean-lto] [--llvm-unwind] [--rust]] [-O3]" \
@@ -124,12 +117,13 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "                                     the '--keep-build' option to save the"
 	output >&2 "                                     build output"
 	output >&2 "       --defconfig <target>     preconfigure with specified 'make' target"
-	output >&2 "       --config <target>        configure with specified 'make' target"
+	# Turns out this was never implemented!?
+	#output >&2 "       --target <target>        configure with specified 'make' target"
 	output >&2 "       --keep-build [dir]       Cache the kernel build artefacts for re-use"
 	output >&2 "                               (optionally in the specified directory)"
 	output >&2 "       --force                  Overwrite build-cache configuration with"
 	output >&2 "                                the specified file"
-	output >&2 "       --patch <url>            Apply patch (-p1) from specified URL"
+	output >&2 "       --patch <url>            Apply patch (-p1) from specified file or URL"
 	output >&2 "       --menuconfig             Interactively reconfigure the kernel via ncurses"
 	output >&2 "       --nconfig                Interactively reconfigure the kernel via nconfig"
 	output >&2 "       --package <package>      Specify kernel package to build"
@@ -139,7 +133,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "       --clang                  Compile kernel with llvm"
 	output >&2 "       --llvm-unwind            Install LLVM edition of libunwind"
 	output >&2 "       --rust                   Pull-in 'rust' dependencies"
-	output >&2 "       --force-llvm <version>   Force a specified LLVM version instead of '${llvm_sub_slot}'"
+	output >&2 "       --force-llvm <version>   Force a specified LLVM version"
 	output >&2
 	output >&2 "       --no-install             Don't install build-products to /boot"
 	output >&2 "       --clean                  Run 'make clean' before build"
@@ -158,24 +152,26 @@ if (( EUID )); then
 	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi
 
-declare -i build=1
+declare -i keep_build=1
 declare -i clean=0
 declare -i clean_lto=0
 declare -i force=0
 declare -i install=1
+declare -i llvm_slot_override=0
 declare -i opt_o3=0
-declare -i rust=0
 declare -i raise_mem=0
+declare -i rust=0
 declare build_dir=''
 declare compiler='gcc'
-declare config=''
+declare config_file=''
 declare defconfig=''
+declare llvm_sub_slot_override=''
 declare menuconfig=''
 declare nconfig=''
-declare patch=''
-declare unwind=''
 declare package_override=''
+declare patch=''
 declare rust_llvm_use=''
+declare unwind=''
 
 if [[ -n "${kbuild_opt:-}" ]]; then
 	declare arg=''
@@ -226,16 +222,21 @@ if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 	fi
 	if echo " ${*:-} " | grep -q -- ' --force-llvm'; then
 		if echo " ${*:-} " | grep -q -- ' --force-llvm=[^ ]\+ '; then
-			llvm_sub_slot="$( echo " ${*} " | grep -o -- '--force-llvm=[^ ]\+ ' | cut -d'=' -f 2- | sed 's/ $//' | sort -V | tail -n 1 )"
+			llvm_sub_slot_override="$( echo " ${*} " | grep -o -- '--force-llvm=[^ ]\+ ' | cut -d'=' -f 2- | sed 's/ $//' | sort -V | tail -n 1 )"
 		elif echo " ${*:-} " | grep -q -- ' --force-llvm [^ -][^ ]* '; then
-			llvm_sub_slot="$( echo " ${*} " | grep -o -- '--force-llvm [^ ]\+ ' | cut -d' ' -f 2- | sed 's/ $//' | sort -V | tail -n 1 )"
+			llvm_sub_slot_override="$( echo " ${*} " | grep -o -- '--force-llvm [^ ]\+ ' | cut -d' ' -f 2- | sed 's/ $//' | sort -V | tail -n 1 )"
 		else
 			warn "Invalid LLVM version '$( echo " ${*:-} " | grep -o -- ' --force-llvm[^ ]\+ ' | sed 's/ $//' )'"
 		fi
 
-		print "llvm_sub_slot is '${llvm_sub_slot}' from '${*}'"
-		(( llvm_slot = $( cut -d'.' -f 1 <<<"${llvm_sub_slot}" ) ))
-		rust_llvm_use='-system-llvm'
+		if [[ -n "${llvm_sub_slot_override:-}" ]]; then
+			print "Override llvm_sub_slot is '${llvm_sub_slot_override}'" \
+				"from '${*}'"
+			(( llvm_slot_override = $(
+				cut -d'.' -f 1 <<<"${llvm_sub_slot_override}"
+			) ))
+			rust_llvm_use='-system-llvm'
+		fi
 	fi
 else
 	if echo " ${*:-} " | grep -Fq -- ' --clean-lto '; then
@@ -253,9 +254,9 @@ else
 fi
 if echo " ${*:-} " | grep -Eq -- ' --config(-from)?[= ]'; then
 	if echo " ${*:-} " | grep -Eq -- ' --config(-from)?=[^ ]+ '; then
-		config="$( echo " ${*} " | grep -Eo -- '--config(-from)?=[^ ]+ ' | cut -d'=' -f 2- | sed 's/ $//' )"
+		config_file="$( echo " ${*} " | grep -Eo -- '--config(-from)?=[^ ]+ ' | cut -d'=' -f 2- | sed 's/ $//' )"
 	elif echo " ${*:-} " | grep -Eq -- ' --config(-from)? [^ -][^ ]* '; then
-		config="$( echo " ${*} " | grep -Eo -- '--config(-from)? [^ ]+ ' | cut -d' ' -f 2- | sed 's/ $//' )"
+		config_file="$( echo " ${*} " | grep -Eo -- '--config(-from)? [^ ]+ ' | cut -d' ' -f 2- | sed 's/ $//' )"
 	else
 		warn "Invalid config option '$( echo " ${*:-} " | grep -Eo -- '--config[^ ]*[= ][^ ]+ ' | sed 's/ $//' )'"
 	fi
@@ -283,8 +284,8 @@ if echo " ${*:-} " | grep -Eq -- ' --defconfig[= ]'; then
 		warn "Invalid config option '$( echo " ${*:-} " | grep -Eo -- '--defconfig[^ ]*[= ][^ ]+ ' | sed 's/ $//' )'"
 	fi
 fi
-if [[ -n "${config:-}" && -n "${defconfig:-}" ]]; then
-	warn "'--defconfig' (${defconfig}) overrides '--config-from' (${config}) - using former value"
+if [[ -n "${config_file:-}" && -n "${defconfig:-}" ]]; then
+	warn "'--defconfig' (${defconfig}) overrides '--config-from' (${config_file}) - using former value"
 fi
 if echo " ${*:-} " | grep -q -- ' --keep-build'; then
 	if echo " ${*:-} " | grep -q -- ' --keep-build=[^ ]\+ '; then
@@ -295,10 +296,10 @@ if echo " ${*:-} " | grep -q -- ' --keep-build'; then
 		:
 	else
 		warn "Invalid build option '$( echo " ${*:-} " | grep -o -- '--keep-build[^ ]\+ ' | sed 's/ $//' )'"
-		build=0
+		keep_build=0
 	fi
 elif echo " ${*:-} " | grep -q -- ' --no-keep-build'; then
-	build=0
+	keep_build=0
 fi
 if echo " ${*:-} " | grep -q -- ' --package'; then
 	if echo " ${*:-} " | grep -q -- ' --package=[^ ]\+ '; then
@@ -314,12 +315,19 @@ declare package=''
 declare package_version=''
 declare container_name=''
 declare distro=''
+if ! echo "${package_override:-"${package_default}"}" | grep -Fq -- '/'; then
+	package_override="$( # <- Syntax
+		sed -r 's|^([^a-zA-Z])*([a-zA-Z].*)$|\1sys-kernel/\2|' \
+			<<<"${package_override:-"${package_default}"}"
+	)"
+	print "Searching for package name '${package_override}' ..."
+fi
 _docker_resolve "${package_override:-"${package_default}"}"
 if ! echo "${package}" | grep -Fq -- '/'; then
 	error "Resolved package '${package}' with version '${package_version}' lacks a category"
-	#note "(... we could always add in 'sys-kernel/' as an assumed prefix?)"
 	die "Essential package data not found - aborting"
 fi
+print "Using package '=${package}' ..."
 # shellcheck disable=SC2001 # POSIX sh compatibility
 container_name="$( echo "${package}" | sed 's|/|.|' )"
 export container_name
@@ -330,78 +338,75 @@ case "${package}" in
 esac
 
 # Unless noted, the patches below are for the highest supported GCC version...
-case "${package_version}" in
-	3.[23456789].*|3.1[01234].*)
-		# gcc-4.2 patch also available
-		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/linux-3.2%2B/gcc-4.9%2B/enable_additional_cpu_optimizations_for_gcc_v4.9%2B.patch' ;;
-	3.1[56789].*|4.[0123456789].*|4.1[012].*)
-		# gcc-4.2 patch also available
-		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/enable_additional_cpu_optimizations_for_gcc_v4.9%2B_kernel_v3.15%2B.patch' ;;
-	4.1[345678].*)
-		# gcc-4.9 patch also available
-		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/enable_additional_cpu_optimizations_for_gcc_v8.1%2B_kernel_v4.13%2B.patch' ;;
-	4.19.*|5.[01234].*)
-		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-4.19-5.4.patch' ;;
-	5.[56].*)
-		# gcc-9.1 patch also available
-		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/enable_additional_cpu_optimizations_for_gcc_v10.1%2B_kernel_v5.5-v5.6.patch' ;;
-	5.7.*)
-		# gcc-9.1 patch also available
-		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/enable_additional_cpu_optimizations_for_gcc_v10.1%2B_kernel_v5.7.patch' ;;
-	5.[89].*|5.1[01234].*)
-		#if type -pf gcc >/dev/null 2>&1; then
-		#	case "$( gcc --version | awk '( NR == 1 ) { print $NF }' )" in
-		#		9.*)
-		#			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v9-and-kernel-5.8%2B.patch' ;;
-		#		10.*)
-		#			patch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v10-and-kernel-5.8%2B.patch' ;;
-		#	esac
-		#fi
-		#patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.8%2B.patch'
-		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.8-5.14.patch'
-		case "${package_version}" in
-			5.11.*)
-				patch="${patch:+"${patch} "}https://lore.kernel.org/linux-btrfs/206d121e2e2b609ffe31217e6d90bfabe1c4e121.1616066404.git.fdmanana@suse.com/raw" ;;
-		esac
-		;;
-	5.15.*|5.16.*)
-		#patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15%2B.patch' ;;
-		patch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15-5.16.patch' ;;
-	5.1[789].*|6.[0123456].*)
-		patch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.17%2B.patch'
-		case "${package_version}" in
-			5.19.*)
-				patch="${patch:+"${patch} "}https://lore.kernel.org/all/20220630090100.2769490-1-yi.zhang@huawei.com/raw"
-		esac
-		;;
-	'')
-		: ;;
-	*)
-		if ! echo " ${*:-} " | grep -q -- ' --no-patch'; then
-			warn "No known patch for kernel ${package_version} from https://github.com/graysky2/kernel_compiler_patch"
-		fi
-		;;
-esac
-case "${package_version}" in
-	[12345].*|6.0.*)
-		if (( rust )); then
-			warn "Disabling dev-lang/rust support prior to kernel 6.1.x"
-			rust=0
-		fi
-		;;
-	6.5.*)
-		rust_ver='1.68.2'
-		;;
-	6.6.*)
-		rust_ver='1.71.1'
-		bindgen_ver='0.65.1'
-		;;
-esac
+declare kpatch=''
+if ! echo " ${*:-} " | grep -q -- ' --no-patch'; then
+	case "${package_version}" in
+		3.[23456789].*|3.1[01234].*)
+			# gcc-4.2 patch also available
+			kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/linux-3.2%2B/gcc-4.9%2B/enable_additional_cpu_optimizations_for_gcc_v4.9%2B.patch' ;;
+		3.1[56789].*|4.[0123456789].*|4.1[012].*)
+			# gcc-4.2 patch also available
+			kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/enable_additional_cpu_optimizations_for_gcc_v4.9%2B_kernel_v3.15%2B.patch' ;;
+		4.1[345678].*)
+			# gcc-4.9 patch also available
+			kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/enable_additional_cpu_optimizations_for_gcc_v8.1%2B_kernel_v4.13%2B.patch' ;;
+		4.19.*|5.[01234].*)
+			kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-4.19-5.4.patch' ;;
+		5.[56].*)
+			# gcc-9.1 patch also available
+			kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/enable_additional_cpu_optimizations_for_gcc_v10.1%2B_kernel_v5.5-v5.6.patch' ;;
+		5.7.*)
+			# gcc-9.1 patch also available
+			kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/outdated_versions/enable_additional_cpu_optimizations_for_gcc_v10.1%2B_kernel_v5.7.patch' ;;
+		5.[89].*|5.1[01234].*)
+			#if type -pf gcc >/dev/null 2>&1; then
+			#	case "$( gcc --version | awk '( NR == 1 ) { print $NF }' )" in
+			#		9.*)
+			#			kpatch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v9-and-kernel-5.8%2B.patch' ;;
+			#		10.*)
+			#			kpatch='https://raw.githubusercontent.com/graysky2/kernel_gcc_patch/master/more-uarches-for-gcc-v10-and-kernel-5.8%2B.patch' ;;
+			#	esac
+			#fi
+			#kpatch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.8%2B.patch'
+			kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.8-5.14.patch'
+			case "${package_version}" in
+				5.11.*)
+					kpatch="${kpatch:+"${kpatch} "}https://lore.kernel.org/linux-btrfs/206d121e2e2b609ffe31217e6d90bfabe1c4e121.1616066404.git.fdmanana@suse.com/raw" ;;
+			esac
+			;;
+		5.15.*|5.16.*)
+			#kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15%2B.patch' ;;
+			kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-5.15-5.16.patch' ;;
+		5.1[789].*|6.[01234567].*)
+			kpatch='https://github.com/graysky2/kernel_compiler_patch/raw/master/more-uarches-for-kernel-5.17%2B.patch'
+			case "${package_version}" in
+				5.19.*)
+					kpatch="${kpatch:+"${kpatch} "}https://lore.kernel.org/all/20220630090100.2769490-1-yi.zhang@huawei.com/raw"
+			esac
+			;;
+		6.8.*)
+			#kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-6.8%2B.patch' ;;
+			:
+			;;
+		'')
+			: ;;
+		*)
+			#if ! echo " ${*:-} " | grep -q -- ' --no-patch'; then
+				warn "No known patch for kernel ${package_version} from https://github.com/graysky2/kernel_compiler_patch"
+			#fi
+			;;
+	esac
+fi
 case "${arch:-"${ARCH:-}"}" in
 	arm64)
-		patch="${patch:+"${patch} "}https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/build-with-mcpu-for-cortex-a72.patch"
+		kpatch="${kpatch:+"${kpatch} "}https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/build-with-mcpu-for-cortex-a72.patch"
 		;;
 esac
+print "Kernel patch(es) are: '${kpatch:-}'"
+# Allow '--no-patch --patch=...' to exclude default kernel patches...
+if echo " ${*:-} " | grep -q -- ' --no-patch'; then
+	kpatch=''
+fi
 if echo " ${*:-} " | grep -q -- ' --patch'; then
 	if echo " ${*:-} " | grep -q -- ' --patch=[^ ]\+ '; then
 		patch="$( echo " ${*} " | grep -o -- '--patch=[^ ]\+ ' | cut -d'=' -f 2- | sed 's/ $// ; s/,/ /g' )"
@@ -410,13 +415,99 @@ if echo " ${*:-} " | grep -q -- ' --patch'; then
 	else
 		warn "Invalid patch option '$( echo " ${*:-} " | grep -o -- ' --patch[^ ]\+ ' | sed 's/ $//' )'"
 	fi
-elif echo " ${*:-} " | grep -q -- ' --no-patch'; then
-	patch=''
 fi
+if [[ -n "${kpatch:-}" ]]; then
+	patch="${kpatch}${patch:+" ${patch}"}"
+fi
+print "All patch(es) are: '${patch:-}'"
+unset kpatch
+
 if echo " ${*:-} " | grep -q -- ' --firmware'; then
 	firmware='sys-kernel/linux-firmware'
 elif echo " ${*:-} " | grep -q -- ' --no-firmware'; then
 	firmware=''
+fi
+
+if [[ "${compiler}" == 'clang' ]]; then
+	declare rust_ver=''
+	# https://github.com/rust-lang/rust-bindgen/issues/2312
+	declare bindgen_ver='0.56.0'
+	declare -i llvm_min_slot=0
+	declare -i llvm_default_slot=0
+	declare -i llvm_slot=0
+	declare llvm_sub_slot=''
+	(( llvm_min_slot = $( cut -d'.' -f 1 <<<"${llvm_min_ver}" ) ))
+	case "${package_version}" in
+		[12345].*|6.0.*)
+			if (( rust )); then
+				warn "Disabling dev-lang/rust support prior to kernel 6.1.x"
+				rust=0
+			fi
+			(( llvm_default_slot = llvm_min_slot ))
+			;;
+		6.[1234].*)
+			rust_ver='1.62.0'
+			(( llvm_default_slot = 14 ))
+			;;
+		6.5.*)
+			rust_ver='1.68.2'
+			(( llvm_default_slot = 15 ))
+			;;
+		6.6.*)
+			rust_ver='1.71.1'
+			bindgen_ver='0.65.1'
+			(( llvm_default_slot = 16 ))
+			;;
+		6.7.*)
+			rust_ver='1.73.0'
+			bindgen_ver='0.65.1'
+			(( llvm_default_slot = 17 ))
+			;;
+	esac
+	if ! (( llvm_slot_override )); then
+		# No command-line override...
+		(( llvm_slot = llvm_default_slot ))
+		unset llvm_default_slot llvm_sub_slot_override llvm_slot_override
+	else
+		# Overrides in llvm_sub_slot_override & llvm_slot_override...
+		declare last_bad_llvm_ver=''
+		for last_bad_llvm_ver in \
+			"$(( llvm_default_slot - 1 )).999.999" \
+			"$(( llvm_min_slot - 1 )).999.999"
+		do
+			if [[ "$( # <- Syntax
+					printf '%s\n%s\n' \
+							"${llvm_sub_slot_override}" \
+							"${last_bad_llvm_ver}" |
+						sort -V |
+						tail -n 1
+				)" == "${last_bad_llvm_ver}" ]]
+			then
+				die "Specified LLVM version '${llvm_sub_slot_override}' is below" \
+					"minimum required version '${llvm_default_slot}'"
+			fi
+		done
+		unset last_bad_llvm_ver
+		if [[ "${llvm_sub_slot_override}" == *.* ]]; then
+			llvm_sub_slot="${llvm_sub_slot_override}"
+			llvm_slot="${llvm_sub_slot%%.*}"
+		fi
+	fi
+	unset llvm_sub_slot_override llvm_slot_override
+	if [[ -z "${llvm_sub_slot:-}" ]]; then
+		case ${llvm_slot} in
+			0)
+				die "'llvm_slot' is required for clang builds" ;;
+			[1-9]|10) : ;;
+			11|12|13)
+				llvm_sub_slot="${llvm_slot}.0.1" ;;
+			15)
+				llvm_sub_slot="${llvm_slot}.0.7" ;;
+			*)
+				llvm_sub_slot="${llvm_slot}.0.6" ;;
+		esac
+	fi
+	print "Building with LLVM ${llvm_slot} (${llvm_sub_slot}) ..."
 fi
 
 # shellcheck disable=SC2154
@@ -448,21 +539,21 @@ if [ -z "${build_dir:-}" ]; then
 	unset name
 fi
 unset build_version
-if [ "${build:-}" = '1' ]; then
+if [ "${keep_build:-}" = '1' ]; then
 	info >&2 "Using build directory '${build_dir}' ..."
 	mkdir -p "${build_dir}" || die "mkdir() on '${build_dir}' failed: ${?}"
 fi
 
-if [ -n "${config:-}" ]; then
-	if [ "${build:-}" = '1' ] && [ -s "${build_dir}"/.config ] && ! [ "${force:-}" = '1' ]; then
+if [ -n "${config_file:-}" ]; then
+	if [ "${keep_build:-}" = '1' ] && [ -s "${build_dir}"/.config ] && ! [ "${force:-}" = '1' ]; then
 		warn "Not replacing existing '${build_dir}/.config' file without '--force'"
-		config="${build_dir}/.config"
+		config_file="${build_dir}/.config"
 	else
 		# We've already changed to the script directory, so if there ever were
 		# a file in the same location named 'config.gz', it's unlikely to be
 		# one we'd actually want to use!
 		#
-		if [ "${config}" = 'config.gz' ] || [ "${config}" = '/proc/config.gz' ]; then
+		if [ "${config_file}" = 'config.gz' ] || [ "${config_file}" = '/proc/config.gz' ]; then
 			note >&2 "Attempting to use current kernel configuration ..."
 			if ! lsmod | grep -qw -- '^configs'; then
 				warn "Attempting to load 'configs' module..."
@@ -471,42 +562,43 @@ if [ -n "${config:-}" ]; then
 			if ! [ -r /proc/config.gz ]; then
 				die "Cannot read current kernel configuration '/proc/config.gz'"
 			fi
-			if [ "${build:-}" = '1' ]; then
-				config="${build_dir}/.config"
-				note >&2 "Extracting /proc/config.gz to '${config}' ..."
-				zcat /proc/config.gz > "${config}" || die "zcat failed: ${?}"
+			if [ "${keep_build:-}" = '1' ]; then
+				config_file="${build_dir}/.config"
+				note >&2 "Extracting /proc/config.gz to '${config_file}' ..."
+				zcat /proc/config.gz > "${config_file}" || die "zcat failed: ${?}"
 			else
-				config="${TMPDIR:-"/tmp"}/linux-${package_version%"-r"[0-9]}.config"
-				if [ -e "${config}" ]; then
-					die "configuration file '${config}' already exists"
+				config_file="${TMPDIR:-"/tmp"}/linux-${package_version%"-r"[0-9]}.config"
+				if [ -e "${config_file}" ]; then
+					die "configuration file '${config_file}' already exists"
 				fi
-				note >&2 "Extracting /proc/config.gz to '${config}' ..."
-				zcat /proc/config.gz > "${config}" || die "zcat failed: ${?}"
+				note >&2 "Extracting /proc/config.gz to '${config_file}' ..."
+				zcat /proc/config.gz > "${config_file}" || die "zcat failed: ${?}"
 			fi
 		else
-			if [ "${build:-}" = '1' ]; then
-				if ! file "${config}" >/dev/null 2>&1; then
-					die "configuration file '${config}' is unreadable or missing"
-				elif file "${config}" 2>&1 | grep -Fq -- 'gzip compressed data'; then
-					die "configuration file '${config}' is compressed"
+			if [ "${keep_build:-}" = '1' ]; then
+				if ! file "${config_file}" >/dev/null 2>&1; then
+					die "configuration file '${config_file}' is unreadable or missing"
+				elif file "${config_file}" 2>&1 | grep -Fq -- 'gzip compressed data'; then
+					die "configuration file '${config_file}' is compressed"
 				else
-					cp "${config}" "${build_dir}"/.config || die "file copy from '${config}' to '${build_dir}/.config' failed: ${?}"
-					config="${build_dir}/.config"
+					cp "${config_file}" "${build_dir}"/.config ||
+						die "file copy from '${config_file}' to '${build_dir}/.config' failed: ${?}"
+					config_file="${build_dir}/.config"
 				fi
 			fi
 		fi
-		note >&2 "Resolving kernel configuration '${config}' ..."
-		config="$( readlink -e "${config}" )"
-		note >&2 "Kernel configuration resolved to '${config}'"
-		if ! [ -s "${config}" ]; then
-			die "Cannot read kernel configuration file '${config}'"
+		note >&2 "Resolving kernel configuration '${config_file}' ..."
+		config_file="$( readlink -e "${config_file}" )"
+		note >&2 "Kernel configuration resolved to '${config_file}'"
+		if ! [ -s "${config_file}" ]; then
+			die "Cannot read kernel configuration file '${config_file}'"
 		fi
-		if ! [ -w "${config}" ]; then
-			die "Cannot write to kernel configuration file '${config}'"
+		if ! [ -w "${config_file}" ]; then
+			die "Cannot write to kernel configuration file '${config_file}'"
 		fi
-		if ! [ "${build:-}" = '1' ]; then
-			#info >&2 "Using '${config}' as kernel configuration - changes WILL BE saved to this file..."
-			info >&2 "Using '${config}' as kernel configuration"
+		if ! [ "${keep_build:-}" = '1' ]; then
+			#info >&2 "Using '${config_file}' as kernel configuration - changes WILL BE saved to this file..."
+			info >&2 "Using '${config_file}' as kernel configuration"
 		fi
 	fi
 fi
@@ -517,6 +609,7 @@ declare openmp='openmp'
 declare pre_remove=''
 declare pre_pkgs=''
 declare pre_use=''
+declare post_use=''
 declare -a compiler_pkgs=()
 declare compiler_USE="${rust_llvm_use:-}"
 declare container_CC='gcc'
@@ -530,6 +623,21 @@ if (( opt_o3 )); then
 			add_flags+=" -mpopcnt"
 		fi
 	fi
+	case "${compiler}" in
+		clang|llvm)
+			(( llvm_slot )) || die "'llvm_slot' is required for clang builds"
+
+			if (( 14 == llvm_slot )); then
+				add_flags+=" --rtlib=compiler-rt"
+				add_flags+=" --unwindlib=libunwind"
+				add_flags+=" --stdlib=libc++"
+				add_flags+=" -fuse-ld=lld"
+				add_flags+=" -fstack-clash-protection"
+				add_flags+=" -fstack-protector-strong"
+				add_flags+=" -fPIE"
+			fi
+			;;
+	esac
 	container_KCFLAGS="KCFLAGS=\"${add_flags}\""
 	unset add_flags
 fi
@@ -543,7 +651,7 @@ case "${compiler}" in
 		compiler_USE="-lib-only ${use_essential_gcc}"
 		;;
 	clang|llvm)
-		[[ -n "${llvm_slot:-}" ]] || die "'llvm_slot' is required for clang builds"
+		(( llvm_slot )) || die "'llvm_slot' is required for clang builds"
 
 		# pkgslot() outputs a '>=' specifier if no slot is requested
 		#
@@ -556,6 +664,7 @@ case "${compiler}" in
 		if (( llvm_slot > 15 )); then
 			inconsistent_slot="${llvm_slot}"
 		fi
+		# shellcheck disable=SC2086
 		compiler_pkgs=(
 			"$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )"
 			"$( pkgslot sys-devel/clang "${llvm_min_ver:-}" )"
@@ -563,15 +672,14 @@ case "${compiler}" in
 
 			sys-devel/binutils-config
 
-			"$( pkgslot sys-devel/clang-common "${llvm_slot}" )" # SLOT=0
-			"$( pkgslot sys-devel/llvm-common "${llvm_slot}" )" # SLOT=0
+			"$( pkgslot sys-devel/clang-common ${llvm_slot} )" # SLOT=0
+			"$( pkgslot sys-devel/llvm-common ${llvm_slot} )" # SLOT=0
 			# As-of 5.10.1: "gold linker 'ld.gold' not supported"...
-			#"$( pkgslot sys-devel/llvmgold "${llvm_slot}" )" # SLOT=0
-			"$( pkgslot sys-libs/libcxx "${llvm_slot}" )" # SLOT=0
-			"$( pkgslot sys-libs/libcxxabi "${llvm_slot}" )" # SLOT=0
-			"$( pkgslot sys-libs/llvm-libunwind "${llvm_slot}" )" # SLOT=0
+			#"$( pkgslot sys-devel/llvmgold ${llvm_slot} )" # SLOT=0
+			"$( pkgslot sys-libs/libcxx ${llvm_slot} )" # SLOT=0
+			"$( pkgslot sys-libs/libcxxabi ${llvm_slot} )" # SLOT=0
 
-			"$( pkgslot sys-libs/libomp "${llvm_slot}" )" # SLOT=0, 0/16
+			"$( pkgslot sys-libs/libomp ${llvm_slot} )" # SLOT=0, 0/16
 
 			"$( pkgslot sys-devel/clang ":${llvm_slot}" )" # SLOT=14, 16/16
 			"$( pkgslot sys-devel/llvm ":${llvm_slot}" )" # SLOT=14, 16/16
@@ -586,6 +694,16 @@ case "${compiler}" in
 			"$( pkgslot sys-libs/compiler-rt ":${inconsistent_slot}" )" # SLOT=14.0.6, 16
 			"$( pkgslot sys-libs/compiler-rt-sanitizers ":${inconsistent_slot}" )" # SLOT=14.0.6, 16
 		)
+		if [[ "${unwind:-}" == 'llvm' ]]; then
+			# shellcheck disable=SC2086
+			compiler_pkgs=(
+				"$( pkgslot sys-libs/llvm-libunwind ${llvm_slot} )" # SLOT=0
+			)
+		else
+			compiler_pkgs=(
+				sys-libs/libunwind
+			)
+		fi
 		unset inconsistent_slot
 		compiler_USE+=' clang default-compiler-rt default-libcxx default-lld' # gold
 
@@ -608,16 +726,24 @@ case "${compiler}" in
 				compiler_USE+='  python_single_target_python3_10  python_targets_python3_10'
 				compiler_USE+=' -python_single_target_python3_11 -python_targets_python3_11'
 				compiler_USE+=' -python_single_target_python3_12 -python_targets_python3_12'
+				#compiler_USE+=" python_targets_${python_default_target}"
+				USE+='  python_single_target_python3_10  python_targets_python3_10'
+				USE+=' -python_single_target_python3_11 -python_targets_python3_11'
+				USE+=' -python_single_target_python3_12 -python_targets_python3_12'
 				;;
-		esac
-
-		# sys-libs/llvm-libunwind-14* depends on python3_10
-		#
-		case "$(( llvm_slot ))" in
-			'14')
-				compiler_USE+='  python_single_target_python3_10  python_targets_python3_10'
-				compiler_USE+=' -python_single_target_python3_11 -python_targets_python3_11'
-				compiler_USE+=' -python_single_target_python3_12 -python_targets_python3_12'
+			*)
+				if [[ "${unwind:-}" == 'llvm' ]]; then
+					# sys-libs/llvm-libunwind-14* also depends on python3_10
+					#
+					case $(( llvm_slot )) in
+						'14')
+							compiler_USE+='  python_single_target_python3_10  python_targets_python3_10'
+							compiler_USE+=' -python_single_target_python3_11 -python_targets_python3_11'
+							compiler_USE+=' -python_single_target_python3_12 -python_targets_python3_12'
+							#compiler_USE+=" python_targets_${python_default_target}"
+							;;
+					esac
+				fi
 				;;
 		esac
 
@@ -639,11 +765,12 @@ case "${unwind:-}" in
 		)
 		compiler_USE="$( replace_flags 'llvm-libunwind' -- "${compiler_USE:-}" )"
 		#pre_remove="sys-libs/libunwind"
-		#pre_pkgs="sys-libs/llvm-libunwind"
+		#pre_use="$( replace_flags '-default-compiler-rt' '-default-libcxx' '-default-lld' '-llvm-libunwind' -- "${pre_use:-}" )"
+		#pre_pkgs="$( pkgslot sys-libs/llvm-libunwind "${llvm_slot}" )"
 		;;
 esac
 
-# FIXME: shellcheck wants:
+# FIXME: shellcheck seems to want:
 #
 #          docker_extra_mounts+=( $( add_mount ... ) )
 #
@@ -746,12 +873,67 @@ docker_extra_mounts+=( $( add_mount --print \
 		'/etc/portage/profile/package.use.mask'
 	) ) || :
 
+declare patch_file='' patch_dir=''
+declare new_patch=''
+declare -i patch_updated=0
+print "Patch list is '${patch:-}'"
+# FIXME: This will break if a custom patch with spaces in the name is specified...
+for patch_file in ${patch:-}; do
+	print "... processing patch '${patch_file}'"
+	case "${patch_file:-}" in
+		http*)
+			new_patch="${new_patch:+"${new_patch} "}${patch_file}"
+			;;
+		'')
+			:
+			;;
+		*)
+			if [[ -e "${patch_file}" && -f "${patch_file}" && -s "${patch_file}" ]]; then
+print "original dem last is '${docker_extra_mounts[-1]}' ..."
+				patch_dir="$( dirname "${patch_file}" )"
+				patch_file="$( basename "${patch_file}" )"
+				if docker_extra_mounts+=( $( add_mount --print \
+					"${patch_dir}/${patch_file}" "/usr/src/patch/${patch_file}"
+				) ); then
+					patch_file="/usr/src/patch/${patch_file}"
+					new_patch="${new_patch:+"${new_patch} "}${patch_file}"
+					patch_updated=1
+				fi
+print "... new dem last is '${docker_extra_mounts[-1]}'"
+			else
+				warn "Patch '${patch_file}' not found"
+			fi
+			;;
+	esac
+done
+if (( patch_updated )); then
+	print "Patch list updated from '${patch}' to '${new_patch}'"
+	patch="${new_patch}"
+fi
+unset patch_updated new_patch patch_file
+
 declare rustext=''
 if (( rust )); then
 	rustext='rustc'
 fi
+declare image_name_and_version=''
+case ${llvm_slot} in
+	0)
+		declare image_name_and_version="${container_name}.${compiler}${rustext:+"-${rustext}"}"
+		;;
+	*)
+		declare image_name_and_version="${container_name}.${compiler}-${llvm_slot}${rustext:+"-${rustext}"}"
+		;;
+esac
+declare -r image_name="${container_name%"-${package_version}"}.${image_name_and_version#"${container_name}."}"
+declare -r log_name="${image_name_and_version}"
+declare -x name="${image_name_and_version}"
+# 'image' consumed in common/run.sh ...
+declare -x image="${IMAGE}"
+unset image_name_and_version
+
 # shellcheck disable=SC2154
-if ! [ "$( $_command image list "${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" | wc -l )" = '2' ]; then
+if ! [ "$( $_command image list "${image_name}:${package_version}" | wc -l )" = '2' ]; then
 	(
 		ACCEPT_LICENSE="linux-fw-redistributable no-source-code"
 		USE="extra-filters${rustext:+" http2"} lzma${openmp:+" openmp"}${rustext:+" rust-src"} symlink threads zlib${compiler_USE:+" ${compiler_USE}"}"
@@ -764,12 +946,11 @@ if ! [ "$( $_command image list "${container_name%"-${package_version}"}.${compi
 		if [[ -n "${openmp:-}" ]]; then
 			pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}sys-devel/gcc app-crypt/libb2"
 			pre_use="$( replace_flags '-lib-only' -- "${pre_use:-}" )"
+			post_use="${post_use:+"${post_use} "}-lib-only"
 		fi
-
-		name="${container_name}-${compiler}${rustext:+"-${rustext}"}"
-		logname="${container_name}-${compiler}${rustext:+"+${rustext}"}"
-		image="${IMAGE}"
-		export name image
+		if [[ -n "${rustext:-}" ]]; then
+			post_use="${post_use:+"${post_use} "}http2"
+		fi
 
 		# shellcheck disable=SC2206
 		declare -a pkgs=( # <- Syntax
@@ -795,14 +976,64 @@ if ! [ "$( $_command image list "${container_name%"-${package_version}"}.${compi
 		)
 		declare -a _docker_run_arguments=( # <- Syntax
 			--with-use="${USE}"
+			${rustext:+"--with-pkg-mask=>virtual/rust${rust_ver:+"-${rust_ver}"}"}
+			${rustext:+"--with-pkg-mask=>dev-lang/rust${rust_ver:+"-${rust_ver}"}"}
+			${rustext:+"--with-pkg-mask=>dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"}
+			$(
+				if [[ "${compiler}" == 'clang' ]]; then
+					(( llvm_slot )) || die "'llvm_slot' is required for clang builds"
+					declare -i last_digit=0
+					(( last_digit = ${llvm_sub_slot##*.} + 1 ))
+					declare llvm_next="${llvm_sub_slot%.*}.${last_digit}"
+					unset last_digit
+					declare -i llvm_next_slot=0
+					(( llvm_next_slot = llvm_slot + 1 ))
+					cat <<-EOF
+						--with-pkg-mask=>=sys-devel/clang-${llvm_next}
+						--with-pkg-mask=>=sys-devel/clang-common-${llvm_next}
+						--with-pkg-mask=>=sys-devel/clang-runtime-${llvm_next}
+						--with-pkg-mask=>=sys-devel/clang-toolchain-symlinks-${llvm_next_slot}
+						--with-pkg-mask=>=sys-devel/lld-${llvm_next}
+						--with-pkg-mask=>=sys-devel/lld-toolchain-symlinks-${llvm_next_slot}
+						--with-pkg-mask=>=sys-devel/llvm-${llvm_next}
+						--with-pkg-mask=>=sys-devel/llvm-common-${llvm_next}
+						--with-pkg-mask=>=sys-devel/llvmgold-${llvm_next_slot}
+						--with-pkg-mask=>=sys-devel/llvm-toolchain-symlinks-${llvm_next_slot}
+						--with-pkg-mask=>=sys-libs/compiler-rt-${llvm_next}
+						--with-pkg-mask=>=sys-libs/compiler-rt-sanitizers-${llvm_next}
+						--with-pkg-mask=>=sys-libs/libcxx-${llvm_next}
+						--with-pkg-mask=>=sys-libs/libcxxabi-${llvm_next}
+						--with-pkg-mask=>=sys-libs/libomp-${llvm_next}
+						--with-pkg-mask=>=sys-libs/llvm-libunwind-${llvm_next}
+					EOF
+					unset llvm_next_slot llvm_next
+				fi
+			)
+			--with-pkg-mask=">${package}"
 			--changed-use
 			--update
 			--usepkg=y
-			$( add_arg pre_remove "--pre-remove=${pre_remove:-}" )
-			$( add_arg pre_pkgs "--pre-pkgs=${pre_pkgs:-}" )
-			$( add_arg pre_use "--pre-use=${pre_use:-}" )
-			$( add_arg openmp "--post-pkgs=sys-devel/gcc" "--post-use=-lib-only" )
+			# FIXME: add_arg() seems to be inserting unexpected newlines,
+			# possibly only for ${post_use}?
+			#
+			#$( add_arg pre_remove "--pre-remove=##" )
+			#$( add_arg pre_pkgs "--pre-pkgs=##" )
+			#$( add_arg pre_use "--pre-use=##" )
+			#$( add_arg openmp "--post-pkgs=sys-devel/gcc" )
+			#$( add_arg post_use "--post-use=##" )
+			${pre_remove:+"--pre-remove=${pre_remove}"}
+			${pre_pkgs:+"--pre-pkgs=${pre_pkgs}"}
+			${pre_use:+"--pre-use=${pre_use}"}
+			$( add_arg openmp "--post-pkgs=sys-devel/gcc" )
+			${post_use:+"--post-use=${post_use}"}
 		)
+
+		# This only applies to the _docker_run() call below, and doesn't extend
+		# outside of this sub-shell.
+		#
+		# shellcheck disable=SC2030
+		export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
+		print "Build 'DOCKER_EXTRA_MOUNTS' is '${DOCKER_EXTRA_MOUNTS}'"
 
 		# shellcheck disable=SC2086,SC2154
 		time {
@@ -810,9 +1041,11 @@ if ! [ "$( $_command image list "${container_name%"-${package_version}"}.${compi
 					"${_docker_run_arguments[@]:-}" \
 					"=${package}" \
 					"${pkgs[@]:-}" \
-				2>&1 | tee "log/docker.${logname}.log"
+				2>&1 | tee "log/docker.${log_name}.log"
 			output " -> ${?}"
 		}
+
+		unset DOCKER_EXTRA_MOUNTS
 
 		# It would be nice if we could squash the image layers here to produce
 		# a unified image in response to 'commit', but without an additional
@@ -834,20 +1067,20 @@ if ! [ "$( $_command image list "${container_name%"-${package_version}"}.${compi
 				$_command $( add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT:-}" ) \
 						container commit \
 							"${name}" \
-							"${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" 2>&1 |
-					tee -a "log/docker.${logname}.log"
+							"${image_name}:${package_version}" 2>&1 |
+					tee -a "log/docker.${log_name}.log"
 			else
 				# shellcheck disable=SC2046
 				buildah $( add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT:-}" ) \
 						commit \
 								--squash \
 							"${name}" \
-							"${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" 2>&1 |
-					tee -a "log/docker.${logname}.log"
+							"${image_name}:${package_version}" 2>&1 |
+					tee -a "log/docker.${log_name}.log"
 			fi
 			output " -> ${?}"
 			$_command container rm --volumes "${name}" 2>&1 |
-				tee -a "log/docker.${logname}.log"
+				tee -a "log/docker.${log_name}.log"
 			trap - INT
 		}
 	)
@@ -868,7 +1101,7 @@ esac
 DOCKER_ENTRYPOINT='/bin/sh'
 DOCKER_INTERACTIVE=1
 deforoldconfig="${defconfig:-"defconfig"}"
-if [ "${build:-}" = '1' ]; then
+if [ "${keep_build:-}" = '1' ]; then
 	docker_extra_mounts+=( $( add_mount --dir --no-ro --print \
 		"${build_dir}/" \
 		'/usr/src/build'
@@ -913,16 +1146,16 @@ fi
 # Specifying a configuration file takes precedence over having a build
 # directory cache...
 #
-if [ -n "${config:-}" ]; then
+if [ -n "${config_file:-}" ]; then
 	deforoldconfig='oldconfig'
-	if [ "${build:-}" != '1' ] || [ "${config}" != "${build_dir}/.config" ]; then
-		if [ -w "${config}" ]; then
+	if [ "${keep_build:-}" != '1' ] || [ "${config_file}" != "${build_dir}/.config" ]; then
+		if [ -w "${config_file}" ]; then
 			# This used to work, but now (due to a podman upgrade?)
 			# the kernel build process terminates saying it can't
 			# write to the mounted file.
-			DOCKER_VOLUMES="--volume ${config}:/usr/src/build/.config"
+			DOCKER_VOLUMES="--volume ${config_file}:/usr/src/build/.config"
 		else
-			die "Cannot write to configuration file '${config}'"
+			die "Cannot write to configuration file '${config_file}'"
 		fi
 	fi
 fi
@@ -945,38 +1178,60 @@ kernel_make_opts+=(
 	${container_LLVM:+"LLVM=1 LLVM_IAS=1"}
 	${container_KCFLAGS:-}
 	${kernel_debug:+"${kernel_debug}"}
-	O=../build
+	# Set as-needed below...
+	#O=../build
 )
 RUST_VERBOSE=''
-case "${package_version}" in
-	6.[1234].*|6.5.[123])
-		RUST_VERBOSE='-v'
-		# Unpatched:
-		#  /usr/src/linux-6.1.4-gentoo/scripts/rust_is_available_bindgen_libclang.h:2:9: warning: clang version 15.0.6  [-W#pragma-messages]
-		# ... gives a result of '6.1.4' rather than '15.0.6' :(
-		RUST_PATCH="$( cat <<-'EOF'
-			--- scripts/rust_is_available.sh
-			+++ scripts/rust_is_available.sh
-			@@ -104,7 +104,7 @@
-				LC_ALL=C "$BINDGEN" $(dirname $0)/rust_is_available_bindgen_libclang.h 2>&1 >/dev/null \
-					| grep -F 'clang version ' \
-					| grep -oE '[0-9]+\.[0-9]+\.[0-9]+' \
-			-		| head -n 1 \
-			+		| tail -n 1 \
-			 )
-			 bindgen_libclang_min_version=$($min_tool_version llvm)
-			 bindgen_libclang_cversion=$(get_canonical_version $bindgen_libclang_version)
-		EOF
-		)"
-		RUST_PATCH_B64="$( echo "${RUST_PATCH}" | base64 -w 0 )"
-		;;
-esac
+# 'bindgen's output being incorrectly processed was fixed in (at least)
+# linux-6.1.53 & linux-6.5.4 - but as-of early 2024 the oldest in-tree kernel
+# with rust support is now linux-6.1.67, and the earliest kernel after 6.1.x is
+# linux-6.6.10, so this patch is no longer needed.
+#
+#case "${package_version}" in
+#	6.[1234].*|6.5.[123])
+#		RUST_VERBOSE='-v'
+#		# Unpatched:
+#		#  /usr/src/linux-6.1.4-gentoo/scripts/rust_is_available_bindgen_libclang.h:2:9: warning: clang version 15.0.6  [-W#pragma-messages]
+#		# ... gives a result of '6.1.4' rather than '15.0.6' :(
+#		RUST_PATCH="$( cat <<-'EOF'
+#			--- scripts/rust_is_available.sh
+#			+++ scripts/rust_is_available.sh
+#			@@ -104,7 +104,7 @@
+#				LC_ALL=C "$BINDGEN" $(dirname $0)/rust_is_available_bindgen_libclang.h 2>&1 >/dev/null \
+#					| grep -F 'clang version ' \
+#					| grep -oE '[0-9]+\.[0-9]+\.[0-9]+' \
+#			-		| head -n 1 \
+#			+		| tail -n 1 \
+#			 )
+#			 bindgen_libclang_min_version=$($min_tool_version llvm)
+#			 bindgen_libclang_cversion=$(get_canonical_version $bindgen_libclang_version)
+#		EOF
+#		)"
+#		RUST_PATCH_B64="$( echo "${RUST_PATCH}" | base64 -w 0 )"
+#		;;
+#esac
 DOCKER_SCRIPT="$( cat <<-EOF
 	set -eu ;
-	[ -e /usr/src/linux ] || {
+	if ! [ -e /usr/src/linux ]; then
 		echo >&2 "FATAL: '/usr/src/linux' does not exist in container" ;
 		exit 1 ;
-	} ;
+	fi ;
+	if ! [ -d /usr/src/build ]; then
+		echo >&2 "WARN: Build directory '/usr/src/build' does not exist" ;
+	else
+		if ! [ -e /usr/src/build/.config ] || ! [ -f /usr/src/build/.config ] || ! [ -s /usr/src/build/.config ]; then
+			echo >&2 "WARN: No existing configuration found in '/usr/src/build/.config'" ;
+		else
+			echo "INFO: \$(
+				head -n 4 /usr/src/build/.config |
+						grep -- 'Configuration' ||
+					echo 'No kernel version declaration found'
+			)" ;
+			echo "INFO: Existing configuration file contains \$(
+				grep -c '^CONFIG_' -- /usr/src/build/.config
+			) configuration directives" ;
+		fi ;
+	fi ;
 	echo "Detected terminal size: \$( stty size )" ;
 	export TERM LINES COLUMNS ;
 	echo "Setting terminal to \${COLUMNS}x\${LINES}..." ;
@@ -1001,7 +1256,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		HOSTLDFLAGS="-unwindlib=libunwind" ;
 		export LDFLAGS_MODULE HOSTLDFLAGS ;
 	fi ;
-	if [[ "${compiler}" == 'clang' ]]; then
+	if [ "${compiler}" = 'clang' ]; then
 		if echo "\${CFLAGS:-}" | xargs -rn 1 | grep -v -- '^-march=' | grep -q -- '^-m'; then
 			echo -n "Filtering GNU CFLAGS for ${compiler}: " ;
 			echo "\${CFLAGS}" | xargs -rn 1 | grep -v -- '-march=' | grep -- '^-m' | sort -V | xargs -r -I'{}' -- echo "\'{}\'" | xargs -r ;
@@ -1035,17 +1290,35 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	${container_CC} --version ;
 	set -x ;
 	cd /usr/src/linux ;
-	make mrproper ;
+	make ${kernel_make_opts[@]} mrproper ;
 	set +x ;
 	if [ -n "${patch:-}" ]; then
 		for p in ${patch}; do
 			echo "Processing patch '\${p}' ..." ;
-			if wget "\${p}" -qO patch.diff && cat patch.diff | patch -p1 --dry-run --force --quiet; then
-				cat patch.diff | patch -p1 ;
-			else
-				echo >&2 "WARN:  patch '\${p}' failed to download or apply" ;
-			fi ;
-			rm patch.diff ;
+			case "\${p}" in
+				http*)
+					if wget "\${p}" -qO patch.diff && cat patch.diff | patch -p1 --dry-run --force --quiet; then
+						cat patch.diff | patch -p1 ;
+					else
+						echo >&2 "WARN:  patch '\${p}' failed to download or apply" ;
+					fi ;
+					rm patch.diff ;
+					;;
+				'')
+					:
+					;;
+				*)
+					if [ -e "\${p}" ] && [ -f "\${p}" ] && [ -s "\${p}" ]; then
+						if cat "\${p}" | patch -p1 --dry-run --force --quiet; then
+							cat "\${p}" | patch -p1 ;
+						else
+							echo >&2 "WARN:  patch '\${p}' failed to download or apply" ;
+						fi ;
+					else
+						echo >&2 "WARN: patch '\${p}' could not be found"
+					fi ;
+					;;
+			esac ;
 		done ;
 	fi ;
 	mkdir -p ../build ;
@@ -1074,7 +1347,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 		[ -f ../build/.config ] && [ -s ../build/.config ] && grep -Fm 1 'CONFIG_EXTRA_FIRMWARE' ../build/.config 2>/dev/null && echo ;
 	fi ;
 	if [ $(( clean )) -ne 0 ]; then
-		make ${kernel_make_opts[@]} clean ;
+		make ${kernel_make_opts[@]} O=../build clean ;
 	fi ;
 	if [ $(( rust )) -ne 0 ]; then
 		clang --version ;
@@ -1086,20 +1359,20 @@ DOCKER_SCRIPT="$( cat <<-EOF
 			echo "${RUST_PATCH_B64:-}" | base64 -d | patch -p0 ;
 		[ -n "${RUST_VERBOSE:-}" ] &&
 			sed -ri Makefile -e '/scripts\/rust_is_available.sh/s|(scripts/rust_is_available.sh)|\\1 ${RUST_VERBOSE}|' ;
-		make --debug=print ${kernel_make_opts[@]} rustavailable || {
+		make --debug=print ${kernel_make_opts[@]} O=../build rustavailable || {
 			echo >&2 "ERROR: rust_is_available.sh returns \${?}" ;
 			exit 1 ;
 		} ;
 	fi ;
 	if [ -e .config ]; then
 		echo "Configuration changes from '.config':" ;
-		make ${kernel_make_opts[@]} listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
+		make ${kernel_make_opts[@]} O=../build listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
 	fi
 	success=0 ;
 	set -x ;
-	time make ${kernel_make_opts[@]} ${deforoldconfig} prepare ${menuconfig:+"menuconfig"} ${nconfig:+"nconfig"} vmlinux modules \${dtb:+"dtbs"} \${kernel} &&
+	time make ${kernel_make_opts[@]} O=../build ${deforoldconfig} prepare ${menuconfig:+"menuconfig"} ${nconfig:+"nconfig"} vmlinux modules \${dtb:+"dtbs"} \${kernel} &&
 		rm -rf "/lib/modules/${package_version}${distro:-}" &&
-			make ${kernel_make_opts[@]} INSTALL_MOD_STRIP=1 modules_install &&
+			make ${kernel_make_opts[@]} O=../build INSTALL_MOD_STRIP=1 modules_install &&
 				success=1 ;
 	if [ "\{extract}" = '1' ]; then
 		sh scripts/extract-vmlinux ../build/arch/\${dir}/boot/\${kernel} > vmlinux &&
@@ -1108,8 +1381,8 @@ DOCKER_SCRIPT="$( cat <<-EOF
 	if [ "${install}" = '1' ]; then
 		set +x ;
 		if [ -s /boot/boot.config -o -s /proc/bootconfig ] && [ -e /boot/initramfs.img ]; then
-			if make ${kernel_make_opts[@]} -C tools/bootconfig; then
-				make ${kernel_make_opts[@]} bindir='/usr/local/sbin' -C tools/bootconfig install ;
+			if make ${kernel_make_opts[@]} O=../build -C tools/bootconfig; then
+				make ${kernel_make_opts[@]} O=../build bindir='/usr/local/sbin' -C tools/bootconfig install ;
 				if [ -s /boot/boot.config ]; then
 					bootconfig -a /boot/boot.config /boot/initramfs.img ;
 				else
@@ -1120,7 +1393,7 @@ DOCKER_SCRIPT="$( cat <<-EOF
 			fi ;
 		fi ;
 		if [ "\${dtb}" = '1' ]; then
-			make ${kernel_make_opts[@]} dtbs_install ;
+			make ${kernel_make_opts[@]} O=../build dtbs_install ;
 		fi ;
 		if [ "\${success}" = '1' ]; then
 			set -x ;
@@ -1148,6 +1421,7 @@ unset nl
 export DOCKER_ENTRYPOINT DOCKER_INTERACTIVE DOCKER_VOLUMES DOCKER_SCRIPT
 export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 unset docker_extra_mounts
+print "Final 'DOCKER_EXTRA_MOUNTS' is '${DOCKER_EXTRA_MOUNTS}'"
 }
 
 
@@ -1169,10 +1443,11 @@ time {
 	#DOCKER_DEVICES="--device=/dev/tty --device=/dev/tty0" \
 	TERM="${TERM:-}" \
 	DOCKER_HOSTNAME="$( hostname )-build" \
-	image="${container_name%"-${package_version}"}.${compiler}${rustext:+"-${rustext}"}:${package_version}" \
+	image="${image_name}:${package_version}" \
+	_common_run_show_command=0 \
 	_docker_run \
 			-c "${DOCKER_SCRIPT}" \
-		2>&1 | tee -a "log/docker.${container_name}-${compiler}${rustext:+"+${rustext}"}.log"
+		2>&1 | tee -a "log/docker.${log_name}.log"
 	rc=${?}
 	#set +x
 	output " -> ${rc}"
