@@ -1372,7 +1372,7 @@ if [ -n "${pkg_initial:-}" ]; then
 						#        binary packages in a more controlled
 						#        environment first?
 						#
-						do_emerge --build-defaults dev-python/setuptools # || :
+						do_emerge --build-defaults app-crypt/libmd dev-libs/libbsd dev-python/setuptools # || :
 					)
 					# Install same dependencies again within our build ROOT...
 					(
@@ -1387,7 +1387,7 @@ if [ -n "${pkg_initial:-}" ]; then
 						fi
 						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
-						do_emerge --build-defaults dev-python/setuptools # || :
+						do_emerge --build-defaults app-crypt/libmd dev-libs/libbsd dev-python/setuptools # || :
 					)
 				fi  # [ "${pkg}" = 'sys-apps/help2man' ]
 
@@ -2285,7 +2285,7 @@ case "${1:-}" in
 		echo '---------------------'
 		echo
 		do_emerge --unmerge-defaults \
-			dev-util/meson dev-util/meson-format-array || :
+			dev-build/meson dev-build/meson-format-array || :
 		do_emerge --depclean-defaults dev-libs/icu app-portage/gemato || :
 		# shellcheck disable=SC2046
 		set -- $( find "${ROOT}"/var/db/pkg/dev-python/ \

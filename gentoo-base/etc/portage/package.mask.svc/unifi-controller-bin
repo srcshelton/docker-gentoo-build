@@ -1,6 +1,6 @@
 
 # The meson build system isn't compatible with python2_7
-#dev-util/meson
+#dev-build/meson
 
 # Don't install more recent util-linux
 #>sys-apps/util-linux-2.33.2

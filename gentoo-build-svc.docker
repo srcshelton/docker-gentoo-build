@@ -1084,6 +1084,7 @@ case "${package_name}" in
 				app-alternatives/awk${impl:+"${impl}"}
 				app-arch/libarchive
 				app-crypt/gnupg
+				dev-build/make
 				dev-lang/python-exec
 				dev-perl/GeoIP2
 				net-misc/geoipupdate
@@ -1099,7 +1100,6 @@ case "${package_name}" in
 				sys-devel/binutils-config
 				sys-devel/gcc
 				sys-devel/gcc-config
-				sys-devel/make
 				sys-kernel/linux-headers
 				sys-libs/glibc
 				virtual/libc
@@ -1407,19 +1407,17 @@ case " ${pre_pkgs} " in
 				warn
 				warning=1
 			fi
-			post_pkgs="${post_pkgs:+"${post_pkgs} "}sys-devel/gcc sys-libs/zlib --nodeps"
+			post_pkgs="${post_pkgs:+"${post_pkgs} "}sys-devel/gcc sys-libs/zlib virtual/libiconv --nodeps"
 		fi
 		if [[ " ${gcc_extra_flags} " == *' openmp '* ]]; then
 			pre_use="$( replace_flags 'graphite' '-lib-only' 'openmp' 'zstd' -- "${pre_use:-}" )"
 			post_use="$( replace_flags '-graphite' 'lib-only' 'openmp' 'zstd' -- "${post_use:-}" )"
-			pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
-			post_pkgs="${post_pkgs:+"${post_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
 		else
 			pre_use="$( replace_flags '-openmp' -- "${pre_use:-}" )"
 			post_use="$( replace_flags '-openmp' -- "${post_use:-}" )"
-			pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
-			post_pkgs="${post_pkgs:+"${post_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
 		fi
+		pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}app-alternatives/yacc app-crypt/libb2 app-portage/portage-utils"
+		post_pkgs="${post_pkgs:+"${post_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
 
 		if
 				echo " ${use_essential:-} ${use_essential_gcc:-}" \
