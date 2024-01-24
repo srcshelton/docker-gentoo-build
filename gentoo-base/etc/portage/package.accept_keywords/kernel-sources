@@ -1,32 +1,37 @@
 
 # Current stable package is gentoo-sources-5.10.203
-~sys-kernel/gentoo-sources-5.10.205			~amd64 ~x86
+~sys-kernel/gentoo-sources-5.10.207			~amd64 ~x86
 
 # Current stable package is gentoo-sources-5.15.142
-~sys-kernel/gentoo-sources-5.15.144			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-5.15.146			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.1.67
-=sys-kernel/gentoo-sources-6.1.69			~amd64 ~arm ~arm64 ~x86
+=sys-kernel/gentoo-sources-6.1.72			~amd64 ~arm ~arm64 ~x86
 
-~sys-kernel/gentoo-sources-6.6.8			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/vanilla-sources-6.6.8			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.6.9			~amd64 ~arm ~arm64 ~x86
+
+~sys-kernel/gentoo-sources-6.7.0			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-6.7.0			~amd64 ~arm ~arm64 ~x86
 
 # Required for rust modules...
 #
 # 6.1.x to 6.4.x
-=virtual/rust-1.62.0					~amd64
-=dev-lang/rust-1.62.0					~amd64
-=dev-util/bindgen-0.56.0				~amd64
-=sys-devel/clang-toolchain-symlinks-14-r2		~amd64
-=sys-devel/lld-toolchain-symlinks-14-r2			~amd64
-=sys-devel/llvm-toolchain-symlinks-14-r1		~amd64
+~virtual/rust-1.62.0					~amd64
+~dev-lang/rust-1.62.0					~amd64
+~dev-util/bindgen-0.56.0				~amd64
+~sys-devel/clang-toolchain-symlinks-14			~amd64
+~sys-devel/lld-toolchain-symlinks-14			~amd64
+~sys-devel/llvm-toolchain-symlinks-14			~amd64
 # 6.5.x
-=virtual/rust-1.68.2					~amd64
-=dev-lang/rust-1.68.2					~amd64
+~virtual/rust-1.68.2					~amd64
+~dev-lang/rust-1.68.2					~amd64
 # 6.6.x
-#=virtual/rust-1.71.1					 amd64
-#=dev-lang/rust-1.71.1					 amd64
-=dev-util/bindgen-0.65.1				~amd64
+#~virtual/rust-1.71.1					 amd64
+#~dev-lang/rust-1.71.1					 amd64
+~dev-util/bindgen-0.65.1				~amd64
+# 6.7.x
+~virtual/rust-1.73.0					~amd64
+~dev-lang/rust-1.73.0					~amd64
 
 # Additional kernel-modules...
 #~net-firewall/xtables-addons-3.18			~amd64 ~arm ~arm64 ~x86
