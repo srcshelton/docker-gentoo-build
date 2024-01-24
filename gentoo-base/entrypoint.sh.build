@@ -269,7 +269,8 @@ applyworkarounds() {
 		unset aw_gcc_use
 		print "After work-around, USE is '${USE}'"
 	fi
-	aw_pkgs='app-containers/podman app-containers/netavark app-containers/aardvark-dns virtual/rust dev-lang/rust'
+
+	aw_pkgs='app-containers/podman app-containers/netavark app-containers/aardvark-dns virtual/rust dev-lang/rust dev-util/bindgen'
 	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
@@ -285,6 +286,7 @@ applyworkarounds() {
 		USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //')"}http2"
 		print "After work-around, USE is '${USE}'"
 	fi
+
 	aw_pkgs='dev-lang/php media-libs/freetype media-libs/harfbuzz'
 	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	aw_list=''
@@ -301,6 +303,27 @@ applyworkarounds() {
 		USE="${USE:+"$( echo " ${USE} " | sed 's/ harfbuzz / / ; s/^ //')"}-harfbuzz"
 		print "After work-around, USE is '${USE}'"
 	fi
+
+	aw_pkgs='sys-libs/llvm-libunwind sys-devel/clang sys-devel/clang-common'
+	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
+	aw_list=''
+	for aw_pkg in ${aw_pkgs}; do
+		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
+	done
+	#print "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+	if echo " ${aw_arg} " |
+			sed 's/ /  /g' |
+			grep -Eq -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+	then
+		warn "Activating sys-libs/llvm-libunwind work-arounds ..."
+		print "Before work-around, USE is '${USE}' ..."
+		USE="${USE:+"$( echo " ${USE} " | sed 's/ default-compiler-rt / / ; s/^ //')"}-default-compiler-rt"
+		#USE="${USE:+"$( echo " ${USE} " | sed 's/ default-libcxx / / ; s/^ //')"}-default-libcxx"
+		#USE="${USE:+"$( echo " ${USE} " | sed 's/ default-lld / / ; s/^ //')"}-default-lld"
+		USE="${USE:+"$( echo " ${USE} " | sed 's/ llvm-libunwind / / ; s/^ //')"}-llvm-libunwind"
+		print "After work-around, USE is '${USE}'"
+	fi
+
 	#aw_pkgs='app-containers/buildah'
 	#info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	#aw_list=''
@@ -317,6 +340,7 @@ applyworkarounds() {
 	#	export USE
 	#	print "After work-around, USE is '${USE}'"
 	#fi
+
 	#aw_pkgs='sys-apps/busybox sys-libs/libxcrypt virtual/libcrypt'
 	#info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	#aw_list=''
@@ -515,12 +539,13 @@ COLLISION_IGNORE="${COLLISION_IGNORE:-"/lib/modules/*"}
 "
 export COLLISION_IGNORE
 
-TUSE='' pkg_use_pkg='' pkg_use_use='' pkg_use_file='' pkg_use_files=''
+TUSE='' pkg_use_pkg='' pkg_use_use='' pkg_use_file=''
+pkg_mask_pkg='' pkg_mask_file='' extra_file='' extra_files=''
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
 post_pkgs='' post_use='' post_remove=''
 rebuild='' depclean_extra='' depclean_exclude=''
-depclean=0 change_sysroot=0 pkg_use=0 no_use=0 rc=0
+depclean=0 change_sysroot=0 pkg_use=0 pkg_mask=0 no_use=0 rc=0
 for arg in "${@}"; do
 	#print "Read argument '${arg}'"
 
@@ -612,7 +637,7 @@ for arg in "${@}"; do
 			)"
 			continue
 			;;
-		--with-pkg-use=*)
+		--with-pkg-use=*|--with-package-use=*)
 			# e.g. --with-pkg-use='sys-apps/coreutils -hostname'
 			#
 			pkg_use=1
@@ -638,8 +663,34 @@ for arg in "${@}"; do
 			warn "Applied override USE flag(s):"
 			warn "  ${pkg_use_file}:"
 			warn "$( sed 's/^/    /' < "${pkg_use_file}" )"
-			pkg_use_files="${pkg_use_files:+"${pkg_use_files} "}${pkg_use_file}"
-			unset pkg_use_file pkg_use_pkg pkg_use_use
+			extra_files="${extra_files:+"${extra_files} "}${pkg_use_file}"
+			pkg_use_file='' pkg_use_pkg='' pkg_use_use=''
+			continue
+			;;
+		--with-pkg-mask=*|--with-package-mask=*)
+			pkg_mask=1
+			pkg_mask_pkg="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
+			mkdir -p /etc/portage/package.mask
+			#pkg_mask_file="/etc/portage/package.mask/$( # <- Syntax
+			#	echo "${pkg_mask_pkg}" | cut -d'/' -f 2-
+			#)"
+			pkg_mask_file="/etc/portage/package.mask/extra.mask"
+			printf '%s\n' "${pkg_mask_pkg}" >> "${pkg_mask_file}"
+			#warn "Applied package mask(s):"
+			#warn "  ${pkg_mask_file}:"
+			##warn "$( sed 's/^/    /' < "${pkg_mask_file}" )"
+			#line=''
+			#cat "${pkg_mask_file}" | while read -r line; do
+			#	warn "    ${line}"
+			#done
+			#unset line
+			if ! echo " ${extra_files:-} " | grep -Fq " ${pkg_mask_file} "
+			then
+				extra_files="${extra_files:+"${extra_files} "}${pkg_mask_file}"
+			fi
+			pkg_mask_pkg=''
 			continue
 			;;
 		*)
@@ -647,7 +698,7 @@ for arg in "${@}"; do
 			;;
 	esac
 done
-unset arg
+unset pkg_mask_pkg pkg_use_file pkg_use_pkg pkg_use_use arg
 
 if [ -e /etc/portage/repos.conf.host ]; then
 	echo
@@ -680,6 +731,16 @@ if [ $(( no_use )) -ne 0 ]; then
 		warn "Removing default '/etc/portage/package.use' settings"
 		mv /etc/portage/package.use /etc/portage/package.use.disabled
 	fi
+fi
+if [ $(( pkg_mask )) -ne 0 ]; then
+	warn "Applied package mask(s):"
+	warn "  ${pkg_mask_file}:"
+	#warn "$( sed 's/^/    /' < "${pkg_mask_file}" )"
+	line=''
+	while read -r line; do
+		warn "    ${line}"
+	done < "${pkg_mask_file}"
+	unset line pkg_mask_file
 fi
 
 override='' object='' headers='' header='' file='' dest=''
@@ -982,12 +1043,15 @@ fi # [ -n "${pre_pkgs:-}" ]
 if [ -e /usr/gawk ] || [ -e /usr/bin/gawk ]; then
 	# Superseded by app-alternatives/awk...
 	#
-	if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]; then
+	if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]
+	then
 		eselect awk set gawk
 	fi
 fi
 [ -d /etc/env.d/gcc ] && ROOT='/' gcc-config 1
-[ -d /etc/env.d/binutils ] && command -v binutils-config >/dev/null 2>&1 && ROOT='/' binutils-config 1
+[ -d /etc/env.d/binutils ] &&
+	command -v binutils-config >/dev/null 2>&1 &&
+	ROOT='/' binutils-config 1
 # shellcheck disable=SC1091
 [ -s /etc/profile ] && . /etc/profile
 
@@ -1028,13 +1092,13 @@ fi
 	VERY_BRAVE_OR_VERY_DUMB='yes'  # for (old) busybox
 	export ROOT FEATURES USE LC_ALL VERY_BRAVE_OR_VERY_DUMB
 
-	for pkg_use_file in ${pkg_use_files}; do
-		if [ -e "${pkg_use_file}" ] && ! [ -e "${ROOT}${pkg_use_file}" ]; then
-			mkdir -p "$( dirname "${ROOT}${pkg_use_file}" )"
-			cp --verbose "${pkg_use_file}" "${ROOT}${pkg_use_file}"
+	for extra_file in ${extra_files}; do
+		if [ -e "${extra_file}" ] && ! [ -e "${ROOT}${extra_file}" ]; then
+			mkdir -p "$( dirname "${ROOT}${extra_file}" )"
+			cp --verbose "${extra_file}" "${ROOT}${extra_file}"
 		fi
 	done
-	unset pkg_use_file
+	unset extra_file
 
 	info="$( emerge --info --verbose=y )"
 	echo
@@ -1285,41 +1349,82 @@ case "${1:-}" in
 
 		echo
 
-		# curl work-arounds... keep in sync with applyworkarounds()
-		curl_pkgs='app-containers/podman app-containers/netavark dev-lang/rust'
-		curl_list=''
-		for curl_pkg in ${curl_pkgs}; do
-			curl_list="${curl_list:+"${curl_list}|"}${curl_pkg#*"/"}|${curl_pkg}"
-		done
-		if curl_pkg="$( # <- Syntax
-				echo " ${*} " |
-					sed 's/ /  /g' |
-					grep -Eo -- " ([<>]?=|~)?(${curl_list})(-[^ ]+)? "
-		)" && [ -n "${curl_pkg:-}" ]; then
-			curl_pkg="$( echo "${curl_pkg}" | xargs -r )"
-			warn "Adding post-package entry 'net-misc/curl' due to presence" \
-				"of ${curl_pkg} ..."
-			post_pkgs="${post_pkgs:+"${post_pkgs} "}net-misc/curl"
-		fi
-		unset curl_pkg curl_list curl_pkgs
+		# '--nodeps' should only ever be set when finalising service-builds,
+		# whereas the flags required for llvm/clang/llvm-libunwind to work
+		# as intended should only be needed for kernel and individual package
+		# builds...
+		#
+		if ! echo " ${post_pkgs:-} " | grep -Fq -- ' --nodeps '; then
+			# curl work-arounds... keep in sync with applyworkarounds()
+			curl_pkgs='app-containers/podman app-containers/netavark app-containers/aardvark-dns virtual/rust dev-lang/rust dev-util/bindgen'
+			curl_list=''
+			for curl_pkg in ${curl_pkgs}; do
+				curl_list="${curl_list:+"${curl_list}|"}${curl_pkg#*"/"}|${curl_pkg}"
+			done
+			if curl_pkg="$( # <- Syntax
+					echo " ${*} " |
+						sed 's/ /  /g' |
+						grep -Eo -- " ([<>]?=|~)?(${curl_list})(-[^ ]+)? "
+			)" && [ -n "${curl_pkg:-}" ]; then
+				curl_pkg="$( echo "${curl_pkg}" | xargs -r )"
+				warn "Adding post-package entry 'net-misc/curl' due to presence" \
+					"of ${curl_pkg} ..."
+				post_pkgs="${post_pkgs:+"${post_pkgs} "}net-misc/curl"
+			fi
+			unset curl_pkg curl_list curl_pkgs
 
-		# harfbuzz work-arounds... keep in sync with applyworkarounds()
-		harfbuzz_pkgs='dev-lang/php media-libs/freetype media-libs/harfbuzz'
-		harfbuzz_list=''
-		for harfbuzz_pkg in ${harfbuzz_pkgs}; do
-			harfbuzz_list="${harfbuzz_list:+"${harfbuzz_list}|"}${harfbuzz_pkg#*"/"}|${harfbuzz_pkg}"
-		done
-		if harfbuzz_pkg="$( # <- Syntax
-				echo " ${*} " |
-					sed 's/ /  /g' |
-					grep -Eo -- " ([<>]?=|~)?(${harfbuzz_list})(-[^ ]+)? "
-		)" && [ -n "${harfbuzz_pkg:-}" ]; then
-			harfbuzz_pkg="$( echo "${harfbuzz_pkg}" | xargs -r )"
-			warn "Adding post-package entry 'media-libs/freetype' due to presence" \
-				"of ${harfbuzz_pkg} ..."
-			post_pkgs="${post_pkgs:+"${post_pkgs} "}media-libs/freetype"
-		fi
-		unset harfbuzz_pkg harfbuzz_list harfbuzz_pkgs
+			# harfbuzz work-arounds... keep in sync with applyworkarounds()
+			harfbuzz_pkgs='dev-lang/php media-libs/freetype media-libs/harfbuzz'
+			harfbuzz_list=''
+			for harfbuzz_pkg in ${harfbuzz_pkgs}; do
+				harfbuzz_list="${harfbuzz_list:+"${harfbuzz_list}|"}${harfbuzz_pkg#*"/"}|${harfbuzz_pkg}"
+			done
+			if harfbuzz_pkg="$( # <- Syntax
+					echo " ${*} " |
+						sed 's/ /  /g' |
+						grep -Eo -- " ([<>]?=|~)?(${harfbuzz_list})(-[^ ]+)? "
+			)" && [ -n "${harfbuzz_pkg:-}" ]; then
+				harfbuzz_pkg="$( echo "${harfbuzz_pkg}" | xargs -r )"
+				warn "Adding post-package entry 'media-libs/freetype' due to presence" \
+					"of ${harfbuzz_pkg} ..."
+				post_pkgs="${post_pkgs:+"${post_pkgs} "}media-libs/freetype"
+			fi
+			unset harfbuzz_pkg harfbuzz_list harfbuzz_pkgs
+
+			# llvm-libunwind work-arounds... keep in sync with applyworkarounds()
+			llvm_libunwind_pkgs='sys-libs/llvm-libunwind sys-devel/clang sys-devel/clang-common'
+			llvm_libunwind_list=''
+			for llvm_libunwind_pkg in ${llvm_libunwind_pkgs}; do
+				llvm_libunwind_list="${llvm_libunwind_list:+"${llvm_libunwind_list}|"}${llvm_libunwind_pkg#*"/"}|${llvm_libunwind_pkg}"
+			done
+			if llvm_libunwind_pkg="$( # <- Syntax
+					echo " ${*} " |
+						sed 's/ /  /g' |
+						grep -Eo -- " ([<>]?=|~)?(${llvm_libunwind_list})(-[^ ]+)? "
+			)" && [ -n "${llvm_libunwind_pkg:-}" ]; then
+				llvm_libunwind_pkg="$( echo "${llvm_libunwind_pkg}" | xargs -r )"
+				# 'default-compiler-rt' is a USE-flag for sys-devel/clang:14 but
+				# for sys-devel/clang-common thereafter...
+				warn "Adding post-package entries 'sys-devel/clang' and" \
+					"'sys-devel/clang-common' due to presence of" \
+					"${llvm_libunwind_pkg} ..."
+				post_pkgs="${post_pkgs:+"${post_pkgs} "}sys-devel/clang sys-devel/clang-common"
+				warn "Adding post-package USE flags 'default-compiler-rt" \
+					"default-libcxx default-lld llvm-libunwind' due to presence" \
+					"of ${llvm_libunwind_pkg} ..."
+				post_use="${post_use:+"${post_use} "}default-compiler-rt default-libcxx default-lld llvm-libunwind"
+				if echo " ${USE} " | grep -Fq -- ' python_single_target_python'; then
+					flag=''
+					for flag in ${USE}; do
+						if echo "${flag}" | grep -Fq 'python_single_target_python'; then
+							post_use="${post_use:+"${post_use} "}${flag}"
+						fi
+					done
+					unset flag
+				fi
+			fi
+			unset llvm_libunwind_pkg llvm_libunwind_list llvm_libunwind_pkgs
+		fi # ! echo " ${post_pkgs:-} " | grep -Fq -- ' --nodeps '
 
 		echo " * Building requested '$( # <- Syntax
 			printf '%s' "${*}" | sed 's/--[^ ]\+ //g'
@@ -1622,15 +1727,41 @@ case "${1:-}" in
 				"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
 				"${post_pkgs}'${USE:+" with USE='${USE}'"} with" \
 				"ROOT='${ROOT}'"
+			gcc_exclude=''
+			if echo " ${post_pkgs} " | grep -q -- '\s--nodeps\s'; then
+				gcc_exclude='--exclude=sys-devel/gcc'
+			fi
 			# shellcheck disable=SC2086
 			LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
 					  ${parallel} \
 					  ${opts} \
 					--buildpkg=y \
+					  ${gcc_exclude:-} \
 					--usepkg=y \
 					--with-bdeps=n \
 					--with-bdeps-auto=n \
 				${post_pkgs} || rc=${?}
+
+			if [ -n "${gcc_exclude:-}" ] && echo "${post_pkgs}" | grep -Fq -- 'gcc'; then
+				gcc_pkgs="$( # <- Syntax
+					echo " ${post_pkgs} " |
+						grep -Eo -- '\s([<>]?=?sys-devel/)?gcc([-:][^\s]+)\s' |
+						awk '{ print $1 }'
+				)"
+				if [ -n "${gcc_pkgs:-}" ]; then
+					# shellcheck disable=SC2086
+					LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
+							  ${parallel} \
+							  ${opts} \
+							--buildpkg=y \
+							--usepkg=y \
+							--with-bdeps=n \
+							--with-bdeps-auto=n \
+						"${gcc_pkgs}" || rc=${?}
+				fi # [ -n "${gcc_pkgs:-}" ]
+				unset gcc_pkgs
+			fi # [ -n "${gcc_exclude:-}" ] && echo "${post_pkgs}" | grep -Fq -- 'gcc'
+			unset gcc_exclude
 		fi # [ -n "${post_pkgs:-}" ]
 
 		if [ -n "${rebuild:-}" ]; then
