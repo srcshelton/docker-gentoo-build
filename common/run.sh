@@ -57,6 +57,8 @@ _command='docker'
 debug=${DEBUG:-}
 trace=${TRACE:-}
 
+declare -i _common_run_show_command=1
+
 # Output functions...
 #
 
@@ -237,21 +239,39 @@ replace_flags() {
 add_arg() {
 	local flag="${1:-}" arg=''
 
+	# add_arg control-var output
+	#
+	# print 'output' if 'control-var' is set, expanding '%%' for the name of
+	# the specified control-var, and '##' for the value.  Multiple 'output'
+	# values will be individually substituted.
+
 	if [[ -n "${2:-}" ]]; then
+		# We've saved the first argument as 'flag', now ensure that our
+		# parameters are the remaining arguments...
 		shift
 	fi
 
+	# FIXME: I can't remember why the test needs to be "${!flag:-}", but the
+	#        output is not as intended with this test dropped :(
+	# N.B. Looping over arguments *after* the first is simply to include an
+	#      initial space before each sucessive parameter.
 	if [[ -n "${flag:-}" && -n "${!flag:-}" ]]; then
-		if [[ -n "${*:-}" ]]; then
-			#printf '%s ' "${@:-}"
-			printf '%s' "${1//"%%"/"${flag}"}"
+		if [[ -n "${1:-}" ]]; then
+			# e.g. add_arg 1 2 3 -> 1 ...
+			arg="${1}"
+			arg="${arg//"##"/"${!flag}"}"
+			printf '%s' "${arg//"%%"/"${flag}"}"
 			if [[ -n "${2:-}" ]]; then
 				shift
+				# e.g. add_arg 1 2 3 -> ... 2 3
 				for arg in "${@:-}"; do
+					arg="${arg//"##"/"${!flag}"}"
 					printf ' %s' "${arg//"%%"/"${flag}"}"
+					#       ^
 				done
 			fi
 		else
+			# e.g. add_arg test -> 'test'
 			printf '%s' "${flag}"
 		fi
 	fi
@@ -917,8 +937,8 @@ _docker_run() {
 		fi
 
 		local name='' ext=''
-		name="$( docker image ls | grep "${image}" | awk '{ print $1 ":" $2 }' )"
-		name="${name#*"/"}"
+		name="$( docker image ls | grep "${image/:/\\s*}" | awk '{ print $1 ":" $2 }' )" || :
+		[[ -n "${name:-}" ]] && name="${name#*"/"}"
 		case "${name}" in
 			"${init_name#*"/"}:latest"|"${base_name#*"/"}:latest")
 				: ;;
@@ -1276,6 +1296,10 @@ _docker_run() {
 			done
 			print "  ${image}${*:+" \\"}"
 			for arg in "${@:-}"; do
+				if ! (( _common_run_show_command )) && [[ "${arg}" == '-c' ]]; then
+					print "    ${arg} ..."
+					break
+				fi
 				[[ -n "${arg:-}" ]] && print "    ${arg} \\"
 			done
 			print "'"
