@@ -605,8 +605,11 @@ if [ "${update:-"0"}" = '1' ]; then
 			)"
 		fi
 		(
+			# Since dev-build/ninja gained app-alternatives/ninja, building
+			# sys-devel/gcc also requires USE='reference' (or 'samurai')...
+			#
 			# shellcheck disable=SC2031
-			export USE="${gcc_use} ${alt_use} python_targets_${python_default_target:-"python3_11"}"
+			export USE="${gcc_use} ${alt_use} reference python_targets_${python_default_target:-"python3_11"}"
 			{
 				./gentoo-build-pkg.docker \
 							--buildpkg=y \
