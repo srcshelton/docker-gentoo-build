@@ -1116,9 +1116,12 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 
 		# Add '@preserved-rebuild' for potential outdated stage3 base-images...
 		post_pkgs='dev-util/pkgconf sys-libs/glibc @preserved-rebuild sys-apps/portage net-misc/curl dev-libs/nettle'
-		post_use="curl_ssl_openssl gmp multiarch native-extensions openssl ssl -ssp"
+		post_use='curl_ssl_openssl gmp multiarch native-extensions openssl ssl -ssp'
 		if [[ -n "${python_use:-}" ]]; then
-			post_pkgs+=" dev-python/setuptools"
+			# FIXME: libbsd is having a weird problem, during image-build only?
+			post_pkgs+=' app-crypt/libmd dev-libs/libbsd'
+
+			post_pkgs+=' dev-python/setuptools'
 			post_use="$( replace_flags "${python_use}" -- "${post_use}" )"
 		fi
 		if type -pf portageq >/dev/null 2>&1; then
@@ -1311,13 +1314,16 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		[[ -z "${pkg_pypy_post_remove:-}" ]] || build_args+=( # <- Syntax
 			--post-remove="${pkg_pypy_post_remove}"
 		)
+		# @system includes virtual/ssh, which sometimes tries to pull-in
+		# net-misc/dropbear rather than net-misc/openssh, so include the latter
+		# to try to avoid this...
+		#
 		# shellcheck disable=SC2086
-		_docker_run "${build_args[@]}" \
-				dev-libs/icu dev-util/pkgconf sys-apps/locale-gen \
-				sys-apps/sed sys-apps/util-linux sys-devel/gcc \
-				sys-libs/libeudev @system \
-				${pkg_pypy:+"sys-apps/portage"} \
-				${pkg_pypy:-} 2>&1 |
+		_docker_run "${build_args[@]}" --exclude='net-misc/dropbear' \
+				dev-libs/icu dev-util/pkgconf net-misc/openssh \
+				sys-apps/locale-gen sys-apps/sed sys-apps/util-linux \
+				sys-devel/gcc sys-libs/libeudev @system \
+				${pkg_pypy:+"sys-apps/portage"} ${pkg_pypy:-} 2>&1 |
 			tee -a ../log/"docker.${build_name#*"/"}.log"
 		unset build_args
 	)
