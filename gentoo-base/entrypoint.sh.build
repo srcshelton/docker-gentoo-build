@@ -1721,16 +1721,20 @@ case "${1:-}" in
 
 			git_safedirectory_markall
 
+			gcc_exclude=''
+			if echo " ${post_pkgs} " | grep -q -- '\s--nodeps\s' &&
+				echo " ${post_pkgs} " |
+					grep -Eq -- '\s([<>]?=?sys-devel/)?gcc([-:][^\s]+)?\s'
+			then
+				gcc_exclude='--exclude=sys-devel/gcc'
+			fi
 			# shellcheck disable=SC2016
 			print "Running 'emerge" \
 				"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-				"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
+				"--usepkg=y --with-bdeps=n" \
+				"--with-bdeps-auto=n${gcc_exclude:+" ${gcc_exclude}"}" \
 				"${post_pkgs}'${USE:+" with USE='${USE}'"} with" \
 				"ROOT='${ROOT}'"
-			gcc_exclude=''
-			if echo " ${post_pkgs} " | grep -q -- '\s--nodeps\s'; then
-				gcc_exclude='--exclude=sys-devel/gcc'
-			fi
 			# shellcheck disable=SC2086
 			LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
 					  ${parallel} \
@@ -1742,21 +1746,28 @@ case "${1:-}" in
 					--with-bdeps-auto=n \
 				${post_pkgs} || rc=${?}
 
-			if [ -n "${gcc_exclude:-}" ] && echo "${post_pkgs}" | grep -Fq -- 'gcc'; then
+			if [ -n "${gcc_exclude:-}" ]; then
 				gcc_pkgs="$( # <- Syntax
 					echo " ${post_pkgs} " |
-						grep -Eo -- '\s([<>]?=?sys-devel/)?gcc([-:][^\s]+)\s' |
+						grep -Eo -- '\s([<>]?=?sys-devel/)?gcc([-:][^\s]+)?\s' |
 						awk '{ print $1 }'
 				)"
 				if [ -n "${gcc_pkgs:-}" ]; then
+					# shellcheck disable=SC2016
+					print "Running 'emerge" \
+						"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
+						"--usepkg=y --with-bdeps=n --with-bdeps-auto=n --nodeps" \
+						"${gcc_pkgs}'${USE:+" with USE='${USE}'"} with" \
+						"ROOT='${ROOT}'"
 					# shellcheck disable=SC2086
 					LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
-							  ${parallel} \
 							  ${opts} \
+							  ${parallel} \
 							--buildpkg=y \
+							--nodeps \
 							--usepkg=y \
-							--with-bdeps=n \
 							--with-bdeps-auto=n \
+							--with-bdeps=n \
 						"${gcc_pkgs}" || rc=${?}
 				fi # [ -n "${gcc_pkgs:-}" ]
 				unset gcc_pkgs
