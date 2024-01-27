@@ -613,9 +613,10 @@ if [ "${update:-"0"}" = '1' ]; then
 			{
 				./gentoo-build-pkg.docker \
 							--buildpkg=y \
+							--name 'buildpkg.hostpkgs.gcc.update' \
 							--usepkg=y \
 							--with-bdeps=y \
-							--name 'buildpkg.hostpkgs.gcc.update' \
+							--with-pkg-use='app-alternatives/ninja reference' \
 						sys-devel/gcc 2>&1 ||
 					exit ${?}
 			} | tee log/buildpkg.hostpkgs.gcc.update.log
