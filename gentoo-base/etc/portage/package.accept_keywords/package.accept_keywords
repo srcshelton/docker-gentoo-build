@@ -5,6 +5,7 @@
 ~app-arch/upx-4.0.2					       ~arm ~arm64
 ~app-misc/linux-logo-6.0				       ~arm ~arm64
 ~app-portage/gemato-20.4				~amd64 ~arm ~arm64 ~x86
+~app-portage/gentoolkit-0.6.5				~amd64 ~arm ~arm64 ~x86
 ~app-portage/pycargoebuild-0.6.3			       ~arm ~arm64 ~x86
 ~dev-perl/Net-MAC-Vendor-1.268::srcshelton		~amd64 ~arm ~arm64 ~x86
 ~dev-perl/Net-Subnet-1.30.0				~amd64 ~arm ~arm64 ~x86

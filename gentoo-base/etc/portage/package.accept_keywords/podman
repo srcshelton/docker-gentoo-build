@@ -94,8 +94,10 @@
 #~app-containers/podman-4.8.0				 **
 #~app-containers/podman-4.8.1				 **
 #~app-containers/podman-4.8.2				 **
-~app-containers/podman-4.8.3				 **
-~app-containers/podman-4.9.0				 **
+#~app-containers/podman-4.8.3				 **
+#~app-containers/podman-4.9.0				 **
+~app-containers/podman-4.9.1				 **
+~app-containers/podman-4.9.2				 **
 
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				 **
@@ -177,7 +179,9 @@
 #~app-containers/buildah-1.33.0				 **
 #~app-containers/buildah-1.33.1				 **
 #~app-containers/buildah-1.33.2				 **
-~app-containers/buildah-1.33.3				 **
+#~app-containers/buildah-1.33.3				 **
+#~app-containers/buildah-1.33.4				 **
+~app-containers/buildah-1.33.5				 **
 ~app-containers/buildah-1.34.0				 **
 
 #~net-misc/cni-plugins-0.8.7				 **
@@ -204,8 +208,12 @@
 #~app-containers/netavark-1.5.1				 **
 #~app-containers/netavark-1.6.0				 **
 #~app-containers/netavark-1.7.0				 **
-~app-containers/netavark-1.8.0				 **
-~app-containers/netavark-1.9.0				 **
+#~app-containers/netavark-1.8.0				 **
+#~app-containers/netavark-1.9.0				 **
+# crate missing: https://crates.io/crates/netavark/1.10.0
+#~app-containers/netavark-1.10.0			 **
+~app-containers/netavark-1.10.1				 **
+~app-containers/netavark-1.10.2				 **
 
 #~app-containers/aardvark-dns-1.0.2			 **
 #~app-containers/aardvark-dns-1.0.3			 **
@@ -216,8 +224,9 @@
 #~app-containers/aardvark-dns-1.5.0			 **
 #~app-containers/aardvark-dns-1.6.0			 **
 #~app-containers/aardvark-dns-1.7.0			 **
-~app-containers/aardvark-dns-1.8.0			 **
+#~app-containers/aardvark-dns-1.8.0			 **
 ~app-containers/aardvark-dns-1.9.0			 **
+~app-containers/aardvark-dns-1.10.0			 **
 
 # move app-emulation/crun app-containers/crun
 #~app-containers/crun-0.14.1				 **
@@ -260,8 +269,9 @@
 #~app-containers/crun-1.11				 **
 #~app-containers/crun-1.11.1				 **
 #~app-containers/crun-1.11.2				 **
-~app-containers/crun-1.12
-~app-containers/crun-1.13
+#~app-containers/crun-1.12				 **
+~app-containers/crun-1.13				 **
+~app-containers/crun-1.14				 **
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -283,13 +293,16 @@
 #~app-containers/runc-1.1.7				 **
 #~app-containers/runc-1.1.8				 **
 #~app-containers/runc-1.1.9				 **
-~app-containers/runc-1.1.10				 **
+#~app-containers/runc-1.1.10				 **
 ~app-containers/runc-1.1.11				 **
+~app-containers/runc-1.1.12				 **
 
 #~app-containers/containers-common-0.56.0		 **
 #~app-containers/containers-common-0.57.0		 **
-~app-containers/containers-common-0.57.1		 **
-~app-containers/containers-common-0.57.2		 **
+#~app-containers/containers-common-0.57.1		 **
+#~app-containers/containers-common-0.57.2		 **
+~app-containers/containers-common-0.57.3		 **
+~app-containers/containers-common-0.57.4		 **
 
 ~app-containers/containers-image-5.28.0			 **
 
@@ -460,7 +473,8 @@
 #~app-containers/skopeo-1.13.1				 **
 #~app-containers/skopeo-1.13.2				 **
 #~app-containers/skopeo-1.13.3				 **
-~app-containers/skopeo-1.14.0				 **
+#~app-containers/skopeo-1.14.0				 **
 ~app-containers/skopeo-1.14.1				 **
+~app-containers/skopeo-1.14.2				 **
 
 # vi: set syntax=gentoo-package-keywords:
