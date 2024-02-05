@@ -10,7 +10,9 @@
 #app-arch/snappy::unifi
 #app-misc/ca-certificates::unifi
 #app-misc/pax-utils::unifi
+#dev-build/cmake::unifi
 #dev-build/meson-format-array::unifi
+#dev-build/scons::unifi
 #dev-java/java-config::unifi
 #dev-libs/boost::unifi
 #dev-libs/snowball-stemmer::unifi
@@ -23,8 +25,6 @@
 #dev-python/snowball-stemmer::unifi
 #dev-python/typing::unifi
 #dev-util/boost-build::unifi
-#dev-util/cmake::unifi
-#dev-util/scons::unifi
 #net-misc/unifi-controller-bin::unifi
 #sys-apps/file::unifi
 #sys-apps/portage::unifi

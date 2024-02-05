@@ -1000,12 +1000,12 @@ case "${package_name}" in
 			acct-group/postfix
 			acct-user/memcached
 			acct-user/postfix
+			dev-build/automake
+			dev-build/libtool
 			dev-libs/libpcre
 			net-dns/libidn
 			net-libs/courier-unicode
-			sys-devel/automake
 			sys-devel/gcc
-			sys-devel/libtool
 		'
 		#extra_pkgs='dev-libs/cyrus-sasl'
 		#post_pkgs='app-shells/bash mail-filter/maildrop mail-filter/procmail net-mail/dovecot sys-apps/shadow'  # dovecot for lda
@@ -1269,6 +1269,7 @@ case "${package_name}" in
 				#		  acct-group/mongodb
 				#		  acct-user/mongodb
 				#		>=app-arch/snappy-1.1.3
+				#		>=dev-build/scons-2.5.0
 				#		>=dev-cpp/yaml-cpp-0.5.3
 				#		>=dev-libs/boost-1.60
 				#		>=dev-libs/libpcre-8.41
@@ -1277,7 +1278,6 @@ case "${package_name}" in
 				#		  net-misc/curl
 				#		>=sys-libs/zlib-1.2.11
 				#		>=dev-libs/openssl-1.0.1g:0
-				#		>=dev-util/scons-2.5.0
 				#		  dev-python/cheetah
 				#		  dev-python/pyyaml
 				#		  dev-python/typing

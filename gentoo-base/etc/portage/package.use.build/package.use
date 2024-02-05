@@ -60,10 +60,13 @@ app-containers/containers-storage	-device-mapper
 app-containers/podman			-fuse -rootless
 # move app-admin/eselect-php app-eselect/eselect-php
 app-eselect/eselect-php			 fpm
+app-misc/pax-utils			 man
 app-misc/screen				 multiuser
 app-portage/eix				 tools
 app-text/dictd				 judy
 app-text/enchant			-aspell
+# move dev-util/cmake dev-build/cmake
+dev-build/cmake				-server
 # mariadb and mysql are unusual in that the same ebuild can provide only client
 # or only server binaries.  The flags below are suitable for a server build,
 # which never uses this file any more - client-only overrides are in host.use
@@ -73,6 +76,8 @@ app-text/enchant			-aspell
 #>dev-db/mysql-5.1.50			-max-idx-128 big-tables community extraengine pbxt profiling xtradb
 dev-db/redis				-tcmalloc luajit  # Only one of jemalloc || tcmalloc may be active
 dev-db/sqlite				 extensions fts3 secure-delete soundex unlock-notify
+# move dev-util/strace dev-debug/strace
+dev-debug/strace			-unwind elfutils
 dev-java/gjdoc				 xmldoclet
 dev-java/icedtea			-*
 dev-java/oracle-jdk-bin			-X -javafx headless-awt jce
@@ -104,11 +109,9 @@ dev-python/pycrypto			 test
 dev-python/pygobject			-X
 dev-python/pyyaml			 libyaml
 dev-scheme/guile			 discouraged elisp networking
-dev-util/cmake				-server
 #>=dev-util/ltrace-0.7.91_p195		-elfutils unwind
 dev-util/ltrace				-unwind
 dev-util/pkgconf			 pkg-config
-dev-util/strace				-unwind elfutils
 dev-vcs/git-lfs				 doc
 dev-vcs/subversion			 ctypes-python
 gnome-base/librsvg			-vala
@@ -293,8 +296,8 @@ sys-kernel/linux-firmware		 compress compress-xz savedconfig
 # required by dev-vcs/git-2.39.2
 # required by sys-devel/gettext-0.21.1
 # required by sys-devel/m4-1.4.19-r1
-# required by sys-devel/autoconf-2.71-r5
-# required by sys-devel/libtool-2.4.7-r1
+# required by dev-build/autoconf-2.71-r5
+# required by dev-build/libtool-2.4.7-r1
 # required by dev-db/sqlite-3.41.2-r1
 # required by dev-lang/python-3.11.2_p2
 # required by sys-apps/kmod-30-r1

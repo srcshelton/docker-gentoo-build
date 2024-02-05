@@ -11,6 +11,6 @@
 #>=app-containers/lxc-1.1.0
 
 # cmake fails on filesystems without xattr support...
-=dev-util/cmake-2.8.12.2
+=dev-build/cmake-2.8.12.2
 
 # vi: set colorcolumn=80 syntax=gentoo-package-mask:
