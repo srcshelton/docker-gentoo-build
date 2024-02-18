@@ -121,6 +121,8 @@ dev-perl/Unicode-EastAsianWidth		 CC0-1.0
 
 mail-filter/dcc				 DCC
 
+net-analyzer/netdata			 MPL-2.0
+
 sys-apps/tcp-wrappers			 tcp_wrappers_license
 
 sys-firmware/intel-microcode		 intel-ucode
