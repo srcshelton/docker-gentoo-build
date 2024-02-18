@@ -3,5 +3,6 @@
 sys-apps/man-db				 gdbm manpager nls seccomp
 
 dev-lang/python				 xml
+net-misc/rsync				-ssl system-zlib
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
