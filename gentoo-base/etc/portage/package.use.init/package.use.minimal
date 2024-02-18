@@ -1,6 +1,6 @@
 
 # General USE flags:
-#*/*					-* asm ipv6 ithreads ktls mdev nptl split-usr -ssp threads ${use_cpu_flags}  # from 'use_essential'
+#*/*					-* asm ipv6 ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
 */*					-* split-usr
 
 */*					 PYTHON_SINGLE_TARGET: -* python3_11

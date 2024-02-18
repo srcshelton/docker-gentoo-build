@@ -1,6 +1,6 @@
 
 # General USE flags:
-#*/*					-* asm ipv6 ithreads ktls mdev nptl split-usr -ssp threads ${use_cpu_flags}  # from 'use_essential'
+#*/*					-* asm ipv6 ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
 */*					-apache2 -awt acpi adns aio ao asm audit
 */*					-berkdb bash-completion bzip2
 */*					-cairo -cdb -common-lisp -cups caps chroot curl cxx
@@ -97,7 +97,7 @@ dev-libs/libmemcached			 hsieh
 dev-libs/libnl				 utils
 #dev-libs/libpcre			-readline
 #dev-libs/libpcre2			-readline
-dev-libs/libpcre2			-pcre16
+dev-libs/libpcre2			-pcre16 -pcre32
 dev-libs/libsecp256k1			 endomorphism  # ecdh experimental
 dev-libs/libxml2			 test
 dev-libs/oniguruma			 combination-explosion-check crnl-as-line-terminator
@@ -228,7 +228,8 @@ sys-devel/clang-runtime			 compiler-rt libcxx
 #sys-devel/gcc				 go mudflap
 # gccgo from gcc-6.4.0 tries to include a deprecated glibc header, ustat.h, and fails.
 #~sys-devel/gcc-6.4.0			-go
-sys-devel/gcc				-fortran -graphite -lto -pgo -sanitize -ssp -vtv pch  # graphite has a runtime dependency on dev-libs/isl
+#sys-devel/gcc				-fortran -graphite -lto -pgo -sanitize -ssp -vtv pch  # graphite has a runtime dependency on dev-libs/isl
+sys-devel/gcc				-fortran -graphite -sanitize -vtv lto pgo ssp pch  # graphite has a runtime dependency on dev-libs/isl
 sys-devel/gettext			 cvs git
 sys-devel/llvm				 clang llvm-gcc udis86
 # move sys-apps/microcode-data sys-firmware/intel-microcode

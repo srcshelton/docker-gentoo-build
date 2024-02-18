@@ -3,8 +3,8 @@
 # package.use.svc - USE-flags for service builds
 
 # Keep the following in sync with common/vars.sh
-*/*					-* asm ipv6 ithreads native-extensions mdev nptl split-usr -ssp threads # ${use_cpu_flags}  # from 'use-essential'
-#*/*					-fortran graphite (nptl) openmp pch -sanitize -ssp -vtv zstd
+*/*					-* asm ipv6 ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads # ${use_cpu_flags}  # from 'use-essential'
+#*/*					-fortran graphite (nptl) openmp pch -sanitize ssp -vtv zstd
 
 # Add 'varrun', otherwise we end up with broken '/var/lock -> ../run/lock'
 # symlinks...
@@ -22,5 +22,5 @@ dev-lang/python-exec			 native-symlinks
 dev-libs/libgcrypt			 getentropy
 dev-util/pkgconf			 pkg-config
 sys-apps/busybox			-savedconfig
-sys-devel/gcc				-ssp
-sys-libs/glibc				 clone3 compile-locales minimal -ssp timezone-tools
+sys-devel/gcc				 ssp
+sys-libs/glibc				 clone3 compile-locales minimal ssp timezone-tools
