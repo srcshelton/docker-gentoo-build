@@ -27,7 +27,45 @@ Please note: Certain elements may not work as intended if the overlay-repo
 the system performing the container build - this configuration is largely
 untested.
 
-## Docker Images
+**N.B. This build system can be hosted by either `docker` or `podman`, and they
+will be searched for in this order.  `podman` has proven more reliable over
+time, and so is the recommended option.  However, the `podman` packages
+available with certain distributions and for certain architectures are very
+outdated - and upstream binary availability is poor - so `docker` is still used
+if both are present.**
+
+If upgrading from a packaged release of `podman` to a more current binary when
+the original has already been executed at least once, it may be necessary to
+remove the file `/dev/shm/libpod_lock` and then run `podman system renumber`.
+
+## Getting started
+
+In an environment which requires a Linux VM to host containers (e.g. macOS,
+etc):
+
+```
+cp common/local.sh . && eval "${EDITOR} local.sh"
+./podman-machine-init.sh --init
+```
+
+On a host running a non-Gentoo Linux distribution:
+
+```
+cp common/local.sh . && eval "${EDITOR} local.sh"
+./podman-machine-init.sh --host
+sudo ./gentoo-init.docker
+```
+
+On Gentoo Linux:
+
+```
+eval "${EDITOR} common/local.sh"
+sudo ./sync-portage.sh
+sudo dispatch-conf
+sudo ./gentoo-init.docker
+```
+
+## Container Images
 
 `gentoo-env`
  * Empty stage with global environment variables set;
@@ -42,8 +80,8 @@ untested.
 
 `gentoo-base`
  * Intermediate stage3 with with a new @system installed to a build-root,
-   committed by running `gentoo-init` rather than built from a docker
-   Dockerfile file;
+   committed by running `gentoo-init` rather than built from a Containerfile
+   file;
 
 `gentoo-build`
  * `@system` deployment relocated to the container root, ready to be used as
