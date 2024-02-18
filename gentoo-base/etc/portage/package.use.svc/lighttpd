@@ -12,7 +12,7 @@ media-gfx/imagemagick			 bzip2 jpeg perl png # svg webp (xml)
 mail-filter/dcc				 milter rrdtool
 
 #dev-lang/php				 acl apache2 argon2 bcmath berkdb bzip2 calendar cdb (cgi) cjk +cli coverage +ctype curl debug embed enchant exif ffi +fileinfo +filter firebird +flatfile fpm ftp gd gdbm gmp +iconv imap inifile intl iodbc (ipv6) +json kerberos ldap ldap-sasl libedit lmdb mhash mssql mysql mysqli nls oci8-instant-client odbc +opcache pcntl pdo +phar phpdbg +posix postgres qdbm readline selinux +session session-mm sharedmem +simplexml snmp soap sockets sodium spell sqlite (ssl) systemd sysvipc test (threads) tidy +tokenizer tokyocabinet truetype (unicode) webp +xml xmlreader xmlrpc xmlwriter xpm xslt zip (zlib)
-dev-lang/php				 bzip2 sqlite
+dev-lang/php				 bzip2 cgi sqlite
 
 #app-admin/gamin
 #dev-lang/perl				-debug -doc berkdb gdbm (ithreads) -minimal
