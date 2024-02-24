@@ -155,10 +155,23 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72' ;;
 				# GCC-12+
 				#gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72 -mtp=cp15' ;;
+			*': Raspberry Pi 5 '*)
+				use_cpu_arch='arm'
+				# Raspberry Pi 400 Rev 1.0/Debian 10.2.1-6 reports 'armv8-a+crc'
+				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
+				# GCC-11
+				#gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72' ;;
+				# GCC-12+
+				gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72 -mtp=cp15' ;;
 
 			*': 0xd07'|'Apple M1'*)
 				use_cpu_arch='arm'
 				use_cpu_flags='aes crc32 sha1 sha2'
+				#gcc_target_opts='-march=armv8-a'
+				;;
+			*': 0xd0c'|'Ampere Altra'*)
+				use_cpu_arch='arm'
+				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
 				#gcc_target_opts='-march=armv8-a'
 				;;
 			*)
@@ -172,6 +185,14 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 						tail -n 1 |
 						awk -F': ' '{ print $2 }'
 				)"
+				if [ -z "${vendor:-}" ]; then
+					vendor="$( # <- Syntax
+						grep -- '^CPU implementer' /proc/cpuinfo |
+							tail -n 1 |
+							awk -F': ' '{ print $2 }' |
+							sed 's/^0x41$/Ampere/'
+					)"
+				fi
 				if [ -r /proc/cpuinfo ]; then
 					case "${vendor}" in
 						GenuineIntel)
@@ -230,34 +251,35 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 
 	# Define essential USE flags
 	#
-	# WARNING: Any values defined here will be written into container environment,
-	#          meaning that they will not be able to be modified without changing
-	#          the portage USE-flag order of precadence, which has other knock-on
-	#          effects.
-	#          Since there are some builds which bring in sizable dependencies when
-	#          USE="ssl" is active but will never be communicating outside their
-	#          container or over any network (principally because pacakges depend
-	#          upon virtual/mta but will actually be using 'postfix' in their own
-	#          container rather than any container-local binaries) then we may wish
-	#          not to force this flag here...
+	# WARNING: Any values defined here will be written into container
+	#          environment, meaning that they will not be able to be modified
+	#          without changing the portage USE-flag order of precadence, which
+	#          has other knock-on effects.
+	#          Since there are some builds which bring in sizable dependencies
+	#          when USE="ssl" is active but will never be communicating outside
+	#          their container or over any network (principally because
+	#          pacakges depend upon virtual/mta but will actually be using
+	#          'postfix' in their own container rather than any container-local
+	#          binaries) then we may wish not to force this flag here...
 	#
 	#  dev-lang/perl:		ithreads
 	#  dev-libs/openssl:	asm ktls ~tls-heartbeat~ ~zlib~
 	#  net-misc/curl:	   ~curl_ssl_openssl~
 	#  sys-apps/busybox:	mdev
 	#  sys-apps/portage:	native-extensions
-	#  sys-devel/gcc:		nptl -ssp
+	#  sys-devel/gcc:		nptl -ssp(?)
+	#  sys-libs/glibc		multiarch
 	# (General:				ipv6 ~openssl~ split-usr ~ssl~ threads)
 	#
 	#  Remove ssp/default-stack-clash-protection as these are causing postinst
 	#  failures with at least app-editors/vim :(
 	#
-	use_essential="asm ipv6 ithreads native-extensions ktls mdev nptl split-usr -ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
+	use_essential="asm ipv6 ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
 	export use_essential
 
-	# Even though we often want a minimal set of flags, gcc's flags are significant
-	# since they may affect the compiler facilities available to all packages built
-	# later...
+	# Even though we often want a minimal set of flags, gcc's flags are
+	# significant since they may affect the compiler facilities available to
+	# all packages built later...
 	#
 	# N.B. USE='graphite' pulls-in dev-libs/isl which we don't want for host
 	#      packages, but is reasonable for build-containers.
@@ -266,7 +288,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#  failures with at least app-editors/vim :(
 	#
 	# FIXME: Source these flags from package.use
-	use_essential_gcc="-default-stack-clash-protection -default-znow -fortran graphite -jit nptl openmp pch -sanitize -ssp -vtv zstd"
+	use_essential_gcc="-default-stack-clash-protection -default-znow -fortran graphite -jit nptl openmp pch -sanitize ssp -vtv zstd"
 	export use_essential_gcc
 
 	case "$( uname -m )" in
@@ -278,14 +300,14 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				pkg_pypy="dev-python/pypy3"
 				pkg_pypy_use="bzip2 jit"
 				pkg_pypy_post_remove="dev-lang/python:2.7"
-				# Update: dev-python/pypy3_10-exe-7.3.12_p2 now requires 10GB RAM
-				#         in order to build successfully :(
+				# Update: dev-python/pypy3_10-exe-7.3.12_p2 now requires 10GB
+				#         RAM in order to build successfully :(
 				if [ $(( memtotal )) -gt 9 ]; then
 					pkg_pypy="${pkg_pypy} dev-python/pypy3_10-exe"
 				else
-					# On a system with 4GB of memory and python3.11, the install
-					# process for dev-python/pypy3-7.3.11_p1 now hangs indefinitely
-					# after issuing a message reading:
+					# On a system with 4GB of memory and python3.11, the
+					# install process for dev-python/pypy3-7.3.11_p1 now hangs
+					# indefinitely after issuing a message reading:
 					#concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
 					pkg_pypy="${pkg_pypy} dev-python/pypy3_10-exe-bin"
 					pkg_pypy_use="${pkg_pypy_use} low-memory"
@@ -354,7 +376,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 
 	# Optional override to specify alternative build temporary directory
 	#export TMPDIR=/var/tmp
-	tmp="$( $_command system info | grep 'graphRoot:' | cut -d':' -f 2- | awk '{ print $1 }' )/tmp"
+	tmp="$( $_command system info | grep -E -- '(graphRoot|Docker Root Dir):' | cut -d':' -f 2- | awk '{ print $1 }' )/tmp"
 	mkdir -p "${tmp:="/var/lib/containers/storage/tmp"}"
 	export TMPDIR="${tmp}"
 	unset tmp
