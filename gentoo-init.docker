@@ -13,7 +13,7 @@ debug="${DEBUG:-}"
 # we wish to build against or those specified in the host's
 # /etc/portage/package.use file(s), then 'python_targets_override' must be set
 # to the desired release below:
-declare -x python_targets_override='python3_11'
+#declare -x python_targets_override='python3_11'
 
 if [[ -n "${BASH_VERSINFO[0]:-}" ]] && (( BASH_VERSINFO[0] < 4 )); then
 	echo >&2 "FATAL: bash-4.0.0 or later is required to run this script - on" \
@@ -81,7 +81,7 @@ declare -i NOTIFY_MKDIR=0
 [[ ! -s common/vars.sh ]] || . common/vars.sh
 # shellcheck disable=SC2034 # Set from common/vars.sh
 [[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
-	echo >&2 "FATAL: Inclusion of common defaults failed"
+	echo >&2 "FATAL: Inclusion of common defaults from '${PWD}/common/vars.sh' failed"
 	exit 1
 }
 
@@ -328,8 +328,8 @@ if ! type -pf portageq >/dev/null 2>&1; then
 	warn "Not running on Gentoo host system, not checking eclass overrides"
 
 	# shellcheck disable=SC2043
-	for dir in /etc/portage/repos.conf; do
-		[[ -d "${dir}" ]] || makedir "${dir}"
+	for dir in 'repos.conf' 'package.mask' 'savedconfig'; do
+		[[ -d "/etc/portage/${dir}" ]] || makedir "/etc/portage/${dir}"
 	done
 	unset dir
 	for cfg in DEFAULT.conf gentoo.conf srcshelton.conf; do
@@ -478,15 +478,22 @@ if ! type -pf portageq >/dev/null 2>&1; then
 
 	unset private_gentoo_clone repo_path_gentoo
 
+	popd >/dev/null 2>&1
+
 	# Flags may have changed...
 	unset __COMMON_VARS_INCLUDED
+
 	# shellcheck disable=SC1091
 	[[ ! -s common/vars.sh ]] || . common/vars.sh
 	# shellcheck disable=SC2034 # Set from common/vars.sh
 	[[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
-		echo >&2 "FATAL: Inclusion of common defaults failed"
+		echo >&2 "FATAL: Inclusion of common defaults from" \
+			"'${PWD}/common/vars.sh' failed"
 		exit 1
 	}
+
+	pushd "${base_dir}" >/dev/null 2>&1 ||
+		die "chdir() to '${base_dir}' failed; ${?}"
 
 else # type -pf portageq >/dev/null 2>&1; then
 
@@ -517,6 +524,7 @@ else # type -pf portageq >/dev/null 2>&1; then
 	unset repo
 
 	(( rc )) && sleep 5
+	unset rc
 
 	# FIXME: Discover default rather than assuming 'gentoo'?
 	declare repo_path_gentoo=''
@@ -696,6 +704,140 @@ gentoo_stage3_image="$( # <- Syntax highlight failure
 	cut -d'"' -f 2
 )"
 
+declare ref=''
+declare -i rc=0 need_pull=1
+trap '' INT
+
+# We have to 'pull' manually, or else this stage fails ...
+if [[ "${gentoo_stage3_tag}" = 'latest' ]]; then
+	info "Using upstream '${gentoo_stage3_image}' tag" \
+		"'${gentoo_stage3_tag}'"
+
+	case "$( docker image pull --help )" in
+		*'--platform'*)
+			docker image pull "${gentoo_stage3_image}:latest" \
+				--platform "linux/${docker_arch}" || rc=${?}
+			;;
+		*'--override-arch'*)
+			docker image pull "${gentoo_stage3_image}:latest" \
+				--override-arch "${docker_arch}" || rc=${?}
+			;;
+		*'--arch'*)
+			docker image pull "${gentoo_stage3_image}:latest" \
+				--arch "${docker_arch}" || rc=${?}
+			;;
+		*)
+			die "Could not determine method to retrieve" \
+				"non-native architecture with" \
+				"'${_command} image pull'"
+			;;
+	esac
+
+	need_pull=0
+elif [[ -n "${repo_path_srcshelton:-}" ]] &&
+		[[ -d "${repo_path_srcshelton}" ]]
+then
+	if [[ -s "${repo_path_srcshelton}/.image_digests" ]]; then
+		ref="$( # <- Syntax
+			grep -m 1 "^${docker_arch} " \
+					"${repo_path_srcshelton}/.image_digests" |
+				cut -d' ' -f 2-
+		)"
+		if ! [[ "${ref%":"*}" == 'sha256' ]]; then
+			warn "Unable to retrieve SHA256 digest for image" \
+				"'${gentoo_stage3_image}:${gentoo_stage3_tag}' with" \
+				"with architecture '${docker_arch}' from file" \
+				"'${repo_path_srcshelton}/.image_digests'"
+			need_pull=1
+		else
+			info "Using '${gentoo_stage3_image}' pin '${ref}'"
+
+			# podman-4.6.x has strange behaviour where untagging an image
+			# also seems to lose the associated SHA256?
+			#
+			# See https://github.com/containers/podman/issues/19594
+			#
+			# We can work around this by untagging *before* pulling...
+			#
+			if [[ -n "$( # <- Syntax
+				docker image list \
+					-q \
+					--filter "reference=${gentoo_stage3_image}:${gentoo_stage3_tag}"
+			)" ]]
+			then
+				if ! docker image untag \
+						"${gentoo_stage3_image}:${gentoo_stage3_tag}"
+				then
+					docker --debug image untag \
+							"${gentoo_stage3_image}:${gentoo_stage3_tag}" ||
+						die "${_command} image untag failed to remove" \
+							"'${gentoo_stage3_image}:${gentoo_stage3_tag}' tag"
+				fi
+			fi
+
+			info "Pulling image '${gentoo_stage3_image}@${ref}' ..."
+			if ! docker image pull "${gentoo_stage3_image}@${ref}"; then
+				docker --debug image pull "${gentoo_stage3_image}@${ref}" ||
+					rc=${?}
+			else
+				info "Tagging '${ref}' as" \
+					"'${gentoo_stage3_image}:${gentoo_stage3_tag}'"
+
+				if ! docker image tag "${gentoo_stage3_image}@${ref}" \
+						"${gentoo_stage3_image}:${gentoo_stage3_tag}"
+				then
+					docker --debug image tag \
+						"${gentoo_stage3_image}@${ref}" \
+						"${gentoo_stage3_image}:${gentoo_stage3_tag}" || :
+					warn "Pull of pinned image failed - reverting to tag" \
+						"'${gentoo_stage3_tag}'"
+					need_pull=1
+				else
+					rc=0
+					need_pull=0
+				fi
+			fi
+		fi
+	fi
+fi
+
+if (( need_pull )); then
+	warn "Pulling image '${gentoo_stage3_image}:${gentoo_stage3_tag}' ..."
+	if ! docker image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}"; then
+		rc=${?}
+		docker --debug image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}"
+	fi
+fi
+
+unset need_pull
+trap - INT
+
+if (( rc )); then
+	die "'${_command} image pull' failed to retrieve image" \
+		"'${gentoo_stage3_image}:${gentoo_stage3_tag}' for architecture" \
+		"'${docker_arch}'"
+fi
+unset rc
+
+if [[ -n "${ref:-}" ]]; then
+	# 'podman image ls' won't show images by SHA256 reference...
+	#gentoo_stage3_id="$( docker image ls --noheading \
+	#		--format='{{.ID}}' \
+	#	"${gentoo_stage3_image}@${ref}" 2>/dev/null
+	#)" || :
+	gentoo_stage3_id="$( docker image ls --noheading --digests \
+			--format='{{.Digest}} {{.ID}}' 2>/dev/null |
+		grep -F -- "${ref}" |
+		awk '{ print $2 }'
+	)" || :
+else
+	gentoo_stage3_id="$( docker image ls --noheading \
+			--format='{{.ID}}' \
+		"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null
+	)" || :
+fi
+#unset ref
+
 if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	if [[ -z "${env_id:-}" ]]; then
 		die "Environment stage not found - please run" \
@@ -703,137 +845,9 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	fi
 
 	output
-	output " ${blue}*${reset} Creating image" \
-		"'${stage3_name}:latest' ..."
+	output " ${blue}*${reset} Creating image '${stage3_name}:latest'" \
+		"${debug:+"from image ID '${gentoo_stage3_id}' "}..."
 	output
-
-	declare ref=''
-	declare -i rc=0 need_pull=1
-	trap '' INT
-
-	# We have to 'pull' manually, or else this stage fails ...
-	if [[ "${gentoo_stage3_tag}" = 'latest' ]]; then
-		info "Using upstream '${gentoo_stage3_image}' tag" \
-			"'${gentoo_stage3_tag}'"
-
-		case "$( docker image pull --help )" in
-			*'--platform'*)
-				docker image pull "${gentoo_stage3_image}:latest" \
-					--platform "linux/${docker_arch}" || rc=${?}
-				;;
-			*'--override-arch'*)
-				docker image pull "${gentoo_stage3_image}:latest" \
-					--override-arch "${docker_arch}" || rc=${?}
-				;;
-			*'--arch'*)
-				docker image pull "${gentoo_stage3_image}:latest" \
-					--arch "${docker_arch}" || rc=${?}
-				;;
-			*)
-				die "Could not determine method to retrieve" \
-					"non-native architecture with" \
-					"'${_command} image pull'"
-				;;
-		esac
-
-		need_pull=0
-	elif
-			[[ -n "${repo_path_srcshelton:-}" ]] &&
-				[[ -d "${repo_path_srcshelton}" ]]
-	then
-		if [[ -s "${repo_path_srcshelton}/.image_digests" ]]; then
-			ref="$( # <- Syntax
-				grep -m 1 "^${docker_arch} " \
-						"${repo_path_srcshelton}/.image_digests" |
-					cut -d' ' -f 2-
-			)"
-			if ! [[ "${ref%":"*}" == 'sha256' ]]; then
-				warn "Unable to retrieve SHA256 digest for image" \
-					"'${gentoo_stage3_image}:${gentoo_stage3_tag}' with" \
-					"with architecture '${docker_arch}' from file" \
-					"'${repo_path_srcshelton}/.image_digests'"
-				need_pull=1
-			else
-				info "Using '${gentoo_stage3_image}' pin '${ref}'"
-
-				# podman-4.6.x has strange behaviour where untagging an image
-				# also seems to lose the associated SHA256?
-				#
-				# See https://github.com/containers/podman/issues/19594
-				#
-				# We can work around this by untagging *before* pulling...
-				#
-				if [[ -n "$( # <- Syntax
-					docker image list \
-						-q \
-						--filter "reference=${gentoo_stage3_image}:${gentoo_stage3_tag}"
-				)" ]]
-				then
-					if ! docker image untag \
-							"${gentoo_stage3_image}:${gentoo_stage3_tag}"
-					then
-						docker --debug image untag \
-								"${gentoo_stage3_image}:${gentoo_stage3_tag}" ||
-							die "${_command} image untag failed to remove" \
-								"'${gentoo_stage3_image}:${gentoo_stage3_tag}' tag"
-					fi
-				fi
-
-				if ! docker image pull "${gentoo_stage3_image}@${ref}"; then
-					docker --debug image pull "${gentoo_stage3_image}@${ref}" ||
-						rc=${?}
-				else
-					info "Tagging '${ref}' as" \
-						"'${gentoo_stage3_image}:${gentoo_stage3_tag}'"
-
-					if ! docker image tag "${gentoo_stage3_image}@${ref}" \
-							"${gentoo_stage3_image}:${gentoo_stage3_tag}"
-					then
-						docker --debug image tag \
-							"${gentoo_stage3_image}@${ref}" \
-							"${gentoo_stage3_image}:${gentoo_stage3_tag}" || :
-						warn "Pull of pinned image failed - reverting to tag" \
-							"'${gentoo_stage3_tag}'"
-						need_pull=1
-					else
-						rc=0
-						need_pull=0
-					fi
-				fi
-			fi
-		fi
-	fi
-
-	if (( need_pull )); then
-		info "Pulling image '${gentoo_stage3_image}:${gentoo_stage3_tag}' ..."
-		if ! docker image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}"; then
-			rc=${?}
-			docker --debug image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}"
-		fi
-	fi
-
-	unset need_pull
-	trap - INT
-
-	if (( rc )); then
-		die "'${_command} image pull' failed to retrieve image" \
-			"'${gentoo_stage3_image}:${gentoo_stage3_tag}' for architecture" \
-			"'${docker_arch}'"
-	fi
-
-	# 'podman image ls' won't show images by SHA256 reference...
-	#if [[ -n "${ref:-}" ]]; then
-	#	gentoo_stage3_id="$( docker image ls --noheading \
-	#			--format='{{.ID}}' \
-	#		"${gentoo_stage3_image}@${ref}" 2>/dev/null
-	#	)" || :
-	#else
-		gentoo_stage3_id="$( docker image ls --noheading \
-				--format='{{.ID}}' \
-			"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null
-		)" || :
-	#fi
-	unset ref
 
 	# NAME:    stage3
 	# LABELS:  environment-from stage3-from
@@ -849,10 +863,12 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 		--build-arg gentoo_stage3_image="${gentoo_stage3_image}"
 		--build-arg gentoo_stage3_tag="${gentoo_stage3_tag}"
 		--build-arg gentoo_stage3_id="${gentoo_stage3_id}"
+		--build-arg gentoo_stage3_image_ref="${gentoo_stage3_image}@${ref}"
 		--compress
 		--file 'Dockerfile.stage3'
 		--network none
 		--no-cache
+		--pull=false
 		--tag "${stage3_name}:latest"
 	)
 	[[ -z "${stage3_flags_file:-}" ]] || build_args+=( # <- Syntax
@@ -878,12 +894,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	output
 	output " ${blue}*${reset} Stage 'stage3' complete, next is 'init' ..."
 	output
-else
-	gentoo_stage3_id="$( docker image ls --noheading \
-			--format='{{.ID}}' \
-		"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null
-	)" || :
 fi
+unset ref
 
 # Create initial image from Gentoo stage3 ...
 #
@@ -982,6 +994,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 		--network none
 		#--network slirp4netns
 		--no-cache
+		--pull=false
 		--tag "${init_name}:latest"
 	)
 	[[ -z "${stage3_flags_file:-}" ]] || build_args+=( # <- Syntax
@@ -1263,6 +1276,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		#
 		# sys-libs/libeudev is needed to ensure correct dependencies in the
 		# build root
+		# FIXME: Which?
+		#
 		# sys-apps/sed is needed due to use of 'sed -z', which busybox doesn't
 		# support
 		#
@@ -1271,6 +1286,19 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		# available to all packages built later...
 		# FIXME: Source these flags from package.use
 		#
+
+		# FIXME: Expose this somewhere?
+		features_libeudev=0
+		features_eudev=0
+		if (( features_eudev )); then
+			eudev='sys-fs/eudev'
+		elif (( features_libeudev )); then
+			eudev='sys-libs/libeudev'
+		else
+			eudev='virtual/libudev'
+		fi
+		unset features_eudev features_libeudev
+
 		# shellcheck disable=SC2031
 		export name="${build_name#*"/"}"
 		# shellcheck disable=SC2031
@@ -1322,7 +1350,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		_docker_run "${build_args[@]}" --exclude='net-misc/dropbear' \
 				dev-libs/icu dev-util/pkgconf net-misc/openssh \
 				sys-apps/locale-gen sys-apps/sed sys-apps/util-linux \
-				sys-devel/gcc sys-libs/libeudev @system \
+				sys-devel/gcc ${eudev} @system \
 				${pkg_pypy:+"sys-apps/portage"} ${pkg_pypy:-} 2>&1 |
 			tee -a ../log/"docker.${build_name#*"/"}.log"
 		unset build_args
@@ -1464,4 +1492,4 @@ popd >/dev/null
 
 exit 0
 
-# vi: set colorcolumn=80 foldmarker=()\ {,}\ \ #\  foldmethod=marker syntax=bash:
+# vi: set colorcolumn=80 foldmarker=()\ {,}\ \ #\  foldmethod=marker syntax=bash sw=4 ts=4:
