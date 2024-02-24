@@ -36,44 +36,91 @@ cd "${base_dir}"/etc/portage/ || {
 	exit 1
 }
 
-type -pf portageq >/dev/null 2>&1 || {
-	echo >&2 "FATAL: Cannot locate 'portageq' utility"
-	exit 1
-}
+declare ARCH=''
+if type -pf portageq >/dev/null 2>&1; then
+	ARCH="$( portageq envvar ARCH )"
+else
+	echo >&2 "WARN:  Cannot locate 'portageq' utility"
+	case "$( uname -m )" in
+		aarch64)
+			ARCH='arm64' ;;
+		arm*)
+			ARCH='arm' ;;
+		x86_64)
+			ARCH='amd64' ;;
+		*)
+			echo >&2 "FATAL: Unknown architecture '$( uname -m )'"
+			exit 1
+			;;
+	esac
+fi
+readonly ARCH
 
 (( EUID )) && {
 	echo >&2 "Please re-run '$( basename "${0}" )' as user 'root'"
 	exit 1
 }
 
-declare ARCH=''
-ARCH="$( portageq envvar ARCH )"
-readonly ARCH
+if [[ " ${*:-} " =~ \ -(h|-help)\  ]]; then
+	echo "Usage: $( basename "${0}" ) [--dispatch-conf]"
+	exit 0
+elif [[ " ${*:-} " == *' --dispatch-conf ' ]]; then
+	declare file='' name=''
+	find /etc/portage/ -type f -name '._cfg[0-9]{4}_*' -print |
+		while read -r update
+	do
+		name="$( echo "${update}" | cut -d'_' -f 3- )"
+		if ! [[ -e "${name}" ]]; then
+			echo >&2 "Can't find original file '${name}' for update" \
+				"'${update}' - skipping"
+			continue
+		elif diff "${name}" "${update}"; then
+			rm "${update}"
+		else
+			vimdiff \
+						-c 'set colorcolumn=80' \
+						-c 'next' \
+						-c 'setlocal noma readonly' \
+						-c 'prev' \
+					"${name}" "${update}" &&
+				rm "${update}"
+		fi
+	done
+	exit 0
+fi
 
 declare -i rc=0
 
 for file in *."${ARCH}"; do
 	[[ "${file}" == "${file#"."}" ]] || continue
-	[[ -s "${file}" ]] || continue
-	diff -q "${file}" "/etc/portage/${file%".${ARCH}"}/${file}" >/dev/null 2>&1 && continue
-	mkdir -p "$( dirname "/etc/portage/${file%".${ARCH}"}/${file}" )"
-	cp -v "${file}" "$( find_seq "/etc/portage/${file%".${ARCH}"}/${file}" )" ||
-		(( rc = 2 ))
+	if [[ -s "${file}" ]]; then
+		mkdir -p "$( dirname "/etc/portage/${file%".${ARCH}"}/${file}" )"
+		cp -v "${file}" "/etc/portage/${file%".${ARCH}"}/${file}" ||
+			(( rc = 2 ))
+	else
+		diff -q "${file}" "/etc/portage/${file%".${ARCH}"}/${file}" >/dev/null 2>&1 && continue
+		mkdir -p "$( dirname "/etc/portage/${file%".${ARCH}"}/${file}" )"
+		cp -v "${file}" "$( find_seq "/etc/portage/${file%".${ARCH}"}/${file}" )" ||
+			(( rc = 2 ))
+	fi
 done
 
 for file in color.map package.accept_keywords/* package.mask/* profile/use.mask savedconfig/*/*; do
 	[[ "${file}" == "${file#"."}" ]] || continue
-	[[ -s "${file}" ]] || continue
-
-	diff -q "${file}" "/etc/portage/${file}" >/dev/null 2>&1 && continue
-	mkdir -p "$( dirname "/etc/portage/${file}" )"
-	cp -v "${file}" "$( find_seq "/etc/portage/${file}" )" ||
-		(( rc = 2 ))
+	if [[ -s "${file}" ]]; then
+		mkdir -p "$( dirname "/etc/portage/${file}" )"
+		cp -v "${file}" "/etc/portage/${file}" ||
+			(( rc = 2 ))
+	else
+		diff -q "${file}" "/etc/portage/${file}" >/dev/null 2>&1 && continue
+		mkdir -p "$( dirname "/etc/portage/${file}" )"
+		cp -v "${file}" "$( find_seq "/etc/portage/${file}" )" ||
+			(( rc = 2 ))
+	fi
 done
 
 for file in package.unmask "package.unmask.${ARCH}"; do
 	[[ "${file}" == "${file#"."}" ]] || continue
-	[[ -s "${file}" ]] || continue
 
 	if [[ -f "/etc/portage/${file}" ]]; then
 		echo >&2 "WARN:  Migrating file '/etc/portage/${file}' to '/etc/portage/package.unmask/'"
@@ -86,29 +133,44 @@ for file in package.unmask "package.unmask.${ARCH}"; do
 		mv "/etc/portage/${file}" "/etc/portage/package.unmask/${file%".tmp"}"
 	fi
 
-	diff -q "${file}" "/etc/portage/package.unmask/${file}" >/dev/null 2>&1 && continue
-	mkdir -p "$( dirname "/etc/portage/package.unmask/${file}" )"
-	cp -v "${file}" "$( find_seq "/etc/portage/package.unmask/${file}" )" ||
-		(( rc = 2 ))
+	if [[ -s "${file}" ]]; then
+		mkdir -p "$( dirname "/etc/portage/package.unmask/${file}" )"
+		cp -v "${file}" "/etc/portage/package.unmask/${file}" ||
+			(( rc = 2 ))
+	else
+		diff -q "${file}" "/etc/portage/package.unmask/${file}" >/dev/null 2>&1 && continue
+		mkdir -p "$( dirname "/etc/portage/package.unmask/${file}" )"
+		cp -v "${file}" "$( find_seq "/etc/portage/package.unmask/${file}" )" ||
+			(( rc = 2 ))
+	fi
 done
 
 for file in package.use.build/*; do
 	[[ "${file}" == "${file#"."}" ]] || continue
-	[[ -s "${file}" ]] || continue
-	diff -q "${file}" "/etc/portage/package.use/${file#"package.use.build/"}" >/dev/null 2>&1 && continue
-	mkdir -p "$( dirname "/etc/portage/package.use/${file#"package.use.build/"}" )"
-	cp -v "${file}" "$( find_seq "/etc/portage/package.use/${file#"package.use.build/"}" )" ||
-		(( rc = 2 ))
+	if [[ -s "${file}" ]]; then
+		mkdir -p "$( dirname "/etc/portage/package.use/${file#"package.use.build/"}" )"
+		cp -v "${file}" "/etc/portage/package.use/${file#"package.use.build/"}" ||
+			(( rc = 2 ))
+	else
+		diff -q "${file}" "/etc/portage/package.use/${file#"package.use.build/"}" >/dev/null 2>&1 && continue
+		mkdir -p "$( dirname "/etc/portage/package.use/${file#"package.use.build/"}" )"
+		cp -v "${file}" "$( find_seq "/etc/portage/package.use/${file#"package.use.build/"}" )" ||
+			(( rc = 2 ))
+	fi
 done
 
 for file in /etc/portage/savedconfig/*/*; do
 	[[ "${file}" == "${file#"."}" ]] || continue
-	[[ -s "${file}" ]] || continue
-
-	diff -q "${file}" "/etc/portage/${file#"/etc/portage/"}" >/dev/null 2>&1 && continue
-	mkdir -p "$( dirname "${file#"/etc/portage/"}" )"
-	cp -v "${file}" "$( find_seq "${file#"/etc/portage/"}" )" ||
-		(( rc = 2 ))
+	if [[ -s "${file}" ]]; then
+		mkdir -p "$( dirname "${file#"/etc/portage/"}" )"
+		cp -v "${file}" "${file#"/etc/portage/"}" ||
+			(( rc = 2 ))
+	else
+		diff -q "${file}" "/etc/portage/${file#"/etc/portage/"}" >/dev/null 2>&1 && continue
+		mkdir -p "$( dirname "${file#"/etc/portage/"}" )"
+		cp -v "${file}" "$( find_seq "${file#"/etc/portage/"}" )" ||
+			(( rc = 2 ))
+	fi
 done
 
 exit ${rc}
