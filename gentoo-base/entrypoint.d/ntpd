@@ -7,7 +7,8 @@
 
 set -e
 
-ln -s certs/ca-certificates.crt /etc/ssl/cert.pem
+[ -e /etc/ssl/cert.pem ] ||
+	ln -s certs/ca-certificates.crt /etc/ssl/cert.pem
 test -s /etc/ssl/cert.pem
 
 # vi: set syntax=sh:
