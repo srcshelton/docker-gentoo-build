@@ -10,6 +10,8 @@ sys-apps/fwupd				-elogind amt archive bash-completion dell flashrom gnutls lzma
 # required by sys-apps/fwupd-1.5.5
 dev-libs/libjcat			 gpg pkcs7
 dev-python/pygobject			 cairo
+sys-apps/flashrom			 atahpt atapromise atavia internal it8212 linux-mtd nic3com nicintel nicintel-eeprom nicintel-spi nicnatsemi nicrealtek satamv satasii
+sys-auth/polkit				 daemon duktape
 x11-libs/pango				 introspection
 
 # required by sys-apps/fwupd-1.5.9-r1
