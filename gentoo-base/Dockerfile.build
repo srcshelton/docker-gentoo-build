@@ -4,6 +4,8 @@
 #   package repo, extracted from the stage3 environment ROOT.
 
 
+# hadolint global ignore=SC2015,DL4006
+#
 ARG base_name="localhost/gentoo-base"
 ARG env_name="localhost/gentoo-env"
 ARG env_id=""
@@ -53,6 +55,7 @@ ENV SKIP_KERNEL_CHECK=1
 #
 COPY --from=base "${ROOT}" /
 RUN test -s "${environment_file}"
+RUN sh -n "${environment_file}" || { cat -n "${environment_file}" ; false ; }
 
 # The acct-* packages don't appear to account for situations when ROOT != /,
 # and so without this we have packages registered as installed, without the
@@ -66,7 +69,7 @@ RUN test -s "${environment_file}"
 # doesn't exist):
 RUN rm -rf /var/db/pkg/acct-* /var/empty/.keep_acct-user_sshd-0
 
-#RUN printf >&2 " * 'build' stage imported environment:\n\n%s\n\n" "$( <"${environment_file}" )"
+#RUN printf >&2 " * 'build' stage imported environment:\n\n%s\n\n" "$( cat "${environment_file}" )"
 
 LABEL maintainer="stuart@shelton.me"
 LABEL description="Gentoo base @system image"
@@ -78,6 +81,7 @@ LABEL environment-from="${env_name}:${env_id}"
 #
 # We can't use 'RUN [ -d ... ]' because this is interpreted as being
 # exec-form...
+#
 # linter ignore=SC2015,SC1091,ER0001
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
     test -s "${environment_file}" && \
@@ -117,7 +121,7 @@ ENV PORTAGE_CONFIGROOT="${SYSROOT}"
 
 # Rewrite filtered environment.sh with new values ...
 #
-# linter ignore=SC2015,SC1091,ER0001
+# linter ignore=SC2094,SC2015,SC1091,ER0001
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
     test -s "${environment_file}" && \
         . "${environment_file}" || \
@@ -142,10 +146,10 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             grep -v -e '^export [a-z_]' -e '=""$' \
         >>"${environment_file}" && \
     grep >&2 -- ' ROOT=' "${environment_file}" && { \
-            printf >&2 "Invalid 'ROOT' directive in '${environment_file}':\n\n%s\n\n" "$( <"${environment_file}" )" ; \
+            printf >&2 "Invalid 'ROOT' directive in '${environment_file}':\n\n%s\n\n" "$( cat "${environment_file}" )" ; \
             exit 1 ; \
         } || :
-#RUN printf >&2 " * 'build' stage propagated environment:\n\n%s\n\n" "$( <"${environment_file}" )"
+#RUN printf >&2 " * 'build' stage propagated environment:\n\n%s\n\n" "$( cat "${environment_file}" )"
 
 
 # Setup entrypoint script to perform a one-time copy of binary system packages
@@ -179,4 +183,5 @@ RUN test ! -x /usr/sbin/locale-gen || /usr/sbin/locale-gen
 ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
 CMD ["app-shells/bash"]
 
+# linter ignore=ED0004
 # vi: set syntax=dockerfile expandtab nowrap colorcolumn=80:

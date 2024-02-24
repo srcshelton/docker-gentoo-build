@@ -2,6 +2,8 @@
 # service:
 #   Extract a ROOT-installed service, and overlay PulseSecure VTM (Zeus ZXTM).
 
+# hadolint global ignore=DL4006,DL3059,DL3025,SC3040,SC2174,SC2015,SC2012
+#
 ARG image_name
 ARG service_name
 ARG service_name_short
@@ -21,8 +23,8 @@ ARG ROOT="/service"
 ARG environment_file="/usr/libexec/environment.sh"
 ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
 
-#ARG smtp_smarthost="localhost"
-#ARG smtp_domain="localhost"
+ARG smtp_smarthost="localhost"
+ARG smtp_domain="localhost"
 
 ARG CHOST="x86_64-pc-linux-gnu"
 
@@ -70,11 +72,13 @@ ARG ZEUSHOME
 RUN test -s "${environment_file}"
 
 # Ensure nothing from the base image screws up the ultimate combined image...
+#
+# linter ignore=SC2050
 RUN if ! [ "${ZEUSHOME}" = '/usr/local/zeus' ]; then \
         rm -rf "${ZEUSHOME}" ; \
     fi
 
-# linter ignore=SC2015,ER0001
+# linter ignore=SC2094,SC2015,ER0001
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
     set -u ; \
     mkdir -p "${ROOT}"/usr/libexec && \
@@ -86,13 +90,13 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             grep -v -e '^export [a-z_]' -e '=""$' \
         >>"${ROOT}${environment_file}" && \
     grep >&2 -- ' ROOT=' "${ROOT}${environment_file}" && { \
-            printf >&2 "Invalid 'ROOT' directive in '%s':\n\n%s\n\n" "${ROOT%"/"}${environment_file}" "$( <"${ROOT}${environment_file}" )" ; \
+            printf >&2 "Invalid 'ROOT' directive in '%s':\n\n%s\n\n" "${ROOT%"/"}${environment_file}" "$( cat "${ROOT}${environment_file}" )" ; \
             exit 1 ; \
         } || : ; \
     if [ -s /builddeps.txt ] && ! [ -s "${ROOT}/builddeps.txt" ]; then \
         mv /builddeps.txt "${ROOT}/builddeps.txt" ; \
     fi
-#RUN printf >&2 " * 'service' stage propagated environment:\n\n%s\n\n" "$( <"${ROOT}${environment_file}" )"
+#RUN printf >&2 " * 'service' stage propagated environment:\n\n%s\n\n" "$( cat "${ROOT}${environment_file}" )"
 
 
 # -----------------------------------------------------------------------------
@@ -101,7 +105,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
 #
 FROM scratch
 
-#ARG image_name
+ARG image_name
 ARG service_name
 ARG service_name_short
 ARG service_version
@@ -122,8 +126,8 @@ ARG ZEUSHOME
 ARG ROOT
 ARG environment_file
 
-#ARG smtp_smarthost
-#ARG smtp_domain
+ARG smtp_smarthost
+ARG smtp_domain
 
 ARG CHOST
 
@@ -171,9 +175,12 @@ ENV ROOT="/"
 
 #RUN cat "/var/db/pkg/${service_name}-${service_version}/CONTENTS"
 
-# linter ignore=ER0001
-RUN i="${image_name}:${service_version}" ; \
-    for f in /etc/base/*; do \
+RUN test -x /bin/busybox
+
+# linter ignore=SC2050,SC2012,ER0001
+RUN { set -o pipefail 2>/dev/null || true ; } ; \
+    i="${image_name}:${service_version}" ; \
+    for f in /etc/base/* ; do \
         f="$( basename "${f}" )" ; \
         if ! [ -s "/etc/${f}" ]; then \
             echo "INFO:  Adding new file '${f}' from base image '${i}' ..." ; \
@@ -196,17 +203,17 @@ RUN i="${image_name}:${service_version}" ; \
             /etc/msmtprc ; \
     if [ -d "${ROOT}"/usr/lib/gcc ]; then \
         if ! [ -d "${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}" ]; then \
-            echo "WARN:  Directory '${ROOT}/usr/lib/gcc' exists but '${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}' doesn't exist" ; \
+            echo "WARN:  Directory '${ROOT}/usr/lib/gcc' exists but" \
+                "'${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}'" \
+                "doesn't" ; \
             ls -1AF "${ROOT}/usr/lib/gcc" | sed 's/^/DEBUG: /' ; \
-        else \
-            if ! grep -Fqm 1 '/gcc/' /etc/ld.so.conf; then \
-                find "/usr/lib/gcc/${CHOST:-"__chost_not_set__"}" \
-                        -mindepth 1 \
-                        -maxdepth 1 \
-                        -type d \
-                    -print0 | xargs -0rn 1 >> /etc/ld.so.conf ; \
-                ldconfig ; \
-            fi ; \
+        elif ! grep -Fqm 1 '/gcc/' /etc/ld.so.conf; then \
+            find "/usr/lib/gcc/${CHOST:-"__chost_not_set__"}" \
+                    -mindepth 1 \
+                    -maxdepth 1 \
+                    -type d \
+                -print0 | xargs -0rn 1 >> /etc/ld.so.conf ; \
+            ldconfig ; \
         fi ; \
     fi
 
@@ -246,7 +253,7 @@ RUN ln -s /proc/self/mounts /etc/mtab ; \
         -e "/^zeushome=/ s|\"[^\"]*\"$|\"${ZEUSHOME}\"|" \
         -e "s|__ENVFILE__|${environment_file}|"
 
-# linter ignore=SC2174
+# linter ignore=SC2174,SC2050
 RUN for d in 'empty' 'log' 'run' 'lock'; do \
         if test -e "/var/${d}" && { test -L "/var/${d}" || ! test -d "/var/${d}"; }; then \
             rm "/var/${d}" ; \
@@ -263,14 +270,13 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
             usr/lib64/pkgconfig usr/share/awk usr/share/udhcpc \
             var/cache/edb var/db/Makefile var/lib/gentoo ; \
     do \
-        [ -e "${d}" ] && rm -rf "/${d}" ; \
+        [ -e "${d}" ] && rm -rf "/${d:?}" ; \
     done ; \
     if [ "${service_name}" != 'mail-filter/spamassassin-update' ]; then \
-        d='usr/include' ; \
-        [ -e "${d}" ] && rm -rf "/${d}" ; \
+        [ -e usr/include ] && rm -rf /usr/include ; \
     fi ; \
     if [ -d usr/share/gcc-data ]; then \
-        rm -rf "/usr/share/gcc-data/*/*/man" "/usr/share/gcc-data/*/*/info" ; \
+        rm -rf /usr/share/gcc-data/*/*/man /usr/share/gcc-data/*/*/info ; \
     fi
 
 #RUN eselect iptables list
@@ -287,15 +293,19 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
 #            /usr/libexec/entrypoint.sh && \
 #    test -x /usr/libexec/entrypoint.sh ; \
 #    chmod 0755 /usr/libexec/entrypoint.d/*.sh || :
-#
-#RUN ldconfig ; \
+
+# linter ignore=ER0001,SC2015
+#RUN { set -o pipefail 2>/dev/null || true ; } ; \
+#    ldconfig ; \
 #    find / -xdev -type f -executable -not -name '*.sh' | while read -r x; do \
 #        ldd "${x}" 2>&1 | \
 #            sed "s|^|${x}: |" | \
 #            grep 'not found' && exit 1 || : ; \
 #    done
-#
-#RUN echo "${service_cmd}" ; \
+
+# linter ignore=ER0001
+#RUN { set -o pipefail 2>/dev/null || true ; } ; \
+#    echo "${service_cmd}" ; \
 #    test -x "${service_cmd}" && \
 #    if ! [ "$( \
 #        head -n 1 "${service_cmd}" | \
@@ -370,6 +380,8 @@ RUN test ! -x /usr/bin/mandb || \
     nice mandb --create
 
 # Run eselect for dependent components...
+#
+# hadolint ignore=SC3028
 #RUN if [ -x /usr/bin/eselect ]; then \
 #        if [ -s /usr/share/eselect/modules/python.eselect ]; then \
 #            if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \
@@ -395,13 +407,14 @@ RUN if [ -x /usr/sbin/prelink ]; then \
         /usr/sbin/prelink -p ; \
     fi
 
-EXPOSE "${service_ports}"
+EXPOSE ${service_ports}
 
 # linter ignore=EW0001
 WORKDIR "${service_cwd}"
 
 USER "${service_user}:${service_group}"
 
+# hadolint ignore=SC3028
 #RUN if [ -x /usr/bin/eselect ]; then \
 #        if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
 #            echo "Setting Java VM as '${service_user:-"root"}' ..." ; \
@@ -418,6 +431,7 @@ VOLUME ["/srv/${service_name_short}","/var/db/pkg"]
 
 #ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
 # Must be in shell-form to interpolate ARG/ENV values...
+#
 # linter ignore=EJ0002
 ENTRYPOINT "${ZEUSHOME}/runzeus.sh"
 
@@ -425,4 +439,5 @@ ENTRYPOINT "${ZEUSHOME}/runzeus.sh"
 # linter ignore=EJ0002
 #CMD "${service_cmd}"
 
+# linter ignore=ED0004
 # vi: set syntax=dockerfile expandtab sw=4 ts=4 nowrap colorcolumn=80:

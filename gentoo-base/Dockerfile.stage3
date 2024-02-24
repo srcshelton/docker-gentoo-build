@@ -8,6 +8,8 @@
 #    upstream 'env' or 'stage3' contents - so we'll store their IDs rather than
 #    the ID of this container.
 
+# hadolint global ignore=DL4006,SC3040
+#
 ARG ARCH
 
 ARG env_name="localhost/gentoo-env"
@@ -20,20 +22,27 @@ ARG gentoo_stage3_image="docker.io/gentoo/stage3"
 ARG gentoo_stage3_tag="latest"
 ARG gentoo_stage3_id=""
 
+# 'podman image build --platform' overwrites the tagged image, so provide a
+# work-around until this is fixed...
+ARG gentoo_stage3_image_ref="docker.io/gentoo/stage3:latest"
+
 ARG stage3_flags_file="/usr/libexec/stage3_flags.sh"
 
 
 # -----------------------------------------------------------------------------
 
 # linter ignore=EF0003
-FROM "${gentoo_stage3_image}:${gentoo_stage3_tag}" AS stage3
+#FROM "${gentoo_stage3_image}:${gentoo_stage3_tag}" AS stage3
+FROM "${gentoo_stage3_image_ref}" AS stage3
 
 ARG ARCH
 ARG stage3_flags_file
 
 # Save initial environment...
-# linter ignore=ER0001
-RUN pe="$( \
+#
+# linter ignore=ER0001,SC2028,SC2046
+RUN { set -o pipefail 2>/dev/null || true ; } ; \
+    pe="$( \
         find /var/db/pkg/dev-lang/ \
                 -mindepth 1 \
                 -maxdepth 1 \
@@ -99,4 +108,5 @@ COPY --from=stage3 / /
 # Double-negative so that 'set -e' doesn't trip over a false result
 RUN test ! -e /var/db/repos || rm -r /var/db/repos
 
+# linter ignore=ED0004
 # vi: set syntax=dockerfile colorcolumn=80 expandtab nowrap shiftwidth=4 tabstop=4:

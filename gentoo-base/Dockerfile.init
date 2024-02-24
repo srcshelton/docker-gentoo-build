@@ -5,6 +5,8 @@
 #    This image *does not* import a package repo, as this can be more
 #    efficiently mounted when the resulting image is run.
 
+# hadolint global ignore=SC2015
+#
 ARG ARCH
 
 ARG gentoo_stage3_image="docker.io/gentoo/stage3"
@@ -65,7 +67,7 @@ RUN for base in \
         package.unmask \
         package.use ; \
     do \
-        for object in /etc/portage/${base}.*; do \
+        for object in "/etc/portage/${base}."*; do \
             test "${object}" != '/etc/portage/package.use.init' || continue ; \
             test "${object}" != '/etc/portage/package.use.build' || continue ; \
             test ! -e "${object}" || rm -rf "${object}" ; \
@@ -103,6 +105,8 @@ RUN test -s /etc/timezone && \
 
 # We can't use 'RUN [ -d ... ]' because this is interpreted as being
 # exec-form...
+#
+# linter ignore=SC2015
 RUN test -d /etc/portage/package.use.init && \
     test ! -e /etc/portage/package.use && \
     mv /etc/portage/package.use.init /etc/portage/package.use || : ; \
@@ -130,4 +134,5 @@ RUN set -u ; \
 ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
 CMD ["app-shells/bash"]
 
+# linter ignore=ED0004
 # vi: set syntax=dockerfile colorcolumn=80 expandtab nowrap shiftwidth=4 tabstop=4:
