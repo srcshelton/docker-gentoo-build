@@ -67,11 +67,257 @@ format() {
 	return 0
 }  # format
 
+parse_opt() {
+	#inherit ROOT
+	po_opt="${1:-}"
+	po_next="${2:-}"
+	po_line='' po_arg='' po_matched=0
+
+	[ -n "${po_opt:-}" ] || return 1
+
+	print "parse_opt: Called with parameters '${po_opt}', '${po_next}'"
+
+	# The only way to get emerge to show most(*) valid options is to give it an
+	# intentionally unrecognised argument :o
+	#
+	# (*) It seems that short-options such as '-k' for '--usepkg=y' aren't
+	# listed even then...
+	#
+	po_var="po_emerge_$( echo "${ROOT:-"/root"}" | cut -d'/' -f 2 )_opts"
+	if [ -z "$( eval "echo \${${po_var}:-}" )" ]; then
+		print "parse_opt: Generating new emerge option list for root '${ROOT:-}'"
+		eval "${po_var}=\$(
+			emerge --bad_option 2>&1 |
+				grep -v -- '^emerge: error: unrecognized arguments: --bad_option$' |
+				sed 's/^[^[]*\[/[/ ; s/^\[// ; s/\] \[/!/g ; s/\]$//' |
+				tr '!' '\n' |
+				grep -v -- '^positional_args' |
+				tr '\n' '!'
+		)"
+	fi
+	[ -n "$( eval "echo \${${po_var}:-}" )" ] || return 1
+
+	while read -r po_line; do
+		[ $(( po_matched )) -eq 1 ] && break
+		case "${po_line}" in
+			"${po_opt%"="*}")
+				# The emerge option we've just read matches our argument fully,
+				# so it is a stand-alone option...
+				#
+				print "parse_opt: Matched option '${po_opt%"="*}' to line '${po_line}' with 'option_ok'"
+				echo 'option_ok'
+				po_matched=1
+				break
+				;;
+			"${po_opt%"="*} "*)
+				# The emerge option we've just read matches the start of our
+				# argument but the option has further parameters, so we need to
+				# do more checks...
+				#
+				if echo "${po_opt}" | grep -Fq -- '='; then
+					po_arg="${po_opt#*"="}"
+				else
+					po_arg="${po_next:-}"
+				fi
+				print "parse_opt: Matched option '${po_opt%"="*}' with argument '${po_arg}' to line '${po_line}' ..."
+				case "${po_line}" in
+					"${po_opt%"="*} {"*)
+						# We have a list of valid options such as
+						# '--ask {True,y,n}'
+						#
+						print "           ... valid competions are '${po_line#* }'"
+						if echo "${po_arg}" | grep -Eq -- "$( # <- Syntax
+								echo "${po_line}" |
+									awk '{ print $2 }' |
+									grep -o -- '{[^}]\+}' |
+									sed 's/^{// ; s/}$// ; s/,/|/g' )"
+						then
+							if [ "${po_opt}" = "${po_opt%"="*}=${po_arg}" ]
+							then
+								print "           Matched single-argument valid completion in '${po_arg}' - returning option_single_arg_ok"
+								echo 'option_single_arg_ok'
+							else
+								print "           Matched valid completion in '${po_arg}' - returning option_arg_ok"
+								echo 'option_arg_ok'
+							fi
+						else
+							if [ "${po_opt}" = "${po_opt%"="*}=${po_arg}" ]
+							then
+								print "           No matching single-argument completion in '${po_arg}' - returning option_single_arg_bad"
+								echo 'option_single_arg_bad'
+							else
+								print "           No matching completion in '${po_arg}' - returning option_arg_bad"
+								echo 'option_arg_bad'
+							fi
+						fi
+						po_matched=1
+						break
+						;;
+					*)
+						# We can't further validate options to arguments such
+						# as '--root ROOT'
+						#
+						print "parse_opt: Matched option '${po_opt%"="*}' with unchecked argument to line '${po_line}' - returning option_arg"
+						echo 'option_arg'
+						po_matched=1
+						break
+						;;
+				esac
+				;;
+			#*)
+			#	# The emerge option we're just read doesn't match our argument
+			#	# at all
+			#	#
+			#	:
+			#	;;
+		esac
+	done <<-EOI
+		$( eval "echo \${${po_var}:-}" | tr '!' '\n' )
+	EOI
+	if [ $(( po_matched )) -eq 0 ]; then
+		print "parse_opt: No matching option - returning 'option_bad'"
+		echo 'option_bad'
+	fi
+
+	unset po_matched po_arg po_line po_next po_opt
+}  # parse_opt
+
+parse_opt_get() {
+	pog_mode='' pog_arg='' pog_next_arg='' pog_first='' pog_done=0
+
+	if [ -n "${1:-}" ] && [ -n "${2:-}" ]; then
+		pog_mode="${1}"
+		shift
+	else
+		return 1
+	fi
+	case "${pog_mode}" in
+		'opt')  : ;;
+		'pkg')  : ;;
+		'pkgs') : ;;
+		*)
+			error "parse_opt_get: invalid mode '${pog_mode}'"
+			return 1
+			;;
+	esac
+
+	while [ -n "${1:-}" ] && [ $(( pog_done )) -eq 0 ]; do
+		print "parse_get_opt: Looping with ${#} parameters, first is '${1}', second is '${2:-}' (done: ${pog_done})"
+		pog_arg="${1}"
+		pog_next_arg="${2:-}"
+		case "${pog_arg}" in
+			-*)
+				# We'll naively assume that anything starting with a hyphen is
+				# a valid option...
+				#
+				pog_result="$( parse_opt "${pog_arg}" "${pog_next_arg:-}" )"
+				case "${pog_result:-}" in
+					'option_ok'|'option_single_arg_ok')
+						# Recognised option with no parameter
+						#
+						unset pog_next_arg
+						if [ -n "${2:-}" ]; then
+							shift
+						else
+							pog_done=1
+						fi
+						;;
+					'option_bad'|'option_single_arg_bad')
+						# Some options, such as '-k' for '--usepkg', aren't
+						# declared by emerge, so we'll warn and continue as if
+						# the option has no parameter
+						#
+						[ "${pog_mode}" = 'opt' ] &&
+							warn "emerge option '${pog_arg}' may be invalid"
+						unset pog_next_arg
+						if [ -n "${2:-}" ]; then
+							shift
+						else
+							pog_done=1
+						fi
+						;;
+					'option_arg_ok'|'option_arg')
+						# We have a declared option followed by a recognised
+						# parameter
+						#
+						if [ -n "${3:-}" ]; then
+							shift 2
+						else
+							pog_done=1
+						fi
+						;;
+					'option_arg_bad')
+						# We might have a declared option followed by an
+						# invalid parameter, although for some options the
+						# parameter is optional - we have to assume this is the
+						# case
+						#
+						[ "${pog_mode}" = 'opt' ] &&
+							warn "emerge parameter '${pog_next_arg:-}' may" \
+								"be invalid for option '${pog_arg}'"
+						if [ -n "${2:-}" ]; then
+							shift
+						else
+							pog_done=1
+						fi
+						;;
+					*)
+						die "parse_get_opt: Unknown parse_opt() result '${pog_result}'"
+						;;
+				esac
+				if [ "${pog_mode}" = 'opt' ]; then
+					printf '%s%s%s' \
+						"${pog_first}" \
+						"${pog_arg}" \
+						"${pog_next_arg:+" ${pog_next_arg}"}"
+					pog_first=' '
+				fi
+				;;
+
+			*)
+				print "parse_opt_get: Assuming that parameter '${pog_arg}' is a package ..."
+				case "${pog_mode}" in
+					'opt')
+						shift
+						;;
+					'pkg')
+						echo "${pog_arg}"
+						break
+						;;
+					'pkgs')
+						printf '%s%s' \
+							"${pog_first}" \
+							"${pog_arg}"
+						pog_first=' '
+						shift
+						;;
+				esac
+				;;
+		esac
+	done
+	[ "${pog_first:-}" = ' ' ] && printf '\n'
+
+	unset pog_arg pog_last_arg
+}  # parse_opt_get
+
+parse_opt_get_options() {
+	parse_opt_get 'opt' "${@:-}" | xargs -r
+}  # parse_opt_get_options
+
+parse_opt_get_package() {
+	parse_opt_get 'pkg' "${@:-}"
+}  # parse_opt_get_package
+
+parse_opt_get_packages() {
+	parse_opt_get 'pkgs' "${@:-}" | xargs -r
+}  # parse_opt_get_packages
+
 check() {
+	#inherit ROOT
 	check_rc="${1:-}" ; shift
 
-	# Check that a given check_pkg (with build result code $check_rc) is actually
-	# installed...
+	# Check that a given check_pkg (with build result code $check_rc) is
+	# actually installed...
 	#
 	[ -n "${check_rc:-}" ] || return 1
 
@@ -79,6 +325,7 @@ check() {
 
 	if [ $(( check_rc )) -eq 0 ]; then
 		# Process first package of list only...
+		#
 		for check_arg in "${@}"; do
 			case "${check_arg}" in
 				-*)	continue ;;
@@ -88,17 +335,17 @@ check() {
 		check_pkg="$( echo "${check_pkg}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
 		if echo "${check_pkg}" | grep -Fq -- '/'; then
 			if ! ls -1d \
-				"${ROOT:-}/var/db/pkg/${check_pkg%"::"*}"* >/dev/null 2>&1
+					"${ROOT:-}/var/db/pkg/${check_pkg%"::"*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package '${check_pkg%"::"*}'" \
-					"does not appear to be installed"
+				die "emerge indicated success but package" \
+					"'${check_pkg%"::"*}' does not appear to be installed"
 			fi
 		else
 			if ! ls -1d \
-				"${ROOT:-}/var/db/pkg"/*/"${check_pkg%"::"*}"* >/dev/null 2>&1
+					"${ROOT:-}/var/db/pkg"/*/"${check_pkg%"::"*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package '${check_pkg%"::"*}'" \
-					"does not appear to be installed"
+				die "emerge indicated success but package" \
+					"'${check_pkg%"::"*}' does not appear to be installed"
 			fi
 		fi
 	fi
@@ -110,11 +357,13 @@ check() {
 }  # check
 
 checkmissing() {
+	#inherit ROOT
 	cm_arg='' cm_package=''
 
 	# Check that packages passed in as arguments have been removed
 	#
 	# Process first package of list only...
+	#
 	for cm_arg in "${@}"; do
 		case "${cm_arg}" in
 			-*)	continue ;;
@@ -123,14 +372,17 @@ checkmissing() {
 	done
 	cm_package="$( echo "${cm_package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
 	if echo "${cm_package}" | grep -Fq -- '/'; then
-		if ls -1d "${ROOT:-}/var/db/pkg/${cm_package%"::"*}"* >/dev/null 2>&1
+		if
+		ls -1d \
+				"${ROOT:-}/var/db/pkg/${cm_package%"::"*}"* >/dev/null 2>&1
 		then
 			warn "emerge indicated success but package '${cm_package%"::"*}'" \
 				"still appears to be installed under root '${ROOT:-"/"}'"
 			return 1
 		fi
 	else
-		if ls -1d "${ROOT:-}/var/db/pkg"/*/"${cm_package%"::"*}"* >/dev/null 2>&1
+		if ls -1d \
+				"${ROOT:-}/var/db/pkg"/*/"${cm_package%"::"*}"* >/dev/null 2>&1
 		then
 			warn "emerge indicated success but package '${cm_package%"::"*}'" \
 				"still appears to be installed under root '${ROOT:-"/"}'"
@@ -143,6 +395,7 @@ checkmissing() {
 }  # checkmissing
 
 pkg_remove() {
+	#inherit ROOT
 	pr_stage="${1:-}" ; shift
 	pr_remove="${*:-}"
 
@@ -155,10 +408,10 @@ pkg_remove() {
 
 			echo
 			echo " * Removing specified ${pr_stage:+"${pr_stage} "}packages" \
-				"'${pr_remove}' from root '${ROOT}'..."
+				"'${pr_remove}' from root '${ROOT}' ..."
 
 			# shellcheck disable=SC2086
-			emerge \
+			LC_ALL='C' emerge \
 					--ignore-default-opts \
 					--color=y \
 					--verbose=n \
@@ -166,11 +419,13 @@ pkg_remove() {
 					--with-bdeps=n \
 					--with-bdeps-auto=n \
 				--depclean ${pr_remove} || :
+
 			# emerge --depclean exits with code zero even if removal
 			# doesn't succeed :(
+			#
 			# shellcheck disable=SC2086
 			checkmissing ${pr_remove} ||
-				emerge \
+				LC_ALL='C' emerge \
 						--ignore-default-opts \
 						--color=y \
 						--verbose=n \
@@ -178,25 +433,29 @@ pkg_remove() {
 						--with-bdeps=n \
 						--with-bdeps-auto=n \
 					--rage-clean ${pr_remove} || :
+
 			# shellcheck disable=SC2086
 			checkmissing ${pr_remove} || exit ${?}
-			#emerge --depclean -v
-			for pkg in ${pr_remove}; do
-				rm -vr "${ROOT%"/"}/var/db/pkg/"*"/${pkg}"* 2>/dev/null ||
-					rm -vr "${ROOT%"/"}/var/db/pkg/${pkg}"* 2>/dev/null || :
+
+			#LC_ALL='C' emerge --depclean -v
+
+			for pr_pkg in ${pr_remove}; do
+				rm -vr "${ROOT%"/"}/var/db/pkg/"*"/${pr_pkg}"* 2>/dev/null ||
+					rm -vr "${ROOT%"/"}/var/db/pkg/${pr_pkg}"* 2>/dev/null || :
 				if [ -e "${ROOT%"/"}/var/lib/portage/world" ]; then
-					str="$( echo "${pkg}" | sed 's|/|\\/|g' )"
-					if sed -i "/${str}/ d" "${ROOT%"/"}/var/lib/portage/world"
+					pr_str="$( echo "${pr_pkg}" | sed 's|/|\\/|g' )"
+					if sed -i "/${pr_str}/ d" \
+							"${ROOT%"/"}/var/lib/portage/world"
 					then
-						print "Manually removed '${pkg}' from world profile"
+						print "Manually removed '${pr_pkg}' from world profile"
 					else
-						warn "Failed to remove '${pkg}' from world profile" \
-							"(or package already removed)"
+						warn "Failed to remove '${pr_pkg}' from world" \
+							"profile (or package already removed)"
 					fi
-					unset str
+					unset pr_str
 				fi
 			done
-			unset pkg
+			unset pr_pkg
 		done
 	)
 
@@ -204,11 +463,16 @@ pkg_remove() {
 }  # pkg_remove
 
 savefailed() {
+	#inherit PORTAGE_LOGDIR PORTAGE_LOGDIR
+
 	# Save failed build logs ...
 	# (e.g. /var/tmp/portage/app-misc/mime-types-9/temp/build.log)
 
 	#[ -n "${trace:-}" ] || set -o xtrace
-	# shellcheck disable=SC2012 # We can't rely on findutils being present...
+
+	# We can't rely on findutils being present...
+	#
+	# shellcheck disable=SC2012
 	if [ -n "$( # <- Syntax
 			ls -1 "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log 2>/dev/null |
 			head -n 1
@@ -219,162 +483,378 @@ savefailed() {
 			pkg="$( echo "${file}" | rev | cut -d'/' -f 3 | rev )"
 			mkdir --parents "${PORTAGE_LOGDIR}/failed/${cat}"
 			mv --verbose "${file}" "${PORTAGE_LOGDIR}/failed/${cat}/${pkg}.log"
-			rmdir --parents --ignore-fail-on-non-empty "$( dirname "${file}" )" || :
+			rmdir \
+					--parents \
+					--ignore-fail-on-non-empty \
+				"$( dirname "${file}" )" || :
 		done
 	fi
+
 	#[ -n "${trace:-}" ] || set +o xtrace
 }  # savefailed
 
 applyworkarounds() {
+	#inherit use_essential_gcc USE post_pkgs
 	aw_arg="${1:-}"
 	aw_pkgs='' aw_list='' aw_pkg=''
-	#inherit use_essential_gcc USE
+	aw_USE='' aw_post_pkgs='' aw_post_use=''
+	aw_mode=0
 
 	# N.B. Ensure any status/user-information output goes to &2!
 	#
+	# modes:
+	#  0 - Add required USE-flags
+	#  1 - Add required post_pkgs
+	#  2 - Add required post_use
 
-	[ -n "${aw_arg:-}" ] || return 1
-	if [ -n "${2:-}" ]; then
+	if echo "${aw_arg:-}" | grep -q -- '^--'; then
+		# It's possible for the first argument to be an emerge(1) parameter,
+		# so don't abort if we don't get a match below (although we don't need
+		# to keep these parameters either).  Explicitly using '--use' also
+		# fixes this...
+		#
+		if [ "${aw_arg:-}" = '--post_pkgs' ] ||
+				[ "${aw_arg:-}" = '--post-pkgs' ]
+		then
+			aw_mode=1
+		elif [ "${aw_arg:-}" = '--post_use' ] ||
+				[ "${aw_arg:-}" = '--post-use' ]
+		then
+			aw_mode=2
+		elif [ "${aw_arg:-}" = '--use' ]; then
+			:
+		else
+			#return 1
+			warn >&2 "Unexpected option parameter '${aw_arg:-}': recommend" \
+				"calling 'applyworkarounds --use ...'"
+		fi
+		[ -n "${2:-}" ] || return 1
 		shift
-		if [ "${USE:-}" != "${*}" ]; then
-			USE="${USE:+"${USE} "}${*}"
+		aw_arg="${1}"
+	fi
+	[ -n "${aw_arg:-}" ] || return 1
+
+	if [ $(( aw_mode )) -eq 0 ]; then
+		if [ -n "${2:-}" ]; then
+			shift
+			if [ "${USE:-}" = "${*}" ]; then
+				aw_USE="${USE}"
+			else
+				aw_USE="${USE:+"${USE} "}${*}"
+			fi
+		fi
+	else
+		if [ -n "${2:-}" ]; then
+			warn >&2 "Additional arguments received to" \
+				"applyworkarounds(<mode>, '${aw_arg}', >'${*}'<)"
+		fi
+	fi
+	print >&2 "applyworkarounds() called for package(s) '${aw_arg}' with parameters '${*:-}'"
+
+	#aw_pkgs='app-containers/buildah'
+	#[ $(( aw_mode )) -ne 2 ] &&
+	#	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
+	#aw_list=''
+	#for aw_pkg in ${aw_pkgs}; do
+	#	aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
+	#done
+	#aw_pkg=''
+	#if aw_pkg="$( # <- Syntax
+	#		echo " ${aw_arg} " |
+	#			sed 's/ /  /g' |
+	#			grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+	#)" && [ -n "${aw_pkg:-}" ]
+	#then
+	#	if [ $(( aw_mode )) -eq 1 ]; then
+	#		aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
+	#		warn >&2 "Adding post-package entry 'sys-devel/binutils'" \
+	#			"due to presence of ${aw_pkg} ..."
+	#		aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}sys-devel/binutils"
+	#	elif [ $(( aw_mode )) -eq 0 ]; then
+	#		warn >&2 "Activating app-containers/buildah work-arounds ..."
+	#		print >&2 "Before work-around, USE is '${aw_USE}' ..."
+	#		aw_USE="${aw_USE:+"$( # <- Syntax
+	#			echo " ${aw_USE} " | sed 's/ -gold / / ; s/^ //'
+	#		)"}gold"
+	#		print >&2 "After work-around, USE is '${aw_USE}'"
+	#	fi
+	#fi
+
+	aw_pkgs='app-containers/podman app-containers/netavark app-containers/aardvark-dns virtual/rust dev-lang/rust dev-util/bindgen'
+	[ $(( aw_mode )) -ne 2 ] &&
+		info >&2 "Checking for ${aw_pkgs} work-arounds ..."
+	aw_list=''
+	for aw_pkg in ${aw_pkgs}; do
+		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
+	done
+	aw_pkg=''
+	#print >&2 "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+	if aw_pkg="$( # <- Syntax
+			echo " ${aw_arg} " |
+				sed 's/ /  /g' |
+				grep -E0 -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+		)" && [ -n "${aw_pkg:-}" ]
+	then
+		if [ $(( aw_mode )) -eq 1 ]; then
+			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
+			warn >&2 "Adding post-package entry 'net-misc/curl'" \
+				"due to presence of ${aw_pkg} ..."
+			aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}net-misc/curl"
+		elif [ $(( aw_mode )) -eq 0 ]; then
+			warn >&2 "Activating app-containers/netavark work-arounds ..."
+			print >&2 "Before work-around, USE is '${aw_USE}' ..."
+			aw_USE="${aw_USE:+"$( # <- Syntax
+				echo " ${aw_USE} " | sed 's/ -http2 / / ; s/ -rustfmt / / ; s/^ //'
+			)"}http2 rustfmt"
+			print >&2 "After work-around, USE is '${aw_USE}'"
 		fi
 	fi
 
-	aw_pkgs='sys-devel/gcc'
-	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
-	aw_list=''
-	for aw_pkg in ${aw_pkgs}; do
-		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
-	done
-	#print "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
-	if echo " ${aw_arg} " |
-			sed 's/ /  /g' |
-			grep -Eq -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
-	then
-		aw_gcc_use=''
-		warn "Activating sys-devel/gcc work-arounds ..."
-		print "Before work-around, USE is '${USE}' ..."
-		# We want to abort with an unbound variable error if
-		# ${use_essential_gcc} is referenced unassigned here...
-		# shellcheck disable=SC2154
-		aw_gcc_use="$( # <- Syntax
-			echo " ${use_essential_gcc} " |
-				sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
-		)"
-		USE="${USE:+"$( # <- Syntax
-			echo " ${USE} " |
-				sed 's/ lib-only / / ; s/^ //'
-		)"}-lib-only nls ${aw_gcc_use}"
-		unset aw_gcc_use
-		print "After work-around, USE is '${USE}'"
-	fi
-
-	aw_pkgs='app-containers/podman app-containers/netavark app-containers/aardvark-dns virtual/rust dev-lang/rust dev-util/bindgen'
-	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
-	aw_list=''
-	for aw_pkg in ${aw_pkgs}; do
-		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
-	done
-	#print "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
-	if echo " ${aw_arg} " |
-			sed 's/ /  /g' |
-			grep -Eq -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
-	then
-		warn "Activating app-containers/netavark work-arounds ..."
-		print "Before work-around, USE is '${USE}' ..."
-		USE="${USE:+"$( echo " ${USE} " | sed 's/ -http2 / / ; s/^ //')"}http2"
-		print "After work-around, USE is '${USE}'"
-	fi
-
 	aw_pkgs='dev-lang/php media-libs/freetype media-libs/harfbuzz'
-	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
+	[ $(( aw_mode )) -ne 2 ] &&
+		info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
 		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
 	done
-	#print "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
-	if echo " ${aw_arg} " |
-			sed 's/ /  /g' |
-			grep -Eq -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+	aw_pkg=''
+	#print >&2 "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+	if aw_pkg="$( # <- Syntax
+			echo " ${aw_arg} " |
+				sed 's/ /  /g' |
+				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+		)" && [ -n "${aw_pkg:-}" ]
 	then
-		warn "Activating media-libs/harfbuzz work-arounds ..."
-		print "Before work-around, USE is '${USE}' ..."
-		USE="${USE:+"$( echo " ${USE} " | sed 's/ harfbuzz / / ; s/^ //')"}-harfbuzz"
-		print "After work-around, USE is '${USE}'"
+		if [ $(( aw_mode )) -eq 1 ]; then
+			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
+			warn >&2 "Adding post-package entry 'media-libs/freetype'" \
+				"due to presence of ${aw_pkg} ..."
+			aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}media-libs/freetype"
+		elif [ $(( aw_mode )) -eq 0 ]; then
+			warn >&2 "Activating media-libs/harfbuzz work-arounds ..."
+			print >&2 "Before work-around, USE is '${aw_USE}' ..."
+			aw_USE="${aw_USE:+"$( # <- Syntax
+				echo " ${aw_USE} " | sed 's/ harfbuzz / / ; s/^ //'
+			)"}-harfbuzz"
+			print >&2 "After work-around, USE is '${aw_USE}'"
+		fi
 	fi
-
-	aw_pkgs='sys-libs/llvm-libunwind sys-devel/clang sys-devel/clang-common'
-	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
-	aw_list=''
-	for aw_pkg in ${aw_pkgs}; do
-		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
-	done
-	#print "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
-	if echo " ${aw_arg} " |
-			sed 's/ /  /g' |
-			grep -Eq -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
-	then
-		warn "Activating sys-libs/llvm-libunwind work-arounds ..."
-		print "Before work-around, USE is '${USE}' ..."
-		USE="${USE:+"$( echo " ${USE} " | sed 's/ default-compiler-rt / / ; s/^ //')"}-default-compiler-rt"
-		#USE="${USE:+"$( echo " ${USE} " | sed 's/ default-libcxx / / ; s/^ //')"}-default-libcxx"
-		#USE="${USE:+"$( echo " ${USE} " | sed 's/ default-lld / / ; s/^ //')"}-default-lld"
-		USE="${USE:+"$( echo " ${USE} " | sed 's/ llvm-libunwind / / ; s/^ //')"}-llvm-libunwind"
-		print "After work-around, USE is '${USE}'"
-	fi
-
-	#aw_pkgs='app-containers/buildah'
-	#info >&2 "Checking for ${aw_pkgs} work-arounds ..."
-	#aw_list=''
-	#for aw_pkg in ${aw_pkgs}; do
-	#	aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
-	#done
-	#if echo " ${aw_arg} " |
-	#		sed 's/ /  /g' |
-	#		grep -Eq -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
-	#then
-	#	warn "Activating app-containers/buildah work-arounds ..."
-	#	print "Before work-around, USE is '${USE}' ..."
-	#	USE="${USE:+"$( echo " ${USE} " | sed 's/ -gold / / ; s/^ //' )"}gold"
-	#	export USE
-	#	print "After work-around, USE is '${USE}'"
-	#fi
 
 	#aw_pkgs='sys-apps/busybox sys-libs/libxcrypt virtual/libcrypt'
-	#info >&2 "Checking for ${aw_pkgs} work-arounds ..."
+	#[ $(( aw_mode )) -ne 2 ] &&
+	#	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
 	#aw_list=''
 	#for aw_pkg in ${aw_pkgs}; do
 	#	aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
 	#done
-	#if echo " ${aw_arg} " |
-	#		sed 's/ /  /g' |
-	#	grep -Eq -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+	#aw_pkg=''
+	#if aw_pkg="$( # <- Syntax
+	#		echo " ${aw_arg} " |
+	#			sed 's/ /  /g' |
+	#			grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+	#)" && [ -n "${aw_pkg:-}" ]
 	#then
-	#	if ! command -V equery >/dev/null 2>&1; then
-	#		warn "Unable to activate sys-apps/busybox, sys-libs/libxcrypt &" \
-	#			"virtual/libcrypt work-arounds due to 'equery' missing"
-	#	else
-	#		if
-	#			equery --no-color uses --ignore-l10n sys-apps/busybox |
-	#				grep -q -- '^+static'
-	#		then
-	#			warn "Activating sys-apps/busybox work-arounds ..."
-	#			printf '%s %s\n' 'virtual/libcrypt' '-static-libs' \
-	#				>> /etc/portage/package.use/aw_busybox
-	#			printf '%s %s\n' 'sys-libs/libxcrypt' '-static-libs' \
-	#				>> /etc/portage/package.use/aw_busybox
+	#	if [ $(( aw_mode )) -eq 1 ]; then
+	#		aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
+	#		warn >&2 "Adding post-package entries 'sys-libs/libxcrypt virtual/libcrypt'" \
+	#			"due to presence of ${aw_pkg} ..."
+	#		aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}sys-libs/libxcrypt virtual/libcrypt"
+	#	elif [ $(( aw_mode )) -eq 0 ]; then
+	#		if ! command -V equery >/dev/null 2>&1; then
+	#			warn >&2 "Unable to activate sys-apps/busybox, sys-libs/libxcrypt &" \
+	#				"virtual/libcrypt work-arounds due to 'equery' missing"
+	#		else
+	#			if
+	#				equery --no-color uses --ignore-l10n sys-apps/busybox |
+	#					grep -q -- '^+static'
+	#			then
+	#				warn >&2 "Activating sys-apps/busybox work-arounds ..."
+	#				printf '%s %s\n' 'virtual/libcrypt' '-static-libs' \
+	#					>> /etc/portage/package.use/aw_busybox
+	#				printf '%s %s\n' 'sys-libs/libxcrypt' '-static-libs' \
+	#					>> /etc/portage/package.use/aw_busybox
+	#			fi
 	#		fi
 	#	fi
 	#fi
 
-	# We actually don't want to re-order arguments...
-	#USE="$( echo "${USE}" | xargs -rn 1 | sort -V | uniq | xargs -r )"
-	export USE
+	aw_pkgs='sys-devel/gcc'
+	[ $(( aw_mode )) -ne 2 ] &&
+		info >&2 "Checking for ${aw_pkgs} work-arounds ..."
+	aw_list=''
+	for aw_pkg in ${aw_pkgs}; do
+		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
+	done
+	aw_pkg=''
+	#print >&2 "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+	if aw_pkg="$( # <- Syntax
+			echo " ${aw_arg} " |
+				sed 's/ /  /g' |
+				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+		)" && [ -n "${aw_pkg:-}" ]
+	then
+		if [ $(( aw_mode )) -eq 1 ]; then
+			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
+			warn >&2 "Adding post-package entry 'sys-devel/gcc'" \
+				"due to presence of ${aw_pkg} ..."
+			aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}sys-devel/gcc"
+		elif [ $(( aw_mode )) -eq 0 ]; then
+			aw_gcc_use=''
+			warn >&2 "Activating sys-devel/gcc work-arounds ..."
+			print >&2 "Before work-around, USE is '${aw_USE}' ..."
+			# We want to abort with an unbound variable error if
+			# ${use_essential_gcc} is referenced unassigned here...
+			#
+			# shellcheck disable=SC2154
+			aw_gcc_use="$( # <- Syntax
+				echo " ${use_essential_gcc} " |
+					sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
+			)"
+			aw_USE="${aw_USE:+"$( # <- Syntax
+				echo " ${aw_USE} " |
+					sed 's/ lib-only / / ; s/^ //'
+			)"}-lib-only nls ${aw_gcc_use}"
+			unset aw_gcc_use
+			print >&2 "After work-around, USE is '${aw_USE}'"
+		fi
+	fi
+
+	aw_pkgs='sys-libs/glibc'
+	[ $(( aw_mode )) -ne 2 ] &&
+		info >&2 "Checking for ${aw_pkgs} work-arounds ..."
+	aw_list=''
+	for aw_pkg in ${aw_pkgs}; do
+		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
+	done
+	aw_pkg=''
+	#print >&2 "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+	if aw_pkg="$( # <- Syntax
+			echo " ${aw_arg} " |
+				sed 's/ /  /g' |
+				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+		)" && [ -n "${aw_pkg:-}" ]
+	then
+		if [ $(( aw_mode )) -eq 1 ]; then
+			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
+			warn >&2 "Adding post-package entry 'sys-libs/glibc'" \
+				"due to presence of ${aw_pkg} ..."
+			aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}sys-libs/glibc"
+		elif [ $(( aw_mode )) -eq 0 ]; then
+			aw_gcc_use=''
+			warn >&2 "Activating sys-libs/glibc work-arounds ..."
+			print >&2 "Before work-around, USE is '${aw_USE}' ..."
+			aw_USE="${aw_USE:+"$( # <- Syntax
+				echo " ${aw_USE} " | sed 's/ compile-locales / / ; s/^ //'
+			)"}-compile-locales"
+			print >&2 "After work-around, USE is '${aw_USE}'"
+		fi
+	fi
+
+	aw_pkgs='sys-libs/llvm-libunwind sys-devel/clang sys-devel/clang-common'
+	[ $(( aw_mode )) -ne 2 ] &&
+		info >&2 "Checking for ${aw_pkgs} work-arounds ..."
+	aw_list=''
+	for aw_pkg in ${aw_pkgs}; do
+		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
+	done
+	aw_pkg=''
+	#print >&2 "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+	if aw_pkg="$( # <- Syntax
+			echo " ${aw_arg} " |
+				sed 's/ /  /g' |
+				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+		)" && [ -n "${aw_pkg:-}" ]
+	then
+		if [ $(( aw_mode )) -eq 0 ]; then
+			warn >&2 "Activating sys-libs/llvm-libunwind work-arounds ..."
+			print >&2 "Before work-around, USE is '${aw_USE}' ..."
+			aw_USE="${aw_USE:+"$( # <- Syntax
+				echo " ${aw_USE} " | sed 's/ default-compiler-rt / / ; s/^ //'
+			)"}-default-compiler-rt"
+			#aw_USE="${aw_USE:+"$( # <- Syntax
+			#	echo " ${aw_USE} " | sed 's/ default-libcxx / / ; s/^ //'
+			#)"}-default-libcxx"
+			#aw_USE="${aw_USE:+"$( # <- Syntax
+			#	echo " ${aw_USE} " | sed 's/ default-lld / / ; s/^ //'
+			#)"}-default-lld"
+			aw_USE="${aw_USE:+"$( # <- Syntax
+				echo " ${aw_USE} " | sed 's/ llvm-libunwind / / ; s/^ //'
+			)"}-llvm-libunwind"
+			print >&2 "After work-around, USE is '${aw_USE}'"
+		else
+			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
+			if [ $(( aw_mode )) -eq 2 ]; then
+				# 'default-compiler-rt' is a USE-flag for
+				# sys-devel/clang:14 but for sys-devel/clang-common
+				# thereafter...
+				warn >&2 "Adding post-package USE flags 'default-compiler-rt" \
+					"default-libcxx default-lld llvm-libunwind' due to" \
+					"presence of ${aw_pkg} ..."
+				aw_post_use="${aw_post_use:+"${aw_post_use} "}default-compiler-rt default-libcxx default-lld llvm-libunwind"
+				# aw_USE is only set when aw_mode == 0...
+				if echo " ${USE} " |
+						grep -Fq -- ' python_single_target_python'
+				then
+					flag=''
+					for flag in ${USE}; do
+						if echo "${flag}" |
+								grep -Fq -- 'python_single_target_python'
+						then
+							aw_post_use="${aw_post_use:+"${aw_post_use} "}${flag}"
+						fi
+					done
+					unset flag
+				fi
+			elif [ $(( aw_mode )) -eq 1 ]; then
+				warn >&2 "Adding post-package entries 'sys-devel/clang' and" \
+					"'sys-devel/clang-common' due to presence of" \
+					"${aw_pkg} ..."
+				aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}sys-devel/clang sys-devel/clang-common"
+			fi
+		fi
+	fi
 
 	unset aw_pkg aw_list aw_pkgs aw_arg
 
-	echo "${USE:-}"
+	if [ $(( aw_mode )) -eq 2 ]; then
+		if [ -n "${aw_post_use:-}" ]; then
+			aw_post_use="$( # <- Syntax
+				echo "${aw_post_use}" |
+					xargs -rn 1 |
+					sort -V |
+					uniq |
+					xargs -r
+			)"
+			#export post_use="${aw_post_use}"
+			echo "${aw_post_use}"
+		fi
+	elif [ $(( aw_mode )) -eq 1 ]; then
+		if [ -n "${aw_post_pkgs:-}" ]; then
+			aw_post_pkgs="$( # <- Syntax
+				echo "${aw_post_pkgs}" |
+					xargs -rn 1 |
+					sort -V |
+					uniq |
+					xargs -r
+			)"
+			#export post_pkgs="${aw_post_pkgs}"
+			echo "${aw_post_pkgs}"
+		fi
+	else
+		if [ -n "${aw_USE:-}" ]; then
+			# We actually don't want to re-order arguments...
+			#aw_USE="$( # <- Syntax
+			#	echo "${aw_USE}" |
+			#		xargs -rn 1 |
+			#		sort -V |
+			#		uniq |
+			#		xargs -r
+			#)"
+			#export USE="${aw_USE}"
+			echo "${aw_USE}"
+		fi
+	fi
+	unset aw_USE aw_post_pkg
 }  # applyworkarounds
 
 clearworkarounds() {
@@ -393,6 +873,85 @@ git_safedirectory_markall() {
 			git config --global --add safe.directory '*'
 	fi
 }  # git_safedirectory_markall
+
+do_container_setup() {
+	do_locale_gen
+	echo
+	if command -v env-update >/dev/null 2>&1; then
+		LC_ALL='C' env-update 2>/dev/null
+	fi
+	if [ -e /usr/gawk ] || [ -e /usr/bin/gawk ]; then
+		# Superseded by app-alternatives/awk...
+		#
+		if [ -e /usr/bin/eselect ] &&
+				[ -s /usr/share/eselect/modules/awk.eselect ]
+		then
+			eselect awk set gawk
+		fi
+	fi
+	# shellcheck disable=SC2015
+	[ -d /etc/env.d/binutils ] &&
+		command -v binutils-config >/dev/null 2>&1 &&
+			ROOT='' binutils-config 1 2>/dev/null |
+				grep -v -- '^\s*$' || :
+	echo
+	[ -d /etc/env.d/gcc ] &&
+		command -v gcc-config >/dev/null 2>&1 &&
+			ROOT='' gcc-config 1
+	echo
+
+	# shellcheck disable=SC2015
+	command -v etc-update >/dev/null 2>&1 &&
+		etc-update --automode -5 2>/dev/null |
+			grep -Fv -- 'Nothing left to do; exiting' || :
+}  # do_container_setup
+
+do_emerge() {
+	#inherit USE ROOT
+	do_emerge_arg=''
+	do_emerge_args=''
+	do_emerge_rc=0
+
+	for do_emerge_arg in "${@:-}"; do
+		[ -n "${do_emerge_arg:-}" ] &&
+			do_emerge_args="${do_emerge_args:+"${do_emerge_args} "}'${do_emerge_arg}'"
+	done
+
+	[ -n "${do_emerge_args:-}" ] || return 1
+
+	if [ $(( $(
+		localedef --list-archive |
+			grep -cF -e 'utf8' -e 'UTF-8'
+	) )) -eq 0 ]
+	then
+		mkdir -p /usr/lib/locale
+		localedef --replace -f UTF-8 -i C C.UTF-8 --force
+	fi
+
+	export USE
+
+	print "Running \"emerge ${do_emerge_args}\"${USE:+" with USE='${USE}'"}" \
+		"with ROOT='${ROOT}'"
+
+	# Not required when all arguments are quoted...
+	#
+	#do_emerge_args="$( echo "${do_emerge_args}" | sed -r 's/(<|>)/\\\1/g' )"
+
+	export LC_ALL='C' FEATURES='-fail-clean'
+	# shellcheck disable=SC2116
+	do_emerge_str="$( echo "LC_ALL='${LC_ALL}'" \
+		" FEATURES='${FEATURES}'" \
+		" USE='${USE}'" \
+		" ${busybox_disclaimer:-} ;" \
+		" emerge" \
+			" ${opts:+"${opts} "}${do_emerge_args}"
+	)"
+	eval "${do_emerge_str}" ||
+		do_emerge_rc=${?}
+
+	unset do_emerge_args
+	return ${do_emerge_rc}
+}  # do_emerge
 
 # Prelink is no longer supported :(
 #
@@ -422,37 +981,6 @@ do_locale_gen() {
 		esac
 	fi
 }  # do_locale_gen
-
-do_container_setup() {
-	do_locale_gen
-	echo
-	if command -v env-update >/dev/null 2>&1; then
-		LC_ALL='C' env-update 2>/dev/null
-	fi
-	if [ -e /usr/gawk ] || [ -e /usr/bin/gawk ]; then
-		# Superseded by app-alternatives/awk...
-		#
-		if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]
-		then
-			eselect awk set gawk
-		fi
-	fi
-	# shellcheck disable=SC2015
-	[ -d /etc/env.d/binutils ] &&
-		command -v binutils-config >/dev/null 2>&1 &&
-			ROOT='' binutils-config 1 2>/dev/null |
-				grep -v -- '^\s*$' || :
-	echo
-	[ -d /etc/env.d/gcc ] &&
-		command -v gcc-config >/dev/null 2>&1 &&
-			ROOT='' gcc-config 1
-	echo
-
-	# shellcheck disable=SC2015
-	command -v etc-update >/dev/null 2>&1 &&
-		etc-update --automode -5 2>/dev/null |
-			grep -Fv -- 'Nothing left to do; exiting' || :
-}  # do_container_setup
 
 if echo " ${*:-} " | grep -Fq -- ' --finalise-container '; then
 	print "Finalising container image ..."
@@ -520,23 +1048,49 @@ if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
 	parallel="${parallel:+"${parallel} "}--load-average=${MAXLOAD:-"${DEFAULT_MAXLOAD}"}"
 fi
 
-#for f in $( grep -Rl -- 'collision' log/docker.*.log ); do
-#		sed '\x1b\[[0-9;]*m//g' "${f}" |
-#			awk --assign p=0 '/Detected file collision\(s\):$/ { p = 2 } ; /^ \* $/ { p = p - 1 } ; ( 1 == p ) { print $2 }'
-#done |
-#	xargs -rn 1 dirname |
-#		sed 's|/c.i-php.\../|/*/| ; s|/spamassassin/|/*/| ; s|$|/*|' |
-#		sort |
-#		uniq
-COLLISION_IGNORE="${COLLISION_IGNORE:-"/lib/modules/*"}
-	/service/bin/*
-	/service/etc/php/*/ext-active/*
-	/service/sbin/*
-	/service/usr/bin/*
-	/service/usr/share/*/*
-	/service/var/lib/*/*
+# Allow USE='make-symlinks' and merging with ROOT='/' without erroring-out for
+# safety reasons...
+#
+#busybox_disclaimer='VERY_BRAVE_OR_VERY_DUMB=yes'
+
+# Specify our installation ROOT...
+#
+service_root='/service'
+
+if [ -n "${DEBUG:-}" ]; then
+	# shellcheck disable=SC2013
+	for f in $( grep -Rl -- 'collision' log/docker.*.log ); do
+		sed '\x1b\[[0-9;]*m//g' "${f}" |
+			awk --assign p=0 '
+				/Detected file collision\(s\):$/ { p = 2 } ;
+				/^ \* $/ { p = p - 1 } ;
+				( 1 == p ) { print $2 } ;
+			'
+	done |
+		xargs -rn 1 dirname |
+			sed 's|/c.i-php.\../|/*/| ; s|/spamassassin/|/*/| ; s|$|/*|' |
+			sort |
+			uniq
+fi
+COLLISION_IGNORE="$( echo "${COLLISION_IGNORE:-"/lib/modules/*"}
+	/bin/cpio
+	/usr/bin/awk
+	/usr/bin/bc
+	/usr/bin/dc
+	/usr/bin/lexx
+	/usr/bin/ninja
+	/usr/bin/yacc
+	/etc/env.d/04gcc-x86_64-pc-linux-gnu
+	/etc/env.d/gcc/config-x86_64-pc-linux-gnu
+	/usr/lib/locale/locale-archive
 	/var/lib/portage/home/*
-"
+	${service_root}/bin/*
+	${service_root}/etc/php/*/ext-active/*
+	${service_root}/sbin/*
+	${service_root}/usr/bin/*
+	${service_root}/usr/share/*/*
+	${service_root}/var/lib/*/*
+" | xargs -r )"
 export COLLISION_IGNORE
 
 TUSE='' pkg_use_pkg='' pkg_use_use='' pkg_use_file=''
@@ -686,7 +1240,8 @@ for arg in "${@}"; do
 			#	warn "    ${line}"
 			#done
 			#unset line
-			if ! echo " ${extra_files:-} " | grep -Fq " ${pkg_mask_file} "
+			if ! echo " ${extra_files:-} " |
+					grep -Fq -- " ${pkg_mask_file} "
 			then
 				extra_files="${extra_files:+"${extra_files} "}${pkg_mask_file}"
 			fi
@@ -699,6 +1254,16 @@ for arg in "${@}"; do
 	esac
 done
 unset pkg_mask_pkg pkg_use_file pkg_use_pkg pkg_use_use arg
+
+if [ ! -f /etc/locale.gen ] || [ ! -s /etc/locale.gen ]; then
+	cat >/etc/locale.gen <<-EOF
+		en_GB ISO-8859-1
+		en_GB.ISO-8859-15 ISO-8859-15
+		en_GB.UTF-8 UTF-8
+		en_US ISO-8859-1
+		en_US.UTF-8 UTF-8
+	EOF
+fi
 
 if [ -e /etc/portage/repos.conf.host ]; then
 	echo
@@ -719,19 +1284,6 @@ if [ -e /etc/portage/repos.conf.host ]; then
 		die "Can't copy host repos.conf: ${?}"
 fi
 
-if [ $(( no_use )) -ne 0 ]; then
-	# My suspicion is that package.use contents are interfering with
-	# environment USE flags...
-	#
-	if [ -e /etc/portage/package.use ]; then
-		if [ $(( pkg_use )) -ne 0 ]; then
-			warn "'--with-pkg-use' option will be overridden by '--no-package-use'"
-		fi
-		echo
-		warn "Removing default '/etc/portage/package.use' settings"
-		mv /etc/portage/package.use /etc/portage/package.use.disabled
-	fi
-fi
 if [ $(( pkg_mask )) -ne 0 ]; then
 	warn "Applied package mask(s):"
 	warn "  ${pkg_mask_file}:"
@@ -743,80 +1295,110 @@ if [ $(( pkg_mask )) -ne 0 ]; then
 	unset line pkg_mask_file
 fi
 
-override='' object='' headers='' header='' file='' dest=''
-find /etc/portage/ -mindepth 1 -maxdepth 1 -name '*.override' -print | while read -r override; do
-	object="$( echo "${override}" | sed 's/\.override$//' )"
-	if [ -e "${object}" ]; then
-		mv "${object}" "${object}.disabled"
-	fi
-
-	# override can be a file or directory
-	# header can be in current or override directory (if not a file), but must be a file
+if [ $(( no_use )) -ne 0 ]; then
+	# My suspicion is that package.use contents are interfering with
+	# environment USE flags...
 	#
-	if [ -d "${object}.header" ] || [ -d "${override}.header" ]; then
-		[ -d "${object}.header" ] && warn "Override header directories not supported: '${object}.header' not applied"
-		[ -d "${override}.header" ] && warn "Override header directories not supported: '${override}.header' not applied"
-	fi
-	if [ -d "${override}" ]; then
-		headers="$( find "${override}"/ -mindepth 1 -maxdepth 1 -name '*.header' -print )"
-		if [ -f "${object}.header" ] || [ -f "${override}.header" ] || [ -n "${headers:-}" ]; then
-			mkdir -p "${object}"
-
-			for header in "${object}.header" "${override}.header" ${headers}; do
-				[ -f "${header}" ] || continue
-				find "${override}"/ -mindepth 1 -not -name '*.header' -print | while read -r file; do
-					dest="$( echo "${file}" | sed "s|^${override}|${object}|" )"
-					mkdir -p "$( dirname "${dest}" )"
-
-					if [ -f "${file}" ]; then
-						if [ -f "${dest}" ]; then
-							print "Adding override header '${header}' to existing file '${file}' ('${dest}')"
-							cat "${header}" "${dest}" > "${dest}.tmp"
-							mv "${dest}.tmp" "${dest}"
-						else
-							print "Applying override header '${header}' to file '${file}' ('${dest}')"
-							cat "${header}" "${file}" > "${dest}"
-						fi
-					elif [ -d "${file}" ]; then
-						if ! [ -d "${dest}" ]; then
-							# FIXME: Support directories?
-							#
-							warn "Not applying override header '${header}' to directory '${file}' ('${dest}')"
-							cp -a "${file}" "${dest}"
-						fi
-					else
-						if ! [ -e "${dest}" ]; then
-							warn "Not applying override header '${header}' to non-regular file '${file}' ('${dest}')"
-							cp -a "${file}" "${dest}"
-						fi
-					fi
-				done
-			done
-		else
-			# Simply copy $override...
-			#
-			cp -a "${override}" "${object}"
+	if [ -e /etc/portage/package.use ]; then
+		if [ $(( pkg_use )) -ne 0 ]; then
+			warn "'--with-pkg-use' option will be overridden by" \
+				"'--no-package-use'"
 		fi
-	elif [ -f "${override}" ]; then
-		if [ -f "${object}.header" ] || [ -f "${override}.header" ]; then
-			# shellcheck disable=SC2046
-			cat > "${object}" \
-				$( [ -f "${override}.header" ] && { warn >&2 "Using override '${override}.header' for item '${object}'" ; echo "${override}.header" ; } ) \
-				$( [ -f "${object}.header" ] && { warn >&2 "Using override '${object}.header' for item '${object}'" ; echo "${object}.header" ; } ) \
-				"${override}"
-		else
-			# Simply copy $override...
-			#
-			cp -a "${override}" "${object}"
-		fi
+		echo
+		warn "Removing default '/etc/portage/package.use' settings"
+		mv /etc/portage/package.use /etc/portage/package.use.disabled
 	fi
-done
+fi
+
+# We currently support two methods of portage configuration override:
+#
+#  /etc/portage/<conf>.override/file replaces /etc/portage/<conf>/file
+#  /etc/portage/<conf>.override/file.header prepended to /etc/portage/<conf>/file
+#
+# ... others may be added as necessary.
+#
+override_dir='' target_dir='' override_file=''
+find '/etc/portage/' \
+		-mindepth 1 -maxdepth 1 \
+		-type d \
+		-name '*.override' \
+		-print |
+	while read -r override_dir
+do
+	target_dir="$( echo "${override_dir}" | sed 's/\.override$//' )"
+
+	if [ -e "${target_dir}" ]; then
+		warn "Files deployed from '${override_dir}' will update or replace" \
+			"files in '${target_dir}' ..."
+	fi
+
+	find "${override_dir}/" \
+			-mindepth 1 -maxdepth 1 \
+			-type f \
+			-not -name '*.header' \
+			-print |
+		while read -r override_file
+	do
+		override_file="$( basename "${override_file}" )"
+		[ -d "${target_dir}" ] ||
+			mkdir -p "${target_dir}"
+		if [ -f "${target_dir}/${override_file}" ]; then
+			info "Overwriting file '${target_dir}/${override_file}' with" \
+				"data from '${override_dir}/${override_file}' ..."
+		else
+			warn "Replacing non-file object" \
+				"'${target_dir}/${override_file}' with file" \
+				"'${override_dir}/${override_file}' ..."
+		fi
+		[ -e "${target_dir}/${override_file}" ] &&
+			rm -rf "${target_dir:?}/${override_file}"
+		cp -a "${override_dir}/${override_file}" "${target_dir}/" ||
+			die "File copy from '${override_dir}/${override_file}' to" \
+				"'${target_dir}/' failed: ${?}"
+	done  # override_file
+
+	find "${override_dir}/" \
+			-mindepth 1 -maxdepth 1 \
+			-type f \
+			-name '*.header' \
+			-print |
+		while read -r override_file
+	do
+		override_file="$( basename "${override_file%".header"}" )"
+		[ -d "${target_dir}" ] ||
+			mkdir -p "${target_dir}"
+		if ! [ -e "${target_dir}/${override_file}" ]; then
+			warn "No source file for header" \
+				"'${override_dir}/${override_file}.header', deploying as new" \
+				"file ..."
+			cp -a "${override_dir}/${override_file}.header" \
+					"${target_dir}/${override_file}" ||
+				die "File copy from '${override_dir}/${override_file}.header'" \
+					"to '${target_dir}/${override_file}' failed: ${?}"
+		elif ! [ -f "${target_dir}/${override_file}" ]; then
+			die "Could not append to '${target_dir}/${override_file}', which" \
+				"exists but is not a file"
+		else
+			if ! cat "${override_dir}/${override_file}.header" \
+					"${target_dir}/${override_file}" > \
+					"${target_dir}/${override_file}.new" &&
+				mv "${target_dir}/${override_file}.new" \
+						"${target_dir}/${override_file}"
+			then
+				die "Could not append" \
+					"'${override_dir}/${override_file}.header' to existing" \
+					"file '${target_dir}/${override_file}': ${?}"
+			fi
+		fi
+	done  # override_file
+done  # override_dir
+unset override_file target_dir override_dir
 
 if command -v pypy3 >/dev/null 2>&1; then
 	print "Enabling pypy3 support for portage ..."
 	mkdir -p /etc/python-exec
 	echo 'pypy3' >> /etc/python-exec/emerge.conf
-	print "$( emerge --info | head -n 1 2>&1 )"
+	print "$( LC_ALL='C' emerge --info | head -n 1 2>&1 )"
 fi
 
 #warn >&2 "Inherited USE-flags: '${USE:-}'"
@@ -842,21 +1424,18 @@ if [ -n "${TUSE:-}" ]; then
 	if ! printf '%s' " ${TUSE} " | grep -Fq -- ' -* '; then
 		TUSE="${USE:+"${USE} "}${TUSE}"
 	fi
-	if
-		[ -n "${use_essential:-}" ] &&
+	if [ -n "${use_essential:-}" ] &&
 			echo "${TUSE}" | grep -Fq -- "${use_essential}"
 	then
 		USE="${TUSE}"
 	else
-		USE="${TUSE}${use_essential:+" ${use_essential}"}"
+		USE="${TUSE} ${use_essential}"
 	fi
 	export USE
 fi
 unset TUSE
 
-info="$( # <- Syntax
-	LC_ALL='C' emerge --info --verbose=y
-)"
+info="$( LC_ALL='C' emerge --info --verbose=y )"
 echo
 echo 'Resolved build variables for build stage:'
 echo '----------------------------------------'
@@ -897,6 +1476,7 @@ package='app-shells/bash'
 opts='--tree'
 # shellcheck disable=SC2015
 printf ' %s ' "${*}" | grep -Fq -- ' --nodeps ' && opts='' || :
+export opts
 
 if [ -n "${ECLASS_OVERRIDE:-}" ]; then
 	echo
@@ -905,39 +1485,49 @@ if [ -n "${ECLASS_OVERRIDE:-}" ]; then
 	(
 		for ROOT in $( echo '/' "${ROOT:-}" | xargs -n 1 | sort | uniq ); do
 			if [ -e "${ROOT%"/"}/etc/portage/repos.conf" ]; then
-				if grep -qR -- '^\s*eclass-overrides' "${ROOT%"/"}/etc/portage/repos.conf"; then
-					echo "INFO:  Adding eclass override '${ECLASS_OVERRIDE}' to repos.conf for installation root '${ROOT}' ..."
+				if grep -qR -- '^\s*eclass-overrides' \
+					"${ROOT%"/"}/etc/portage/repos.conf"
+				then
+					echo "INFO:  Adding eclass override '${ECLASS_OVERRIDE}'" \
+						"to repos.conf for installation root '${ROOT}' ..."
 					if [ -f "${ROOT%"/"}/etc/portage/repos.conf" ]; then
 						sed -e "/^\s*eclass-overrides/ s/\(\s*$\|\s*#.*$\)/ ${ECLASS_OVERRIDE}\1/" \
 								-i "${ROOT%"/"}/etc/portage/repos.conf" ||
 							die "Failed to update '${ROOT%"/"}/etc/portage/repos.conf': ${?}"
-					elif [ -f "${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf" ]; then
+					elif [ -f "${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf" ]
+					then
 						sed -e "/^\s*eclass-overrides/ s/\(\s*$\|\s*#.*$\)/ ${ECLASS_OVERRIDE}\1/" \
 								-i "${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf" ||
 							die "Failed to update '${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf': ${?}"
 					else
-						die "Could not find repo configuration file to update for installation root '${ROOT}'"
+						die "Could not find repo configuration file to" \
+							"update for installation root '${ROOT}'"
 					fi
 				else
-					echo "Setting eclass override '${ECLASS_OVERRIDE}' in repos.conf for installation root '${ROOT}' ..."
+					echo "Setting eclass override '${ECLASS_OVERRIDE}' in" \
+						"repos.conf for installation root '${ROOT}' ..."
 					if [ -f "${ROOT%"/"}/etc/portage/repos.conf" ]; then
 						printf '\neclass-overrides = %s\n' "${ECLASS_OVERRIDE}" \
-								>> "${ROOT%"/"}/etc/portage/repos.conf" ||
+								>>"${ROOT%"/"}/etc/portage/repos.conf" ||
 							die "Failed to update '${ROOT%"/"}/etc/portage/repos.conf': ${?}"
-					elif [ -f "${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf" ]; then
+					elif [ -f "${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf" ]
+					then
 						printf '\neclass-overrides = %s\n' "${ECLASS_OVERRIDE}" \
-								>> "${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf" ||
+								>>"${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf" ||
 							die "Failed to update '${ROOT%"/"}/etc/portage/repos.conf/DEFAULT.conf': ${?}"
 					else
-						die "Could not find repo configuration file to update for installation root '${ROOT}'"
+						die "Could not find repo configuration file to" \
+							"update for installation root '${ROOT}'"
 					fi
 				fi
 				{
 					echo "Active overrides:"
-					grep -HR -- '^\s*eclass-overrides' "${ROOT%"/"}/etc/portage/repos.conf/"
+					grep -HR -- '^\s*eclass-overrides' \
+						"${ROOT%"/"}/etc/portage/repos.conf/"
 				} | sed 's/^/       /'
 			else
-				warn "Could not find repo configuration for installation root '${ROOT}'"
+				warn "Could not find repo configuration for installation" \
+					"root '${ROOT}'"
 			fi
 		done
 	)
@@ -953,20 +1543,22 @@ if [ -n "${force_python:-}" ]; then
 fi
 if [ -n "${pre_pkgs:-}" ]; then
 	echo
-	echo " * Building specified pre-installation packages '${pre_pkgs}' ..."
+	echo " * Building specified pre-installation package(s) '${pre_pkgs}' ..."
 	(
 		if [ -n "${pre_use:-}" ]; then
 			if ! printf ' %s ' "${pre_use}" | grep -Fq -- ' -* '; then
 				pre_use="${USE:+"${USE} "}${pre_use}"
 			fi
-			if [ -n "${use_essential:-}" ] && echo "${pre_use}" | grep -Fq -- "${use_essential}"; then
+			if [ -n "${use_essential:-}" ] &&
+					echo "${pre_use}" |
+						grep -Fq -- "${use_essential}"
+			then
 				USE="${pre_use}"
 			else
 				USE="${pre_use} ${use_essential}"
 			fi
 		fi
-		if
-			echo " ${pre_pkgs} " |
+		if echo " ${pre_pkgs} " |
 				grep -Pq -- ' ([=<>!~][=!]?)?(sys-devel/)?gcc(-[0-9.r-]+)?[*]?(:(?:[*]|[0-9.]*)=?)? ' >dev/null 2>&1
 		then
 			# shellcheck disable=SC2154
@@ -977,7 +1569,7 @@ if [ -n "${pre_pkgs:-}" ]; then
 		export FEATURES="${FEATURES:+"${FEATURES} "}-fail-clean"
 		export LC_ALL='C'
 
-		info="$( emerge --info --verbose=y )"
+		info="$( LC_ALL='C' emerge --info --verbose=y )"
 		echo
 		echo 'Resolved build variables for pre-installation packages:'
 		echo '------------------------------------------------------'
@@ -988,9 +1580,8 @@ if [ -n "${pre_pkgs:-}" ]; then
 		echo "${info}" | format 'USE'
 		unset info
 
-		export VERY_BRAVE_OR_VERY_DUMB='yes'  # for (old) busybox
 		# shellcheck disable=SC2086
-		if ! emerge \
+		if ! ( do_emerge \
 				--ignore-default-opts \
 				  ${parallel} \
 				--binpkg-changed-deps=y \
@@ -1005,10 +1596,11 @@ if [ -n "${pre_pkgs:-}" ]; then
 				--verbose=y \
 				--with-bdeps-auto=n \
 				--with-bdeps=n \
-			${pre_pkgs}
+			-- ${pre_pkgs}
 				#--binpkg-changed-deps=y \
 				#--rebuild-if-new-slot=y \
 				#--rebuilt-binaries=y \
+		)
 		then
 			savefailed
 			exit 1
@@ -1018,7 +1610,7 @@ if [ -n "${pre_pkgs:-}" ]; then
 
 		if [ -n "${force_python:-}" ]; then
 			# shellcheck disable=SC2086
-			if ! emerge \
+			if ! ( do_emerge \
 					--ignore-default-opts \
 					  ${parallel} \
 					--buildpkg=n \
@@ -1031,19 +1623,21 @@ if [ -n "${pre_pkgs:-}" ]; then
 					--verbose=y \
 					--with-bdeps-auto=n \
 					--with-bdeps=n \
-				dev-lang/python-exec
+				-- dev-lang/python-exec
+			)
 			then
 				savefailed
 				exit 1
 			fi
-		fi # [ -n "${force_python:-}" ]
+		fi  # [ -n "${force_python:-}" ]
 	)
-fi # [ -n "${pre_pkgs:-}" ]
+fi  # [ -n "${pre_pkgs:-}" ]
 
 if [ -e /usr/gawk ] || [ -e /usr/bin/gawk ]; then
 	# Superseded by app-alternatives/awk...
 	#
-	if [ -e /usr/bin/eselect ] && [ -s /usr/share/eselect/modules/awk.eselect ]
+	if [ -e /usr/bin/eselect ] &&
+			[ -s /usr/share/eselect/modules/awk.eselect ]
 	then
 		eselect awk set gawk
 	fi
@@ -1056,41 +1650,35 @@ fi
 [ -s /etc/profile ] && . /etc/profile
 
 echo
-echo " * Ensuring base packages in '/service/' ROOT are current:"
+echo " * Ensuring base packages in '${service_root}/' ROOT are current:"
 echo
 
 # Replace default file with patched version
 #
 if [ -s /etc/bash/bashrc ]; then
-	mkdir -p /service/etc/bash
-	cp /etc/bash/bashrc /service/etc/bash/
+	mkdir -p "${service_root}"/etc/bash
+	cp /etc/bash/bashrc "${service_root}"/etc/bash/
 fi
 
 # Try not to use too much time building additional locales
 #
-if [ -s /etc/locale.gen ]; then
-	mkdir -p /service/etc
-	cp /etc/locale.gen /service/etc/
+if ! [ -f /etc/locale.gen ]; then
+	warn "File '/etc/locale.gen' is missing - expect a very large" \
+		"'locale-archive'"
+else
+	mkdir -p "${service_root}"/etc
+	cp /etc/locale.gen "${service_root}"/etc/
 fi
 
 #time (
 (
-	ROOT='/service'
+	ROOT="${service_root}"
 	FEATURES="${FEATURES:+"${FEATURES} "}-fail-clean"
 	USE="-* -lib-only make-symlinks mdev openmp timezone-tools"
-	# Since app-alternatives/* packages are now mandatory, the USE flags these
-	# packages rely upon must also be set in order to avoid REQUIRED_USE
-	# errors.
-	#
-	# TODO: Fix this better...
-	#
-	USE="${USE:-} gawk gnu reference"
-	# ... we also need 'http2' if any rust packages need to be updated...
-	#
-	USE="${USE:-} http2"
+	# ... we also need 'http2' if any rust packages need to be updated
+	USE="${USE} http2"
 	LC_ALL='C'
-	VERY_BRAVE_OR_VERY_DUMB='yes'  # for (old) busybox
-	export ROOT FEATURES USE LC_ALL VERY_BRAVE_OR_VERY_DUMB
+	export ROOT FEATURES USE LC_ALL
 
 	for extra_file in ${extra_files}; do
 		if [ -e "${extra_file}" ] && ! [ -e "${ROOT}${extra_file}" ]; then
@@ -1100,7 +1688,7 @@ fi
 	done
 	unset extra_file
 
-	info="$( emerge --info --verbose=y )"
+	info="$( LC_ALL='C' emerge --info --verbose=y )"
 	echo
 	echo 'Resolved build variables for service packages:'
 	echo '---------------------------------------------'
@@ -1160,33 +1748,43 @@ fi
 	echo " * Packages to install: ${service_pkgs}"
 	echo " * Packages to exclude: ${pre_remove:-"<none>"}"
 
-	# 'minimal' required to avoid sys-libs/glibc -> sys-apps/gentoo-functions -> sys-apps/busybox -> virtual/libc -> sys-libs/glibc circular dependency...
+	# 'minimal' required to avoid:
+	#    sys-libs/glibc ->
+	#    sys-apps/gentoo-functions ->
+	#    sys-apps/busybox ->
+	#    virtual/libc ->
+	#    sys-libs/glibc
+	# circular dependency...
 	#
 	# shellcheck disable=SC2086,SC2046
-	if ! USE="${USE:+"${USE} "}minimal" emerge \
-			--ignore-default-opts \
-			  ${parallel} \
-			--binpkg-changed-deps=y \
-			--binpkg-respect-use=y \
-			--buildpkg=y \
-			--color=y \
-			--keep-going=y \
-			--rebuild-if-new-slot=y \
-			--quiet-build=y \
-			--update \
-			  ${opts:-} \
-			--usepkg=y \
-			--verbose=y \
-			--verbose-conflicts \
-			--with-bdeps=n \
-			--with-bdeps-auto=n \
-			${exclude:-} \
-		-- ${service_pkgs}
-			#--rebuilt-binaries=y \
-	then
-		savefailed
-		exit 1
-	fi
+	(
+		export USE="${USE:+"${USE} "}minimal"
+		if ! ( do_emerge \
+				--ignore-default-opts \
+				  ${parallel} \
+				--binpkg-changed-deps=y \
+				--binpkg-respect-use=y \
+				--buildpkg=y \
+				--color=y \
+				--keep-going=y \
+				--rebuild-if-new-slot=y \
+				--quiet-build=y \
+				--update \
+				  ${opts:-} \
+				--usepkg=y \
+				--verbose=y \
+				--verbose-conflicts \
+				--with-bdeps=n \
+				--with-bdeps-auto=n \
+				${exclude:-} \
+			-- ${service_pkgs}
+				#--rebuilt-binaries=y \
+		)
+		then
+			savefailed
+			exit 1
+		fi
+	) || exit ${?}
 
 	git_safedirectory_markall
 
@@ -1202,14 +1800,21 @@ if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
 	if [ -e "${ROOT}"/usr/gawk ] || [ -e "${ROOT}"/usr/bin/gawk ]; then
 		# Superseded by app-alternatives/awk...
 		#
-		if [ -e "${ROOT}"/usr/bin/eselect ] && [ -s "${ROOT}"/usr/share/eselect/modules/awk.eselect ]; then
+		if
+			[ -e "${ROOT}"/usr/bin/eselect ] &&
+			[ -s "${ROOT}"/usr/share/eselect/modules/awk.eselect ]
+		then
 			eselect awk set gawk
 		fi
 	fi
-	[ -d "${ROOT}"/etc/env.d/gcc ] && gcc-config 1
-	[ -d "${ROOT}"/etc/env.d/binutils ] && command -v binutils-config >/dev/null 2>&1 && binutils-config 1
+	[ -d "${ROOT}"/etc/env.d/gcc ] &&
+		gcc-config 1
+	[ -d "${ROOT}"/etc/env.d/binutils ] &&
+		command -v binutils-config >/dev/null 2>&1 &&
+			binutils-config 1
 	# shellcheck disable=SC1091
-	[ -s "${ROOT}"/etc/profile ] && . "${ROOT}"/etc/profile
+	[ -s "${ROOT}"/etc/profile ] &&
+		. "${ROOT}"/etc/profile
 fi
 
 (
@@ -1221,28 +1826,39 @@ fi
 	); do
 		export ROOT
 		if [ -x "${ROOT%"/"}"/usr/bin/eselect ]; then
-			if [ -s "${ROOT%"/"}"/usr/share/eselect/modules/python.eselect ]; then
-				echo "Setting python implementation for installation root '${ROOT}' ..."
+			if [ -s "${ROOT%"/"}"/usr/share/eselect/modules/python.eselect ]
+			then
+				echo "Setting python implementation for installation" \
+					"root '${ROOT}' ..."
 				mkdir -p "${ROOT%"/"}"/etc/python-exec
 
 				eselect python cleanup
 				eselect python update --if-unset
 				if [ -n "${force_python:-}" ]; then
-					print "python-exec supported interpreters: $( python-exec2c -l | xargs echo )"
-					if [ "${force_python#"python2"}" != "${force_python}" ]; then
-						eselect python set --python2 "$( echo "${force_python}" | tr '_' '.' )"
+					print "python-exec supported interpreters: $( # <- Syntax
+						python-exec2c -l | xargs echo
+					)"
+					if [ "${force_python#"python2"}" != "${force_python}" ]
+					then
+						eselect python set --python2 "$( # <- Syntax
+							echo "${force_python}" | tr '_' '.'
+						)"
 					else
-						eselect python set "$( echo "${force_python}" | tr '_' '.' )"
+						eselect python set "$( # <- Syntax
+							echo "${force_python}" | tr '_' '.'
+						)"
 					fi
 				fi
 				#eselect python list
 				#eselect python --show --python2
 				#eselect python --show --python3
 			fi
-			if [ -s "${ROOT%"/"}"/usr/share/eselect/modules/java-vm.eselect ]; then
+			if [ -s "${ROOT%"/"}"/usr/share/eselect/modules/java-vm.eselect ]
+			then
 				echo "Setting Java VM for installation root '${ROOT}' ..."
 				eselect java-vm set system 1
-				[ $(( $( id -u ) )) -eq 0 ] || eselect java-vm set user 1
+				[ $(( $( id -u ) )) -eq 0 ] ||
+					eselect java-vm set user 1
 			fi
 		fi
 		# python-exec now no longer requires the 'eselect' interface...
@@ -1252,7 +1868,8 @@ fi
 				sed -e 's/^\([^#]\)/#\1/' \
 					-i "${ROOT%"/"}"/etc/python-exec/python-exec.conf
 			fi
-			echo "${force_python}" >> "${ROOT%"/"}"/etc/python-exec/python-exec.conf
+			echo "${force_python}" >> \
+				"${ROOT%"/"}"/etc/python-exec/python-exec.conf
 		fi
 	done
 )
@@ -1297,12 +1914,12 @@ case "${1:-}" in
 		target=''
 		for target in $( # <- Syntax
 			echo "${info}" |
-				grep -o ' [^ ]*TARGET[^ ]* ' |
+				grep -o -- ' [^ ]*TARGET[^ ]* ' |
 				cut -d'=' -f 1 |
 				sed 's/ //g' |
 				sort |
 				uniq |
-				grep -Ev '^(AMDGPU|PYTHON|QEMU)_'
+				grep -Ev -- '^(AMDGPU|PYTHON|QEMU)_'
 		); do
 			echo "${info}" | format "${target}"
 		done
@@ -1310,20 +1927,17 @@ case "${1:-}" in
 		echo
 		unset info
 
-		print "Running default 'emerge" \
-			"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-			"--usepkg=y --with-bdeps=n --with-bdeps-auto=n \"${package}\"'" \
-			"with ROOT='${ROOT}'"
-
 		# shellcheck disable=SC2086
-		LC_ALL='C' FEATURES='-fail-clean' emerge \
-				  ${parallel} \
-				  ${opts} \
-				--buildpkg=y \
-				--usepkg=y \
-				--with-bdeps=n \
-				--with-bdeps-auto=n \
-			"${package}" || rc=${?}
+		(
+			do_emerge \
+					  ${parallel} \
+					  ${opts} \
+					--buildpkg=y \
+					--usepkg=y \
+					--with-bdeps=n \
+					--with-bdeps-auto=n \
+				-- "${package}"
+		) || : $(( rc = rc + ${?} ))
 
 		git_safedirectory_markall
 		;;
@@ -1337,17 +1951,21 @@ case "${1:-}" in
 			has_locale_gen=1
 		fi
 
-		# Extract first package, to pass to check() below...
+		# Separate any command-line flags and packages...
 		#
-		for arg in "${@}"; do
-			case "${arg}" in
-				-*)	continue ;;
-				*)	package="${arg}" ; break ;;
-			esac
-		done
-		unset arg
+		flags="$( parse_opt_get_options "${@}" )"
+		print "Options from '${*}' are '${flags:-}'"
 
-		echo
+		packages="$( parse_opt_get_packages "${@}" )"
+		print "Package(s) from '${*}' are '${packages}'"
+
+		# Extract first package, to pass to check() if we've built a package...
+		#
+		first_package="$( parse_opt_get_package "${@}" )"
+		print "First package from '${*}' is '${first_package}'"
+		if [ -z "${first_package:-}" ]; then
+			die "Unable to identify initial package"
+		fi
 
 		# '--nodeps' should only ever be set when finalising service-builds,
 		# whereas the flags required for llvm/clang/llvm-libunwind to work
@@ -1355,83 +1973,23 @@ case "${1:-}" in
 		# builds...
 		#
 		if ! echo " ${post_pkgs:-} " | grep -Fq -- ' --nodeps '; then
-			# curl work-arounds... keep in sync with applyworkarounds()
-			curl_pkgs='app-containers/podman app-containers/netavark app-containers/aardvark-dns virtual/rust dev-lang/rust dev-util/bindgen'
-			curl_list=''
-			for curl_pkg in ${curl_pkgs}; do
-				curl_list="${curl_list:+"${curl_list}|"}${curl_pkg#*"/"}|${curl_pkg}"
-			done
-			if curl_pkg="$( # <- Syntax
-					echo " ${*} " |
-						sed 's/ /  /g' |
-						grep -Eo -- " ([<>]?=|~)?(${curl_list})(-[^ ]+)? "
-			)" && [ -n "${curl_pkg:-}" ]; then
-				curl_pkg="$( echo "${curl_pkg}" | xargs -r )"
-				warn "Adding post-package entry 'net-misc/curl' due to presence" \
-					"of ${curl_pkg} ..."
-				post_pkgs="${post_pkgs:+"${post_pkgs} "}net-misc/curl"
-			fi
-			unset curl_pkg curl_list curl_pkgs
+			post_pkgs="${post_pkgs:+"${post_pkgs} "}$( # <- Syntax
+				applyworkarounds --post_pkgs "${*}"
+			)"
+			post_use="${post_use:+"${post_use} "}$( # <- Syntax
+				applyworkarounds --post_use "${*}"
+			)"
+		fi  # ! echo " ${post_pkgs:-} " | grep -Fq -- ' --nodeps '
 
-			# harfbuzz work-arounds... keep in sync with applyworkarounds()
-			harfbuzz_pkgs='dev-lang/php media-libs/freetype media-libs/harfbuzz'
-			harfbuzz_list=''
-			for harfbuzz_pkg in ${harfbuzz_pkgs}; do
-				harfbuzz_list="${harfbuzz_list:+"${harfbuzz_list}|"}${harfbuzz_pkg#*"/"}|${harfbuzz_pkg}"
-			done
-			if harfbuzz_pkg="$( # <- Syntax
-					echo " ${*} " |
-						sed 's/ /  /g' |
-						grep -Eo -- " ([<>]?=|~)?(${harfbuzz_list})(-[^ ]+)? "
-			)" && [ -n "${harfbuzz_pkg:-}" ]; then
-				harfbuzz_pkg="$( echo "${harfbuzz_pkg}" | xargs -r )"
-				warn "Adding post-package entry 'media-libs/freetype' due to presence" \
-					"of ${harfbuzz_pkg} ..."
-				post_pkgs="${post_pkgs:+"${post_pkgs} "}media-libs/freetype"
-			fi
-			unset harfbuzz_pkg harfbuzz_list harfbuzz_pkgs
-
-			# llvm-libunwind work-arounds... keep in sync with applyworkarounds()
-			llvm_libunwind_pkgs='sys-libs/llvm-libunwind sys-devel/clang sys-devel/clang-common'
-			llvm_libunwind_list=''
-			for llvm_libunwind_pkg in ${llvm_libunwind_pkgs}; do
-				llvm_libunwind_list="${llvm_libunwind_list:+"${llvm_libunwind_list}|"}${llvm_libunwind_pkg#*"/"}|${llvm_libunwind_pkg}"
-			done
-			if llvm_libunwind_pkg="$( # <- Syntax
-					echo " ${*} " |
-						sed 's/ /  /g' |
-						grep -Eo -- " ([<>]?=|~)?(${llvm_libunwind_list})(-[^ ]+)? "
-			)" && [ -n "${llvm_libunwind_pkg:-}" ]; then
-				llvm_libunwind_pkg="$( echo "${llvm_libunwind_pkg}" | xargs -r )"
-				# 'default-compiler-rt' is a USE-flag for sys-devel/clang:14 but
-				# for sys-devel/clang-common thereafter...
-				warn "Adding post-package entries 'sys-devel/clang' and" \
-					"'sys-devel/clang-common' due to presence of" \
-					"${llvm_libunwind_pkg} ..."
-				post_pkgs="${post_pkgs:+"${post_pkgs} "}sys-devel/clang sys-devel/clang-common"
-				warn "Adding post-package USE flags 'default-compiler-rt" \
-					"default-libcxx default-lld llvm-libunwind' due to presence" \
-					"of ${llvm_libunwind_pkg} ..."
-				post_use="${post_use:+"${post_use} "}default-compiler-rt default-libcxx default-lld llvm-libunwind"
-				if echo " ${USE} " | grep -Fq -- ' python_single_target_python'; then
-					flag=''
-					for flag in ${USE}; do
-						if echo "${flag}" | grep -Fq 'python_single_target_python'; then
-							post_use="${post_use:+"${post_use} "}${flag}"
-						fi
-					done
-					unset flag
-				fi
-			fi
-			unset llvm_libunwind_pkg llvm_libunwind_list llvm_libunwind_pkgs
-		fi # ! echo " ${post_pkgs:-} " | grep -Fq -- ' --nodeps '
-
-		echo " * Building requested '$( # <- Syntax
-			printf '%s' "${*}" | sed 's/--[^ ]\+ //g'
-		)' packages ${post_pkgs:+"(with post-package list) "}..."
+		echo
+		echo " * Building requested '${packages}' package(s)" \
+			"${post_pkgs:+"(with post-package list)"} ..."
 		echo
 
-		if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ] && [ -n "${COLLISION_IGNORE:-}" ]; then
+		if
+				[ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ] &&
+				[ -n "${COLLISION_IGNORE:-}" ]
+		then
 			COLLISION_IGNORE="${COLLISION_IGNORE} $( # <- Syntax
 				echo "${COLLISION_IGNORE}" |
 					sed "s|${ROOT%"/"}||g"
@@ -1446,7 +2004,8 @@ case "${1:-}" in
 
 		info="$( LC_ALL='C' emerge --info --verbose=y )"
 		echo
-		echo "Resolved build variables for requested packages${post_pkgs:+" (with post-package list)"}:"
+		echo "Resolved build variables for requested" \
+			"packages${post_pkgs:+" (with post-package list)"}:"
 		echo '-----------------------------------------------'
 		echo
 		echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
@@ -1461,12 +2020,12 @@ case "${1:-}" in
 		target=''
 		for target in $( # <- Syntax
 			echo "${info}" |
-				grep -o ' [^ ]*TARGET[^ ]* ' |
+				grep -o -- ' [^ ]*TARGET[^ ]* ' |
 				cut -d'=' -f 1 |
 				sed 's/ //g' |
 				sort |
 				uniq |
-				grep -Ev '^(AMDGPU|PYTHON|QEMU)_'
+				grep -Ev -- '^(AMDGPU|PYTHON|QEMU)_'
 		); do
 			echo "${info}" | format "${target}"
 		done
@@ -1477,142 +2036,153 @@ case "${1:-}" in
 		# Do we want to build packages one at a time (indicated via the
 		# '--single-build' flag in EMERGE_OPTS)?
 		#
-		if [ -n "${EMERGE_OPTS:-}" ] && echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-build)? '; then
-			# Save any command-line flags...
-			#
-			flags=''
-			for arg in "${@}"; do
-				case "${arg}" in
-					-*)
-						flags="${flags:+"${flags} "}${arg}"
-						;;
-				esac
-			done
-			unset arg
-
+		if [ -n "${EMERGE_OPTS:-}" ] && echo " ${EMERGE_OPTS} " |
+				grep -Eq -- ' --single(-build)? '
+		then
 			# ... then process any non-flag options as individual packages to
 			# rebuild, except when EMERGE_OPTS contains '--swap-build', in
 			# which case we instead save the first non-flag argument and come
 			# back to it later...
 			#
-			first=''
-			for arg in "${@}"; do
-				case "${arg}" in
-					-*)	continue ;;
-					*)
-						if [ -z "${first:-}" ]; then
-							first="${arg}"
-							if echo " ${EMERGE_OPTS} " | grep -Eq -- ' --swap(-build)? '; then
-								continue
-							fi
-						fi
+			for package in ${packages}; do
+				if echo " ${EMERGE_OPTS} " |
+							grep -Eq -- ' --swap(-build)? ' &&
+						[ "${package}" = "${first_package}" ]
+				then
+					# Skip first package for now, so we can build it alone at
+					# the end
+					continue
+				fi
 
-						echo
-						echo " * Building single package '${arg}' from '${*}' ..."
-						echo
-						(
-							USE="$( applyworkarounds "${arg}" "${USE}" )"
-							export USE
-							# shellcheck disable=SC2016
-							print "Running 'emerge" \
-								"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-								"--usepkg=y --with-bdeps=n" \
-								"--with-bdeps-auto=n" \
-								"${flags:+"${flags} "}${arg}'${USE:+" with USE='${USE}'"}" \
-								"with ROOT='${ROOT}'"
-							# shellcheck disable=SC2086
-							LC_ALL='C' FEATURES='-fail-clean' emerge \
-									  ${parallel} \
-									  ${opts} \
-									--buildpkg=y \
-									--usepkg=y \
-									--with-bdeps=n \
-									--with-bdeps-auto=n \
-									  ${flags:-} \
-								"${arg}"
-						) || rc=${?}
-						clearworkarounds
-						;;
-				esac
-
-				git_safedirectory_markall
+				echo
+				echo " * Building single package '${package}' from" \
+					"'${packages}' ..."
+				echo
+				# shellcheck disable=SC2086
+				(
+					USE="$( applyworkarounds --use "${package}" "${USE}" )"
+					export USE
+					do_emerge \
+							  ${parallel} \
+							  ${opts} \
+							--buildpkg=y \
+							--usepkg=y \
+							--with-bdeps=n \
+							--with-bdeps-auto=n \
+							  ${flags:-} \
+						-- "${package}"
+				) || : $(( rc = rc + ${?} ))
+				clearworkarounds
 			done
-			unset arg
+			unset package
 
 			# ... and finally, if '--swap-build' is in effect, build the first
 			# original package specified now, at the end of the process.
 			#
-			if [ -n "${first:-}" ] && echo " ${EMERGE_OPTS} " | grep -Eq -- ' --swap(-build)? '; then
-					echo
-					echo " * Building first package '${first}' of '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' ..."
-					echo
-					(
-						USE="$( applyworkarounds "${first}" "${USE}" )"
-						export USE
-						# shellcheck disable=SC2016
-						print "Running 'emerge" \
-							"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-							"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
-							"${flags:+"${flags} "}${first}'${USE:+" with USE='${USE}'"}" \
-							"with ROOT='${ROOT}'"
-						# shellcheck disable=SC2086
-						LC_ALL='C' FEATURES='-fail-clean' emerge \
-								  ${parallel} \
-								  ${opts} \
-								--buildpkg=y \
-								--usepkg=y \
-								--with-bdeps=n \
-								--with-bdeps-auto=n \
-								  ${flags:-} \
-							"${first}"
-					) || rc=${?}
-					clearworkarounds
-			fi
-			unset first
-
-		else # ! echo " ${EMERGE_OPTS:-} " | grep -Eq -- ' --single(-build)? '; then
-			echo
-			echo " * Building packages '$( printf '%s' "${*}" | sed 's/--[^ ]\+ //g' )' ..."
-			echo
-			(
-				# We're not performing single-builds, so build everything at the
-				# same time (and potentially in parallel)
-				#
-				USE="$( applyworkarounds "${*}" "${USE}" )"
-				export USE
-				# shellcheck disable=SC2016
-				print "Running 'emerge" \
-					"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-					"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
-					"${*}'${USE:+" with USE='${USE}'"} with ROOT='${ROOT}'"
+			if echo " ${EMERGE_OPTS} " |
+					grep -Eq -- ' --swap(-build)? '
+			then
+				echo
+				echo " * Building first package '${first_package}' from" \
+					"'${packages}' ..."
+				echo
 				# shellcheck disable=SC2086
-				LC_ALL='C' FEATURES='-fail-clean' emerge \
+				(
+					USE="$( applyworkarounds --use "${first_package}" "${USE}" )"
+					export USE
+					do_emerge \
+							  ${parallel} \
+							  ${opts} \
+							--buildpkg=y \
+							--usepkg=y \
+							--with-bdeps=n \
+							--with-bdeps-auto=n \
+							  ${flags:-} \
+						-- "${first_package}"
+				) || : $(( rc = rc + ${?} ))
+				clearworkarounds
+			fi
+
+		else  # ! echo " ${EMERGE_OPTS:-} " | grep -Eq -- ' --single(-build)? '
+			echo
+			echo " * Building package(s) '${packages}' ..."
+			echo
+
+			# We're not performing single-builds, so build everything at the
+			# same time (and potentially in parallel)
+			#
+			# shellcheck disable=SC2086
+			(
+#set -x
+				USE="$( applyworkarounds --use "${*}" "${USE}" )"
+				export USE
+				print "USE flags for build are '${USE}'"
+#set +x
+				do_emerge \
 						  ${parallel} \
 						  ${opts} \
 						--buildpkg=y \
 						--usepkg=y \
 						--with-bdeps=n \
 						--with-bdeps-auto=n \
-					"${@}"
-			) || rc=${?}
+						  ${flags:-} \
+					-- ${packages}
+			) || : $(( rc = rc + ${?} ))
+			unset packages
 			clearworkarounds
 		fi
 
 		git_safedirectory_markall
 
+		unset packages flags
+
 		if [ -n "${post_pkgs:-}" ]; then
 			savefailed
 			check ${rc} "${@}"
 
-			echo
-			echo " * Building specified post-installation '${post_pkgs}'" \
-				"packages ..."
-			echo
+			# portage is *still* tripping over sys-devel/gcc[openmp] :(
+			#
+			extra_pkgs=''
+			if grep -qw -- 'openmp' "${ROOT%"/"}"/var/db/pkg/*/*/USE; then
+				post_use="${post_use:+"${post_use} "}openmp"
+				extra_pkgs="$( # <- Syntax
+					# dev-php/pecl-imagick requires
+					# media-gfx/imagemagick[-openmp]
+					#
+					grep -lw -- 'openmp' "${ROOT%"/"}"/var/db/pkg/*/*/IUSE |
+						rev |
+						cut -d'/' -f 2-3 |
+						rev |
+						grep -Fv -- 'media-gfx/imagemagick' |
+						sed 's/^/>=/' |
+						xargs -r
+				)"
+			fi
+			if [ -n "${extra_pkgs:-}" ]; then
+				print "Adding 'openmp' USE-flag and additional packages" \
+					"'${extra_pkgs}' to resolve dependency-calculation issues"
+				post_pkgs="${post_pkgs:+"${post_pkgs} "}${extra_pkgs}"
+			fi
+			unset extra_pkgs
 
 			[ -n "${post_use:-}" ] && export USE="${post_use}"
 
-			info="$( LC_ALL='C' emerge --info --verbose=y )"
+			# Separate any command-line post flags and packages...
+			#
+			# shellcheck disable=SC2086
+			flags="$( parse_opt_get_options ${post_pkgs} )"
+			print "Options from '${post_pkgs} are '${flags:-}'"
 
+			# shellcheck disable=SC2086
+			packages="$( parse_opt_get_packages ${post_pkgs} )"
+			print "Package(s) from '${post_pkgs}' are '${packages}'"
+
+			echo
+			echo " * Building specified post-installation '${packages}'" \
+				"package(s)${flags:+" with options ${flags}"} ..."
+			echo
+
+			info="$( LC_ALL='C' emerge --info --verbose=y )"
 			echo
 			echo 'Resolved build variables for post-installation packages:'
 			echo '-------------------------------------------------------'
@@ -1631,12 +2201,12 @@ case "${1:-}" in
 			target=''
 			for target in $( # <- Syntax
 				echo "${info}" |
-					grep -o ' [^ ]*TARGET[^ ]* ' |
+					grep -o -- ' [^ ]*TARGET[^ ]* ' |
 					cut -d'=' -f 1 |
 					sed 's/ //g' |
 					sort |
 					uniq |
-					grep -Ev '^(AMDGPU|PYTHON|QEMU)_'
+					grep -Ev -- '^(AMDGPU|PYTHON|QEMU)_'
 			); do
 				echo "${info}" | format "${target}"
 			done
@@ -1644,270 +2214,260 @@ case "${1:-}" in
 			echo
 			unset info
 
-			#print "Running 'emerge ${opts:+"${opts} "}--jobs=1" \
-			#	"--quiet-build=n --buildpkg=y --usepkg=y --with-bdeps=n" \
-			#	"--with-bdeps-auto=n" \
-			#	"${post_pkgs}'${USE:+" with USE='${USE}'"} with ROOT='${ROOT}'"
-			#LC_ALL='C' FEATURES='-fail-clean' emerge \
-			#		  ${opts} \
-			#		--jobs=1 \
-			#		--quiet-build=n \
-			#		--buildpkg=y \
-			#		--usepkg=y \
-			#		--with-bdeps=n \
-			#		--with-bdeps-auto=n \
-			#	${post_pkgs} || rc=${?}
+			# Build post_pkgs one at a time, and verbosely?
+			#
+			#(
+			#	do_emerge \
+			#			  ${opts} \
+			#			--jobs=1 \
+			#			--quiet-build=n \
+			#			--buildpkg=y \
+			#			--usepkg=y \
+			#			--with-bdeps=n \
+			#			--with-bdeps-auto=n \
+			#			  ${flags:-} \
+			#		-- ${packages}
+			#) || : $(( rc = rc + ${?} ))
 
 			# In case we're building with --nodeps, extract acct-* packages
 			# first...
 			#
-			if echo "${post_pkgs}" | grep -q -- 'acct-'; then
+			if echo "${packages}" | grep -q -- 'acct-'; then
 				post_acct_pkgs="$( # <- Syntax
-					echo "${post_pkgs}" |
+					echo "${packages}" |
 						xargs -rn 1 |
-						grep '^acct-' |
+						grep -- '^acct-' |
 						sort |
 						xargs -r
 				)"
 				if [ -n "${post_acct_pkgs:-}" ]; then
-					# shellcheck disable=SC2016
-					print "Running 'emerge" \
-						"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-						"--usepkg=y --with-bdeps=n --with-bdeps-auto=n" \
-						"${post_acct_pkgs}'${USE:+" with USE='${USE}'"} with" \
-						"ROOT='${ROOT}'"
+					echo
+					echo " * Building specified post-installation" \
+						"'${post_acct_pkgs}' account packages ..."
+					echo
+
+					# We don't want any provided flags to apply to account
+					# packages...
+					#
 					# shellcheck disable=SC2086
-					LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
-							  ${parallel} \
-							  ${opts} \
-							--buildpkg=y \
-							--usepkg=y \
-							--with-bdeps=n \
-							--with-bdeps-auto=n \
-						${post_acct_pkgs} || rc=${?}
-				fi
-				post_pkgs="$( # <- Syntax
-					echo "${post_pkgs}" |
+					(
+						do_emerge \
+								  ${parallel} \
+								  ${opts} \
+								--buildpkg=y \
+								--usepkg=y \
+								--with-bdeps=n \
+								--with-bdeps-auto=n \
+							-- ${post_acct_pkgs}
+					) || : $(( rc = rc + ${?} ))
+				fi  # [ -n "${post_acct_pkgs:-}" ]
+
+				packages="$( # <- Syntax
+					echo "${packages}" |
 						xargs -rn 1 |
-						grep --invert-match '^acct-' |
+						grep -v -- '^acct-' |
 						xargs -r
 				)"
-			fi
+			fi  # echo "${post_pkgs}" | grep -q -- 'acct-'
+
+			gcc_exclude=''
 
 			# First build any post_pkgs which will be installed without
 			# dependencies on the base-system, to ensure that the right binary
 			# package is available to the ROOT installation...
 			#
-			if echo " ${post_pkgs:-} " | grep -q ' --nodeps '; then
-				# shellcheck disable=SC2016
-				print "Running 'emerge" \
-						"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-						"--usepkg=y --with-bdeps=y --with-bdeps-auto=y $( # <- Syntax
-					echo " ${post_pkgs} " | sed 's/ --nodeps / /g ; s/^ // ; s/ $//'
-				)'${USE:+" with USE='${USE}'"} with ROOT='${ROOT}'"
+			if echo " ${flags:-} " | grep -q -- '\s--nodeps\s'; then
+				echo
+				echo " * Building specified post-installation '${packages}'" \
+					"package(s) into installation root '/' ..."
+				echo
 				# shellcheck disable=SC2046,SC2086
-				ROOT='/' SYSROOT='/' PORTAGE_CONFIGROOT='/' \
-				LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
-						  ${parallel} \
-						  ${opts} \
-						--buildpkg=y \
-						--usepkg=y \
-						--with-bdeps=y \
-						--with-bdeps-auto=y \
-					$( # <- Syntax
-						echo " ${post_pkgs} " | sed 's/ --nodeps / /g ; s/^ // ; s/ $//'
-					) || rc=${?}
-			fi # echo " ${post_pkgs:-} " | grep -q ' --nodeps '
-
-			git_safedirectory_markall
-
-			gcc_exclude=''
-			if echo " ${post_pkgs} " | grep -q -- '\s--nodeps\s' &&
-				echo " ${post_pkgs} " |
-					grep -Eq -- '\s([<>]?=?sys-devel/)?gcc([-:][^\s]+)?\s'
-			then
-				gcc_exclude='--exclude=sys-devel/gcc'
-			fi
-			# shellcheck disable=SC2016
-			print "Running 'emerge" \
-				"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-				"--usepkg=y --with-bdeps=n" \
-				"--with-bdeps-auto=n${gcc_exclude:+" ${gcc_exclude}"}" \
-				"${post_pkgs}'${USE:+" with USE='${USE}'"} with" \
-				"ROOT='${ROOT}'"
-			# shellcheck disable=SC2086
-			LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
-					  ${parallel} \
-					  ${opts} \
-					--buildpkg=y \
-					  ${gcc_exclude:-} \
-					--usepkg=y \
-					--with-bdeps=n \
-					--with-bdeps-auto=n \
-				${post_pkgs} || rc=${?}
-
-			if [ -n "${gcc_exclude:-}" ]; then
-				gcc_pkgs="$( # <- Syntax
-					echo " ${post_pkgs} " |
-						grep -Eo -- '\s([<>]?=?sys-devel/)?gcc([-:][^\s]+)?\s' |
-						awk '{ print $1 }'
-				)"
-				if [ -n "${gcc_pkgs:-}" ]; then
-					# shellcheck disable=SC2016
-					print "Running 'emerge" \
-						"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-						"--usepkg=y --with-bdeps=n --with-bdeps-auto=n --nodeps" \
-						"${gcc_pkgs}'${USE:+" with USE='${USE}'"} with" \
-						"ROOT='${ROOT}'"
-					# shellcheck disable=SC2086
-					LC_ALL='C' FEATURES='-fail-clean' VERY_BRAVE_OR_VERY_DUMB='yes' emerge \
-							  ${opts} \
-							  ${parallel} \
-							--buildpkg=y \
-							--nodeps \
-							--usepkg=y \
-							--with-bdeps-auto=n \
-							--with-bdeps=n \
-						"${gcc_pkgs}" || rc=${?}
-				fi # [ -n "${gcc_pkgs:-}" ]
-				unset gcc_pkgs
-			fi # [ -n "${gcc_exclude:-}" ] && echo "${post_pkgs}" | grep -Fq -- 'gcc'
-			unset gcc_exclude
-		fi # [ -n "${post_pkgs:-}" ]
-
-		if [ -n "${rebuild:-}" ]; then
-			echo
-			#if [ -z "${post_pkgs:-}" ]; then
-				echo " * Rebuilding requested '${rebuild}' package(s) ..."
-			#else
-			#	echo " * Rebuilding requested '${rebuild}' post-package(s) ..."
-			#fi
-			echo
-
-			# See handling of EMERGE_OPTS above for details of logic below, but
-			# without the complexity of '--swap-build' and with the (passed-in)
-			# value of '${rebuid}' appended to the argument list...
-			#
-			if [ -n "${EMERGE_OPTS:-}" ] && echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-rebuild)? '; then
-				flags=''
-				for arg in "${@}" ${rebuild}; do
-					case "${arg}" in
-						-*)
-							flags="${flags:+"${flags} "}${arg}"
-							;;
-					esac
-				done
-				unset arg
-
-				for arg in ${rebuild}; do
-					case "${arg}" in
-						-*)	continue ;;
-						*)
-							echo
-							echo " * Building single package '${arg}'" \
-								"from '${rebuild} ..."
-							echo
-
-							(
-								# Reinstall package first to maximise dependency re-use...
-								#
-								USE="$( applyworkarounds "${arg}" "${USE}" )"
-								export USE
-								# shellcheck disable=SC2016
-								print "Running build-dependencies 'emerge" \
-									"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-									"--usepkg=y --with-bdeps=y" \
-									"${flags:+"${flags} "}${arg}'${USE:+" with USE='${USE}'"}" \
-									"with ROOT='${ROOT}'"
-								# shellcheck disable=SC2086
-								LC_ALL='C' FEATURES='-fail-clean' emerge \
-										  ${parallel} \
-										  ${opts} \
-										--buildpkg=y \
-										--usepkg=y \
-										--with-bdeps=y \
-										  ${flags:-} \
-									${arg}
-							) || rc=${?}
-							clearworkarounds
-
-							git_safedirectory_markall
-
-							# ... then install again without '--usepkg':
-							#
-							# shellcheck disable=SC2016
-							#set -x
-							#print "Running 'emerge" \
-							#	"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-							#	"--usepkg=n --with-bdeps=n --with-bdeps-auto=n" \
-							#	"${flags:+"${flags} "}${arg}'${USE:+" with USE='${USE}'"}" \
-							#	"with ROOT='${ROOT}'"
-							#set +x
-							#/usr/libexec/entrypoint.sh: line 1566: arithmetic syntax error
-							printf "Running 'emerge %s%s--buildpkg=y --usepkg=n --with-bdeps=n --with-bdeps-auto=n %s%s'%s with ROOT='%s'" \
-								"${parallel:+"${parallel} "}" \
-								"${opts:+"${opts} "}" \
-								"${flags:+"${flags} "}" \
-								"${arg}" \
-								"${USE:+" with USE='${USE}'"}" \
-								"${ROOT}"
-							# shellcheck disable=SC2086
-							LC_ALL='C' FEATURES='-fail-clean' emerge \
-									  ${parallel} \
-									  ${opts} \
-									--buildpkg=y \
-									--usepkg=n \
-									--with-bdeps=n \
-									--with-bdeps-auto=n \
-									  ${flags:-} \
-								${arg} || rc=${?}
-							;;
-					esac
-				done
-				unset arg
-
-			else # [ -z "${EMERGE_OPTS:-}" ] || ! echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-rebuild)? '; then
 				(
-					# Reinstall package first to maximise dependency re-use...
-					#
-					USE="$( applyworkarounds "${rebuild}" "${USE}" )"
-					export USE
-					# shellcheck disable=SC2016
-					print "Running build-dependencies 'emerge" \
-						"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-						"--usepkg=y --with-bdeps=y" \
-						"${rebuild}'${USE:+" with USE='${USE}'"} with ROOT='${ROOT}'"
-					# shellcheck disable=SC2086
-					LC_ALL='C' FEATURES='-fail-clean' emerge \
+					flags="$( echo " ${flags} " | sed 's/\s--nodeps\s/ /g' )"
+					USE="$( echo " ${USE:-} " | sed 's/\slib-only\s/ /g' )"
+					export flags USE
+					export ROOT='/' SYSROOT='/' PORTAGE_CONFIGROOT='/'
+					do_emerge \
 							  ${parallel} \
 							  ${opts} \
 							--buildpkg=y \
 							--usepkg=y \
 							--with-bdeps=y \
-						${rebuild}
-				) || rc=${?}
+							--with-bdeps-auto=y \
+							  ${flags:-} \
+						-- ${packages}
+				) || : $(( rc = rc + ${?} ))
+
+				if echo " ${packages} " |
+					grep -Eq -- '\s([<>]?=?sys-devel/)?gcc([-:][^\s]+)?\s'
+				then
+					gcc_exclude='--exclude=sys-devel/gcc'
+				fi
+			fi  # echo " ${flags:-} " | grep -q -- '\s--nodeps\s'
+
+			git_safedirectory_markall
+
+			echo
+			echo " * Building specified post-installation '${packages}'" \
+				"package(s) into installation root '${ROOT}' ..."
+			echo
+			# shellcheck disable=SC2086
+			(
+				do_emerge \
+						  ${parallel} \
+						  ${opts} \
+						--buildpkg=y \
+						  ${gcc_exclude:-} \
+						--oneshot \
+						--usepkg=y \
+						--with-bdeps=n \
+						--with-bdeps-auto=n \
+						  ${flags:-} \
+					-- ${packages}
+			) || : $(( rc = rc + ${?} ))
+
+			if [ -n "${gcc_exclude:-}" ]; then
+				gcc_pkgs="$( # <- Syntax
+					echo " ${packages} " |
+						grep -Eo -- '\s([<>]?=?sys-devel/)?gcc(-config)?([-:][^\s]+)?\s' |
+						awk '{ print $1 }' |
+						xargs -rn 1 |
+						sort |
+						uniq |
+						grep -Fv -- 'gcc-config' |
+						xargs -r
+				)"
+				if [ -n "${gcc_pkgs:-}" ]; then
+					echo
+					echo " * Building post-installation '${gcc_pkgs}'" \
+						"package(s) into installation root '${ROOT}' ..."
+					echo
+					# shellcheck disable=SC2086
+					(
+						do_emerge \
+								  ${opts} \
+								  ${parallel} \
+								--buildpkg=y \
+								--nodeps \
+								--oneshot \
+								--usepkg=y \
+								--with-bdeps-auto=n \
+								--with-bdeps=n \
+								  ${flags:-} \
+							-- ${gcc_pkgs}
+					) || : $(( rc = rc + ${?} ))
+				fi  # [ -n "${gcc_pkgs:-}" ]
+				unset gcc_pkgs
+			fi  # [ -n "${gcc_exclude:-}" ] && echo "${post_pkgs}" | grep -Fq -- 'gcc'
+
+			unset gcc_exclude packages flags
+		fi  # [ -n "${post_pkgs:-}" ]
+
+		if [ -n "${rebuild:-}" ]; then
+
+			# Separate any command-line post flags and packages...
+			#
+			# shellcheck disable=SC2086
+			flags="$( parse_opt_get_options "${@}" ${rebuild} )"
+			print "Options from '${*}${rebuild:+" ${rebuild}"}' are '${flags}'"
+
+			# shellcheck disable=SC2086
+			packages="$( parse_opt_get_packages ${rebuild} )"
+			print "Package(s) from '${rebuild}' are '${packages}'"
+
+			echo
+			echo " * Rebuilding requested '${packages}'" \
+				"package(s)${flags:+" with options ${flags}"} ..."
+			echo
+
+			# See handling of EMERGE_OPTS above for details of logic below, but
+			# without the complexity of '--swap-build' and with the (passed-in)
+			# value of $rebuid appended to the argument list...
+			#
+			if [ -n "${EMERGE_OPTS:-}" ] &&
+					echo " ${EMERGE_OPTS} " |
+						grep -Eq -- ' --single(-rebuild)? '
+			then
+				for package in ${packages}; do
+					echo
+					echo " * Building single package '${package}'" \
+						"from '${packages} ..."
+					echo
+
+					# Reinstall package first to maximise dependency
+					# re-use...
+					#
+					# shellcheck disable=SC2086
+					(
+						USE="$( applyworkarounds --use "${arg}" "${USE}" )"
+						export USE
+						do_emerge \
+								  ${parallel} \
+								  ${opts} \
+								--buildpkg=y \
+								--usepkg=y \
+								--with-bdeps=y \
+								  ${flags:-} \
+							-- ${package}
+					) || : $(( rc = rc + ${?} ))
+					clearworkarounds
+
+					git_safedirectory_markall
+
+					# ... then install again without '--usepkg':
+					#
+					# shellcheck disable=SC2086
+					(
+						do_emerge \
+								  ${parallel} \
+								  ${opts} \
+								--buildpkg=y \
+								--usepkg=n \
+								--with-bdeps=n \
+								--with-bdeps-auto=n \
+								  ${flags:-} \
+							-- ${package}
+					) || : $(( rc = rc + ${?} ))
+				done
+				unset package packages
+
+			else  # [ -z "${EMERGE_OPTS:-}" ] || ! echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-rebuild)? '; then
+
+				# Reinstall package first to maximise dependency re-use...
+				#
+				# shellcheck disable=SC2086
+				(
+					USE="$( applyworkarounds --use "${rebuild}" "${USE}" )"
+					export USE
+					do_emerge \
+							  ${parallel} \
+							  ${opts} \
+							--buildpkg=y \
+							--usepkg=y \
+							--with-bdeps=y \
+						-- ${packages}
+				) || : $(( rc = rc + ${?} ))
 
 				git_safedirectory_markall
 
 				# ... then install again without '--usepkg':
 				#
-				# shellcheck disable=SC2016
-				print "Running 'emerge" \
-					"${parallel:+"${parallel} "}${opts:+"${opts} "}--buildpkg=y" \
-					"--usepkg=n --with-bdeps=n --with-bdeps-auto=n" \
-					"${rebuild}'${USE:+" with USE='${USE}'"} with ROOT='${ROOT}'"
 				# shellcheck disable=SC2086
-				LC_ALL='C' FEATURES='-fail-clean' emerge \
-						  ${parallel} \
-						  ${opts} \
-						--buildpkg=y \
-						--usepkg=n \
-						--with-bdeps=n \
-						--with-bdeps-auto=n \
-					${rebuild} || rc=${?}
+				(
+					do_emerge \
+							  ${parallel} \
+							  ${opts} \
+							--buildpkg=y \
+							--usepkg=n \
+							--with-bdeps=n \
+							--with-bdeps-auto=n \
+						-- ${packages}
+				) || : $(( rc = rc + ${?} ))
 				clearworkarounds
 			fi
-		fi # [ -n "${rebuild:-}" ]
+
+			unset packages flags
+		fi  # [ -n "${rebuild:-}" ]
 
 		if [ $(( has_locale_gen )) -eq 0 ]; then
 			do_locale_gen
@@ -1919,7 +2479,7 @@ esac
 #
 
 savefailed
-check ${rc} "${package}"
+check ${rc} "${first_package}"
 
 if [ -n "${post_remove:-}" ]; then
 	pkg_remove 'post-installation' "${post_remove}"
@@ -1938,10 +2498,10 @@ if [ $(( depclean )) -ne 0 ]; then
 	# This list must be kept in sync with sys-devel/gcc dependencies!
 	#
 	cat >> /etc/portage/profile/package.provided <<-EOF
-		dev-libs/gmp-4.3.2
-		dev-libs/mpc-0.8.1
-		dev-libs/mpfr-2.4.2
-		sys-devel/gcc-config-2.3
+		dev-libs/gmp-6.3.0-r1
+		dev-libs/mpc-1.3.1
+		dev-libs/mpfr-4.2.1
+		sys-devel/gcc-config-2.11
 	EOF
 
 	# 'emerge --exclude' has unhelpful syntax requirements in that it won't
@@ -1956,11 +2516,14 @@ if [ $(( depclean )) -ne 0 ]; then
 	filtered_depclean_exclude=''
 	for arg in ${depclean_exclude}; do
 		filtered_depclean_exclude="${filtered_depclean_exclude:+"${filtered_depclean_exclude} "}$( # <- Syntax
-			echo "${arg}" | sed 's/^[<>]\?=\?// ; s/-[0-9].*$// ; s/::.*$//'
+			echo "${arg}" |
+				sed 's/^[<>]\?=\?// ; s/-[0-9].*$// ; s/::.*$//'
 		)"
 	done
 	unset arg
-	depclean_exclude="${filtered_depclean_exclude:-}"
+	depclean_exclude="sys-apps/busybox sys-apps/gentoo-functions"
+	[ -n "${filtered_depclean_exclude:-}" ] &&
+		depclean_exclude="${depclean_exclude} ${filtered_depclean_exclude}"
 	unset filtered_depclean_exclude
 
 	# FIXME: This may be overkill, but some containers which don't use perl
@@ -1969,37 +2532,54 @@ if [ $(( depclean )) -ne 0 ]; then
 	# ...and we're still getting some build-time dependencies retained...
 	#
 	# shellcheck disable=SC2046
-	LC_ALL='C' emerge \
-			--depclean \
-			  ${depclean_exclude:+"--exclude=${depclean_exclude}"} \
-			--verbose=y \
-			--with-bdeps=n \
-		'perl-core/*' 'virtual/perl-*' \
-		$( echo "${package} ${post_pkgs}" | grep -Fq -- 'dev-lang/perl' || echo "dev-lang/perl" ) \
-		app-alternatives/yacc sys-devel/bison \
-		app-alternatives/awk sys-apps/gawk \
-		app-alternatives/gzip app-arch/gzip \
-		sys-apps/grep \
-		dev-libs/isl || :
-
-	if [ -n "${depclean_extra:-}" ]; then
-		# shellcheck disable=SC2086
-		LC_ALL='C' emerge \
+	(
+		do_emerge \
 				--depclean \
+				  ${depclean_exclude:+"--exclude=${depclean_exclude}"} \
 				--verbose=y \
 				--with-bdeps=n \
-			${depclean_extra} || :
+			-- $( # <- Syntax
+				echo "${first_package} ${post_pkgs}" |
+						grep -Fq -- 'dev-lang/perl' ||
+					echo "dev-lang/perl"
+			) 'perl-core/*' 'virtual/perl-*' \
+			app-alternatives/yacc sys-devel/bison \
+			app-alternatives/awk sys-apps/gawk \
+			app-alternatives/gzip app-arch/gzip \
+			sys-apps/grep \
+			dev-libs/isl \
+			dev-libs/gmp dev-libs/mpc dev-libs/mpfr sys-devel/gcc-config
+	) || :
+
+	if [ -n "${depclean_extra:-}" ]; then
+		if echo " ${depclean_extra:-} " |
+				grep -Eq -- ' (sys-apps/)?(busybox|gentoo-functions) '
+		then
+			warn "Unable to depclean essential system packages" \
+				"'sys-apps/busybox' or 'sys-apps/gentoo-functions'"
+		fi
+		# shellcheck disable=SC2086
+		(
+			do_emerge \
+					--depclean \
+					--exclude="sys-apps/busybox sys-apps/gentoo-functions" \
+					--verbose=y \
+					--with-bdeps=n \
+				-- ${depclean_extra}
+		) || :
 	fi
-	LC_ALL='C' emerge \
+	(
+		do_emerge \
 			--depclean \
-			--exclude="dev-libs/libffi sys-apps/gentoo-functions${depclean_exclude:+" ${depclean_exclude}"}" \
+			--exclude="dev-libs/libffi${depclean_exclude:+" ${depclean_exclude}"}" \
 			--verbose=y \
-			--with-bdeps=n || :
+			--with-bdeps=n
+	) || :
 
 	if [ -s /etc/portage/profile/package.provided.backup ]; then
 		mv /etc/portage/profile/package.provided.backup \
 			/etc/portage/profile/package.provided
-	else
+	elif [ -e /etc/portage/profile/package.provided ]; then
 		rm /etc/portage/profile/package.provided
 	fi
 
@@ -2010,10 +2590,11 @@ fi
 
 if [ -d "${ROOT}"/usr/lib/gcc ]; then
 	if ! [ -d "${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}" ]; then
-		warn "Directory '${ROOT}/usr/lib/gcc' exists but '${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}' doesn't"
+		warn "Directory '${ROOT}/usr/lib/gcc' exists but" \
+			"'${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}' doesn't"
 		print "$( ls -1AF "${ROOT}/usr/lib/gcc" )"
 	else
-		if ! grep -Fqm 1 '/gcc/' "${ROOT}/etc/ld.so.conf"; then
+		if ! grep -Fqm 1 -- '/gcc/' "${ROOT}/etc/ld.so.conf"; then
 			find "${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}" \
 						-mindepth 1 \
 						-maxdepth 1 \
@@ -2021,7 +2602,8 @@ if [ -d "${ROOT}"/usr/lib/gcc ]; then
 					-print0 |
 				xargs -0rn 1 |
 				sed "s|^${ROOT}||" >> "${ROOT}/etc/ld.so.conf"
-			ldconfig ${ROOT:+"-r"} ${ROOT:+"${ROOT}"} -f "${ROOT:-}/etc/ld.so.conf"
+			ldconfig ${ROOT:+"-r"} ${ROOT:+"${ROOT}"} \
+				-f "${ROOT:-}/etc/ld.so.conf"
 		fi
 	fi
 fi
@@ -2042,6 +2624,8 @@ if command -v eselect >/dev/null 2>&1; then
 				-e '!!! Warning: News item "' \
 			|| :
 fi
+
+[ $(( rc )) -eq 0 ] && emerge --moo
 
 exit ${rc}
 
