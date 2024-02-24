@@ -83,10 +83,11 @@ export format_fn_code
 eval "${format_fn_code}"
 
 check() {
+	#inherit ROOT
 	check_rc="${1:-}" ; shift
 
-	# Check that a given check_pkg (with build result code $check_rc) is actually
-	# installed...
+	# Check that a given check_pkg (with build result code $check_rc) is
+	# actually installed...
 	#
 	[ -n "${check_rc:-}" ] || return 1
 
@@ -94,6 +95,7 @@ check() {
 
 	if [ $(( check_rc )) -eq 0 ]; then
 		# Process first package of list only...
+		#
 		for check_arg in "${@}"; do
 			case "${check_arg}" in
 				-*)	continue ;;
@@ -103,17 +105,17 @@ check() {
 		check_pkg="$( echo "${check_pkg}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
 		if echo "${check_pkg}" | grep -Fq -- '/'; then
 			if ! ls -1d \
-				"${ROOT:-}/var/db/pkg/${check_pkg%"::"*}"* >/dev/null 2>&1
+					"${ROOT:-}/var/db/pkg/${check_pkg%"::"*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package '${check_pkg%"::"*}'" \
-					"does not appear to be installed"
+				die "emerge indicated success but package" \
+					"'${check_pkg%"::"*}' does not appear to be installed"
 			fi
 		else
 			if ! ls -1d \
-				"${ROOT:-}/var/db/pkg"/*/"${check_pkg%"::"*}"* >/dev/null 2>&1
+					"${ROOT:-}/var/db/pkg"/*/"${check_pkg%"::"*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package '${check_pkg%"::"*}'" \
-					"does not appear to be installed"
+				die "emerge indicated success but package" \
+					"'${check_pkg%"::"*}' does not appear to be installed"
 			fi
 		fi
 	fi
@@ -182,10 +184,12 @@ get_stage3() {
 		# Remove USE flags which apply to multiple packages, but can only be
 		# present for one package per installation ROOT...
 		get_result="$( # <- Syntax
+			get_exclude='cpudetection|egrep-fgrep|ensurepip|fortran|hostname|installkernel|kill|pcre16|pcre32|pop3|qmanifest|qtegrity|smartcard|su|test-rust|tmpfiles'
 			echo "${get_result}" |
 				xargs -rn 1 |
-				grep -vw -e 'hostname' -e 'su' -e 'kill' |
+				grep -Ev "^(${get_exclude})$" |
 				xargs -r
+			unset get_exclude
 		)"
 		print "get_stage3 get_result for USE('${get_type}') after filter is '${get_result}'"
 
@@ -435,20 +439,22 @@ do_emerge() {
 							'--system-defaults')
 								set -- "${@}" \
 									--deep \
-									--emptytree \
 									--rebuild-if-new-slot=y \
 									--rebuilt-binaries=y \
 									--update \
 									--usepkg=y
-									#--oneshot
+									#--oneshot \
+									# Did '--emptytree' and '--update' ever
+									# made sense here?
+									#--emptytree \
 								;;
 							'--preserved-defaults')
 								set -- "${@}" \
 									--oneshot \
 									--usepkg=n
-									#--buildpkg=n
-									#--emptytree
-									#--usepkg=y
+									#--buildpkg=n \
+									#--emptytree \
+									#--usepkg=y \
 								;;
 						esac
 						;;
@@ -499,7 +505,7 @@ if [ -n "${DEV_MODE:-}" ]; then
 *                                                                             *
 * OPERATING IN DEV_MODE                                                       *
 *                                                                             *
-* This script is running as it exists on-disk, overriding the Docker image    *
+* This script is running as it exists on-disk, overriding the container image *
 * contents.  Do not use the output of this mode for reliable builds.          *
 *                                                                             *
 *******************************************************************************
@@ -514,6 +520,9 @@ if set | grep -q -- '=__[A-Z]\+__$'; then
 		set | grep -- '=__[A-Z]\+__$' | cut -d'=' -f 1 | xargs -r
 	)"
 fi
+
+# shellcheck disable=SC1091
+[ -s /etc/profile ] && . /etc/profile
 
 [ -n "${environment_filter:-}" ] ||
 	die "'environment_filter' not inherited from docker environment"
@@ -544,6 +553,40 @@ fi
 if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
 	parallel="${parallel:+"${parallel} "}--load-average=${MAXLOAD:-"${DEFAULT_MAXLOAD}"}"
 fi
+
+# Specify our installation ROOT...
+#
+service_root='/build'
+
+COLLISION_IGNORE="$( echo "${COLLISION_IGNORE:-"/lib/modules/*"}
+	/bin/cpio
+	/etc/env.d/04gcc-x86_64-pc-linux-gnu
+	/etc/env.d/gcc/config-x86_64-pc-linux-gnu
+	/usr/bin/awk
+	/usr/bin/bc
+	/usr/bin/dc
+	/usr/bin/lexx
+	/usr/bin/ninja
+	/usr/bin/yacc
+	/usr/lib/locale/locale-archive
+	/var/lib/portage/home/*
+	/build/bin/awk
+	/build/bin/bunzip2
+	/build/bin/bzcat
+	/build/bin/bzip2
+	/build/bin/gunzip
+	/build/bin/gzip
+	/build/bin/sh
+	/build/bin/tar
+	/build/bin/zcat
+	${service_root}/bin/*
+	${service_root}/etc/php/*/ext-active/*
+	${service_root}/sbin/*
+	${service_root}/usr/bin/*
+	${service_root}/usr/share/*/*
+	${service_root}/var/lib/*/*
+" | xargs -r )"
+export COLLISION_IGNORE
 
 post_pkgs='' post_use='' python_targets="${python_default_targets:-}" rc=0
 for arg in "${@}"; do
@@ -787,7 +830,7 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 				grep -v -- 'gentoo-functions'
 
 			sed 's/#.*$//' /etc/portage/package.mask/* |
-				grep -Eow -- '((virtual|sys-fs)/)?udev' &&
+				grep -Eow -- '((virtual|sys-fs)/)?e?udev' &&
 			printf 'sys-apps/hwids sys-fs/udev-init-scripts'
 		} |
 			grep -Fv -- '::' |
@@ -919,9 +962,9 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	#binutils-config -l
 	#gcc-config -l
 
-	#for pkg in 'dev-libs/libgpg-error' 'sys-devel/libtool'; do
+	#for pkg in 'dev-libs/libgpg-error' 'dev-build/libtool'; do
 	# shellcheck disable=SC2041
-	for pkg in 'sys-devel/libtool'; do
+	for pkg in 'dev-build/libtool'; do
 		(
 			USE="-* $( get_stage3 --values-only USE )"
 			export USE
@@ -1036,7 +1079,8 @@ for pkg in \
 		'app-admin/eselect' \
 		'sys-apps/gawk' \
 		'app-alternatives/awk' \
-		'sys-devel/gcc'
+		'sys-devel/gcc' \
+		'app-crypt/libb2'
 		#'app-eselect/eselect-awk' \
 		#'virtual/awk' \
 do
@@ -1065,6 +1109,9 @@ do
 			#	;;
 			dev-libs/libxml2)
 				USE="${USE} -lzma -python_targets_python3_10"
+				;;
+			sys-devel/gcc|app-crypt/libb2)
+				USE="${USE} openmp"
 				;;
 			sys-libs/libcap)
 				USE="${USE} -tools"
@@ -1105,7 +1152,7 @@ rm "${stage3_flags_file}"
 export ARCH="${arch}"
 unset -v arch
 
-export ROOT="/build"
+export ROOT="${service_root}"
 export SYSROOT="${ROOT}"
 export PORTAGE_CONFIGROOT="${SYSROOT}"
 
@@ -1172,10 +1219,14 @@ LC_ALL='C' emerge --check-news
 #
 # Let's try to fix that...
 #
+# Update: 'nptl' USE-flag now seems to have been removed from current ebuilds,
+# but this can't do much harm...
+#
 export USE="${USE:+"${USE} "}${use_essential} nptl"
 
 # FIXME: Expose this somewhere?
-features_libeudev=1
+features_libeudev=0
+features_eudev=1
 
 # Do we need to rebuild the root packages as well?
 #
@@ -1192,11 +1243,15 @@ features_libeudev=1
 # with the same PYTHON_*TARGET* flags as are currently active...
 #
 pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
-pkg_initial_use='-nls -pam -perl -python -su'
+pkg_initial_use='-nls -pam -perl -python -su minimal'
 pkg_exclude=''
-if [ -n "${features_libeudev}" ]; then
-	pkg_initial="${pkg_initial:+"${pkg_initial} "}sys-libs/libeudev virtual/libudev"
-	pkg_initial_use="${pkg_initial_use:+"${pkg_initial_use} "}libeudev eudev"
+if [ $(( features_eudev )) -eq 1 ]; then
+	pkg_initial="${pkg_initial:+"${pkg_initial} "}sys-fs/eudev virtual/libudev"
+	pkg_exclude="${pkg_exclude:+"${pkg_exclude} "}--exclude=sys-libs/libeudev"
+elif [ $(( features_libeudev )) -eq 1 ]; then
+	# libudev-251 and above require at least sys-fs/eudev-3.2.14, and aren't
+	# supported by sys-libs/libeudev...
+	pkg_initial="${pkg_initial:+"${pkg_initial} "}sys-libs/libeudev <virtual/libudev-251"
 	pkg_exclude="${pkg_exclude:+"${pkg_exclude} "}--exclude=virtual/udev"
 fi
 
@@ -1500,6 +1555,8 @@ echo
 		#
 		USE="${USE:+"${USE} "}openmp" \
 			do_emerge --system-defaults sys-devel/gcc
+		USE="${USE:+"${USE} "}openmp" \
+			do_emerge --rebuild-defaults sys-devel/gcc app-crypt/libb2
 
 		# ... likewise sys-apps/net-tools[hostname] (for which the recommended
 		# fix is sys-apps/coreutils[hostname]?)
@@ -1522,22 +1579,21 @@ echo
 				dev-libs/nettle \
 				net-libs/gnutls \
 				sys-libs/gdbm
+
 		root_use=''
 		if [ -z "${ROOT:-}" ] || [ "${ROOT}" = '/' ]; then
 			root_use='-acl compat -bzip2 -e2fsprogs -expat -iconv -lzma -lzo -nettle -xattr -zstd'
 		fi
-
 		# For some reason, portage is selecting dropbear to satisfy
 		# virtual/ssh?
 		#
 		# shellcheck disable=SC2086
-		USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx libeudev eudev -extra-filters gmp -nettle -nls openssl" \
+		USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp -nettle -nls openmp openssl" \
 			do_emerge \
 					--exclude='dev-libs/libtomcrypt' \
 					--exclude='net-misc/dropbear' \
 					--exclude='sys-apps/net-tools' \
 					--system-defaults \
-					--update \
 				${pkg_system} dev-libs/nettle net-libs/gnutls
 		unset root_use
 
@@ -2128,6 +2184,10 @@ case "${1:-}" in
 						# that gcc[openmp] is not present when it actually
 						# is...
 						#
+						# At one point, we hit a problem with USE='ssp', but we
+						# really don't want to leave this permanently disabled,
+						# so let's try bringing it back... ?
+						#
 						for root in $( echo '/' "${ROOT:-}" | xargs -n 1 | sort | uniq ); do
 							for pkg in \
 									sys-devel/gcc \
@@ -2142,7 +2202,8 @@ case "${1:-}" in
 											-e 's/ python_targets_[^ ]+ / /g' \
 											-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
 											-e 's/^ // ; s/ $//'
-								) -fortran graphite -jit -nls openmp -sanitize -ssp" \
+								#) -fortran graphite -jit -nls openmp -sanitize -ssp" \
+								) -fortran graphite -jit -nls openmp -sanitize" \
 								PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
 									do_emerge \
 												--rebuild-defaults \
@@ -2229,7 +2290,12 @@ case "${1:-}" in
 						fi
 						print "pkgs: '${pkgs}'"
 
-						USE="${USE:+"${USE} "}-acl -cxx -fortran graphite -jit -ncurses -nls openmp -sanitize -ssp" \
+						# At one point, we hit a problem with USE='ssp', but we
+						# really don't want to leave this permanently disabled,
+						# so let's try bringing it back... ?
+						#
+						#USE="${USE:+"${USE} "}-acl -cxx -fortran graphite -jit -ncurses -nls openmp -sanitize -ssp" \
+						USE="${USE:+"${USE} "}-acl -cxx -fortran graphite -jit -ncurses -nls openmp -sanitize" \
 							do_emerge --rebuild-defaults \
 									app-crypt/libb2 app-portage/portage-utils \
 									sys-devel/gcc sys-devel/gettext ||
