@@ -609,8 +609,8 @@ fi
 #  failures with at least app-editors/vim :(
 #
 # from common/vars.sh:
-#use_essential="asm ipv6 ithreads native-extensions ktls mdev nptl split-usr -ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
-#use_essential_gcc="-default-stack-clash-protection -default-znow -fortran graphite nptl openmp pch -sanitize -ssp -vtv zstd"
+#use_essential="asm ipv6 ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
+#use_essential_gcc="-default-stack-clash-protection -default-znow -fortran graphite -jit nptl openmp pch -sanitize ssp -vtv zstd"
 
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
@@ -806,7 +806,8 @@ case "${package_name}" in
 		output "Setting build variables for package 'man-db' ..."
 		pre_pkgs='sys-apps/help2man sys-apps/man-pages sys-apps/man-pages-posix sys-devel/gcc'
 		with_use='-timezone-tools compile-locales'
-		extra_pkgs='app-text/lesspipe app-text/manpager net-misc/rsync sys-apps/less'
+		#extra_pkgs='app-text/lesspipe app-text/manpager net-misc/rsync sys-apps/less'
+		extra_pkgs='app-text/manpager net-misc/rsync sys-apps/less'
 
 		container_cmd='/usr/bin/man'
 		;;
@@ -1086,6 +1087,7 @@ case "${package_name}" in
 				app-crypt/gnupg
 				dev-build/make
 				dev-lang/python-exec
+				dev-libs/isl
 				dev-perl/GeoIP2
 				net-misc/geoipupdate
 				sys-apps/baselayout
@@ -1238,12 +1240,12 @@ case "${package_name}" in
 				if [ -s /etc/portage/package.use/package.use ]; then
 					gcc_use="$( # <- Syntax
 						sed 's/#.*$//' /etc/portage/package.use/package.use |
-						tr -s '[:space:]' |
-						grep -E -- '^\s?([<>=~]=?)?sys-devel/gcc' |
-						cut -f 2- |
-						xargs -n 1 echo |
-						sort |
-						uniq
+							tr -s '[:space:]' |
+							grep -E -- '^\s?([<>=~]=?)?sys-devel/gcc' |
+							cut -f 2- |
+							xargs -n 1 echo |
+							sort |
+							uniq
 					)"
 				fi
 
