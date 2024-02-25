@@ -1712,6 +1712,18 @@ then
 	note "No 'package.use' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/'"
 fi
 
+if [ -n "${arch:-}" ] &&
+	[ -s "${base_dir:+"${base_dir}/"}etc/portage/profile/use.mask.${arch}" ]
+then
+	docker_extra_mounts+=( $( add_mount --print \
+			"%base%/etc/portage/profile/use.mask.${arch}" \
+			'/etc/portage/profile/use.mask'
+		) ) || :
+else
+	docker_extra_mounts+=( $( add_mount --print \
+			'%base%/etc/portage/profile/use.mask'
+		) ) || :
+fi
 docker_extra_mounts+=( $( add_mount --print \
 		"%base%/etc/portage/profile/package.use.mask"
 	) ) || :

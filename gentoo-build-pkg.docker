@@ -121,7 +121,9 @@ docker_extra_mounts+=(
 	$( add_mount --dir --print '/etc/portage/package.accept_keywords' )
 	$( add_mount --print '/etc/portage/package.license' )
 	$( add_mount --print '/etc/portage/profile/use.mask' )
+	$( add_mount --print '/etc/portage/profile/package.use.mask' )
 ) || :
+
 
 # Use host package.mask (if present), overriding the container build-time
 # default...
@@ -151,7 +153,7 @@ else
 			grep -vz -- '^repo-.*-mask'
 	)
 	unset file extra_mask
-fi
+fi # [ -d /etc/portage/package.mask ]
 
 # Use host package.unmask (if present), overriding the container build-time
 # default...
@@ -183,7 +185,7 @@ else
 			-print
 	)
 	unset file extra_unmask
-fi
+fi # [ -d /etc/portage/package.unmask ]
 
 if ! [ -d /etc/portage/package.use ]; then
 	docker_extra_mounts+=( $( add_mount --print \
@@ -227,11 +229,7 @@ else
 				grep -FvZ -e '.use' -e '_targets'
 	)
 	unset file targets
-fi
-
-docker_extra_mounts+=( $( add_mount --print \
-		'/etc/portage/profile/package.use.mask'
-	) ) || :
+fi # [ -d /etc/portage/package.use ]
 
 # Even with all of the below made available, linux-info.eclass still causes
 # builds to fail due to not being able to find a valid kernel configuration?!

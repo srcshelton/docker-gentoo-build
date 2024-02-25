@@ -148,19 +148,26 @@ if [[ -z "${python_targets:-}" ]]; then
 	python_targets="${python_default_target:-}"
 fi
 
+declare mask_file=''
+if [[ -n "${arch:-}" ]] &&
+	[[ -f "${base_dir}/etc/portage/profile/use.mask.${arch}" ]]
+then
+	mask_file="${base_dir}/etc/portage/profile/use.mask.${arch}"
+fi
+[[ -z "${mask_file:-}" ]] &&
+	mask_file="${base_dir}/etc/portage/profile/use.mask"
 if [[ -n "${python_single_target:-}" ]]; then
 	[[ "${python_single_target}" =~ ^python[[:digit:]]_[[:digit:]]+$ ]] ||
 		die "python_single_target value '${python_single_target}'" \
 			"doesn't appear to be a valid python version" \
 			"(matching 'pythonX_Y', e.g. 'python3_11')"
-	if [[ -f "${base_dir}"/etc/portage/profile/use.mask ]]; then
-		if
-			sed 's/#.*$//' "${base_dir}"/etc/portage/profile/use.mask |
-				grep -Fw -- "^python_single_target_${python_single_target}"
+	if [[ -f "${mask_file}" ]]; then
+		if sed 's/#.*$//' "${mask_file}" |
+			grep -Fw -- "^python_single_target_${python_single_target}"
 		then
 			die "python_single_target value" \
 				"'python_single_target_${python_single_target}'" \
-				"is masked by '${base_dir}/etc/portage/profile/use.mask'"
+				"is masked by '${mask_file}'"
 		fi
 	fi
 fi
@@ -170,17 +177,17 @@ if [[ -n "${python_targets:-}" ]]; then
 			die "python_targets value '${python_target}'" \
 				"doesn't appear to be a valid python version" \
 				"(matching 'pythonX_Y', e.g. 'python3_11')"
-		if [[ -f "${base_dir}"/etc/portage/profile/use.mask ]]; then
-			if
-				sed 's/#.*$//' "${base_dir}"/etc/portage/profile/use.mask |
-					grep -Fw -- "^python_targets_${python_target}"
+		if [[ -f "${mask_file}" ]]; then
+			if sed 's/#.*$//' "${mask_file}" |
+				grep -Fw -- "^python_targets_${python_target}"
 			then
 				die "python_targets value 'python_targets_${python_target}' is" \
-					"masked by '${base_dir}/etc/portage/profile/use.mask'"
+					"masked by '${mask_file}'"
 			fi
 		fi
 	done
 fi
+unset mask_file
 
 declare -a args=()
 for arg in "${@:-}"; do
@@ -1080,19 +1087,26 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 					"${init_name}:latest" -c "cat ${stage3_flags_file}"
 			)"
 			unset docker_run_args
-			if [[ -f "${base_dir}"/etc/portage/profile/use.mask ]]; then
+
+			declare mask_file=''
+			if [[ -n "${arch:-}" ]] &&
+				[[ -f "${base_dir}/etc/portage/profile/use.mask.${arch}" ]]
+			then
+				mask_file="${base_dir}/etc/portage/profile/use.mask.${arch}"
+			fi
+			[[ -z "${mask_file:-}" ]] &&
+				mask_file="${base_dir}/etc/portage/profile/use.mask"
+			if [[ -f "${mask_file}" ]]; then
 				declare target=''
 				if [[ -n "${STAGE3_PYTHON_SINGLE_TARGET:-}" ]]; then
 					target="${STAGE3_PYTHON_SINGLE_TARGET}"
 					if [[ "${target}" != "${python_single_target}" ]]; then
-						if sed 's/#.*$//' \
-								"${base_dir}"/etc/portage/profile/use.mask |
+						if sed 's/#.*$//' "${mask_file}" |
 							grep -Fw -- "^python_targets_${target}"
 						then
 							die "Upstream stage python target" \
 								"'python_single_target_${target}'" \
-								"is masked by" \
-								"'${base_dir}/etc/portage/profile/use.mask'"
+								"is masked by '${mask_file}'"
 						fi
 						python_use="$( replace_flags \
 							"python_targets_${target}" -- "${python_use}"
@@ -1104,14 +1118,12 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 					for target in ${STAGE3_PYTHON_TARGETS}; do
 						for python_target in ${python_targets}; do
 							if [[ "${target}" != "${python_target}" ]]; then
-								if sed 's/#.*$//' \
-										"${base_dir}"/etc/portage/profile/use.mask |
+								if sed 's/#.*$//' "${mask_file}" |
 									grep -Fw -- "^python_targets_${target}"
 								then
 									die "Upstream stage python target" \
 										"'python_targets_${target}'" \
-										"is masked by" \
-										"'${base_dir}/etc/portage/profile/use.mask'"
+										"is masked by '${mask_file}'"
 								fi
 								python_use="$( replace_flags \
 									"python_targets_${target}" -- "${python_use}"
@@ -1124,7 +1136,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 					done
 				fi
 				unset target
-			fi  # [[ -f "${base_dir}"/etc/portage/profile/use.mask ]]
+			fi  # [[ -f "${mask_file}" ]]
+			unset mask_file
 		fi  # [[ -n "${python_target:-}" ]]
 
 		# Add '@preserved-rebuild' for potential outdated stage3 base-images...

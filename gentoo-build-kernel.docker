@@ -1034,10 +1034,25 @@ esac
 		) || :
 	fi
 
+	# Initially package.use.mask was deployed from the host filesystem and use.mask
+	# was not made available.  The options to deploy both are:
+	#
+	#  - Copy use.mask from %base% (requiring an ARCH-specific overrides in git),
+	#    copy package.use.mask from the host (keeping this consistent);
+	#  - Copy use.mask and package.use.mask from %base% (requiring an ARCH-specific
+	#    override and using a different source of truth for package.use.mask);
+	#  - Copy use.mask and package.use.mask from the host (maintaining consistency
+	#    and no longer requiring an override, so long as the host file has been
+	#    customised)
+	#
+	# N.B. An override is still required for service builds, which do not use host
+	#      files.  However, sync-portage.sh will now deploy an override file (if
+	#      one exists) to the host filesystem, so it isn't too much of an issue
+	#      to use both.
+	#
 	docker_extra_mounts+=(
-		$( add_mount --print \
-				'/etc/portage/profile/package.use.mask'
-		)
+		$( add_mount --print '/etc/portage/profile/package.use.mask' )
+		$( add_mount --print '/etc/portage/profile/use.mask' )
 	) || :
 
 	declare patch_file='' patch_dir=''

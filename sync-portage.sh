@@ -105,18 +105,27 @@ for file in *."${ARCH}"; do
 	fi
 done
 
-for file in color.map package.accept_keywords/* package.mask/* profile/use.mask savedconfig/*/*; do
+for file in color.map package.accept_keywords/* package.mask/* profile/use.mask profile/package.use.mask savedconfig/*/*; do
 	[[ "${file}" == "${file#"."}" ]] || continue
-	if [[ -s "${file}" ]]; then
-		mkdir -p "$( dirname "/etc/portage/${file}" )"
-		cp -v "${file}" "/etc/portage/${file}" ||
+
+	declare fsrc="${file}" fdst="${file}"
+	if [[ -e "${file}.${ARCH}" && -f "${file}.${ARCH}" && -s "${file}.${ARCH}" ]]; then
+		fsrc="${file}.${ARCH}"
+	fi
+
+	if [[ -s "${fsrc}" ]]; then
+		mkdir -p "$( dirname "/etc/portage/${fdst}" )"
+		cp -v "${fsrc}" "/etc/portage/${fdst}" ||
 			(( rc = 2 ))
 	else
-		diff -q "${file}" "/etc/portage/${file}" >/dev/null 2>&1 && continue
-		mkdir -p "$( dirname "/etc/portage/${file}" )"
-		cp -v "${file}" "$( find_seq "/etc/portage/${file}" )" ||
+		diff -q "${fsrc}" "/etc/portage/${fdst}" >/dev/null 2>&1 &&
+			continue
+		mkdir -p "$( dirname "/etc/portage/${fdst}" )"
+		cp -v "${fsrc}" "$( find_seq "/etc/portage/${fdst}" )" ||
 			(( rc = 2 ))
 	fi
+
+	unset fdst fsrc
 done
 
 for file in package.unmask "package.unmask.${ARCH}"; do
