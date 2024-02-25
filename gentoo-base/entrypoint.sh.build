@@ -372,8 +372,7 @@ checkmissing() {
 	done
 	cm_package="$( echo "${cm_package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
 	if echo "${cm_package}" | grep -Fq -- '/'; then
-		if
-		ls -1d \
+		if ls -1d \
 				"${ROOT:-}/var/db/pkg/${cm_package%"::"*}"* >/dev/null 2>&1
 		then
 			warn "emerge indicated success but package '${cm_package%"::"*}'" \
