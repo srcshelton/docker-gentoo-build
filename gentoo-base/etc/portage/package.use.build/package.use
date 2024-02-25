@@ -87,6 +87,7 @@ dev-lang/php				-ldap-sasl bcmath calendar cgi ctype curlwrappers exif flatfile 
 dev-lang/python-exec			 native-symlinks
 dev-lang/ruby				-jemalloc jit  # Fails to compile with jemalloc support
 dev-lang/rust				 llvm-libunwind rustfmt system-llvm  # 'rustfmt' required by dev-util/bindgen
+dev-lang/rust-bin			 rustfmt  # 'rustfmt' required by dev-util/bindgen
 dev-libs/cyrus-sasl			 srp
 dev-libs/geoip				 city perl-geoipupdate
 dev-libs/glib				-elf -mime
@@ -145,7 +146,7 @@ net-analyzer/munin			 cgi dhcpd http
 net-analyzer/nagios-plugins		-radius nagios-dns nagios-ntp nagios-ping nagios-ssh smart ssh sudo  # radius plugin confilcts with radiusclient-ng
 net-analyzer/netdata			 fping nfacct
 net-analyzer/net-snmp			-perl -python diskio elf mfd-rewrites netlink pci smux
-net-analyzer/nmap			 ncat ndiff nmap-update nping
+net-analyzer/nmap			-nse ncat ndiff nmap-update nping  # disable NSE to avoid lua dependencies
 net-analyzer/ossec-hids			-server agent
 net-analyzer/rrdtool			 rrdcgi
 net-analyzer/symon			 symux
