@@ -1,4 +1,5 @@
 
+~app-admin/cancd-0.2.2					~amd64 ~arm ~arm64 ~x86
 ~app-admin/checksec-2.6.0-r1				~amd64 ~arm ~arm64 ~x86
 ~app-admin/mei-amt-check-20180507			~amd64             ~x86
 # move app-arch/upx-ucl app-arch/upx
