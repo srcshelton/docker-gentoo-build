@@ -471,7 +471,7 @@ do_emerge() {
 		esac
 	done
 
-	print "Running 'emerge ${*}'${USE:+" with USE='${USE}'"}" \
+	print "Running \"emerge ${*}\"${USE:+" with USE='${USE}'"}" \
 		"${ROOT:+" with ROOT='${ROOT}'"}"
 	emerge --ignore-default-opts --color=y "${@:-}" || emerge_rc="${?}"
 
@@ -1580,15 +1580,20 @@ echo
 				net-libs/gnutls \
 				sys-libs/gdbm
 
-		root_use=''
+		root_use='' arm64_use=''
 		if [ -z "${ROOT:-}" ] || [ "${ROOT}" = '/' ]; then
 			root_use='-acl compat -bzip2 -e2fsprogs -expat -iconv -lzma -lzo -nettle -xattr -zstd'
 		fi
+		# These packages seem to include sys-process/procps, which is breaking
+		# due to (forced) USE='unicode' requiring USE='ncurses' ...
+		#
+		[ "${ARCH:-}" = 'arm64' ] && arm64_use='ncurses'
+
 		# For some reason, portage is selecting dropbear to satisfy
 		# virtual/ssh?
 		#
 		# shellcheck disable=SC2086
-		USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp -nettle -nls openmp openssl" \
+		USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp ${arm64_use:+"${arm64_use} "}-nettle -nls openmp openssl" \
 			do_emerge \
 					--exclude='dev-libs/libtomcrypt' \
 					--exclude='net-misc/dropbear' \
@@ -2103,7 +2108,7 @@ case "${1:-}" in
 
 							if echo "${remove}" | grep -qw -- "${arg}"; then
 								use="${use:+"${use} "}-${arg}"
-								print "Matched - use is now '${use}'"
+								print "Matched - 'use' is now '${use}'"
 
 								pkgs="${pkgs:-} $( # <- Syntax
 									#grep -Flw -- "${arg}" "${ROOT%"/"}"/var/db/pkg/*/*/IUSE |
@@ -2114,9 +2119,16 @@ case "${1:-}" in
 											-name 'IUSE' \
 											-print0 |
 										xargs -r0 grep -Flw -- "${arg}" |
-										sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||'
+										sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||' |
+										xargs -r
 								)"
-								print "pkgs is now '${pkgs}'"
+								pkgs="$(
+									echo "${pkgs}" |
+										xargs -rn 1 |
+										sort -V |
+										uniq
+								)"
+								print "'pkgs' is now '${pkgs}'"
 							else
 								print "No match"
 
@@ -2126,7 +2138,7 @@ case "${1:-}" in
 										;;
 								esac
 								use="${use:+"${use} "}${arg}"
-								print "Added term - use is now '${use}'"
+								print "Added term - 'use' is now '${use}'"
 							fi
 						done  # arg in ${USE}
 						print "use: '${use}'"
@@ -2189,7 +2201,13 @@ case "${1:-}" in
 						# so let's try bringing it back... ?
 						#
 						for root in $( echo '/' "${ROOT:-}" | xargs -n 1 | sort | uniq ); do
+							arm64_pkgs=''
+							# '>=dev-python/cython-3.0.6' is failing on arm64 :(
+							#
+							[ "${ARCH:-}" = 'arm64' ] && arm64_pkgs='>=dev-python/cython-3.0.6'
+
 							for pkg in \
+									${arm64_pkgs:-} \
 									sys-devel/gcc \
 									app-crypt/libb2 \
 									app-portage/portage-utils
@@ -2211,7 +2229,7 @@ case "${1:-}" in
 											"${pkg}" ||
 										rc=${?}
 								if [ $(( rc )) -ne 0 ]; then
-									echo "ERROR: Stage 1 cleanup for root '${ROOT}': ${rc}"
+									echo "ERROR: Stage 1a cleanup for root '${ROOT}': ${rc}"
 									break
 								fi
 							done  # pkg in ...
@@ -2230,7 +2248,7 @@ case "${1:-}" in
 							do_emerge --rebuild-defaults --deep ${pkgs} ||
 								rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
-							echo "ERROR: Stage 1 cleanup for root '${ROOT}': ${rc}"
+							echo "ERROR: Stage 1b cleanup for root '${ROOT}': ${rc}"
 							break
 						fi
 
@@ -2269,9 +2287,16 @@ case "${1:-}" in
 											-name 'IUSE' \
 											-print0 |
 										grep -Flw -- "${arg}" |
-										sed 's|^.*/var/db/pkg/|=| ; s|/IUSE$||'
+										sed 's|^.*/var/db/pkg/|=| ; s|/IUSE$||' |
+										xargs -r
 								)"
-								print "pkgs is now '${pkgs}'"
+								pkgs="$(
+									echo "${pkgs}" |
+										xargs -rn 1 |
+										sort -V |
+										uniq
+								)"
+								print "'pkgs' is now '${pkgs}'"
 							fi
 						done
 						pkgs="${pkgs:-} $( # <- Syntax
