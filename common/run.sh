@@ -1474,9 +1474,13 @@ _docker_run() {
 	rc=${?}
 	# shellcheck disable=SC2031,SC2086
 	if
-		dr_id="$( docker ${DOCKER_VARS:-} container ps --noheading -a |
-				grep -- "\s${name:-"${container_name}"}$" |
-				awk '{ print $1 }' )" &&
+		dr_id="$( # <- Syntax
+				docker ${DOCKER_VARS:-} container ps --noheading -a |
+					grep -B 1 -- "\s${name:-"${container_name}"}$" |
+					grep -E '^[[:xdigit:]]{12}\s' |
+					tail -n 1 |
+					awk '{ print $1 }'
+		)" &&
 			[[ -n "${dr_id:-}" ]]
 	then
 		rcc=$( # <- Syntax
