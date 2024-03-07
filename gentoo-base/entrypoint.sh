@@ -196,7 +196,7 @@ get_stage3() {
 		entries='' entry=''
 		entries="$( # <- Syntax
 			echo "${stage3_flags}" |
-				grep -- "^STAGE3_PYTHON_SINGLE_TARGET=" |
+				grep -- '^STAGE3_PYTHON_SINGLE_TARGET=' |
 				cut -d'"' -f 2
 		)" # ' # <- Syntax
 		print "get_stage3 entries for SINGLE_TARGET is '${entries}'"
@@ -208,7 +208,7 @@ get_stage3() {
 
 		entries="$( # <- Syntax
 			echo "${stage3_flags}" |
-				grep -- "^STAGE3_PYTHON_TARGETS=" |
+				grep -- '^STAGE3_PYTHON_TARGETS=' |
 				cut -d'"' -f 2
 		)" # ' # <- Syntax
 		print "get_stage3 entries for TARGETS is '${entries}'"
@@ -799,9 +799,8 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 	USE="-* $( get_stage3 --values-only USE ) -udev"
 	export USE
 	export FEATURES="${FEATURES:+"${FEATURES} "}-fakeroot"
-	export LC_ALL='C'
 	list='virtual/dev-manager'
-	if portageq get_repos / | grep -Fq -- 'srcshelton'; then
+	if LC_ALL='C' portageq get_repos / | grep -Fq -- 'srcshelton'; then
 		list="${list:-} sys-apps/systemd-utils"
 	fi
 	# 'dhcpcd' is now built with USE='udev'...
@@ -851,7 +850,6 @@ if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 		USE="-* $( get_stage3 --values-only USE )"
 		export USE
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean -fakeroot"
-		export LC_ALL='C'
 		do_emerge --single-defaults 'sys-apps/gentoo-functions::srcshelton'
 	)
 fi
@@ -863,7 +861,6 @@ echo
 	USE="-* $( get_stage3 --values-only USE )"
 	export USE
 	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean -fakeroot"
-	export LC_ALL='C'
 	do_emerge --single-defaults sys-apps/fakeroot
 )
 export FEATURES="${FEATURES:+"${FEATURES} "}fakeroot"
@@ -888,7 +885,6 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		USE="-* livecd nptl $( get_stage3 --values-only USE )"
 		export USE
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
-		export LC_ALL='C'
 		do_emerge --chost-defaults '@system' '@world'
 	)
 	LC_ALL='C' etc-update --quiet --preen
@@ -912,7 +908,6 @@ if ! [ -d "/usr/${CHOST}" ]; then
 			USE="-* nptl $( get_stage3 --values-only USE )"
 			export USE
 			export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
-			export LC_ALL='C'
 			do_emerge --single-defaults "${pkg}"
 		)
 		LC_ALL='C' etc-update --quiet --preen
@@ -969,7 +964,6 @@ if ! [ -d "/usr/${CHOST}" ]; then
 			USE="-* $( get_stage3 --values-only USE )"
 			export USE
 			export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
-			export LC_ALL='C'
 			do_emerge --single-defaults "${pkg}"
 		)
 		LC_ALL='C' etc-update --quiet --preen
@@ -977,15 +971,13 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	done
 	unset pkg
 	[ -x /usr/sbin/fix_libtool_files.sh ] &&
-		/usr/sbin/fix_libtool_files.sh "$( # <- Syntax
-			gcc -dumpversion
-		)" --oldarch "${oldchost}"
+		/usr/sbin/fix_libtool_files.sh "$( gcc -dumpversion )" \
+			--oldarch "${oldchost}"
 
 	(
 		USE="-* nptl $( get_stage3 --values-only USE )"
 		export USE
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
-		export LC_ALL='C'
 
 		# clashing USE flags can't be resolved with current level of
 		# command-line fine-grained package flag control :(
@@ -1027,6 +1019,17 @@ fi
 
 echo
 echo
+echo " * Installing stage3 prerequisites to allow for flexible filesystem" \
+	"configurations ..."
+echo
+
+(
+	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
+	do_emerge --single-defaults dev-libs/libunistring dev-libs/libgpg-error \
+		app-crypt/libmd dev-libs/libbsd net-dns/libidn2 sys-libs/zlib
+)
+
+echo
 echo " * Installing stage3 'sys-kernel/gentoo-sources' kernel source" \
 	"package ..."
 echo
@@ -1044,7 +1047,6 @@ echo
 	#USE="${USE} gawk gnu"
 	export USE
 	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
-	export LC_ALL='C'
 	do_emerge --single-defaults sys-kernel/gentoo-sources
 )
 
@@ -1102,7 +1104,6 @@ do
 		fi
 		export USE
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
-		export LC_ALL='C'
 		case "${pkg}" in
 			#app-alternatives/awk)
 			#	USE="-busybox ${USE} gawk"
@@ -1260,8 +1261,6 @@ if [ -n "${pkg_initial:-}" ]; then
 	print "'python_targets' is '${python_targets:-}', 'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}', 'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
 
 	(
-		export LC_ALL='C'
-
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 
 		export USE="${pkg_initial_use}${use_essential:+" ${use_essential}"}"
@@ -1497,7 +1496,6 @@ echo
 		info "USE is now '${USE}'"
 	fi
 	export USE
-	export LC_ALL='C'
 	for ROOT in $( # <- Syntax
 			echo '/' "${extra_root:-}" "${ROOT}" |
 				xargs -rn 1 |
@@ -1760,8 +1758,8 @@ test -s "${ROOT}${environment_file}" ||
 	warn "'${ROOT%"/"}${environment_file}' is empty"
 grep -- ' ROOT=' "${ROOT}${environment_file}" &&
 	die "Invalid 'ROOT' directive in '${ROOT%"/"}${environment_file}'"
-#printf " * Initial propagated environment:\n\n%s\n\n" "$( # <- Syntax
-#	<"${ROOT}${environment_file}"
+#printf ' * Initial propagated environment:\n\n%s\n\n' "$( # <- Syntax
+#	cat "${ROOT}${environment_file}"
 #)"
 
 case "${1:-}" in
@@ -1771,7 +1769,6 @@ case "${1:-}" in
 		echo
 
 		(
-			export LC_ALL='C'
 			for ROOT in $( # <- Syntax
 					echo "${extra_root:-}" "${ROOT}" |
 						xargs -rn 1 |
@@ -1815,7 +1812,6 @@ case "${1:-}" in
 			echo
 
 			(
-				export LC_ALL='C'
 				for ROOT in $( # <- Syntax
 						echo "${extra_root:-}" "${ROOT}" |
 							xargs -rn 1 |
@@ -1845,7 +1841,6 @@ case "${1:-}" in
 			echo
 
 			(
-				export LC_ALL='C'
 				for ROOT in $( # <- Syntax
 						echo "${extra_root:-}" "${ROOT}" |
 							xargs -rn 1 |
@@ -1929,7 +1924,6 @@ case "${1:-}" in
 								"from '${post_pkgs}' ..."
 							echo
 							(
-								export LC_ALL='C'
 								export FEATURES='-fail-clean'
 								for ROOT in $( # <- Syntax
 										echo "${extra_root:-}" "${ROOT}" |
@@ -1958,7 +1952,6 @@ case "${1:-}" in
 				echo " * Building post-packages '${post_pkgs}' ..."
 				echo
 				(
-					export LC_ALL='C'
 					for ROOT in $( # <- Syntax
 							echo "${extra_root:-}" "${ROOT}" |
 								xargs -rn 1 |
@@ -2065,8 +2058,6 @@ case "${1:-}" in
 					done
 					remove="${use}" use=''
 
-					export LC_ALL='C'
-
 					# loop to allow 'break'...
 					# shellcheck disable=SC2066
 					for ROOT in $( # <- Syntax
@@ -2168,10 +2159,10 @@ case "${1:-}" in
 						)"
 
 						info="$( # <- Syntax
-							LC_ALL='C' \
-							SYSROOT="${ROOT}" \
-							PORTAGE_CONFIGROOT="${ROOT}" \
-								emerge --info --verbose=y
+								LC_ALL='C' \
+								SYSROOT="${ROOT}" \
+								PORTAGE_CONFIGROOT="${ROOT}" \
+							emerge --info --verbose=y
 						)"
 						echo
 						echo "Resolved build variables for python cleanup stage 1 in ROOT '${ROOT}':"
@@ -2212,22 +2203,22 @@ case "${1:-}" in
 									app-crypt/libb2 \
 									app-portage/portage-utils
 							do
-								ROOT="${root}" \
-								SYSROOT="${root}" \
-								USE="$( # <- Syntax
-									echo " ${USE} " |
-										sed -r \
-											-e 's/ python_targets_[^ ]+ / /g' \
-											-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
-											-e 's/^ // ; s/ $//'
-								#) -fortran graphite -jit -nls openmp -sanitize -ssp" \
-								) -fortran graphite -jit -nls openmp -sanitize" \
-								PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
-									do_emerge \
-												--rebuild-defaults \
-												--deep \
-											"${pkg}" ||
-										rc=${?}
+									ROOT="${root}" \
+									SYSROOT="${root}" \
+									USE="$( # <- Syntax
+										echo " ${USE} " |
+											sed -r \
+												-e 's/ python_targets_[^ ]+ / /g' \
+												-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
+												-e 's/^ // ; s/ $//'
+									#) -fortran graphite -jit -nls openmp -sanitize -ssp" \
+									) -fortran graphite -jit -nls openmp -sanitize" \
+									PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
+								do_emerge \
+											--rebuild-defaults \
+											--deep \
+										"${pkg}" ||
+									rc=${?}
 								if [ $(( rc )) -ne 0 ]; then
 									echo "ERROR: Stage 1a cleanup for root '${ROOT}': ${rc}"
 									break
@@ -2237,16 +2228,16 @@ case "${1:-}" in
 						done  # root in $(...)
 						unset root
 						# shellcheck disable=SC2015,SC2086
-						USE="$( # <- Syntax
-							echo " ${USE} " |
-								sed -r \
-									-e 's/ python_targets_[^ ]+ / /g' \
-									-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
-									-e 's/^ // ; s/ $//'
-						) openmp" \
-						PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
-							do_emerge --rebuild-defaults --deep ${pkgs} ||
-								rc=${?}
+							USE="$( # <- Syntax
+								echo " ${USE} " |
+									sed -r \
+										-e 's/ python_targets_[^ ]+ / /g' \
+										-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
+										-e 's/^ // ; s/ $//'
+							) openmp" \
+							PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
+						do_emerge --rebuild-defaults --deep ${pkgs} ||
+							rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
 							echo "ERROR: Stage 1b cleanup for root '${ROOT}': ${rc}"
 							break
@@ -2256,10 +2247,10 @@ case "${1:-}" in
 						export PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
 
 						info="$( # <- Syntax
-							LC_ALL='C' \
-							SYSROOT="${ROOT}" \
-							PORTAGE_CONFIGROOT="${ROOT}" \
-								emerge --info --verbose=y
+								LC_ALL='C' \
+								SYSROOT="${ROOT}" \
+								PORTAGE_CONFIGROOT="${ROOT}" \
+							emerge --info --verbose=y
 						)"
 						echo
 						echo "Resolved build variables for python cleanup stage 2 in ROOT '${ROOT}':"
@@ -2308,8 +2299,12 @@ case "${1:-}" in
 									-print |
 								sed 's|^.*/var/db/pkg/|=| ; s|/$||'
 						)"
-						if ROOT="/" SYSROOT="/" PORTAGE_CONFIGROOT="/" \
-							portageq get_repos / | grep -Fq -- 'srcshelton'
+						if
+									ROOT='/' \
+									SYSROOT='/' \
+									PORTAGE_CONFIGROOT='/' \
+								portageq get_repos / |
+									grep -Fq -- 'srcshelton'
 						then
 							pkgs="${pkgs:-} virtual/tmpfiles::srcshelton"
 						fi
