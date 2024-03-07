@@ -2143,7 +2143,9 @@ case "${1:-}" in
 			#
 			extra_pkgs=''
 			if grep -qw -- 'openmp' "${ROOT%"/"}"/var/db/pkg/*/*/USE; then
-				post_use="${post_use:+"${post_use} "}openmp"
+				# FIXME: Apparently we need USE-flags for app-alternatives/yacc
+				# and app-alternatives/lex here too...
+				post_use="${post_use:+"${post_use} "}bison flex openmp"
 				extra_pkgs="$( # <- Syntax
 					# dev-php/pecl-imagick requires
 					# media-gfx/imagemagick[-openmp]
@@ -2170,7 +2172,7 @@ case "${1:-}" in
 			#
 			# shellcheck disable=SC2086
 			flags="$( parse_opt_get_options ${post_pkgs} )"
-			print "Options from '${post_pkgs} are '${flags:-}'"
+			print "Options from '${post_pkgs}' are '${flags:-}'"
 
 			# shellcheck disable=SC2086
 			packages="$( parse_opt_get_packages ${post_pkgs} )"
@@ -2283,7 +2285,9 @@ case "${1:-}" in
 				# shellcheck disable=SC2046,SC2086
 				(
 					flags="$( echo " ${flags} " | sed 's/\s--nodeps\s/ /g' )"
-					USE="$( echo " ${USE:-} " | sed 's/\slib-only\s/ /g' )"
+					# FIXME: We somehow need USE='flex' by the time we reach
+					#        here?
+					USE="$( echo " flex ${USE:-} " | sed 's/\slib-only\s/ /g' )"
 					export flags USE
 					export ROOT='/' SYSROOT='/' PORTAGE_CONFIGROOT='/'
 					do_emerge \
