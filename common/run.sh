@@ -1019,16 +1019,20 @@ _docker_run() {
 				;;
 		esac
 		unset name
+		local dev_mode_script_dir="${PWD%"/"}"
+		if [[ "${dev_mode_script_dir}" != *"/gentoo-base}" ]]; then
+			dev_mode_script_dir="${dev_mode_script_dir}/gentoo-base"
+		fi
 		if ! [[
-				-f "${PWD%"/"}/gentoo-base/entrypoint.sh${ext}" &&
-				-s "${PWD%"/"}/gentoo-base/entrypoint.sh${ext}"
+				-f "${dev_mode_script_dir}/entrypoint.sh${ext}" &&
+				-s "${dev_mode_script_dir}/entrypoint.sh${ext}"
 		]]
 		then
 			die "Cannot locate DEV_MODE entrypoint script" \
-				"'${PWD%"/"}/gentoo-base/entrypoint.sh${ext}'"
-		elif ! [[ -x "${PWD%"/"}/gentoo-base/entrypoint.sh${ext}" ]]; then
+				"'${dev_mode_script_dir}/entrypoint.sh${ext}'"
+		elif ! [[ -x "${dev_mode_script_dir}/entrypoint.sh${ext}" ]]; then
 			die "entrypoint script" \
-				"'${PWD%"/"}/gentoo-base/entrypoint.sh${ext}' is not" \
+				"'${dev_mode_script_dir}/entrypoint.sh${ext}' is not" \
 				"executable"
 		fi
 		print "Running with 'entrypoint.sh${ext}' due to DEV_MODE"
@@ -1037,9 +1041,9 @@ _docker_run() {
 			  --env DEFAULT_JOBS="${JOBS}"
 			  --env DEFAULT_MAXLOAD="${MAXLOAD}"
 			  --env environment_file="${environment_file}"
-			  --volume "${PWD%"/"}/gentoo-base/entrypoint.sh${ext}:/usr/libexec/entrypoint.sh:ro"
+			  --volume "${dev_mode_script_dir}/entrypoint.sh${ext}:/usr/libexec/entrypoint.sh:ro"
 		)
-		unset ext
+		unset dev_mode_script_dir ext
 	fi
 
 	if [[ -n "${USE:-}" ]]; then
