@@ -173,7 +173,7 @@ net-mail/fetchmail			 hesiod
 net-misc/bfgminer			-adl -opencl
 >=net-misc/bfgminer-3.1.0		-lm-sensors cpumining
 #net-misc/cgminer			-adl -lm-sensors -opencl  # CPU mining removed before 2015 :o
-net-misc/curl				-adns -ares -http2 libssh2 test  # http2 required by dev-lang/rust
+net-misc/curl				-adns -ares -http2 -psl libssh2 test  # http2 required by dev-lang/rust
 net-misc/dhcpcd				-compat privsep
 net-misc/ntp				-snmp openntpd
 <net-misc/openntpd-6.8_p1-r1		 libressl
