@@ -102,7 +102,10 @@
 ~app-containers/podman-4.9.3				 **
 #~app-containers/podman-5.0.0_rc2			 **
 #~app-containers/podman-5.0.0_rc3			 **
-~app-containers/podman-5.0.0_rc4			 **
+#~app-containers/podman-5.0.0_rc4			 **
+#~app-containers/podman-5.0.0_rc5			 **
+#~app-containers/podman-5.0.0_rc6			 **
+~app-containers/podman-5.0.0_rc7			 **
 
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				 **
@@ -197,8 +200,13 @@
 #~net-misc/cni-plugins-0.9.1				 **
 #~net-misc/cni-plugins-1.0.0				 **
 #~net-misc/cni-plugins-1.0.1				 **
-~net-misc/cni-plugins-1.1.0				 **
-~net-misc/cni-plugins-1.1.1				 **
+#~net-misc/cni-plugins-1.1.0				 **
+#~net-misc/cni-plugins-1.1.1				 **
+#~net-misc/cni-plugins-1.1.1-r1				 **
+#~net-misc/cni-plugins-1.2.0				 **
+#~net-misc/cni-plugins-1.3.0				 **
+~net-misc/cni-plugins-1.4.0				 **
+~net-misc/cni-plugins-1.4.1				 **
 
 # rust build dependencies for netavark/aardvark-dns
 #=dev-util/cargo-ebuild-0.5.1				~amd64
