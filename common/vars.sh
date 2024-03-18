@@ -127,42 +127,42 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				# Raspbian 8.3.0-6+rpi1 reports 'armv6zk+fp'
 				# Raspbian 10.2.1-6+rpi1 reports 'armv6kz+fp'
 				use_cpu_flags='edsp thumb vfp v4 v5 v6'
-				gcc_target_opts='-march=armv6kz+fp -mcpu=arm1176jzf-s' ;;
+				gcc_target_opts='-mcpu=arm1176jzf-s -mfpu=vfp' ;;
 			*': Raspberry Pi 2 '*)
 				use_cpu_arch='arm'
 				# Gentoo 11.3.0 p5 reports 'armv7ve+simd'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 v4 v5 v6 v7 thumb2'
-				#gcc_target_opts='-march=armv7ve+vfpv3-d16 -mcpu=cortex-a7 -mlibarch=armv7ve+vfpv3-d16' ;;
-				gcc_target_opts='-march=armv7ve+simd -mcpu=cortex-a7 -mlibarch=armv7ve+simd' ;;
+				#gcc_target_opts='-mcpu=cortex-a7 -mlibarch=armv7ve+vfpv3-d16' ;;
+				gcc_target_opts='-mcpu=cortex-a7 -mlibarch=armv7ve+simd -mfpu=neon-vfpv4' ;;
 			*': Raspberry Pi 3 '*|*': Raspberry Pi Zero 2 W '*)
 				use_cpu_arch='arm'
 				# Raspbian 8.3.0-6+rpi1 reports 'armv8-a+crc+simd'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2'
-				gcc_target_opts='-march=armv8-a+crc+simd -mcpu=cortex-a53' ;;
+				gcc_target_opts='-mcpu=cortex-a53+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits' ;;
 			*': Raspberry Pi 4 '*|*': Raspberry Pi Compute Module 4 '*)
 				use_cpu_arch='arm'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
 				# Debian 10.2.1-6+rpi1 reports 'armv8-a+crc+simd'
 				# GCC-11
-				gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72' ;;
+				gcc_target_opts='-mcpu=cortex-a72+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits' ;;
 				# GCC-12+
-				#gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72 -mtp=cp15' ;;
+				#gcc_target_opts='-mcpu=cortex-a72+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits -mtp=cp15' ;;
 			*': Raspberry Pi 400 '*)
 				use_cpu_arch='arm'
 				# Raspberry Pi 400 Rev 1.0/Debian 10.2.1-6 reports 'armv8-a+crc'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
 				# GCC-11
-				gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72' ;;
+				gcc_target_opts='-mcpu=cortex-a72+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits' ;;
 				# GCC-12+
-				#gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72 -mtp=cp15' ;;
+				#gcc_target_opts='-mcpu=cortex-a72+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits -mtp=cp15' ;;
 			*': Raspberry Pi 5 '*)
 				use_cpu_arch='arm'
 				# Raspberry Pi 400 Rev 1.0/Debian 10.2.1-6 reports 'armv8-a+crc'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
 				# GCC-11
-				#gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72' ;;
+				#gcc_target_opts='-mcpu=cortex-a72+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits' ;;
 				# GCC-12+
-				gcc_target_opts='-march=armv8-a+crc -mcpu=cortex-a72 -mtune=cortex-a72 -mtp=cp15' ;;
+				gcc_target_opts='-mcpu=cortex-a72+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits -mtp=cp15' ;;
 
 			*': 0xd07'|'Apple M1'*)
 				use_cpu_arch='arm'
@@ -247,6 +247,10 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				sed "s/^/cpu_flags_${use_cpu_arch:-"x86"}_/ ; s/ / cpu_flags_${use_cpu_arch:-"x86"}_/g"
 		)"
 	fi
+	case "${use_cpu_arch:-"x86"}" in
+		arm)
+			use_cpu_flags="${use_cpu_flags:+"${use_cpu_flags} "}-mfloat-abi=hard"
+	esac
 	export use_cpu_arch use_cpu_flags gcc_target_opts
 
 	# Define essential USE flags
@@ -262,19 +266,16 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#          'postfix' in their own container rather than any container-local
 	#          binaries) then we may wish not to force this flag here...
 	#
-	#  dev-lang/perl:		ithreads
-	#  dev-libs/openssl:	asm ktls ~tls-heartbeat~ ~zlib~
+	#  dev-lang/perl:	    ithreads
+	#  dev-libs/openssl:    asm ktls ~tls-heartbeat~ ~zlib~
 	#  net-misc/curl:	   ~curl_ssl_openssl~
-	#  sys-apps/busybox:	mdev
-	#  sys-apps/portage:	native-extensions
-	#  sys-devel/gcc:		nptl -ssp(?)
-	#  sys-libs/glibc		multiarch
-	# (General:				ipv6 ~openssl~ split-usr ~ssl~ threads)
+	#  sys-apps/busybox:    mdev
+	#  sys-apps/portage:    native-extensions
+	# (sys-devel/gcc:	   ~nptl~ ssp)
+	#  sys-libs/glibc	    multiarch ssp
+	# (General:			    ipv6 ~openssl~ split-usr ~ssl~ threads)
 	#
-	#  Remove ssp/default-stack-clash-protection as these are causing postinst
-	#  failures with at least app-editors/vim :(
-	#
-	use_essential="asm ipv6 ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
+	use_essential="asm ipv6 ithreads ktls mdev multiarch native-extensions split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
 	export use_essential
 
 	# Even though we often want a minimal set of flags, gcc's flags are
@@ -284,11 +285,9 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	# N.B. USE='graphite' pulls-in dev-libs/isl which we don't want for host
 	#      packages, but is reasonable for build-containers.
 	#
-	#  Remove ssp/default-stack-clash-protection as these are causing postinst
-	#  failures with at least app-editors/vim :(
-	#
 	# FIXME: Source these flags from package.use
-	use_essential_gcc="-default-stack-clash-protection -default-znow -fortran graphite -jit nptl openmp pch -sanitize ssp -vtv zstd"
+	#
+	use_essential_gcc="default-stack-clash-protection -default-znow -fortran graphite -jit nptl openmp pch -sanitize ssp -vtv zstd"
 	export use_essential_gcc
 
 	case "$( uname -m )" in
