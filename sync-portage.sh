@@ -94,8 +94,9 @@ declare -i rc=0
 for file in *."${ARCH}"; do
 	# Skip hidden files...
 	[[ "${file}" == "${file#"."}" ]] || continue
+	[[ -f "${file}" ]] || continue
 
-	if [[ -s "${file}" ]]; then
+	if [[ -s "/etc/portage/${file%".${ARCH}"}/${file}" ]]; then
 		diff -q "${file}" "/etc/portage/${file%".${ARCH}"}/${file}" >/dev/null 2>&1 && continue
 		mkdir -p "$( dirname "/etc/portage/${file%".${ARCH}"}/${file}" )"
 		cp -v "${file}" "$( find_seq "/etc/portage/${file%".${ARCH}"}/${file}" )" ||
@@ -116,7 +117,9 @@ for file in color.map package.accept_keywords/* package.mask/* profile/use.mask 
 		fsrc="${file}.${ARCH}"
 	fi
 
-	if [[ -s "${fsrc}" ]]; then
+	[[ -f "${fsrc}" ]] || continue
+
+	if [[ -s "/etc/portage/${fdst}" ]]; then
 		diff -q "${fsrc}" "/etc/portage/${fdst}" >/dev/null 2>&1 &&
 			continue
 		mkdir -p "$( dirname "/etc/portage/${fdst}" )"
@@ -134,6 +137,7 @@ done
 for file in package.unmask "package.unmask.${ARCH}"; do
 	# Skip hidden files...
 	[[ "${file}" == "${file#"."}" ]] || continue
+	[[ -f "${file}" ]] || continue
 
 	if [[ -f "/etc/portage/${file}" ]]; then
 		echo >&2 "WARN:  Migrating file '/etc/portage/${file}' to '/etc/portage/package.unmask/'"
@@ -146,7 +150,7 @@ for file in package.unmask "package.unmask.${ARCH}"; do
 		mv "/etc/portage/${file}" "/etc/portage/package.unmask/${file%".tmp"}"
 	fi
 
-	if [[ -s "${file}" ]]; then
+	if [[ -s "/etc/portage/package.unmask/${file}" ]]; then
 		diff -q "${file}" "/etc/portage/package.unmask/${file}" >/dev/null 2>&1 && continue
 		mkdir -p "$( dirname "/etc/portage/package.unmask/${file}" )"
 		cp -v "${file}" "$( find_seq "/etc/portage/package.unmask/${file}" )" ||
@@ -161,8 +165,9 @@ done
 for file in package.use.build/*; do
 	# Skip hidden files...
 	[[ "${file}" == "${file#"."}" ]] || continue
+	[[ -f "${file}" ]] || continue
 
-	if [[ -s "${file}" ]]; then
+	if [[ -s "/etc/portage/package.use/${file#"package.use.build/"}" ]]; then
 		diff -q "${file}" "/etc/portage/package.use/${file#"package.use.build/"}" >/dev/null 2>&1 && continue
 		mkdir -p "$( dirname "/etc/portage/package.use/${file#"package.use.build/"}" )"
 		cp -v "${file}" "$( find_seq "/etc/portage/package.use/${file#"package.use.build/"}" )" ||
@@ -177,8 +182,9 @@ done
 for file in /etc/portage/savedconfig/*/*; do
 	# Skip hidden files...
 	[[ "${file}" == "${file#"."}" ]] || continue
+	[[ -f "${file}" ]] || continue
 
-	if [[ -s "${file}" ]]; then
+	if [[ -s "/etc/portage/${file#"/etc/portage/"}" ]]; then
 		diff -q "${file}" "/etc/portage/${file#"/etc/portage/"}" >/dev/null 2>&1 && continue
 		mkdir -p "$( dirname "${file#"/etc/portage/"}" )"
 		cp -v "${file}" "$( find_seq "${file#"/etc/portage/"}" )" ||
