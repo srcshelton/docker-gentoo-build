@@ -8,7 +8,7 @@
 
 # Add 'varrun', otherwise we end up with broken '/var/lock -> ../run/lock'
 # symlinks...
-*/*					 openssl ssl varrun
+*/*					 openssl pie ssl varrun
 
 */*					 LUA_SINGLE_TARGET: luajit
 */*					 LUA_TARGETS: luajit

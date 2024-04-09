@@ -3,7 +3,7 @@
 #*/*					-* asm ipv6 ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
 */*					-apache2 -awt acpi adns aio ao asm audit
 */*					-berkdb bash-completion bzip2
-*/*					-cairo -cdb -common-lisp -cups caps chroot curl cxx
+*/*					-cairo -cdb -cet -common-lisp -cups caps chroot curl cxx
 */*					-dbi
 */*					 encode expat
 */*					-fontconfig -fortran fam fftw filecaps ftp
@@ -15,7 +15,7 @@
 */*					 mariadb mbox mdev memcached mmap mpfr mysql mysqli
 */*					 ncurses network nfs nls nntp nptl
 */*					 odbc openmp openssl
-*/*					-pango -policykit pcre perl pgo php python
+*/*					-pango -policykit pcre perl pgo php pie python
 */*					 readline rpc
 */*					-samba -sasl -slang -smartcard -source -startup-notification sctp
 */*					 seccomp server slp smtp snmp spell split-usr sql sqlite ssl syslog
@@ -47,16 +47,18 @@ app-admin/sysstat			 lm-sensors
 app-admin/ulogd				 nfacct pcap
 app-arch/libarchive			 acl e2fsprogs iconv nettle
 #app-arch/unzip				 natspec
+app-arch/xz-utils			-extra-filters
 app-benchmarks/bootchart		 acct
 app-benchmarks/bootchart2		-X
-app-crypt/gnupg				-ssl ecc idea mta
+app-crypt/gnupg				-ssl -tofu ecc idea mta
 #app-crypt/gpgme			-python  # requires dev-lang/swig, but only as a BDEPEND
 app-editors/vim				-crypt -cscope -sound terminal vim-pager
+app-containers/containers-common	-fuse -rootless
+app-containers/containers-storage	-device-mapper
 # move app-emulation/crun app-containers/crun
 app-containers/crun			-criu bpf man
 # move app-emulation/libpod app-emulation/podman
 # move app-emulation/podman app-containers/podman
-app-containers/containers-storage	-device-mapper
 app-containers/podman			-fuse -rootless
 # move app-admin/eselect-php app-eselect/eselect-php
 app-eselect/eselect-php			 fpm

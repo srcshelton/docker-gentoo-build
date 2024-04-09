@@ -1,7 +1,7 @@
 
 # General USE flags:
 #*/*					-* asm ipv6 ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
-*/*					-* split-usr
+*/*					-* pie split-usr
 
 */*					 PYTHON_SINGLE_TARGET: -* python3_11
 */*					 PYTHON_TARGETS: -* python3_11
@@ -21,7 +21,8 @@ app-alternatives/yacc			-reference bison  # byacc
 
 app-arch/libarchive			-lz4 acl bzip2 e2fsprogs expat iconv lzma lzo nettle threads xattr zlib zstd
 app-arch/tar				 xattr
-app-arch/xz-utils			 extra-filters nls threads  # static-libs
+app-arch/xz-utils			-extra-filters nls threads  # static-libs
+app-crypt/gnupg				-smartcard -tofu
 #app-crypt/libb2			-openmp
 dev-lang/perl				 ithreads
 dev-lang/python-exec			 native-symlinks

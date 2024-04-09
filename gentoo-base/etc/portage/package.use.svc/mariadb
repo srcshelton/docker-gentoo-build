@@ -8,8 +8,9 @@ dev-libs/libpcre			 jit recursion-limit
 #sys-libs/glibc				 audit caps cet compile-locales +crypt custom-cflags doc gd headers-only +multiarch multilib multilib-bootstrap nscd profile selinux +ssp +static-libs static-pie suid systemd systemtap test -timezone-tools +tmpfiles vanilla
 sys-libs/glibc				-crypt -timezone-tools ssp compile-locales multiarch
 
-# Support for mariadb in DBD-mysql isn't great, DBD-MariaDB is the correct package...
-dev-perl/DBD-mysql			 mysql
+## Support for mariadb in DBD-mysql isn't great, DBD-MariaDB is the correct package...
+#dev-perl/DBD-mysql			 mysql
+dev-perl/DBD-MariaDB			 mariadb
 
 app-alternatives/sh			-busybox bash
 
