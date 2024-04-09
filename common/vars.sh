@@ -287,7 +287,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#
 	# FIXME: Source these flags from package.use
 	#
-	use_essential_gcc="default-stack-clash-protection -default-znow -fortran graphite -jit nptl openmp pch -sanitize ssp -vtv zstd"
+	use_essential_gcc="default-stack-clash-protection -default-znow -fortran graphite -jit nptl openmp pch pie -sanitize ssp -vtv zstd"
 	export use_essential_gcc
 
 	case "$( uname -m )" in
