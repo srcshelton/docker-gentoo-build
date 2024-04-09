@@ -28,6 +28,8 @@ ARG gentoo_stage3_image_ref="docker.io/gentoo/stage3:latest"
 
 ARG stage3_flags_file="/usr/libexec/stage3_flags.sh"
 
+ARG new_root_name="split-usr-root"
+
 
 # -----------------------------------------------------------------------------
 
@@ -37,6 +39,9 @@ FROM "${gentoo_stage3_image_ref}" AS stage3
 
 ARG ARCH
 ARG stage3_flags_file
+
+ARG new_root_name
+
 
 # Save initial environment...
 #
@@ -85,6 +90,81 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
         mv "${pe}/USE-ignore" "${pe}/USE" || : ; \
     fi
 
+# Restore separate /lib* and /usr/lib* directories...
+#
+# ... despite the root-directory symlinks, /var/db/pkg/**/CONTENTS still record
+# files' intended filesystem locations.
+#
+RUN { set -o pipefail 2>/dev/null || true ; } ; \
+    : ; \
+    mkdir "/${new_root_name}" ; \
+    : ; \
+    tar -C / --sparse --one-file-system -cpf - $( \
+        find / -xdev -mindepth 1 -maxdepth 1 -type f -printf '%P\n' ; \
+        find / -xdev -mindepth 1 -maxdepth 1 -type d -not \( \
+            -name dev -or -name proc -or -name run -or -name sys -or \
+            -name "${new_root_name}" \
+        \) -printf '%P\n' ; \
+    ) | tar -C "/${new_root_name}" --sparse -xpf - ; \
+    for d in bin sbin; do \
+        if test -L "/${d}"; then \
+            mkdir "/${new_root_name}/${d}" ; \
+        fi ; \
+    done ; \
+    for ext in '' 32 x32 64; do \
+        if test -L "/lib${ext}"; then \
+            mkdir "/${new_root_name}/lib${ext}" ; \
+        fi ; \
+    done ; \
+    : ; \
+    grep -E 'obj /(s?bin/|lib)' /var/db/pkg/*/*/CONTENTS | \
+        awk '{ print $2 }' | \
+        while read -r f; do \
+            if [ -f "/${new_root_name}/usr${f}" ]; then \
+                mkdir -p "/${new_root_name}$( dirname "${f}" )" ; \
+                mv "/${new_root_name}/usr${f}" "/${new_root_name}${f}" ; \
+            else \
+                echo >&2 "WARN:  File '${f}' from CONTENTS does not exist" ; \
+            fi ; \
+        done ; \
+    grep -E 'sym /(s?bin/|lib)' /var/db/pkg/*/*/CONTENTS | \
+        awk '{ print $2, $4 }' | \
+        while read -r t f; do \
+            ln -s "${f}" "/${new_root_name}${t}" ; \
+        done ; \
+    : ; \
+    sed -e '/GREP/s|/usr/bin/grep|/bin/grep|' \
+        -i "/${new_root_name}/usr/sbin/zgrep" ; \
+    : ; \
+    touch "/${new_root_name}/etc/ld.so.conf.${new_root_name}" ; \
+    for ext in 64 x32 32 ''; do \
+        if test -d "/${new_root_name}/lib${ext}"; then \
+            echo "/lib${ext}" >> \
+                "/${new_root_name}/etc/ld.so.conf.${new_root_name}" ; \
+            echo "/usr/lib${ext}" >> \
+                "/${new_root_name}/etc/ld.so.conf.${new_root_name}" ; \
+            echo "/usr/local/lib${ext}" >> \
+                "/${new_root_name}/etc/ld.so.conf.${new_root_name}" ; \
+        fi ; \
+    done ; \
+    echo 'include ld.so.conf.d/*.conf' >> \
+        "/${new_root_name}/etc/ld.so.conf.${new_root_name}" ; \
+    mv "/${new_root_name}/etc/ld.so.conf.${new_root_name}" \
+        "/${new_root_name}/etc/ld.so.conf" ; \
+    : ; \
+    rm "/${new_root_name}/var/lock" "/${new_root_name}/var/run" ; \
+    mkdir -p "/${new_root_name}/dev" "/${new_root_name}/proc" \
+        "/${new_root_name}/sys" \
+        "/${new_root_name}/var/lock" "/${new_root_name}/var/run" ; \
+    : ; \
+    find /etc/ -xdev -depth -mindepth 1 -not \( \
+        -path /etc/hosts -or -path /etc/hostname -or -path /etc/resolv.conf \
+    \) -exec rm -rf {} + ; \
+    find / -xdev -mindepth 1 -maxdepth 1 -type d -not \( \
+        -name "${new_root_name}" -or -name dev -or -name proc -or -name run \
+        -or -name sys -or -name etc \
+    \) -exec rm -rf {} +
+
 
 # -----------------------------------------------------------------------------
 
@@ -97,11 +177,13 @@ ARG env_id
 ARG gentoo_stage3_image
 ARG gentoo_stage3_id
 
+ARG new_root_name
+
 
 LABEL environment-from="${env_name}:${env_id}"
 LABEL stage3-from="${gentoo_stage3_image}:${gentoo_stage3_id}"
 
-COPY --from=stage3 / /
+COPY --from=stage3 "/${new_root_name}" /
 
 # We can't use 'RUN [ -d ... ]' because this is interpreted as being
 # exec-form...

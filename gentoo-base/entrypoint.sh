@@ -184,7 +184,7 @@ get_stage3() {
 		# Remove USE flags which apply to multiple packages, but can only be
 		# present for one package per installation ROOT...
 		get_result="$( # <- Syntax
-			get_exclude='cpudetection|egrep-fgrep|ensurepip|fortran|hostname|installkernel|kill|pcre16|pcre32|pop3|qmanifest|qtegrity|smartcard|su|test-rust|tmpfiles'
+			get_exclude='cet|cpudetection|egrep-fgrep|ensurepip|fortran|hostname|installkernel|kill|pcre16|pcre32|pop3|qmanifest|qtegrity|smartcard|su|test-rust|tmpfiles|tofu'
 			echo "${get_result}" |
 				xargs -rn 1 |
 				grep -Ev "^(${get_exclude})$" |
@@ -317,6 +317,7 @@ resolve_python_flags() {
 do_emerge() {
 	emerge_arg=''
 	emerge_opts=''
+	#emerge_features=''
 	emerge_rc=0
 
 	[ "${#}" -gt 0 ] || return 1
@@ -397,10 +398,12 @@ do_emerge() {
 								set -- "${@}" \
 									--binpkg-changed-deps=y \
 									--oneshot
+								#emerge_features='-preserve-libs'
 								;;
 							'--single-defaults')
 								set -- "${@}" \
 									--binpkg-changed-deps=y
+								#emerge_features='-preserve-libs'
 								;;
 							'--chost-defaults')
 								# shellcheck disable=SC2086
@@ -438,11 +441,16 @@ do_emerge() {
 								;;
 							'--system-defaults')
 								set -- "${@}" \
-									--deep \
 									--rebuild-if-new-slot=y \
 									--rebuilt-binaries=y \
 									--update \
 									--usepkg=y
+
+									# --deep is causing USE='openmp' dependency
+									# resolution problems...
+									#
+									#--deep \
+									#
 									#--oneshot \
 									# Did '--emptytree' and '--update' ever
 									# made sense here?
@@ -473,6 +481,7 @@ do_emerge() {
 
 	print "Running \"emerge ${*}\"${USE:+" with USE='${USE}'"}" \
 		"${ROOT:+" with ROOT='${ROOT}'"}"
+	#FEATURES="${emerge_features:-}" \
 	emerge --ignore-default-opts --color=y "${@:-}" || emerge_rc="${?}"
 
 	if [ $(( emerge_rc )) -eq 0 ]; then
@@ -519,6 +528,26 @@ if set | grep -q -- '=__[A-Z]\+__$'; then
 	die "Unexpanded variable(s) in environment: $( # <- Syntax
 		set | grep -- '=__[A-Z]\+__$' | cut -d'=' -f 1 | xargs -r
 	)"
+fi
+
+if [ -f /etc/env.d/50baselayout ] && [ -s /etc/env.d/50baselayout ]; then
+	changed=0
+	if ! grep 'PATH.*[":]/sbin[":]' /etc/env.d/50baselayout; then
+		sed -e '/PATH/s|:/opt/bin"|:/sbin:/opt/bin"|' \
+			-i /etc/env.d/50baselayout
+		changed=1
+	fi
+	if ! grep 'PATH.*[":]/bin[":]' /etc/env.d/50baselayout; then
+		sed -e '/PATH/s|:/opt/bin"|:/bin:/opt/bin"|' \
+			-i /etc/env.d/50baselayout
+		changed=1
+	fi
+	if [ $(( changed )) -eq 1 ]; then
+		cp /etc/ld.so.conf /etc/ld.so.conf.saved
+		LC_ALL='C' env-update || :
+		mv /etc/ld.so.conf.saved /etc/ld.so.conf
+	fi
+	unset changed
 fi
 
 # shellcheck disable=SC1091
@@ -770,7 +799,7 @@ if printf ' %s ' "${*}" | grep -Fq -- ' --nodeps '; then
 	opts=''
 fi
 
-LC_ALL='C' eselect --colour=yes profile list
+LC_ALL='C' eselect --colour=yes profile list | grep 'stable'
 LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" # 2>/dev/null
 
 LC_ALL='C' emaint --fix binhost
@@ -792,14 +821,14 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 # To try to work around this, snapshot the current stage3 version...
 #quickpkg --include-config y --include-unmodified-config y sys-libs/zlib
 
-(
+( # <- Syntax
 	mkdir -p /var/lib/portage
 	echo 'virtual/libc' > /var/lib/portage/world
 
 	USE="-* $( get_stage3 --values-only USE ) -udev"
 	export USE
 	export FEATURES="${FEATURES:+"${FEATURES} "}-fakeroot"
-	list='virtual/dev-manager'
+	list='virtual/dev-manager virtual/tmpfiles'
 	if LC_ALL='C' portageq get_repos / | grep -Fq -- 'srcshelton'; then
 		list="${list:-} sys-apps/systemd-utils"
 	fi
@@ -857,13 +886,17 @@ fi
 echo
 echo " * Building 'sys-apps/fakeroot' package for stage3 ..."
 echo
-(
+( # <- Syntax
 	USE="-* $( get_stage3 --values-only USE )"
 	export USE
 	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean -fakeroot"
 	do_emerge --single-defaults sys-apps/fakeroot
 )
 export FEATURES="${FEATURES:+"${FEATURES} "}fakeroot"
+export FEATURES="${FEATURES} -preserve-libs"
+
+export QA_XLINK_ALLOWED='*'
+
 
 if ! [ -d "/usr/${CHOST}" ]; then
 	echo
@@ -944,7 +977,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	grep -l -- "${oldchost}" /etc/env.d/0*gcc* /etc/env.d/0*binutils* |
 		xargs -r rm
 	find /etc/env.d/ -name "*${oldchost}*" -delete
-	env-update || :
+	LC_ALL='C' env-update || :
 	binutils-config 1 2>/dev/null || :
 	gcc-config 1 2>/dev/null || :
 	# shellcheck disable=SC1091
@@ -1023,10 +1056,46 @@ echo " * Installing stage3 prerequisites to allow for flexible filesystem" \
 	"configurations ..."
 echo
 
-(
+( # <- Syntax
 	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
-	do_emerge --single-defaults dev-libs/libunistring dev-libs/libgpg-error \
-		app-crypt/libmd dev-libs/libbsd net-dns/libidn2 sys-libs/zlib
+	# shellcheck disable=SC2046
+	USE='gmp ssl' \
+	do_emerge --single-defaults dev-build/libtool sys-libs/pam $(
+		# sys-devel/gcc is a special case with a conditional gen_usr_ldscript
+		# call...
+		# N.B. Using 'grep -lm 1' and so having to read the whole file where
+		#      there is no match is about twice as fast as finding the
+		#      'inherit' line only and then checking for 'usr-ldscript' but
+		#      having to invoke 'sed', 'grep', and 'cut' (with a cold cache)
+		{
+			grep -lm 1 '^inherit[^#]\+usr-ldscript' \
+					"$( portageq vdb_path )"/*/*/*.ebuild |
+				rev |
+				cut -d'/' -f 3,4 |
+				rev
+			if LC_ALL='C' portageq get_repos / |
+					grep -Fq -- 'srcshelton'
+			then
+				grep -lm 1 '^inherit[^#]\+usr-ldscript' \
+						"$( portageq get_repo_path / srcshelton )"/*/*/*.ebuild |
+					rev |
+					cut -d'/' -f 2,3 |
+					rev
+			fi
+		} |
+			sort |
+			uniq |
+			grep -Fxv 'sys-devel/gcc' |
+			while read -r ebuild; do
+				for file in "$( portageq vdb_path )/${ebuild}"-*/CONTENTS; do
+					if [ -f "${file}" ]; then
+						grep -Eqm 1 -- '(sym|obj) /lib(x?32|64)' "${file}" ||
+							echo "${ebuild}"
+					fi
+				done
+			done
+	)
+	do_emerge --single-defaults '@preserved-rebuild'
 )
 
 echo
@@ -1036,7 +1105,7 @@ echo
 
 # Some packages require prepared kernel sources ...
 #
-(
+( # <- Syntax
 	USE="-* $( get_stage3 --values-only USE ) symlink"
 	# Since app-alternatives/* packages are now mandatory, the USE flags these
 	# packages rely upon must also be set in order to avoid REQUIRED_USE
@@ -1094,8 +1163,8 @@ do
 	(
 		USE="-* $( get_stage3 --values-only USE )"
 		# Add 'xml' to prevent an additional python install/rebuild for
-		#  sys-process/audit (which pulls-in dev-lang/python without USE='xml')
-		#  vs. dev-libs/libxml2 (which requires dev-lang/python[xml])
+		# sys-process/audit (which pulls-in dev-lang/python without USE='xml')
+		# vs. dev-libs/libxml2 (which requires dev-lang/python[xml])
 		#
 		# shellcheck disable=SC2154
 		USE="${USE} ${use_essential_gcc} xml"
@@ -1111,9 +1180,9 @@ do
 			dev-libs/libxml2)
 				USE="${USE} -lzma -python_targets_python3_10"
 				;;
-			sys-devel/gcc|app-crypt/libb2)
-				USE="${USE} openmp"
-				;;
+			#sys-devel/gcc|app-crypt/libb2)
+			#	USE="${USE} openmp"
+			#	;;
 			sys-libs/libcap)
 				USE="${USE} -tools"
 				;;
@@ -1200,7 +1269,9 @@ PATH="${PATH}:${ROOT}$( echo "${PATH}" | sed "s|:|:${ROOT}|g" )"
 export PATH
 
 if command -v env-update >/dev/null 2>&1; then
-	LC_ALL='C' env-update
+	cp /etc/ld.so.conf /etc/ld.so.conf.saved
+	LC_ALL='C' env-update || :
+	mv /etc/ld.so.conf.saved /etc/ld.so.conf
 fi
 file=''
 for file in /etc/profile "${ROOT}"/etc/profile; do
@@ -1215,7 +1286,7 @@ LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" 2>&1 |
 LC_ALL='C' emerge --check-news
 
 # It seems we never actually defined USE if not passed-in externally, and yet
-# somehow on amd64 gcc still gets 'nptl'.  An arm64, however, this doesn't
+# somehow on amd64 gcc still gets 'nptl'.  On arm64, however, this doesn't
 # happen and everything breaks :(
 #
 # Let's try to fix that...
@@ -1473,7 +1544,7 @@ echo
 echo ' * Building @system packages ...'
 echo
 
-(
+( # <- Syntax
 	#set -x
 
 	# sys-apps/shadow is needed for /sbin/nologin;
@@ -1546,22 +1617,42 @@ echo
 		echo
 		unset info
 
+		echo
+		echo " * Ensuring we have sys-apps/baselayout ..."
+		echo
 		[ ! -f "${ROOT%"/"}/var/lock" ] || rm "${ROOT%"/"}/var/lock"
-		do_emerge --system-defaults sys-apps/baselayout
+		DEBUG=1 do_emerge --system-defaults sys-apps/baselayout
 
 		# portage is tripping over sys-devel/gcc[openmp] :(
 		#
+		echo
+		echo " * Ensuring we have sys-devel/gcc ..."
+		echo
+		DEBUG=1 \
 		USE="${USE:+"${USE} "}openmp" \
 			do_emerge --system-defaults sys-devel/gcc
-		USE="${USE:+"${USE} "}openmp" \
-			do_emerge --rebuild-defaults sys-devel/gcc app-crypt/libb2
+		#echo
+		#echo " * Ensuring we have sys-devel/gcc & app-crypt/libb2 (for" \
+		#	"USE='openmp') ..."
+		#echo
+		#DEBUG=1 \
+		#USE="${USE:+"${USE} "}openmp" \
+		#	do_emerge --rebuild-defaults sys-devel/gcc app-crypt/libb2
 
 		# ... likewise sys-apps/net-tools[hostname] (for which the recommended
 		# fix is sys-apps/coreutils[hostname]?)
 		#
+		echo
+		echo " * Ensuring we have sys-apps/coreutils ..."
+		echo
+		DEBUG=1 \
 		USE="${USE:+"${USE} "}-hostname" \
 			do_emerge --system-defaults sys-apps/coreutils
 
+		echo
+		echo " * Ensuring we have sys-apps/net-tools ..."
+		echo
+		DEBUG=1 \
 		USE="${USE:+"${USE} "}hostname" \
 			do_emerge --system-defaults sys-apps/net-tools
 
@@ -1569,13 +1660,17 @@ echo
 		#
 		# -gmp blocks gnutls...
 		#
+		echo
+		echo " * Trying to avoid preserved libraries ..."
+		echo
 		# shellcheck disable=SC2086
-		USE="${USE:+"${USE} "}asm cxx -ensurepip -gdbm gmp -ncurses openssl -readline -sqlite -zstd" \
+		DEBUG=1 \
+		USE="${USE:+"${USE} "}asm cxx -ensurepip -gdbm gmp minimal -ncurses openssl -readline -sqlite -zstd" \
 			do_emerge --once-defaults \
-				dev-lang/perl \
-				dev-lang/python \
-				dev-libs/nettle \
 				net-libs/gnutls \
+				dev-libs/nettle \
+				dev-lang/python \
+				dev-lang/perl \
 				sys-libs/gdbm
 
 		root_use='' arm64_use=''
@@ -1590,20 +1685,48 @@ echo
 		# For some reason, portage is selecting dropbear to satisfy
 		# virtual/ssh?
 		#
+		#echo
+		#echo " * Ensuring we have sys-devel/gcc & app-crypt/libb2 built with" \
+		#	"the required USE-flags ..."
+		#echo
 		# shellcheck disable=SC2086
+		#DEBUG=1 \
+		#USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp ${arm64_use:+"${arm64_use} "}-nettle -nls openmp openssl" \
+		#	do_emerge \
+		#			--system-defaults \
+		#		sys-devel/gcc app-crypt/libb2
+		echo
+		echo " * Ensuring we have system packages ..."
+		echo
+		# shellcheck disable=SC2086
+		DEBUG=1 \
 		USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp ${arm64_use:+"${arm64_use} "}-nettle -nls openmp openssl" \
 			do_emerge \
 					--exclude='dev-libs/libtomcrypt' \
 					--exclude='net-misc/dropbear' \
 					--exclude='sys-apps/net-tools' \
 					--system-defaults \
-				${pkg_system} dev-libs/nettle net-libs/gnutls
+				${pkg_system} dev-libs/nettle net-libs/gnutls dev-lang/python \
+					dev-libs/libxml2 sys-devel/gettext
+				#${pkg_system} $( # <- Syntax
+				#	find "${ROOT%"/"}/var/db/pkg/" \
+				#			-mindepth 3 \
+				#			-maxdepth 3 \
+				#			-type f \
+				#			-name 'IUSE' \
+				#			-print0 |
+				#		xargs -r0 grep -Flw -- 'openmp' |
+				#		sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||' |
+				#		xargs -r
+				#) dev-libs/nettle net-libs/gnutls dev-lang/python \
+				#	dev-libs/libxml2 sys-devel/gettext
 		unset root_use
 
 		echo
 		echo " * Rebuilding any preserved dependencies ..."
 		echo
 		# We're hitting errors here that dev-libs/nettle[gmp] is required...
+		DEBUG=1 \
 		USE="${USE:+"${USE} "}asm -ensurepip -gdbm -ncurses openssl -readline -sqlite -zstd" \
 			do_emerge --preserved-defaults '@preserved-rebuild'
 	done  # for ROOT in $(...)
@@ -1740,6 +1863,9 @@ unset path
 # will break 'environment.sh' variable-passing below, and lead to difficult
 # to diagnose build failures!
 unset format_fn_code
+
+unset QA_XLINK_ALLOWED
+export FEATURES="${FEATURES% -preserve-libs}"
 
 # Save environment for later docker stages...
 printf "#FILTER: '%s'\n\n" \
@@ -2191,42 +2317,42 @@ case "${1:-}" in
 						# really don't want to leave this permanently disabled,
 						# so let's try bringing it back... ?
 						#
-						for root in $( echo '/' "${ROOT:-}" | xargs -n 1 | sort | uniq ); do
-							arm64_pkgs=''
-							# '>=dev-python/cython-3.0.6' is failing on arm64 :(
-							#
-							[ "${ARCH:-}" = 'arm64' ] && arm64_pkgs='>=dev-python/cython-3.0.6'
-
-							for pkg in \
-									${arm64_pkgs:-} \
-									sys-devel/gcc \
-									app-crypt/libb2 \
-									app-portage/portage-utils
-							do
-									ROOT="${root}" \
-									SYSROOT="${root}" \
-									USE="$( # <- Syntax
-										echo " ${USE} " |
-											sed -r \
-												-e 's/ python_targets_[^ ]+ / /g' \
-												-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
-												-e 's/^ // ; s/ $//'
-									#) -fortran graphite -jit -nls openmp -sanitize -ssp" \
-									) -fortran graphite -jit -nls openmp -sanitize" \
-									PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
-								do_emerge \
-											--rebuild-defaults \
-											--deep \
-										"${pkg}" ||
-									rc=${?}
-								if [ $(( rc )) -ne 0 ]; then
-									echo "ERROR: Stage 1a cleanup for root '${ROOT}': ${rc}"
-									break
-								fi
-							done  # pkg in ...
-							unset pkg
-						done  # root in $(...)
-						unset root
+						#for root in $( echo '/' "${ROOT:-}" | xargs -n 1 | sort | uniq ); do
+						#	arm64_pkgs=''
+						#	# '>=dev-python/cython-3.0.6' is failing on arm64 :(
+						#	#
+						#	[ "${ARCH:-}" = 'arm64' ] && arm64_pkgs='>=dev-python/cython-3.0.6'
+						#
+						#	for pkg in \
+						#			${arm64_pkgs:-} \
+						#			sys-devel/gcc \
+						#			app-crypt/libb2 \
+						#			app-portage/portage-utils
+						#	do
+						#			ROOT="${root}" \
+						#			SYSROOT="${root}" \
+						#			USE="$( # <- Syntax
+						#				echo " ${USE} " |
+						#					sed -r \
+						#						-e 's/ python_targets_[^ ]+ / /g' \
+						#						-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
+						#						-e 's/^ // ; s/ $//'
+						#			#) -fortran graphite -jit -nls openmp -sanitize -ssp" \
+						#			) -fortran graphite -jit -nls openmp -sanitize" \
+						#			PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
+						#		do_emerge \
+						#					--rebuild-defaults \
+						#					--deep \
+						#				"${pkg}" ||
+						#			rc=${?}
+						#		if [ $(( rc )) -ne 0 ]; then
+						#			echo "ERROR: Stage 1a cleanup for root '${ROOT}': ${rc}"
+						#			break
+						#		fi
+						#	done  # pkg in ...
+						#	unset pkg
+						#done  # root in $(...)
+						#unset root
 						# shellcheck disable=SC2015,SC2086
 							USE="$( # <- Syntax
 								echo " ${USE} " |
@@ -2310,20 +2436,15 @@ case "${1:-}" in
 						fi
 						print "pkgs: '${pkgs}'"
 
-						# At one point, we hit a problem with USE='ssp', but we
-						# really don't want to leave this permanently disabled,
-						# so let's try bringing it back... ?
-						#
-						#USE="${USE:+"${USE} "}-acl -cxx -fortran graphite -jit -ncurses -nls openmp -sanitize -ssp" \
-						USE="${USE:+"${USE} "}-acl -cxx -fortran graphite -jit -ncurses -nls openmp -sanitize" \
-							do_emerge --rebuild-defaults \
-									app-crypt/libb2 app-portage/portage-utils \
-									sys-devel/gcc sys-devel/gettext ||
-								rc=${?}
-						if [ $(( rc )) -ne 0 ]; then
-							echo "ERROR: Stage 2 pre-cleanup for root '${ROOT}': ${rc}"
-							break
-						fi
+						#USE="${USE:+"${USE} "}-acl -cxx -fortran graphite -jit -ncurses -nls openmp -sanitize" \
+						#	do_emerge --rebuild-defaults \
+						#			app-crypt/libb2 app-portage/portage-utils \
+						#			sys-devel/gcc sys-devel/gettext ||
+						#		rc=${?}
+						#if [ $(( rc )) -ne 0 ]; then
+						#	echo "ERROR: Stage 2 pre-cleanup for root '${ROOT}': ${rc}"
+						#	break
+						#fi
 
 						# shellcheck disable=SC2086
 						do_emerge --rebuild-defaults --update ${pkgs} ||
