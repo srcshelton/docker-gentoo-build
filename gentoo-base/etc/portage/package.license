@@ -20,6 +20,8 @@ app-alternatives/*			 CC0-1.0
 # System packages:
 #
 
+app-arch/xz-utils			 0BSD
+app-crypt/rhash				 0BSD
 dev-util/cargo-ebuild			 Apache-2.0-with-LLVM-exceptions Boost-1.0 MPL-2.0 Unicode-DFS-2016 Unlicense ZLIB
 app-containers/aardvark-dns		 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Unlicense ZLIB
 app-containers/netavark			 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boost-1.0 Unicode-DFS-2016 Unlicense ZLIB
@@ -27,6 +29,7 @@ app-containers/netavark			 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boo
 #app-arch/libarchive			 BSD-4 public-domain
 #sys-apps/util-linux			 BSD-4 public-domain
 app-arch/bzip2				 BZIP2
+app-crypt/mit-krb5			 CC-BY-SA-3.0 HPND openafs-krb5-a OPENLDAP RSA
 app-crypt/libb2				 CC0-1.0
 dev-python/certifi			 CC0-1.0 MPL-2.0
 net-misc/curl				 curl
@@ -83,6 +86,10 @@ app-vim/gentoo-syntax			 vim
 sys-libs/zlib				 ZLIB
 
 net-nds/openldap			 OPENLDAP
+
+# Gentoo stage3 image:
+#
+dev-lang/tcl				 Spencer-99
 
 # clang:
 #
