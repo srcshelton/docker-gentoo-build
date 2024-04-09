@@ -2300,15 +2300,17 @@ case "${1:-}" in
 							  ${flags:-} \
 						-- ${packages}
 				) || : $(( rc = rc + ${?} ))
-
-				if echo " ${packages} " |
-					grep -Eq -- '\s([<>]?=?sys-devel/)?gcc([-:][^\s]+)?\s'
-				then
-					gcc_exclude='--exclude=sys-devel/gcc'
-				fi
 			fi  # echo " ${flags:-} " | grep -q -- '\s--nodeps\s'
 
 			git_safedirectory_markall
+
+			if echo " ${packages} " |
+						grep -Eq -- '\s([<>]?=?sys-devel/)?gcc([-:][^\s]+)?\s' ||
+					echo " ${USE} " |
+						grep -q -- ' lib-only '
+			then
+				gcc_exclude='--exclude=sys-devel/gcc'
+			fi
 
 			echo
 			echo " * Building specified post-installation '${packages}'" \
@@ -2316,6 +2318,8 @@ case "${1:-}" in
 			echo
 			# shellcheck disable=SC2086
 			(
+				USE="$( echo " ${USE:-} " | sed 's/\slib-only\s/ /g' )"
+				export USE
 				do_emerge \
 						  ${parallel} \
 						  ${opts} \
@@ -2341,6 +2345,12 @@ case "${1:-}" in
 						xargs -r
 				)"
 				if [ -n "${gcc_pkgs:-}" ]; then
+					# FIXME: If we're building with '--nodeps' (to avoid
+					# unnecessary 'lib-only' dependencies) but we don't have a
+					# pre-exising binary package, then we need sys-devel/gcc
+					# BDEPEND packages to be present...
+					#
+					gcc_pkgs="${gcc_pkgs} app-portage/elt-patches sys-apps/texinfo sys-devel/flex sys-devel/m4"
 					echo
 					echo " * Building post-installation '${gcc_pkgs}'" \
 						"package(s) into installation root '${ROOT}' ..."
@@ -2359,6 +2369,13 @@ case "${1:-}" in
 								  ${flags:-} \
 							-- ${gcc_pkgs}
 					) || : $(( rc = rc + ${?} ))
+
+					do_emerge \
+							--depclean \
+							--verbose=y \
+							--with-bdeps=n \
+						-- app-portage/elt-patches sys-apps/texinfo \
+							sys-devel/flex sys-devel/m4
 				fi  # [ -n "${gcc_pkgs:-}" ]
 				unset gcc_pkgs
 			fi  # [ -n "${gcc_exclude:-}" ] && echo "${post_pkgs}" | grep -Fq -- 'gcc'
