@@ -108,7 +108,7 @@ for file in *."${ARCH}"; do
 	fi
 done
 
-for file in color.map package.accept_keywords/* package.mask/* profile/use.mask profile/package.use.mask savedconfig/*/*; do
+for file in color.map package.accept_keywords/* package.mask/* profile/use.mask profile/package.use.force profile/package.use.mask savedconfig/*/*; do
 	# Skip hidden files...
 	[[ "${file}" == "${file#"."}" ]] || continue
 

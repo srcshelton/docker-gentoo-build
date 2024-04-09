@@ -1,0 +1,5 @@
+
+# Re-enable profile-disabled USE flags...
+sys-devel/gcc -default-stack-clash-protection -default-znow -pie
+
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

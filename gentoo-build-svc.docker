@@ -36,7 +36,7 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 [[ ! -s common/vars.sh ]] || . common/vars.sh
 # shellcheck disable=SC2034 # Set from common/vars.sh
 [[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
-	echo >&2 "FATAL: Inclusion of common defaults failed"
+	echo >&2 'FATAL: Inclusion of common defaults failed'
 	exit 1
 }
 
@@ -94,6 +94,7 @@ services=(
 	unifi74
 	unifi75
 	unifi80
+	unifi81
 	vim
 	watchdog
 	xmrig
@@ -153,16 +154,16 @@ declare IMAGE="${build_name}:latest"
 
 usage() {
 	#output >&2 "Usage: $( basename "${0}" ) <service" \
-	#	"[<ports> <user> <group> <command> [directory [fs_name]]]|--services" \
-	#	"<service> [service...]> [--rebuild] [--force] [--force-keywords]" \
-	#	"[--debug]"
+	#	'[<ports> <user> <group> <command> [directory [fs_name]]]|--services' \
+	#	'<service> [service...]> [--rebuild] [--force] [--force-keywords]' \
+	#	'[--debug]'
 	output >&2 "Usage: $( basename "${0}" ) <service>" \
-		"[<ports> <user> <group> <command> [directory [fs_name]]]"
+		'[<ports> <user> <group> <command> [directory [fs_name]]]'
 	output >&2 "Usage: $( basename "${0}" ) --services" \
-		"<service> [service...] [--rebuild] [--force] [--force-keywords]" \
-		"[--debug]"
+		'<service> [service...] [--rebuild] [--force] [--force-keywords]' \
+		'[--debug]'
 	output >&2
-	output >&2 "Known services:"
+	output >&2 'Known services:'
 	s=''
 	for s in "${services[@]:-}"; do
 		output >&2 "  ${s}"
@@ -170,9 +171,9 @@ usage() {
 	unset s
 
 	output >&2
-	output >&2 "  tools"
-	output >&2 "  installed"
-	output >&2 "  all"
+	output >&2 '  tools'
+	output >&2 '  installed'
+	output >&2 '  all'
 	output >&2
 } # usage
 
@@ -336,21 +337,21 @@ if (( service_list )); then
 		fi
 	done
 	unset arg
-	(( rc )) && die "Unable to process service list"
+	(( rc )) && die 'Unable to process service list'
 
 	# This logic isn't great - if we're given a (reduced) service list, then we
 	# replace the master list of services with the specified set but then still
 	# process what we believe to be all services (as a result) with the 'all'
 	# logic :|
 	#
-	IFS=" " read -r -a services <<<"${list:-}"
+	IFS=' ' read -r -a services <<<"${list:-}"
 	service=''
 	all=1
 else
 	# 'ports' pattern is '([1-9][0-9]{0-4}(/(tc|ud)p)?) +'
 	if grep -q -- '[^0-9,/tcpud]' <<<"${ports}"; then
 		output >&2 "FATAL: Illegal value '${ports}' for 'ports' argument of" \
-			"component-based assembly"
+			'component-based assembly'
 		output >&2
 		usage
 		exit 1
@@ -522,6 +523,8 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-7.5*' ;;
 	unifi80|unifi-controller80|unifi-controller-80|unifi-controller-bin80|unifi-controller-bin-80)
 		service='=net-misc/unifi-controller-bin-8.0*' ;;
+	unifi81|unifi-controller81|unifi-controller-81|unifi-controller-bin81|unifi-controller-bin-81)
+		service='=net-misc/unifi-controller-bin-8.1*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
@@ -546,7 +549,7 @@ case "${service:-}" in
 		service="net-misc/zxtm-init-scripts-${zxtm_service_version/[Rr]/-r}"
 		;;
 	'')
-		die "No service name or description provided" ;;
+		die 'No service name or description provided' ;;
 	*)
 		info "Building manually-specified service '${service}'" ;;
 esac
@@ -610,7 +613,7 @@ fi
 #
 # from common/vars.sh:
 #use_essential="asm ipv6 ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
-#use_essential_gcc="-default-stack-clash-protection -default-znow -fortran graphite -jit nptl openmp pch -sanitize ssp -vtv zstd"
+#use_essential_gcc='-default-stack-clash-protection -default-znow -fortran graphite -jit nptl openmp pch -sanitize ssp -vtv zstd'
 
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
@@ -723,7 +726,7 @@ case "${package_name}" in
 		etcdir='dovecot'
 		;;
 	*.eix)
-		output "Setting build variables for non-native tools ..."
+		output 'Setting build variables for non-native tools ...'
 		force_python="${python_target}"
 		pre_use="-* build minimal python_single_target_${python_target} python_targets_${python_target} symlink xml"
 		pre_pkgs='dev-lang/python dev-lang/python-exec sys-devel/gcc virtual/linux-sources'
@@ -894,7 +897,7 @@ case "${package_name}" in
 				pre_remove='app-arch/libarchive dev-libs/openssl' # net-misc/wget'
 				pre_use='-openssl libressl'
 				force_python="${python_target}"
-				pre_pkgs="dev-lang/python dev-libs/libressl dev-util/pkgconf sys-devel/gcc virtual/pkgconfig @system @world"
+				pre_pkgs='dev-lang/python dev-libs/libressl dev-util/pkgconf sys-devel/gcc virtual/pkgconfig @system @world'
 				with_use='-openssl libressl'
 				;;
 			*)
@@ -1214,18 +1217,18 @@ case "${package_name}" in
 				;;
 			#7.5.*)
 			*)
-				pre_pkgs='dev-java/openjdk-bin:17 sys-devel/gcc'
+				pre_pkgs='dev-java/openjdk-bin:17 dev-java/openjdk:17 sys-devel/gcc'
 				extra_pkgs='dev-java/openjdk:17'
 				;;
 		esac
 
 		case "${service:-}" in
 			*unifi-controller-bin-6.*|*unifi-controller-bin-7.[01234]*)
-				warn "This build will fail with a python exception if any new package"
-				warn "has to be built from source. So long as all necessary packages"
-				warn "are available for installation as binaries (which should be the"
-				warn "case for subsequent builds without other changes) then the"
-				warn "process should succeed."
+				warn 'This build will fail with a python exception if any new package'
+				warn 'has to be built from source. So long as all necessary packages'
+				warn 'are available for installation as binaries (which should be the'
+				warn 'case for subsequent builds without other changes) then the'
+				warn 'process should succeed.'
 				output
 				#EMERGE_OPTS='--single --swap'  # Merge packages one at a time, for debug purposes
 
@@ -1514,18 +1517,18 @@ then
 	)"
 fi
 
-print "Final USE-flags:"
+print 'Final USE-flags:'
 print "pre_use: ${pre_use:-"<none>"}"
 print "with_use: ${with_use:-"<none>"}"
 print "post_use: ${post_use:-"<none>"}"
 print
-print "Final packages:"
+print 'Final packages:'
 print "pre_pkgs: ${pre_pkgs:-"<none>"}"
 print "extra_pkgs: ${extra_pkgs:-"<none>"}"
 print "post_pkgs: ${post_pkgs:-"<none>"}"
 
 if [ -z "${container_cmd:-}" ]; then
-	die "No container command provided"
+	die 'No container command provided'
 elif [ "${container_cmd}" = 'podman' ]; then
 	die "Invalid container command '${container_cmd}'"
 fi
@@ -1604,12 +1607,12 @@ if \
 				"/etc/portage/package.unmask/${package_name#*"."}"
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
-				"%base%/etc/portage/package.unmask.svc/package.unmask" \
-				"/etc/portage/package.unmask/package.unmask.service"
+				'%base%/etc/portage/package.unmask.svc/package.unmask' \
+				'/etc/portage/package.unmask/package.unmask.service'
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
-				"%base%/etc/portage/package.unmask.svc" \
-				"/etc/portage/package.unmask/package.unmask.service"
+				'%base%/etc/portage/package.unmask.svc' \
+				'/etc/portage/package.unmask/package.unmask.service'
 			) )
 then
 	note "No 'package.unmask' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc/'"
@@ -1620,11 +1623,11 @@ fi
 	) ) || :
 # Error: OCI runtime error: crun: open `/mnt/podman-storage/btrfs/subvolumes/ddc60a734ca210eb4ecc5f20e488b6d0e37064d3368ba80744cab07ef97b7bbd/etc/portage/package.unmask/package.unmask`: Not a directory
 docker_extra_mounts+=( $( add_mount --print \
-		"%base%/etc/portage/package.unmask" \
-		".../package.unmask"
+		'%base%/etc/portage/package.unmask' \
+		'.../package.unmask'
 	) ) || :
 #docker_extra_mounts+=( $( add_mount --print \
-#		"%base%/etc/portage/package.unmask"
+#		'%base%/etc/portage/package.unmask'
 #	) ) || :
 
 # package.mask.svc
@@ -1642,11 +1645,11 @@ if \
 				"/etc/portage/package.mask/${package_mask_svc_name}"
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
-				"%base%/etc/portage/package.mask.svc/package.mask" \
-				"/etc/portage/package.mask/package.mask.svc"
+				'%base%/etc/portage/package.mask.svc/package.mask' \
+				'/etc/portage/package.mask/package.mask.svc'
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
-				"%base%/etc/portage/package.mask.svc"
+				'%base%/etc/portage/package.mask.svc'
 			) )
 then
 	note "No 'package.mask' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/'"
@@ -1659,12 +1662,12 @@ if \
 				"%base%/etc/portage/package.mask/${package_name#*"."}"
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
-				"%base%/etc/portage/package.mask/package.mask" \
-				"/etc/portage/package.mask/package.mask.base"
+				'%base%/etc/portage/package.mask/package.mask' \
+				'/etc/portage/package.mask/package.mask.base'
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
-				"%base%/etc/portage/package.mask" \
-				".../package.mask.base"
+				'%base%/etc/portage/package.mask' \
+				'.../package.mask.base'
 			) )
 then
 	note "No 'package.mask' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/'"
@@ -1689,8 +1692,8 @@ fi
 # package.use alternatives
 #
 docker_extra_mounts+=( $( add_mount --print \
-		"%base%/etc/portage/package.use.svc/alternatives" \
-		"/etc/portage/package.use.override/alternatives"
+		'%base%/etc/portage/package.use.svc/alternatives' \
+		'/etc/portage/package.use.override/alternatives'
 	) ) || :
 
 # package.use.svc
@@ -1724,9 +1727,14 @@ else
 			'%base%/etc/portage/profile/use.mask'
 		) ) || :
 fi
-docker_extra_mounts+=( $( add_mount --print \
-		"%base%/etc/portage/profile/package.use.mask"
-	) ) || :
+docker_extra_mounts+=( # <- Syntax
+		$( add_mount --print \
+			'%base%/etc/portage/profile/package.use.force'
+		)
+		$( add_mount --print \
+			'%base%/etc/portage/profile/package.use.mask'
+		)
+	) || :
 
 export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 unset docker_extra_mounts
@@ -1786,7 +1794,7 @@ else
 		unset additional_args
 	fi
 
-			ROOT="/service" \
+			ROOT='/service' \
 			name="${container_prefix}-${container_name}" \
 			image="${IMAGE}" \
 	_docker_run "${args[@]}" 2>&1 |

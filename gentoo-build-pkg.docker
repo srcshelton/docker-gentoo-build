@@ -19,7 +19,7 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 [ ! -s common/vars.sh ] || . common/vars.sh
 # shellcheck disable=SC2034 # Set from common/vars.sh
 [[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
-	echo >&2 "FATAL: Inclusion of common defaults failed"
+	echo >&2 'FATAL: Inclusion of common defaults failed'
 	exit 1
 }
 
@@ -121,6 +121,7 @@ docker_extra_mounts+=(
 	$( add_mount --dir --print '/etc/portage/package.accept_keywords' )
 	$( add_mount --print '/etc/portage/package.license' )
 	$( add_mount --print '/etc/portage/profile/use.mask' )
+	$( add_mount --print '/etc/portage/profile/package.use.force' )
 	$( add_mount --print '/etc/portage/profile/package.use.mask' )
 ) || :
 
@@ -237,7 +238,7 @@ fi # [ -d /etc/portage/package.use ]
 #docker_extra_mounts+=( $( add_mount --print \
 #		'/usr/src/linux/.config'
 #	) ) || :
-#KBUILD_OUTPUT="/usr/src/linux"
+#KBUILD_OUTPUT='/usr/src/linux'
 #export KBUILD_OUTPUT
 
 export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
@@ -252,7 +253,7 @@ unset docker_extra_mounts
 #	set -- "${@}" --with-use="${USE}"
 #fi
 
-#note >&2 "Adding circular-dependency fixes ..."
+#note >&2 'Adding circular-dependency fixes ...'
 #if echo "${*}" | grep -q -- 'app-arch/libarchive'; then
 #	pkg="${pkg:+"${pkg} "}$( echo " ${*} " | sed -r 's|^.*\s([^[:space:]]*app-arch/libarchive[^[:space:]]*)\s.*$|\1|' )"
 #else

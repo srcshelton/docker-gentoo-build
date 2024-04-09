@@ -24,7 +24,7 @@ for script in \
 	gentoo-init
 do
 	if ! [ -x "${script}.docker" ]; then
-		echo >&2 "FATAL: Cannot locate container build tools"
+		echo >&2 'FATAL: Cannot locate container build tools'
 		exit 1
 	fi
 done
@@ -63,7 +63,7 @@ case " ${*:-} " in
 		if [ -d "${basedir}/docker-dell" ]; then
 			printf >&2 '[--rebuild-utilities] '
 		fi
-		echo >&2 "[--rebuild-images [--skip-build] [--no-tools] [--force] [--all]] [--init-pkg-cache] [--update-pkgs] [--update-system [--pretend]]"
+		echo >&2 '[--rebuild-images [--skip-build] [--no-tools] [--force] [--all]] [--init-pkg-cache] [--update-pkgs] [--update-system [--pretend]]'
 		echo >&2
 		echo >&2 "       kernel build options: kbuild_opt='${kbuild_opt}'"
 		exit 0
@@ -160,7 +160,7 @@ export TRACE="${CTRACE:-}" # Optinally enable child tracing
 if [ "${rebuildutils:-"0"}" = '1' ]; then
 	if ! [ -d "${basedir}/docker-dell" ]; then
 		if [ $(( haveargs )) -ne 0 ]; then
-			echo >&2 "FATAL: docker-dell tools not found on this system"
+			echo >&2 'FATAL: docker-dell tools not found on this system'
 			exit 1
 		fi
 	else
@@ -448,7 +448,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 			fi
 
 			if [ "${ARCH}" = 'arm64' ]; then
-				USE="gold"
+				USE='gold'
 			fi
 			if ! USE="-* ${alt_use} ${USE} python_targets_${python_default_target:-"python3_11"} pam tools" \
 				./gentoo-build-pkg.docker 2>&1 \
@@ -495,7 +495,7 @@ if [ "${update:-"0"}" = '1' ]; then
 	# lead to output being delayed indefinitely for long-running builds :(
 
 	# shellcheck disable=SC2046
-	#USE="-natspec pkg-config" \
+	#USE='-natspec pkg-config' \
 	#stdbuf -o0 "./gentoo-build-pkg.docker \
 	#		--buildpkg=y \
 	#		--emptytree \
@@ -590,7 +590,7 @@ if [ "${update:-"0"}" = '1' ]; then
 	trap - INT
 
 	if [ $(( rc )) -eq 0 ]; then
-		gcc_use="-* lib-only nptl openmp"
+		gcc_use='-* lib-only nptl openmp'
 		# ... and look for "host" gcc USE-flags in host.use only (or use defaults)
 		# FIXME: What about package.use.local?
 		if [ -s /etc/portage/package.use/host.use ]; then
@@ -635,10 +635,10 @@ fi
 
 if [ "${system:-"0"}" = '1' ]; then
 	if [ $(( pretend )) -ne 0 ]; then
-		echo >&2 "Checking for updated packages ..."
+		echo >&2 'Checking for updated packages ...'
 		pretend='--pretend'
 	else
-		echo >&2 "Installing updated packages ..."
+		echo >&2 'Installing updated packages ...'
 		pretend=''
 	fi
 

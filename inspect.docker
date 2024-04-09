@@ -23,7 +23,7 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 [ ! -s common/vars.sh ] || . common/vars.sh
 # shellcheck disable=SC2034 # Set from common/vars.sh
 [[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
-	echo >&2 "FATAL: Inclusion of common defaults failed"
+	echo >&2 'FATAL: Inclusion of common defaults failed'
 	exit 1
 }
 
@@ -50,9 +50,9 @@ declare IMAGE="${build_name}:latest"
 if [ -n "${*:-}" ]; then
 	if echo " ${*} " | grep -Eq -- ' -(h|-help) '; then
 		output >&2 "Usage: $( basename "${0}" ) [--image=<image>]" \
-			"[--name=<name>] [--remove] [--mount=<...>]" \
-			"[--memory-reservation=<size>] [--memory-limit=<size>]" \
-			"[--swap-limit=<size>] [--device=<...>] [commands]"
+			'[--name=<name>] [--remove] [--mount=<...>]' \
+			'[--memory-reservation=<size>] [--memory-limit=<size>]' \
+			'[--swap-limit=<size>] [--device=<...>] [commands]'
 		exit 0
 	fi
 fi
@@ -273,6 +273,7 @@ docker_run() {
 		mountpointsro["${mask_file}"]='/etc/portage/profile/use.mask'
 	fi
 	unset mask_file
+	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.mask"]='/etc/portage/profile/package.use.force'
 	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.mask"]='/etc/portage/profile/package.use.mask'
 	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.license"]='/etc/portage/package.license'
 	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.use.build"]='/etc/portage/package.use'
@@ -565,7 +566,7 @@ main() {
 				output >&2 "INFO:  Host resources (rounded down to nearest 1${unit^^}iB):"
 				output >&2 "         RAM:        ${ram}${unit^^}"
 				output >&2 "         Swap:       ${swp}${unit^^}"
-				output >&2 "INFO:  Original memory limits:"
+				output >&2 'INFO:  Original memory limits:'
 				# shellcheck disable=SC2295
 				output >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%[${unit,,}${unit^^}]}${unit^^}"
 				# shellcheck disable=SC2295
@@ -600,7 +601,7 @@ main() {
 				changed=1
 			fi
 			if (( changed )); then
-				output >&2 "NOTE:  Changed memory limits based on host configuration:"
+				output >&2 'NOTE:  Changed memory limits based on host configuration:'
 				# shellcheck disable=SC2295
 				output >&2 "         Soft limit: ${PODMAN_MEMORY_RESERVATION%[${unit,,}${unit^^}]}${unit^^}"
 				# shellcheck disable=SC2295

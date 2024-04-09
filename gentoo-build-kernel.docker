@@ -21,7 +21,7 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 [ ! -s common/vars.sh ] || . common/vars.sh
 # shellcheck disable=SC2034 # Set from common/vars.sh
 [[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
-	echo >&2 "FATAL: Inclusion of common defaults failed"
+	echo >&2 'FATAL: Inclusion of common defaults failed'
 	exit 1
 }
 
@@ -42,7 +42,7 @@ readonly package_default
 
 declare binutils_min_ver='2.25.0'
 declare gcc_min_ver='5.1.0'  # 12.0.0 on PA-RISC
-declare llvm_min_ver='11.0.0'  # 15.0.0 on S390
+declare llvm_min_ver='11.0.0'  # 15.0.0 on S390, 18.0.0 on loongarch
 
 declare firmware=''
 declare microcode=''
@@ -52,7 +52,7 @@ if grep 'vendor_id' /proc/cpuinfo | awk '{ print $3 }' | grep -iqm 1 'intel'; th
 	microcode_blob='intel'
 elif grep 'vendor_id' /proc/cpuinfo | awk '{ print $3 }' | grep -iqm 1 'amd'; then
 	firmware='sys-kernel/linux-firmware'
-	case "$( grep -Fm 1 "cpu family" /proc/cpuinfo | cut -d':' -f 2- | awk '{ print $1 }' )" in
+	case "$( grep -Fm 1 'cpu family' /proc/cpuinfo | cut -d':' -f 2- | awk '{ print $1 }' )" in
 		16|17|18|20)
 			microcode_blob='amd-ucode/microcode_amd.bin'
 			;;
@@ -98,55 +98,55 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	usage="Usage: $( basename "${0}" ) "
 	# shellcheck disable=SC2116 # echo used for line-splitting
 	options="$( echo \
-		"[--config-from=<file> [--force]]|[--defconfig=<target>]" \
-		"[--no-keep-build|--keep-build[=<dir>]]" \
-		"[--no-patch|--patch=<path|url> [<path|url> ...]]" \
-		"[--menuconfig|--nconfig]" \
-		"[--package=<atom>] [--no-firmware|--firmware] [--clean]" \
-		"[--clang [--clean-lto] [--llvm-unwind] [--rust]] [-O3]" \
-		"[--debug] [--force-llvm=<version>]"
+		'[--config-from=<file> [--force]]|[--defconfig=<target>]' \
+		'[--no-keep-build|--keep-build[=<dir>]]' \
+		'[--no-patch|--patch=<path|url> [<path|url> ...]]' \
+		'[--menuconfig|--nconfig]' \
+		'[--package=<atom>] [--no-firmware|--firmware] [--clean]' \
+		'[--clang [--clean-lto] [--llvm-unwind] [--rust]] [-O3]' \
+		'[--debug] [--force-llvm=<version>]'
 	)"
 	output "${usage}${options}" | fold -sw ${COLUMNS:-"80"} - | head -n 1 >&2
 	output "${options}" | fold -sw $(( ${COLUMNS:-"80"} - ${#usage} )) - | sed "s|^|${usage//?/ }|" | tail -n +2 >&2
 	output >&2
-	output >&2 "Options:"
-	output >&2 "       --config-from <file>     Use specified file as kernel base configuration"
-	output >&2 "                               (specify config.gz or /proc/config.gz to"
-	output >&2 "                                auto-extract the active kernel configuration)"
-	output >&2 "                                N.B. To keep the resultant configuration, use"
+	output >&2 'Options:'
+	output >&2 '       --config-from <file>     Use specified file as kernel base configuration'
+	output >&2 '                               (specify config.gz or /proc/config.gz to'
+	output >&2 '                                auto-extract the active kernel configuration)'
+	output >&2 '                                N.B. To keep the resultant configuration, use'
 	output >&2 "                                     the '--keep-build' option to save the"
-	output >&2 "                                     build output"
+	output >&2 '                                     build output'
 	output >&2 "       --defconfig <target>     preconfigure with specified 'make' target"
 	# Turns out this was never implemented!?
 	#output >&2 "       --target <target>        configure with specified 'make' target"
-	output >&2 "       --keep-build [dir]       Cache the kernel build artefacts for re-use"
-	output >&2 "                               (optionally in the specified directory)"
-	output >&2 "       --force                  Overwrite build-cache configuration with"
-	output >&2 "                                the specified file"
-	output >&2 "       --patch <url>            Apply patch (-p1) from specified file or URL"
-	output >&2 "       --menuconfig             Interactively reconfigure the kernel via ncurses"
-	output >&2 "       --nconfig                Interactively reconfigure the kernel via nconfig"
-	output >&2 "       --package <package>      Specify kernel package to build"
+	output >&2 '       --keep-build [dir]       Cache the kernel build artefacts for re-use'
+	output >&2 '                               (optionally in the specified directory)'
+	output >&2 '       --force                  Overwrite build-cache configuration with'
+	output >&2 '                                the specified file'
+	output >&2 '       --patch <url>            Apply patch (-p1) from specified file or URL'
+	output >&2 '       --menuconfig             Interactively reconfigure the kernel via ncurses'
+	output >&2 '       --nconfig                Interactively reconfigure the kernel via nconfig'
+	output >&2 '       --package <package>      Specify kernel package to build'
 	output >&2 "                               (default: '${package_default}')"
 	output >&2 "       --firmware               Include 'sys-kernel/linux-firmware'"
 	output >&2 "       -O3                      Add 'KCFLAGS=-O3' (and others - see [1])"
-	output >&2 "       --clang                  Compile kernel with llvm"
-	output >&2 "         --llvm-unwind          Install LLVM edition of libunwind"
+	output >&2 '       --clang                  Compile kernel with llvm'
+	output >&2 '         --llvm-unwind          Install LLVM edition of libunwind'
 	output >&2 "         --rust                 Pull-in 'rust' dependencies"
-	output >&2 "         --force-llvm <version> Force a specified LLVM version"
-	output >&2 "         --clean-lto            Remove exisitng *.lto.o objects"
+	output >&2 '         --force-llvm <version> Force a specified LLVM version'
+	output >&2 '         --clean-lto            Remove exisitng *.lto.o objects'
 	output >&2
 	output >&2 "       --clean                  Run 'make clean' before build"
 	output >&2
-	output >&2 "       --debug                  Allocate more memory to build-container"
+	output >&2 '       --debug                  Allocate more memory to build-container'
 	output >&2
 	output >&2 "       --no-install             Don't install build-products to /boot"
-	output >&2 "       --bundle                 Generate tar output in /usr/src rather than"
-	output >&2 "                                installing the new kernel (implies --no-install)"
+	output >&2 '       --bundle                 Generate tar output in /usr/src rather than'
+	output >&2 '                                installing the new kernel (implies --no-install)'
 	output >&2
 	output >&2 "Running on architecture '${arch:-"${ARCH:-}"}'"
 	output >&2
-	output >&2 "[1]: https://github.com/clearlinux-pkgs/linux/blob/main/0133-novector.patch"
+	output >&2 '[1]: https://github.com/clearlinux-pkgs/linux/blob/main/0133-novector.patch'
 	output >&2
 	exit 0
 fi
@@ -243,7 +243,7 @@ else
 		[[ -n "${menuconfig:-}" || -n "${nconfig:-}" ]] &&
 			! grep -Fq -- ' --keep-build ' <<<" ${*:-} "
 	then
-		warn "Changes made to configuration will not be saved externally"
+		warn 'Changes made to configuration will not be saved externally'
 	fi
 fi
 
@@ -454,7 +454,7 @@ fi
 _docker_resolve "${package_override:-"${package_default}"}"
 if ! echo "${package}" | grep -Fq -- '/'; then
 	error "Resolved package '${package}' with version '${package_version}' lacks a category"
-	die "Essential package data not found - aborting"
+	die 'Essential package data not found - aborting'
 fi
 print "Using package '=${package}' ..."
 # shellcheck disable=SC2001 # POSIX sh compatibility
@@ -576,14 +576,14 @@ if [[ "${compiler}" == 'clang' ]]; then
 	declare llvm_sub_slot=''
 
 	(( llvm_min_slot = $( cut -d'.' -f 1 <<<"${llvm_min_ver}" ) ))
+	(( llvm_default_slot = llvm_min_slot ))
 
 	case "${package_version}" in
 		[12345].*|6.0.*)
 			if (( rust )); then
-				warn "Disabling dev-lang/rust support prior to kernel 6.1.x"
+				warn 'Disabling dev-lang/rust support prior to kernel 6.1.x'
 				rust=0
 			fi
-			(( llvm_default_slot = llvm_min_slot ))
 			;;
 		6.[1234].*)
 			rust_ver='1.62.0'
@@ -600,6 +600,11 @@ if [[ "${compiler}" == 'clang' ]]; then
 			;;
 		6.7.*)
 			rust_ver='1.73.0'
+			bindgen_ver='0.65.1'
+			(( llvm_default_slot = 17 ))
+			;;
+		6.8.*)
+			rust_ver='1.74.1'
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 17 ))
 			;;
@@ -704,7 +709,7 @@ if [[ -n "${config_file:-}" ]]; then
 			[[ "${config_file}" = 'config.gz' ]] ||
 			[[ "${config_file}" = '/proc/config.gz' ]]
 		then
-			note >&2 "Attempting to use current kernel configuration ..."
+			note >&2 'Attempting to use current kernel configuration ...'
 			if ! lsmod | grep -qw -- '^configs'; then
 				warn "Attempting to load 'configs' module..."
 				modprobe configs || :
@@ -770,7 +775,7 @@ if (( opt_o3 )); then
 	declare add_flags='-O3 -mno-avx2 -fno-tree-vectorize'
 	if [[ -e /proc/cpuinfo && -r /proc/cpuinfo ]]; then
 		if grep -Fq 'sse4_2' /proc/cpuinfo; then
-			add_flags+=" -mpopcnt"
+			add_flags+=' -mpopcnt'
 		fi
 	fi
 	case "${compiler}" in
@@ -778,13 +783,13 @@ if (( opt_o3 )); then
 			(( llvm_slot )) || die "'llvm_slot' is required for clang builds"
 
 			if (( 14 == llvm_slot )); then
-				add_flags+=" --rtlib=compiler-rt"
-				add_flags+=" --unwindlib=libunwind"
-				add_flags+=" --stdlib=libc++"
-				add_flags+=" -fuse-ld=lld"
-				add_flags+=" -fstack-clash-protection"
-				add_flags+=" -fstack-protector-strong"
-				add_flags+=" -fPIE"
+				add_flags+=' --rtlib=compiler-rt'
+				add_flags+=' --unwindlib=libunwind'
+				add_flags+=' --stdlib=libc++'
+				add_flags+=' -fuse-ld=lld'
+				add_flags+=' -fstack-clash-protection'
+				add_flags+=' -fstack-protector-strong'
+				add_flags+=' -fPIE'
 			fi
 			;;
 	esac
@@ -914,7 +919,7 @@ case "${unwind:-}" in
 			sys-libs/llvm-libunwind
 		)
 		compiler_USE="$( replace_flags 'llvm-libunwind' -- "${compiler_USE:-}" )"
-		#pre_remove="sys-libs/libunwind"
+		#pre_remove='sys-libs/libunwind'
 		#pre_use="$( replace_flags '-default-compiler-rt' '-default-libcxx' '-default-lld' '-llvm-libunwind' -- "${pre_use:-}" )"
 		#pre_pkgs="$( pkgslot sys-libs/llvm-libunwind "${llvm_slot}" )"
 		;;
@@ -1051,6 +1056,7 @@ esac
 	#      to use both.
 	#
 	docker_extra_mounts+=(
+		$( add_mount --print '/etc/portage/profile/package.use.force' )
 		$( add_mount --print '/etc/portage/profile/package.use.mask' )
 		$( add_mount --print '/etc/portage/profile/use.mask' )
 	) || :
@@ -1125,7 +1131,7 @@ esac
 		)" != '2' ]]
 	then
 		(
-			ACCEPT_LICENSE="linux-fw-redistributable no-source-code"
+			ACCEPT_LICENSE='linux-fw-redistributable no-source-code'
 			declare -a use=()
 			if [[ -n "${firmware:-}" ]]; then
 				use=( 'firmware' )
@@ -1223,15 +1229,15 @@ esac
 				# FIXME: add_arg() seems to be inserting unexpected newlines,
 				# possibly only for ${post_use}?
 				#
-				#$( add_arg pre_remove "--pre-remove=##" )
-				#$( add_arg pre_pkgs "--pre-pkgs=##" )
-				#$( add_arg pre_use "--pre-use=##" )
-				#$( add_arg openmp "--post-pkgs=sys-devel/gcc" )
-				#$( add_arg post_use "--post-use=##" )
+				#$( add_arg pre_remove '--pre-remove=##' )
+				#$( add_arg pre_pkgs '--pre-pkgs=##' )
+				#$( add_arg pre_use '--pre-use=##' )
+				#$( add_arg openmp '--post-pkgs=sys-devel/gcc' )
+				#$( add_arg post_use '--post-use=##' )
 				${pre_remove:+"--pre-remove=${pre_remove}"}
 				${pre_pkgs:+"--pre-pkgs=${pre_pkgs}"}
 				${pre_use:+"--pre-use=${pre_use}"}
-				$( add_arg openmp "--post-pkgs=sys-devel/gcc" )
+				$( add_arg openmp '--post-pkgs=sys-devel/gcc' )
 				${post_use:+"--post-use=${post_use}"}
 			)
 
@@ -1319,7 +1325,7 @@ esac
 		) ) || :
 		if ! [[ -d "${build_dir}" ]]; then
 			warn "Build cache directory '${build_dir}' doesn't exist -" \
-				"creating ..."
+				'creating ...'
 			mkdir -p "${build_dir}" ||
 				die "mkdir() on '${build_dir}' failed: ${?}"
 		fi
@@ -1334,7 +1340,7 @@ esac
 		) ) || :
 		if ! [[ -d "${bundle_dir}" ]]; then
 			warn "Bundle output directory '${bundle_dir}' doesn't exist -" \
-				"creating ..."
+				'creating ...'
 			mkdir -p "${bundle_dir}" ||
 				die "mkdir() on '${bundle_dir}' failed: ${?}"
 		fi
@@ -1363,7 +1369,7 @@ esac
 			rc=1
 		fi
 	else
-		error "Cannot determine graph root directory from" \
+		error 'Cannot determine graph root directory from' \
 			"'/etc/containers/storage.conf'" || :
 	fi
 	if [[ -n "${TMPDIR:-}" ]]; then
@@ -1372,7 +1378,7 @@ esac
 				"doesn't exist"
 		fi
 		warn "Temporary directory override 'TMPDIR' (${TMPDIR}) set, but" \
-			"container tools may ignore this variable"
+			'container tools may ignore this variable'
 		export TMPDIR
 	fi
 	if
@@ -1406,7 +1412,7 @@ esac
 		rc=1
 	fi
 	if (( rc )); then
-		die "Insufficient space - please free up space and try again"
+		die 'Insufficient space - please free up space and try again'
 	fi
 
 	# Specifying a configuration file takes precedence over having a build
@@ -1523,8 +1529,8 @@ esac
 		test -s /etc/profile && . /etc/profile ;
 		ldconfig ;
 		if portageq has_version / sys-libs/llvm-libunwind; then
-			LDFLAGS_MODULE="-unwindlib=libunwind" ;
-			HOSTLDFLAGS="-unwindlib=libunwind" ;
+			LDFLAGS_MODULE='-unwindlib=libunwind' ;
+			HOSTLDFLAGS='-unwindlib=libunwind' ;
 			export LDFLAGS_MODULE HOSTLDFLAGS ;
 		fi ;
 		if [ "${compiler}" = 'clang' ]; then
@@ -1548,13 +1554,13 @@ esac
 			arm64)
 				kernel='Image.gz' ;
 				dir='arm64'
-				echo "Will build devicetree files for ARM64 platforms ..." ;
+				echo 'Will build devicetree files for ARM64 platforms ...' ;
 				dtb='1' ;
 				;;
 			arm*)
 				kernel='Image.gz' ;
 				dir='arm' ;
-				echo "Will build devicetree files for ARM platforms ..." ;
+				echo 'Will build devicetree files for ARM platforms ...' ;
 				dtb='1' ;
 				;;
 		esac ;
@@ -1610,7 +1616,7 @@ esac
 					fi ;
 				done ;
 				if [ \$(( found )) -ne 0 ]; then
-					echo >&2 "FATAL: missing firmware" ;
+					echo >&2 'FATAL: missing firmware' ;
 					exit 1 ;
 				fi ;
 			fi ;
@@ -1676,14 +1682,14 @@ esac
 			[ -f ../build/vmlinux ] && cp ../build/vmlinux /lib/modules/${package_version}${distro:-}/vmlinux-${package_version}${distro:-} ;
 			set +x ;
 			if [ "${bundle}" = '1' ] && [ -d /host/bundle ]; then
-				if ! tar -C / -cJpf /host/bundle/linux-${package_version}${distro:-}.tar.xz boot/ lib/modules/ ; then
+				if ! tar -C / -cJpf host/bundle/linux-${package_version}${distro:-}.tar.xz boot/ lib/modules/ ; then
 					echo >&2 "ERROR: Failed creating bundle '${bundle_dir}/linux-${package_version}${distro:-}.tar.xz': ${?}" ;
 				else
 					echo "Bundle 'linux-${package_version}${distro:-}.tar.xz' successfully deployed to '${bundle_dir}'" ;
 				fi ;
 			fi ;
 			if [ "${install}" = '1' ]; then
-				if ! tar -C / -cpf - /boot/ /lib/modules/ | tar -C /host/ -xpf - ; then
+				if ! tar -C / -cpf - boot/ lib/modules/ | tar -C /host/ -xpf - ; then
 					echo >&2 "ERROR: Build artefact extraction failed: ${?}" ;
 				else
 					echo 'Linux kernel-${package_version}${distro:-} successfully installed - please update your bootloader' ;
@@ -1694,10 +1700,10 @@ esac
 		fi ;
 	EOF
 	)"
-		#echo "Detected packages:"
+		#echo 'Detected packages:'
 		#ls -1d /var/db/pkg/*/* | cut -d '/' -f 5-
 		#[ -e /etc/python-exec/emerge.conf ] && rm /etc/python-exec/emerge.conf ;
-		#KBUILD_OUTPUT="/usr/src/build" CC="${container_CC}" CXX="${container_CXX}" LD="${container_LD}" emerge --with-bdeps=n --buildpkg=y -kv '>=net-firewall/xtables-addons-3.18' ;
+		#KBUILD_OUTPUT='/usr/src/build' CC="${container_CC}" CXX="${container_CXX}" LD="${container_LD}" emerge --with-bdeps=n --buildpkg=y -kv '>=net-firewall/xtables-addons-3.18' ;
 
 	nl="$( printf '\n' )"
 	DOCKER_SCRIPT="$( echo "${DOCKER_SCRIPT}" | tr "${nl}" ' ' )"
@@ -1726,7 +1732,7 @@ fi
 
 time {
 	#set -x
-		#DOCKER_DEVICES="--device=/dev/tty --device=/dev/tty0" \
+		#DOCKER_DEVICES='--device=/dev/tty --device=/dev/tty0' \
 		TERM="${TERM:-}" \
 		DOCKER_HOSTNAME="$( hostname )-build" \
 		image="${image_name}:${package_version}" \
