@@ -249,7 +249,8 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	fi
 	case "${use_cpu_arch:-"x86"}" in
 		arm)
-			use_cpu_flags="${use_cpu_flags:+"${use_cpu_flags} "}-mfloat-abi=hard"
+			gcc_target_opts="${gcc_target_opts:+"${gcc_target_opts} "}-mfloat-abi=hard"
+			;;
 	esac
 	export use_cpu_arch use_cpu_flags gcc_target_opts
 
