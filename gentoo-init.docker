@@ -28,10 +28,22 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 fi
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
-# Support 'core' user for podman+machine Fedora default user...
-if [[ "$( uname -s )" == 'Darwin' ]]; then
-	if (( EUID )) && [[ "$( id -nu )" == 'core' ]]; then
-		die "Please re-run '$( basename "${0}" )' as user 'root'"
+if [ "${_command}" = 'podman' ]; then
+	if [ "$( uname -s )" != 'Darwin' ]; then
+		# Update: Support 'core' user for podman+machine Fedora default
+		# user...
+		if [ $(( $( id -u ) )) -ne 0 ] && [ "$( id -un )" != 'core' ]
+		then
+			# This could be an expensive check, so leave it until
+			# last...
+			if "${_command}" info | grep -q -- 'rootless: false'
+			then
+				echo >&2 "FATAL: Please re-run '$(
+						basename "${0}"
+					)' as user 'root'"
+				exit 1
+			fi
+		fi
 	fi
 fi
 
