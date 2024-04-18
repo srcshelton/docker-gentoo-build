@@ -5,11 +5,22 @@
 # directory, we need to be root solely to setup the environment
 # appropriately :(
 #
-# Update: Support 'core' user for podman+machine Fedora default user...
-if [ "$( uname -s )" != 'Darwin' ]; then
-	if [ $(( $( id -u ) )) -ne 0 ] && [ "$( id -un )" != 'core' ]; then
-		echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
-		exit 1
+if [ "${_command}" = 'podman' ]; then
+	if [ "$( uname -s )" != 'Darwin' ]; then
+		# Update: Support 'core' user for podman+machine Fedora default
+		# user...
+		if [ $(( $( id -u ) )) -ne 0 ] && [ "$( id -un )" != 'core' ]
+		then
+			# This could be an expensive check, so leave it until
+			# last...
+			if "${_command}" info | grep -q -- 'rootless: false'
+			then
+				echo >&2 "FATAL: Please re-run '$(
+						basename "${0}"
+					)' as user 'root'"
+				exit 1
+			fi
+		fi
 	fi
 fi
 
@@ -73,6 +84,11 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				printf ': '
 				tr -d '\0' < /sys/firmware/devicetree/base/model
 			)" || :
+		elif [ -s /proc/devicetree/model ]; then
+			description="$( # <- Syntax
+				printf ': '
+				tr -d '\0' < /proc/devicetree/model
+			)" || :
 		else
 			description="$( # <- Syntax
 				grep -E '(model name|Raspberry)' /proc/cpuinfo |
@@ -123,46 +139,38 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				gcc_target_opts='-march=btver2' ;;
 
 			*': Raspberry Pi Zero W Rev 1.1'*)
+				# ARMv6, 32bit
 				use_cpu_arch='arm'
-				# Raspbian 8.3.0-6+rpi1 reports 'armv6zk+fp'
-				# Raspbian 10.2.1-6+rpi1 reports 'armv6kz+fp'
 				use_cpu_flags='edsp thumb vfp v4 v5 v6'
 				gcc_target_opts='-mcpu=arm1176jzf-s -mfpu=vfp' ;;
 			*': Raspberry Pi 2 '*)
+				# ARMv7, 32bit
 				use_cpu_arch='arm'
-				# Gentoo 11.3.0 p5 reports 'armv7ve+simd'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 v4 v5 v6 v7 thumb2'
-				#gcc_target_opts='-mcpu=cortex-a7 -mlibarch=armv7ve+vfpv3-d16' ;;
-				gcc_target_opts='-mcpu=cortex-a7 -mlibarch=armv7ve+simd -mfpu=neon-vfpv4' ;;
+				gcc_target_opts='-mcpu=cortex-a7 -mfpu=neon-vfpv4 -mneon-for-64bits -mthumb' ;;
 			*': Raspberry Pi 3 '*|*': Raspberry Pi Zero 2 W '*)
+				# ARMv8, 64bit (no longer needs '-mneon-for-64bits')
 				use_cpu_arch='arm'
-				# Raspbian 8.3.0-6+rpi1 reports 'armv8-a+crc+simd'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2'
-				gcc_target_opts='-mcpu=cortex-a53+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits' ;;
+				gcc_target_opts='-mcpu=cortex-a53+crc -mfpu=neon-fp-armv8' ;;
 			*': Raspberry Pi 4 '*|*': Raspberry Pi Compute Module 4 '*)
 				use_cpu_arch='arm'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
-				# Debian 10.2.1-6+rpi1 reports 'armv8-a+crc+simd'
-				# GCC-11
-				gcc_target_opts='-mcpu=cortex-a72+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits' ;;
-				# GCC-12+
-				#gcc_target_opts='-mcpu=cortex-a72+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits -mtp=cp15' ;;
+				gcc_target_opts='-mcpu=cortex-a72+crc -mfpu=neon-fp-armv8' ;;
 			*': Raspberry Pi 400 '*)
 				use_cpu_arch='arm'
-				# Raspberry Pi 400 Rev 1.0/Debian 10.2.1-6 reports 'armv8-a+crc'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
-				# GCC-11
-				gcc_target_opts='-mcpu=cortex-a72+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits' ;;
-				# GCC-12+
-				#gcc_target_opts='-mcpu=cortex-a72+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits -mtp=cp15' ;;
+				gcc_target_opts='-mcpu=cortex-a72+crc -mfpu=neon-fp-armv8' ;;
 			*': Raspberry Pi 5 '*)
 				use_cpu_arch='arm'
-				# Raspberry Pi 400 Rev 1.0/Debian 10.2.1-6 reports 'armv8-a+crc'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
-				# GCC-11
-				#gcc_target_opts='-mcpu=cortex-a72+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits' ;;
-				# GCC-12+
-				gcc_target_opts='-mcpu=cortex-a72+crypto -mfpu=crypto-neon-fp-armv8 -mneon-for-64bits -mtp=cp15' ;;
+				gcc_target_opts='-mcpu=cortex-a72+aes+crc+crypto -mfpu=crypto-neon-fp-armv8' ;;
+
+			*': Mixtile Blade 3 '*)
+				# ARMv8, big.LITTLE
+				use_cpu_arch='arm'
+				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
+				gcc_target_opts='-mcpu=cortex-a76.cortex-a55+aes+crc+crypto+sha2 -mfpu=crypto-neon-fp-armv8' ;;
 
 			*': 0xd07'|'Apple M1'*)
 				use_cpu_arch='arm'
