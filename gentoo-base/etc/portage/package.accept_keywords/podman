@@ -110,6 +110,11 @@
 ~app-containers/podman-5.0.0				 **
 ~app-containers/podman-5.0.1				 **
 
+#~app-containers/podman-tui-0.14.0			 **
+#~app-containers/podman-tui-0.17.0			 **
+#~app-containers/podman-tui-0.18.0			 **
+~app-containers/podman-tui-1.0.0			 **
+
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				 **
 #~app-containers/buildah-1.16.1				 **
@@ -336,8 +341,10 @@
 #~app-containers/containers-common-0.57.1		 **
 #~app-containers/containers-common-0.57.2		 **
 #~app-containers/containers-common-0.57.3		 **
-~app-containers/containers-common-0.57.4		 **
-~app-containers/containers-common-0.58.0		 **
+#~app-containers/containers-common-0.57.4		 **
+#~app-containers/containers-common-0.58.0		 **
+~app-containers/containers-common-0.58.1		 **
+~app-containers/containers-common-0.58.2		 **
 
 ~app-containers/containers-image-5.30.0			 **
 
