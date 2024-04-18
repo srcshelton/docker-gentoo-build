@@ -801,6 +801,9 @@ fi
 
 LC_ALL='C' eselect --colour=yes profile list | grep 'stable'
 LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" # 2>/dev/null
+info "Selected profile '$( # <- Syntax
+	LC_ALL='C' eselect --colour=yes profile show | tail -n 1
+)'"
 
 LC_ALL='C' emaint --fix binhost
 
