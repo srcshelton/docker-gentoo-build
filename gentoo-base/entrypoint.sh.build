@@ -405,9 +405,16 @@ pkg_remove() {
 
 			[ -d "${ROOT}" ] || continue
 
-			echo
-			echo " * Removing specified ${pr_stage:+"${pr_stage} "}packages" \
-				"'${pr_remove}' from root '${ROOT}' ..."
+			# Exclude cases where everything in ${pr_remove} is an (hyphen-
+			# prefixed) option...
+			#
+			if [ -n "${pr_remove:-}" ] &&
+					echo "${pr_remove}" | grep -Eq -- '(^|\s)[a-z]'
+			then
+				echo
+				echo " * Removing specified${pr_stage:+" ${pr_stage}"}" \
+					"packages '${pr_remove}' from root '${ROOT}' ..."
+			fi
 
 			# shellcheck disable=SC2086
 			LC_ALL='C' emerge \
@@ -419,42 +426,46 @@ pkg_remove() {
 					--with-bdeps-auto=n \
 				--depclean ${pr_remove} || :
 
-			# emerge --depclean exits with code zero even if removal
-			# doesn't succeed :(
-			#
-			# shellcheck disable=SC2086
-			checkmissing ${pr_remove} ||
-				LC_ALL='C' emerge \
-						--ignore-default-opts \
-						--color=y \
-						--verbose=n \
-						--verbose-conflicts \
-						--with-bdeps=n \
-						--with-bdeps-auto=n \
-					--rage-clean ${pr_remove} || :
+			if [ -n "${pr_remove:-}" ] &&
+					echo "${pr_remove}" | grep -Eq -- '(^|\s)[a-z]'
+			then
+				# emerge --depclean exits with code zero even if removal
+				# doesn't succeed :(
+				#
+				# shellcheck disable=SC2086
+				checkmissing ${pr_remove} ||
+					LC_ALL='C' emerge \
+							--ignore-default-opts \
+							--color=y \
+							--verbose=n \
+							--verbose-conflicts \
+							--with-bdeps=n \
+							--with-bdeps-auto=n \
+						--rage-clean ${pr_remove} || :
 
-			# shellcheck disable=SC2086
-			checkmissing ${pr_remove} || exit ${?}
+				# shellcheck disable=SC2086
+				checkmissing ${pr_remove} || exit ${?}
 
-			#LC_ALL='C' emerge --depclean -v
+				#LC_ALL='C' emerge --depclean -v
 
-			for pr_pkg in ${pr_remove}; do
-				rm -vr "${ROOT%"/"}/var/db/pkg/"*"/${pr_pkg}"* 2>/dev/null ||
-					rm -vr "${ROOT%"/"}/var/db/pkg/${pr_pkg}"* 2>/dev/null || :
-				if [ -e "${ROOT%"/"}/var/lib/portage/world" ]; then
-					pr_str="$( echo "${pr_pkg}" | sed 's|/|\\/|g' )"
-					if sed -i "/${pr_str}/ d" \
-							"${ROOT%"/"}/var/lib/portage/world"
-					then
-						print "Manually removed '${pr_pkg}' from world profile"
-					else
-						warn "Failed to remove '${pr_pkg}' from world" \
-							"profile (or package already removed)"
+				for pr_pkg in ${pr_remove}; do
+					rm -vr "${ROOT%"/"}/var/db/pkg/"*"/${pr_pkg}"* 2>/dev/null ||
+						rm -vr "${ROOT%"/"}/var/db/pkg/${pr_pkg}"* 2>/dev/null || :
+					if [ -e "${ROOT%"/"}/var/lib/portage/world" ]; then
+						pr_str="$( echo "${pr_pkg}" | sed 's|/|\\/|g' )"
+						if sed -i "/${pr_str}/ d" \
+								"${ROOT%"/"}/var/lib/portage/world"
+						then
+							print "Manually removed '${pr_pkg}' from world profile"
+						else
+							warn "Failed to remove '${pr_pkg}' from world" \
+								"profile (or package already removed)"
+						fi
+						unset pr_str
 					fi
-					unset pr_str
-				fi
-			done
-			unset pr_pkg
+				done
+				unset pr_pkg
+			fi  # [ -n "${pr_remove:-}" ] && echo "${pr_remove}" | grep -Eq -- '(^|\s)[a-z]'
 		done
 	)
 
@@ -2135,6 +2146,112 @@ case "${1:-}" in
 
 		unset packages flags
 
+		if [ -n "${rebuild:-}" ]; then
+
+			# Separate any command-line post flags and packages...
+			#
+			# shellcheck disable=SC2086
+			flags="$( parse_opt_get_options "${@}" ${rebuild} )"
+			print "Options from '${*}${rebuild:+" ${rebuild}"}' are '${flags}'"
+
+			# shellcheck disable=SC2086
+			packages="$( parse_opt_get_packages ${rebuild} )"
+			print "Package(s) from '${rebuild}' are '${packages}'"
+
+			echo
+			echo " * Rebuilding requested '${packages}'" \
+				"package(s)${flags:+" with options ${flags}"} ..."
+			echo
+
+			# See handling of EMERGE_OPTS above for details of logic below, but
+			# without the complexity of '--swap-build' and with the (passed-in)
+			# value of $rebuid appended to the argument list...
+			#
+			if [ -n "${EMERGE_OPTS:-}" ] &&
+					echo " ${EMERGE_OPTS} " |
+						grep -Eq -- ' --single(-rebuild)? '
+			then
+				for package in ${packages}; do
+					echo
+					echo " * Building single package '${package}'" \
+						"from '${packages} ..."
+					echo
+
+					# Reinstall package first to maximise dependency
+					# re-use...
+					#
+					# shellcheck disable=SC2086
+					(
+						USE="$( applyworkarounds --use "${arg}" "${USE}" )"
+						export USE
+						do_emerge \
+								  ${parallel} \
+								  ${opts} \
+								--buildpkg=y \
+								--usepkg=y \
+								--with-bdeps=y \
+								  ${flags:-} \
+							-- ${package}
+					) || : $(( rc = rc + ${?} ))
+					clearworkarounds
+
+					git_safedirectory_markall
+
+					# ... then install again without '--usepkg':
+					#
+					# shellcheck disable=SC2086
+					(
+						do_emerge \
+								  ${parallel} \
+								  ${opts} \
+								--buildpkg=y \
+								--usepkg=n \
+								--with-bdeps=n \
+								--with-bdeps-auto=n \
+								  ${flags:-} \
+							-- ${package}
+					) || : $(( rc = rc + ${?} ))
+				done
+				unset package packages
+
+			else  # [ -z "${EMERGE_OPTS:-}" ] || ! echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-rebuild)? '; then
+
+				# Reinstall package first to maximise dependency re-use...
+				#
+				# shellcheck disable=SC2086
+				(
+					USE="$( applyworkarounds --use "${rebuild}" "${USE}" )"
+					export USE
+					do_emerge \
+							  ${parallel} \
+							  ${opts} \
+							--buildpkg=y \
+							--usepkg=y \
+							--with-bdeps=y \
+						-- ${packages}
+				) || : $(( rc = rc + ${?} ))
+
+				git_safedirectory_markall
+
+				# ... then install again without '--usepkg':
+				#
+				# shellcheck disable=SC2086
+				(
+					do_emerge \
+							  ${parallel} \
+							  ${opts} \
+							--buildpkg=y \
+							--usepkg=n \
+							--with-bdeps=n \
+							--with-bdeps-auto=n \
+						-- ${packages}
+				) || : $(( rc = rc + ${?} ))
+				clearworkarounds
+			fi
+
+			unset packages flags
+		fi  # [ -n "${rebuild:-}" ]
+
 		if [ -n "${post_pkgs:-}" ]; then
 			savefailed
 			check ${rc} "${@}"
@@ -2350,10 +2467,11 @@ case "${1:-}" in
 					# pre-exising binary package, then we need sys-devel/gcc
 					# BDEPEND packages to be present...
 					#
-					gcc_pkgs="${gcc_pkgs} app-portage/elt-patches sys-apps/texinfo sys-devel/flex sys-devel/m4"
+					gcc_build_pkgs="app-portage/elt-patches sys-apps/texinfo sys-devel/flex sys-devel/m4"
 					echo
-					echo " * Building post-installation '${gcc_pkgs}'" \
-						"package(s) into installation root '${ROOT}' ..."
+					echo " * Building post-installation '${gcc_pkgs}" \
+						"${gcc_build_pkgs}' package(s) into installation" \
+						"root '${ROOT}' ..."
 					echo
 					# shellcheck disable=SC2086
 					(
@@ -2367,127 +2485,16 @@ case "${1:-}" in
 								--with-bdeps-auto=n \
 								--with-bdeps=n \
 								  ${flags:-} \
-							-- ${gcc_pkgs}
+							-- ${gcc_pkgs} ${gcc_build_pkgs}
 					) || : $(( rc = rc + ${?} ))
 
-					do_emerge \
-							--depclean \
-							--verbose=y \
-							--with-bdeps=n \
-						-- app-portage/elt-patches sys-apps/texinfo \
-							sys-devel/flex sys-devel/m4
+					pkg_remove 'post-installation' ${gcc_build_pkgs}
 				fi  # [ -n "${gcc_pkgs:-}" ]
-				unset gcc_pkgs
+				unset gcc_build_pkgs gcc_pkgs
 			fi  # [ -n "${gcc_exclude:-}" ] && echo "${post_pkgs}" | grep -Fq -- 'gcc'
 
 			unset gcc_exclude packages flags
 		fi  # [ -n "${post_pkgs:-}" ]
-
-		if [ -n "${rebuild:-}" ]; then
-
-			# Separate any command-line post flags and packages...
-			#
-			# shellcheck disable=SC2086
-			flags="$( parse_opt_get_options "${@}" ${rebuild} )"
-			print "Options from '${*}${rebuild:+" ${rebuild}"}' are '${flags}'"
-
-			# shellcheck disable=SC2086
-			packages="$( parse_opt_get_packages ${rebuild} )"
-			print "Package(s) from '${rebuild}' are '${packages}'"
-
-			echo
-			echo " * Rebuilding requested '${packages}'" \
-				"package(s)${flags:+" with options ${flags}"} ..."
-			echo
-
-			# See handling of EMERGE_OPTS above for details of logic below, but
-			# without the complexity of '--swap-build' and with the (passed-in)
-			# value of $rebuid appended to the argument list...
-			#
-			if [ -n "${EMERGE_OPTS:-}" ] &&
-					echo " ${EMERGE_OPTS} " |
-						grep -Eq -- ' --single(-rebuild)? '
-			then
-				for package in ${packages}; do
-					echo
-					echo " * Building single package '${package}'" \
-						"from '${packages} ..."
-					echo
-
-					# Reinstall package first to maximise dependency
-					# re-use...
-					#
-					# shellcheck disable=SC2086
-					(
-						USE="$( applyworkarounds --use "${arg}" "${USE}" )"
-						export USE
-						do_emerge \
-								  ${parallel} \
-								  ${opts} \
-								--buildpkg=y \
-								--usepkg=y \
-								--with-bdeps=y \
-								  ${flags:-} \
-							-- ${package}
-					) || : $(( rc = rc + ${?} ))
-					clearworkarounds
-
-					git_safedirectory_markall
-
-					# ... then install again without '--usepkg':
-					#
-					# shellcheck disable=SC2086
-					(
-						do_emerge \
-								  ${parallel} \
-								  ${opts} \
-								--buildpkg=y \
-								--usepkg=n \
-								--with-bdeps=n \
-								--with-bdeps-auto=n \
-								  ${flags:-} \
-							-- ${package}
-					) || : $(( rc = rc + ${?} ))
-				done
-				unset package packages
-
-			else  # [ -z "${EMERGE_OPTS:-}" ] || ! echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-rebuild)? '; then
-
-				# Reinstall package first to maximise dependency re-use...
-				#
-				# shellcheck disable=SC2086
-				(
-					USE="$( applyworkarounds --use "${rebuild}" "${USE}" )"
-					export USE
-					do_emerge \
-							  ${parallel} \
-							  ${opts} \
-							--buildpkg=y \
-							--usepkg=y \
-							--with-bdeps=y \
-						-- ${packages}
-				) || : $(( rc = rc + ${?} ))
-
-				git_safedirectory_markall
-
-				# ... then install again without '--usepkg':
-				#
-				# shellcheck disable=SC2086
-				(
-					do_emerge \
-							  ${parallel} \
-							  ${opts} \
-							--buildpkg=y \
-							--usepkg=n \
-							--with-bdeps=n \
-							--with-bdeps-auto=n \
-						-- ${packages}
-				) || : $(( rc = rc + ${?} ))
-				clearworkarounds
-			fi
-
-			unset packages flags
-		fi  # [ -n "${rebuild:-}" ]
 
 		if [ $(( has_locale_gen )) -eq 0 ]; then
 			do_locale_gen
@@ -2553,11 +2560,13 @@ if [ $(( depclean )) -ne 0 ]; then
 	#
 	# shellcheck disable=SC2046
 	(
-		do_emerge \
-				--depclean \
-				  ${depclean_exclude:+"--exclude=${depclean_exclude}"} \
-				--verbose=y \
-				--with-bdeps=n \
+		#do_emerge \
+		#		--depclean \
+		#		  ${depclean_exclude:+"--exclude=${depclean_exclude}"} \
+		#		--verbose=y \
+		#		--with-bdeps=n \
+		pkg_remove 'final' \
+			${depclean_exclude:+"--exclude=${depclean_exclude}"} \
 			-- $( # <- Syntax
 				echo "${first_package} ${post_pkgs}" |
 						grep -Fq -- 'dev-lang/perl' ||
@@ -2580,20 +2589,24 @@ if [ $(( depclean )) -ne 0 ]; then
 		fi
 		# shellcheck disable=SC2086
 		(
-			do_emerge \
-					--depclean \
-					--exclude="sys-apps/busybox sys-apps/gentoo-functions" \
-					--verbose=y \
-					--with-bdeps=n \
+			#do_emerge \
+			#		--depclean \
+			#		--exclude="sys-apps/busybox sys-apps/gentoo-functions" \
+			#		--verbose=y \
+			#		--with-bdeps=n \
+			pkg_remove 'final extra' \
+				--exclude="sys-apps/busybox sys-apps/gentoo-functions" \
 				-- ${depclean_extra}
 		) || :
 	fi
 	(
-		do_emerge \
-			--depclean \
-			--exclude="dev-libs/libffi${depclean_exclude:+" ${depclean_exclude}"}" \
-			--verbose=y \
-			--with-bdeps=n
+		#do_emerge \
+		#	--depclean \
+		#	--exclude="dev-libs/libffi${depclean_exclude:+" ${depclean_exclude}"}" \
+		#	--verbose=y \
+		#	--with-bdeps=n
+		pkg_remove 'last' \
+			--exclude="dev-libs/libffi${depclean_exclude:+" ${depclean_exclude}"}"
 	) || :
 
 	if [ -s /etc/portage/profile/package.provided.backup ]; then
