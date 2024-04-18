@@ -59,9 +59,10 @@ app-containers/containers-storage	-device-mapper
 app-containers/crun			-criu bpf man
 # move app-emulation/libpod app-emulation/podman
 # move app-emulation/podman app-containers/podman
-app-containers/podman			-fuse -rootless
+app-containers/podman			-fuse -rootless -wrapper bash-completion seccomp
 # move app-admin/eselect-php app-eselect/eselect-php
 app-eselect/eselect-php			 fpm
+app-misc/jq				-oniguruma
 app-misc/pax-utils			 man
 app-misc/screen				 multiuser
 app-portage/eix				 tools
