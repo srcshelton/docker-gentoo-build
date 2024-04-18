@@ -8,6 +8,12 @@ export LC_ALL=C
 declare MACHINE='podman'
 declare REMOTE_HOME='/var/home'
 declare REMOTE_USER='core'
+# FIXME: Improve this logic to find a generic REMOTE_USER
+case "$( id -un )" in
+	mixtile)
+		REMOTE_USER='mixtile'
+		;;
+esac
 declare -i init=0 xfer=0 cores=4 local_install=0
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
