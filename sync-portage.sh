@@ -36,6 +36,41 @@ cd "${base_dir}"/etc/portage/ || {
 	exit 1
 }
 
+if [[ " ${*:-} " =~ \ -(h|-help)\  ]]; then
+	echo "Usage: $( basename "${0}" ) [--dispatch-conf]"
+	exit 0
+else
+	(( EUID )) && {
+		echo >&2 "Please re-run '$( basename "${0}" )' as user 'root'"
+		exit 1
+	}
+
+	if [[ " ${*:-} " =~ \ --dispatch-conf\  ]]; then
+		declare file='' name=''
+		find /etc/portage/ -type f -name '._cfg[0-9][0-9][0-9][0-9]_*' -print |
+			while read -r update
+		do
+			name="$( echo "${update}" | cut -d'_' -f 3- )"
+			if ! [[ -e "${name}" ]]; then
+				echo >&2 "Can't find original file '${name}' for update" \
+					"'${update}' - skipping"
+				continue
+			elif diff "${name}" "${update}"; then
+				rm "${update}"
+			else
+				vimdiff \
+							-c 'set colorcolumn=80' \
+							-c 'next' \
+							-c 'setlocal noma readonly' \
+							-c 'prev' \
+						"${name}" "${update}" &&
+					rm "${update}"
+			fi
+		done
+		exit 0
+	fi
+fi
+
 declare ARCH=''
 if type -pf portageq >/dev/null 2>&1; then
 	ARCH="$( portageq envvar ARCH )"
@@ -55,39 +90,6 @@ else
 	esac
 fi
 readonly ARCH
-
-(( EUID )) && {
-	echo >&2 "Please re-run '$( basename "${0}" )' as user 'root'"
-	exit 1
-}
-
-if [[ " ${*:-} " =~ \ -(h|-help)\  ]]; then
-	echo "Usage: $( basename "${0}" ) [--dispatch-conf]"
-	exit 0
-elif [[ " ${*:-} " =~ \ --dispatch-conf\  ]]; then
-	declare file='' name=''
-	find /etc/portage/ -type f -name '._cfg[0-9]{4}_*' -print |
-		while read -r update
-	do
-		name="$( echo "${update}" | cut -d'_' -f 3- )"
-		if ! [[ -e "${name}" ]]; then
-			echo >&2 "Can't find original file '${name}' for update" \
-				"'${update}' - skipping"
-			continue
-		elif diff "${name}" "${update}"; then
-			rm "${update}"
-		else
-			vimdiff \
-						-c 'set colorcolumn=80' \
-						-c 'next' \
-						-c 'setlocal noma readonly' \
-						-c 'prev' \
-					"${name}" "${update}" &&
-				rm "${update}"
-		fi
-	done
-	exit 0
-fi
 
 declare -i rc=0
 
