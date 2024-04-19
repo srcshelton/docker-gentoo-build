@@ -106,9 +106,10 @@
 #~app-containers/podman-5.0.0_rc4			 **
 #~app-containers/podman-5.0.0_rc5			 **
 #~app-containers/podman-5.0.0_rc6			 **
-~app-containers/podman-5.0.0_rc7			 **
-~app-containers/podman-5.0.0				 **
+#~app-containers/podman-5.0.0_rc7			 **
+#~app-containers/podman-5.0.0				 **
 ~app-containers/podman-5.0.1				 **
+~app-containers/podman-5.0.2				 **
 
 #~app-containers/podman-tui-0.14.0			 **
 #~app-containers/podman-tui-0.17.0			 **
