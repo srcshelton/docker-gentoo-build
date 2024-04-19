@@ -1,6 +1,26 @@
 #! /bin/sh
 # shellcheck disable=SC2034
 
+if [ -z "${_command:-}" ]; then
+	# Are we using docker or podman?
+	#
+	# N.B. This is overridden if/when common/run.sh is included
+	#
+	if ! command -v podman >/dev/null 2>&1; then
+		_command='docker'
+
+		#extra_build_args=''
+		docker_readonly='readonly'
+	else
+		_command='podman'
+
+		#extra_build_args='--format docker'
+		# From release 2.0.0, podman should accept docker 'readonly' attributes
+		docker_readonly='ro=true'
+	fi
+	export _command docker_readonly
+fi
+
 # Since we're now using '${_command} system info' to determine the graphRoot
 # directory, we need to be root solely to setup the environment
 # appropriately :(
@@ -352,24 +372,6 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	export JOBS="${EMERGE_JOBS:-"${jobs}"}"
 	export MAXLOAD="${EMERGE_MAXLOAD:-"${load}.00"}"
 	unset load jobs
-
-	# Are we using docker or podman?
-	#
-	# N.B. This is overridden if/when common/run.sh is included
-	#
-	if ! command -v podman >/dev/null 2>&1; then
-		_command='docker'
-
-		#extra_build_args=''
-		docker_readonly='readonly'
-	else
-		_command='podman'
-
-		#extra_build_args='--format docker'
-		# From release 2.0.0, podman should accept docker 'readonly' attributes
-		docker_readonly='ro=true'
-	fi
-	export _command docker_readonly
 
 	# Allow a separate image directory for persistent images...
 	#store="$( $_command system info | grep -F 'overlay.imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
