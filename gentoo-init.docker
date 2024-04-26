@@ -28,25 +28,6 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 fi
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
-if [ "${_command}" = 'podman' ]; then
-	if [ "$( uname -s )" != 'Darwin' ]; then
-		# Update: Support 'core' user for podman+machine Fedora default
-		# user...
-		if [ $(( $( id -u ) )) -ne 0 ] && [ "$( id -un )" != 'core' ]
-		then
-			# This could be an expensive check, so leave it until
-			# last...
-			if "${_command}" info | grep -q -- 'rootless: false'
-			then
-				echo >&2 "FATAL: Please re-run '$(
-						basename "${0}"
-					)' as user 'root'"
-				exit 1
-			fi
-		fi
-	fi
-fi
-
 declare -i NOTIFY_MKDIR=0
 
 # Set by common/vars.sh
@@ -96,6 +77,22 @@ declare -i NOTIFY_MKDIR=0
 	echo >&2 "FATAL: Inclusion of common defaults from '${PWD}/common/vars.sh' failed"
 	exit 1
 }
+
+if [ "${_command}" = 'podman' ]; then
+	if [ "$( uname -s )" != 'Darwin' ]; then
+		# Update: Support 'core' user for podman+machine Fedora default user...
+		if [ $(( $( id -u ) )) -ne 0 ] && [ "$( id -un )" != 'core' ]
+		then
+			# This could be an expensive check, so leave it until last...
+			if "${_command}" info | grep -q -- 'rootless: false'
+			then
+				echo >&2 "FATAL: Please re-run '$( basename "${0}")' as" \
+					"user 'root'"
+				exit 1
+			fi
+		fi
+	fi
+fi
 
 [[ -n "${base_dir:-}" ]]
 [[ -d "${base_dir}" ]]
