@@ -466,8 +466,9 @@
 #~app-containers/slirp4netns-1.2.0_rc0			 **
 #~app-containers/slirp4netns-1.2.0			 **
 #~app-containers/slirp4netns-1.2.1			 **
-~app-containers/slirp4netns-1.2.2			 **
+#~app-containers/slirp4netns-1.2.2			 **
 ~app-containers/slirp4netns-1.2.3			 **
+~app-containers/slirp4netns-1.3.0			 **
 
 # optional for app-containers/podman-4.4.0_rc3[rootless]
 #~app-containers/passt-20221116				 **
