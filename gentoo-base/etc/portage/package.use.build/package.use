@@ -192,7 +192,7 @@ net-vpn/openvpn				 down-root eurephia iproute2 passwordsave
 perl-core/bignum			 test
 sci-mathematics/pari			-X
 sys-apps/baselayout			 varrun
-sys-apps/busybox			-pam -savedconfig -sep-usr -split-usr math  # static
+sys-apps/busybox			-pam -savedconfig -sep-usr -split-usr math openrc  # static
 sys-apps/coreutils			-hostname  # conflicts sys-apps/net-tools[hostname]
 sys-apps/debianutils			-installkernel
 sys-apps/earlyoom			 man
