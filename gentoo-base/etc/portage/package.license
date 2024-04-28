@@ -87,6 +87,8 @@ sys-libs/zlib				 ZLIB
 
 net-nds/openldap			 OPENLDAP
 
+sys-apps/memtest86-bin			 PassMark-EULA
+
 # Gentoo stage3 image:
 #
 dev-lang/tcl				 Spencer-99
