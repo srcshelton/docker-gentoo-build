@@ -1151,7 +1151,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 
 		# Add '@preserved-rebuild' for potential outdated stage3 base-images...
 		post_pkgs='dev-util/pkgconf sys-libs/glibc @preserved-rebuild sys-apps/portage net-misc/curl dev-libs/nettle'
-		post_use='curl_ssl_openssl gmp multiarch native-extensions openssl ssl -ssp'
+		post_use='curl_ssl_openssl -gmp multiarch native-extensions openssl ssl -ssp'
 		if [[ -n "${python_use:-}" ]]; then
 			# FIXME: libbsd is having a weird problem, during image-build only?
 			post_pkgs+=' app-crypt/libmd dev-libs/libbsd'
