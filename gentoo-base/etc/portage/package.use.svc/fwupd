@@ -46,7 +46,7 @@ media-libs/freetype			 png
 dev-libs/libpcre2			 unicode
 
 # required by sys-fs/udisks-2.9.1
-sys-libs/libblockdev			 cryptsetup
+sys-libs/libblockdev			 cryptsetup nvme
 
 # required by dev-libs/libjcat-0.1.4[pkcs7]
 # required by net-libs/gnutls-3.6.15

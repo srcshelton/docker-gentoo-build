@@ -1,5 +1,5 @@
 
-*/*					 berkdb gmp native-symlinks nls
+*/*					 berkdb native-symlinks nls  # gmp
 
 #app-text/poppler			 boost -cairo -cjk curl cxx -debug -doc -introspection jpeg jpeg2k lcms -nss png -qt5 tiff utils -verify-sig
 app-text/poppler			 boost

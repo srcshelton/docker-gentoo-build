@@ -13,7 +13,7 @@ mail-filer/maildrop			 dovecot fam
 
 #net-mail/mailbase			 pam
 
-acct-user/postfix			 milter
+acct-user/postfix			 milter opendkim
 
 app-alternatives/sh			-busybox bash
 

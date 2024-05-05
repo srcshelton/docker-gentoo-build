@@ -1,5 +1,5 @@
 
-*/*					 berkdb gmp nls
+*/*					 berkdb nls  # gmp
 
 #dev-perl/DBD-mysql			-mariadb +mysql test +(ssl)
 dev-perl/DBD-mysql			 mariadb mysql
