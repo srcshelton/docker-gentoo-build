@@ -28,6 +28,7 @@ dev-lang/perl				 ithreads
 dev-lang/python-exec			 native-symlinks
 dev-lang/python				 ssl xml
 dev-libs/libgcrypt			 getentropy
+dev-libs/nettle				 gmp
 dev-util/pkgconf			 pkg-config
 net-misc/curl				-adns -ares -http2 openssl ssl
 sys-apps/baselayout			 varrun
