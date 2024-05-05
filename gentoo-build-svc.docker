@@ -747,6 +747,7 @@ case "${package_name}" in
 	*.fwupd)
 		output "Setting build variables for package 'fwupd' ..."
 		pre_remove='sys-libs/libeudev'
+		pre_pkgs='sys-devel/gcc'
 		keep_base='no'
 
 		container_cmd='/usr/bin/fwupdtool'
