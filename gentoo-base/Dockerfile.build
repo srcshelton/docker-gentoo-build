@@ -129,6 +129,11 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             echo >&2 "FATAL: Unable to source '${environment_file}': ${?}" ; \
             exit 1 ; \
         } ; \
+    command -v grep || \
+        { \
+            echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
+            exit 1 ; \
+        } ; \
     gcc-config 1 2>/dev/null ; \
     test -s /etc/profile && . /etc/profile ; \
     if [ -x /usr/sbin/locale-gen ]; then \
@@ -184,4 +189,4 @@ ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
 CMD ["app-shells/bash"]
 
 # linter ignore=ED0004
-# vi: set syntax=dockerfile expandtab nowrap colorcolumn=80:
+# vi: set colorcolumn=80 expandtab shiftwidth=4 syntax=dockerfile tabstop=4 nowrap:

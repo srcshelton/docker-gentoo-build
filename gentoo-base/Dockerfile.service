@@ -45,6 +45,11 @@ RUN test -s "${environment_file}"
 # linter ignore=SC2094,SC2015,ER0001
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
     set -u ; \
+    command -v grep || \
+        { \
+            echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
+            exit 1 ; \
+        } ; \
     mkdir -p "${ROOT}"/usr/libexec && \
     printf "#FILTER: '%s'\n\n" "${environment_filter}" > "${ROOT}${environment_file}" && \
     export -p | \
@@ -131,6 +136,11 @@ RUN test -x /bin/busybox
 
 # linter ignore=SC2050,SC2012,ER0001
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
+    command -v grep || \
+        { \
+            echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
+            exit 1 ; \
+        } ; \
     i="${image_name}:${service_version}" ; \
     for f in /etc/base/* ; do \
         f="$( basename "${f}" )" ; \
@@ -309,4 +319,4 @@ ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
 CMD "${service_cmd}"
 
 # linter ignore=ED0004
-# vi: set syntax=dockerfile expandtab sw=4 ts=4 nowrap colorcolumn=80:
+# vi: set colorcolumn=80 expandtab shiftwidth=4 syntax=dockerfile tabstop=4 nowrap:

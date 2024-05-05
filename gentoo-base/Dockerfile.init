@@ -135,4 +135,4 @@ ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
 CMD ["app-shells/bash"]
 
 # linter ignore=ED0004
-# vi: set syntax=dockerfile colorcolumn=80 expandtab nowrap shiftwidth=4 tabstop=4:
+# vi: set colorcolumn=80 expandtab shiftwidth=4 syntax=dockerfile tabstop=4 nowrap:

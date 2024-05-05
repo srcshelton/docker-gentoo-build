@@ -47,6 +47,11 @@ ARG new_root_name
 #
 # linter ignore=ER0001,SC2028,SC2046
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
+    command -v grep || \
+        { \
+            echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
+            exit 1 ; \
+        } ; \
     pe="$( \
         find /var/db/pkg/dev-lang/ \
                 -mindepth 1 \
@@ -191,4 +196,4 @@ COPY --from=stage3 "/${new_root_name}" /
 RUN test ! -e /var/db/repos || rm -r /var/db/repos
 
 # linter ignore=ED0004
-# vi: set syntax=dockerfile colorcolumn=80 expandtab nowrap shiftwidth=4 tabstop=4:
+# vi: set colorcolumn=80 expandtab shiftwidth=4 syntax=dockerfile tabstop=4 nowrap:
