@@ -265,6 +265,11 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 	# or libraries)...
 
 	(
+		stage3_flags_file=''
+		python_default_target=''
+		# shellcheck disable=SC1091
+		. ./common/vars.sh
+
 		# shellcheck disable=SC2030
 		failures=''
 		# shellcheck disable=SC2030
@@ -274,11 +279,112 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 		# shellcheck disable=SC2030
 		ARCH="${ARCH:-"$( portageq envvar ARCH )"}"
 
+		# Cache packages with minimal USE-flags, as used during the  base-image
+		# build...
+		{
+			# shellcheck disable=SC2030
+			if { ! USE="$( # <- Syntax
+					echo "-* -asm ${alt_use} ${use_cpu_flags:-} compat embedded" \
+							"ftp getentropy gmp ipv6 nls python readline" \
+							"python_single_target_${python_default_target}" \
+							"python_targets_${python_default_target}" |
+						sed 's/ asm //g'
+			)" \
+				./gentoo-build-pkg.docker 2>&1 \
+						--buildpkg=y \
+						--name 'buildpkg.init' \
+						--usepkg=y \
+						--with-bdeps=n \
+					net-misc/dhcpcd \
+					net-firewall/iptables \
+					dev-libs/gmp \
+					dev-libs/libgcrypt \
+					dev-libs/openssl \
+					dev-perl/libintl-perl \
+					dev-libs/libxml2 \
+					sys-apps/gawk \
+					app-arch/zstd \
+					dev-libs/isl \
+					dev-libs/mpc \
+					dev-libs/libbsd \
+					app-crypt/libmd \
+					dev-libs/mpfr \
+					sys-libs/zlib \
+					dev-libs/expat \
+					dev-libs/libffi \
+					sys-apps/gentoo-functions \
+					dev-libs/libtasn1 \
+					dev-libs/icu \
+					sys-apps/which \
+					sys-apps/iproute2 \
+					sys-apps/less \
+					sys-apps/portage \
+					dev-libs/nettle ;
+			} || { ! USE="-* ${alt_use} ${use_cpu_flags:-} asm compile-locales cxx ipv6 ithreads ktls lib-only minimal openssl pcre pie reference ssl varrun python_single_target_${python_default_target} python_targets_${python_default_target}" \
+				./gentoo-build-pkg.docker 2>&1 \
+						--buildpkg=y \
+						--name 'buildpkg.init' \
+						--usepkg=y \
+						--with-bdeps=n \
+					dev-lang/python \
+					dev-libs/openssl \
+					sys-apps/shadow \
+					app-arch/xz-utils \
+					dev-libs/gmp \
+					app-misc/pax-utils \
+					sys-devel/gettext \
+					app-editors/vim \
+					app-editors/vim-core \
+					sys-libs/gdbm \
+					dev-lang/perl \
+					net-libs/gnutls \
+					sys-process/procps \
+					sys-libs/glibc \
+					sys-apps/kbd \
+					sys-apps/grep \
+					sys-apps/diffutils \
+					net-misc/wget \
+					net-misc/iputils \
+					dev-build/make \
+					sys-apps/openrc \
+					sys-apps/man-db \
+					sys-devel/gcc ;
+			} || { ! USE="-* ${alt_use} ${use_cpu_flags:-} mdev native-extensions pie python_single_target_${python_default_target} python_targets_${python_default_target}" \
+				./gentoo-build-pkg.docker 2>&1 \
+						--buildpkg=y \
+						--name 'buildpkg.init' \
+						--usepkg=y \
+						--with-bdeps=n \
+					sys-devel/gettext \
+					sys-apps/portage \
+					net-misc/openssh \
+					sys-apps/busybox ;
+			} || { ! USE="-* ${alt_use} ${use_cpu_flags:-} acl bzip2 e2fsprogs expat iconv lzma lzo xattr zstd" \
+				./gentoo-build-pkg.docker 2>&1 \
+						--buildpkg=y \
+						--name 'buildpkg.init' \
+						--usepkg=y \
+						--with-bdeps=n \
+					app-arch/libarchive \
+					sys-devel/binutils \
+					sys-apps/kmod ;
+			} || { ! USE="-* ${alt_use} ${use_cpu_flags:-} lzma python zstd python_single_target_${python_default_target} python_targets_${python_default_target}" \
+				./gentoo-build-pkg.docker 2>&1 \
+						--buildpkg=y \
+						--name 'buildpkg.init' \
+						--usepkg=y \
+						--with-bdeps=n \
+					sys-apps/kmod ;
+			}
+			then
+				: $(( err = ${?} ))
+				: $(( rc = rc + err ))
+				failures="${failures:+"${failures} "}gentoo-build-pkg;0:${err}"
+			fi
+		} | tee log/buildpkg.init.log
+
 		for image in 'localhost/gentoo-stage3' 'localhost/gentoo-init'; do
 			if [ "$( $_command image ls -n "${image}" | wc -l )" = '0' ]; then
-				stage3_flags_file=''
-				# shellcheck disable=SC1091
-				. ./common/vars.sh
 				eval "$(
 					$_command container run \
 							--rm \
@@ -290,8 +396,10 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 				if [ -n "${STAGE3_USE:-}" ]; then
 					# Add 'symlink' USE flag to ensure that /usr/src/linux is
 					# updated;
+					#
 					# FIXME: This flag also affects a small number of other
 					#        ebuilds (possibly replacing bzip2 & gzip binaries)
+					#
 					# Also add ${alt_use} USE flags as otherwise
 					# app-alternatives/lex aborts the build :(
 					use="${STAGE3_USE} ${alt_use} symlink"
@@ -345,7 +453,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 
 		{
 			# shellcheck disable=SC2030
-			if ! USE="-* ${use} bison nls readline zstd" \
+			if ! USE="-* ${use} bison nls readline zstd python_single_target_${python_default_target} python_targets_${python_default_target}" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
