@@ -1062,7 +1062,7 @@ echo
 ( # <- Syntax
 	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 	# shellcheck disable=SC2046
-	USE='gmp ssl' \
+	USE='-gmp ssl' \
 	do_emerge --single-defaults dev-build/libtool sys-libs/pam $(
 		# sys-devel/gcc is a special case with a conditional gen_usr_ldscript
 		# call...
@@ -1624,23 +1624,24 @@ echo
 		echo " * Ensuring we have sys-apps/baselayout ..."
 		echo
 		[ ! -f "${ROOT%"/"}/var/lock" ] || rm "${ROOT%"/"}/var/lock"
-		DEBUG=1 do_emerge --system-defaults sys-apps/baselayout
+		#	DEBUG=1 \
+		do_emerge --system-defaults sys-apps/baselayout
 
 		# portage is tripping over sys-devel/gcc[openmp] :(
 		#
 		echo
 		echo " * Ensuring we have sys-devel/gcc ..."
 		echo
-		DEBUG=1 \
-		USE="${USE:+"${USE} "}openmp" \
-			do_emerge --system-defaults sys-devel/gcc
+		#	DEBUG=1 \
+			USE="${USE:+"${USE} "}openmp" \
+		do_emerge --system-defaults sys-devel/gcc
 		#echo
 		#echo " * Ensuring we have sys-devel/gcc & app-crypt/libb2 (for" \
 		#	"USE='openmp') ..."
 		#echo
-		#DEBUG=1 \
-		#USE="${USE:+"${USE} "}openmp" \
-		#	do_emerge --rebuild-defaults sys-devel/gcc app-crypt/libb2
+		#	DEBUG=1 \
+		#	USE="${USE:+"${USE} "}openmp" \
+		#do_emerge --rebuild-defaults sys-devel/gcc app-crypt/libb2
 
 		# ... likewise sys-apps/net-tools[hostname] (for which the recommended
 		# fix is sys-apps/coreutils[hostname]?)
@@ -1648,16 +1649,16 @@ echo
 		echo
 		echo " * Ensuring we have sys-apps/coreutils ..."
 		echo
-		DEBUG=1 \
-		USE="${USE:+"${USE} "}-hostname" \
-			do_emerge --system-defaults sys-apps/coreutils
+		#	DEBUG=1 \
+			USE="${USE:+"${USE} "}-hostname" \
+		do_emerge --system-defaults sys-apps/coreutils
 
 		echo
 		echo " * Ensuring we have sys-apps/net-tools ..."
 		echo
-		DEBUG=1 \
-		USE="${USE:+"${USE} "}hostname" \
-			do_emerge --system-defaults sys-apps/net-tools
+		#	DEBUG=1 \
+			USE="${USE:+"${USE} "}hostname" \
+		do_emerge --system-defaults sys-apps/net-tools
 
 		# Try to prevent preserved rebuilds being required...
 		#
@@ -1667,14 +1668,14 @@ echo
 		echo " * Trying to avoid preserved libraries ..."
 		echo
 		# shellcheck disable=SC2086
-		DEBUG=1 \
-		USE="${USE:+"${USE} "}asm cxx -ensurepip -gdbm gmp minimal -ncurses openssl -readline -sqlite -zstd" \
-			do_emerge --once-defaults \
-				net-libs/gnutls \
-				dev-libs/nettle \
-				dev-lang/python \
-				dev-lang/perl \
-				sys-libs/gdbm
+		#	DEBUG=1 \
+			USE="${USE:+"${USE} "}asm cxx -ensurepip -gdbm gmp minimal -ncurses openssl -readline -sqlite -zstd" \
+		do_emerge --once-defaults \
+			net-libs/gnutls \
+			dev-libs/nettle \
+			dev-lang/python \
+			dev-lang/perl \
+			sys-libs/gdbm
 
 		root_use='' arm64_use=''
 		if [ -z "${ROOT:-}" ] || [ "${ROOT}" = '/' ]; then
@@ -1693,45 +1694,45 @@ echo
 		#	"the required USE-flags ..."
 		#echo
 		# shellcheck disable=SC2086
-		#DEBUG=1 \
-		#USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp ${arm64_use:+"${arm64_use} "}-nettle -nls openmp openssl" \
-		#	do_emerge \
-		#			--system-defaults \
-		#		sys-devel/gcc app-crypt/libb2
+		#	DEBUG=1 \
+		#	USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp ${arm64_use:+"${arm64_use} "}-nettle -nls openmp openssl" \
+		#do_emerge \
+		#		--system-defaults \
+		#	sys-devel/gcc app-crypt/libb2
 		echo
 		echo " * Ensuring we have system packages ..."
 		echo
 		# shellcheck disable=SC2086
-		DEBUG=1 \
-		USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp ${arm64_use:+"${arm64_use} "}-nettle -nls openmp openssl" \
-			do_emerge \
-					--exclude='dev-libs/libtomcrypt' \
-					--exclude='net-misc/dropbear' \
-					--exclude='sys-apps/net-tools' \
-					--system-defaults \
-				${pkg_system} dev-libs/nettle net-libs/gnutls dev-lang/python \
-					dev-libs/libxml2 sys-devel/gettext
-				#${pkg_system} $( # <- Syntax
-				#	find "${ROOT%"/"}/var/db/pkg/" \
-				#			-mindepth 3 \
-				#			-maxdepth 3 \
-				#			-type f \
-				#			-name 'IUSE' \
-				#			-print0 |
-				#		xargs -r0 grep -Flw -- 'openmp' |
-				#		sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||' |
-				#		xargs -r
-				#) dev-libs/nettle net-libs/gnutls dev-lang/python \
-				#	dev-libs/libxml2 sys-devel/gettext
+		#	DEBUG=1 \
+			USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp ${arm64_use:+"${arm64_use} "}-nettle -nls openmp openssl" \
+		do_emerge \
+				--exclude='dev-libs/libtomcrypt' \
+				--exclude='net-misc/dropbear' \
+				--exclude='sys-apps/net-tools' \
+				--system-defaults \
+			${pkg_system} dev-libs/nettle net-libs/gnutls dev-lang/python \
+				dev-libs/libxml2 sys-devel/gettext
+			#${pkg_system} $( # <- Syntax
+			#	find "${ROOT%"/"}/var/db/pkg/" \
+			#			-mindepth 3 \
+			#			-maxdepth 3 \
+			#			-type f \
+			#			-name 'IUSE' \
+			#			-print0 |
+			#		xargs -r0 grep -Flw -- 'openmp' |
+			#		sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||' |
+			#		xargs -r
+			#) dev-libs/nettle net-libs/gnutls dev-lang/python \
+			#	dev-libs/libxml2 sys-devel/gettext
 		unset root_use
 
 		echo
 		echo " * Rebuilding any preserved dependencies ..."
 		echo
 		# We're hitting errors here that dev-libs/nettle[gmp] is required...
-		DEBUG=1 \
-		USE="${USE:+"${USE} "}asm -ensurepip -gdbm -ncurses openssl -readline -sqlite -zstd" \
-			do_emerge --preserved-defaults '@preserved-rebuild'
+		#	DEBUG=1 \
+			USE="${USE:+"${USE} "}asm -ensurepip -gdbm -ncurses openssl -readline -sqlite -zstd" \
+		do_emerge --preserved-defaults '@preserved-rebuild'
 	done  # for ROOT in $(...)
 )  # @system
 
@@ -2077,9 +2078,6 @@ case "${1:-}" in
 				done  # for arg in ${post_pkgs}
 
 			else # grep -Eq -- ' --single(-post)? ' <<<" ${EMERGE_OPTS} "
-				echo
-				echo " * Building post-packages '${post_pkgs}' ..."
-				echo
 				(
 					for ROOT in $( # <- Syntax
 							echo "${extra_root:-}" "${ROOT}" |
@@ -2090,9 +2088,24 @@ case "${1:-}" in
 						export ROOT
 						export SYSROOT="${ROOT}"
 						export PORTAGE_CONFIGROOT="${SYSROOT}"
+						echo
+						echo " * Building post-packages '${post_pkgs}' to ROOT '${ROOT:-"/"}' ..."
+						echo
+
 						# shellcheck disable=SC2086
+							USE='compile-locales -gmp minimal -openmp' \
+						do_emerge --defaults ${parallel} --usepkg=y \
+								app-crypt/libb2 \
+								sys-apps/coreutils \
+								sys-devel/gcc \
+								sys-devel/gettext \
+								sys-libs/glibc ||
+							rc=${?}
+						# shellcheck disable=SC2086
+							USE='compile-locales gmp minimal' \
 						do_emerge --defaults ${parallel} --usepkg=y \
 							${post_pkgs} || rc=${?}
+
 						if [ $(( rc )) -ne 0 ]; then
 							break
 						fi
