@@ -358,7 +358,7 @@ check() {
 
 checkmissing() {
 	#inherit ROOT
-	cm_arg='' cm_package=''
+	cm_arg='' cm_package='' cm_path=''
 
 	# Check that packages passed in as arguments have been removed
 	#
@@ -372,17 +372,12 @@ checkmissing() {
 	done
 	cm_package="$( echo "${cm_package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
 	if echo "${cm_package}" | grep -Fq -- '/'; then
-		if ls -1d \
-				"${ROOT:-}/var/db/pkg/${cm_package%"::"*}"* >/dev/null 2>&1
-		then
-			warn "emerge indicated success but package '${cm_package%"::"*}'" \
-				"still appears to be installed under root '${ROOT:-"/"}'"
-			return 1
-		fi
+		cm_path="${ROOT:-}/var/db/pkg/${cm_package%"::"*}"
 	else
-		if ls -1d \
-				"${ROOT:-}/var/db/pkg"/*/"${cm_package%"::"*}"* >/dev/null 2>&1
-		then
+		cm_path="${ROOT:-}/var/db/pkg/*/${cm_package%"::"*}"
+	fi
+	if echo "${cm_package}" | grep -Fq -- '/'; then
+		if ls -1d ${cm_path}/* >/dev/null 2>&1; then
 			warn "emerge indicated success but package '${cm_package%"::"*}'" \
 				"still appears to be installed under root '${ROOT:-"/"}'"
 			return 1
@@ -395,8 +390,18 @@ checkmissing() {
 
 pkg_remove() {
 	#inherit ROOT
+	pr_force=1 pr_verbose=''
+	if [ "${1:-}" = '--no-force' ]; then
+		pr_force=0
+		shift
+	fi
+	if [ "${1:-}" = '--verbose' ]; then
+		pr_verbose='v'
+		shift
+	fi
 	pr_stage="${1:-}" ; shift
 	pr_remove="${*:-}"
+	pr_pkg='' pr_args=''
 
 	(
 		for ROOT in $( echo "${ROOT:-}" '/' | xargs -n 1 | sort | uniq ); do
@@ -432,37 +437,70 @@ pkg_remove() {
 				# emerge --depclean exits with code zero even if removal
 				# doesn't succeed :(
 				#
-				# shellcheck disable=SC2086
-				checkmissing ${pr_remove} ||
-					LC_ALL='C' emerge \
-							--ignore-default-opts \
-							--color=y \
-							--verbose=n \
-							--verbose-conflicts \
-							--with-bdeps=n \
-							--with-bdeps-auto=n \
-						--rage-clean ${pr_remove} || :
+				# N.B. checkmissing() only processes the first non-hyphenated
+				#      argument...
+				#      We'll assemble the argument list in sequence and only
+				#      apply then once encountered.
+				#
+				for pr_pkg in ${pr_remove}; do
+					case "${pr_pkg}" in
+						-*)
+							pr_args="${pr_args:+"${pr_args} "}${pr_pkg}"
+							;;
+						*)
+							# shellcheck disable=SC2086
+							checkmissing "${pr_pkg}" ||
+								LC_ALL='C' emerge \
+										--ignore-default-opts \
+										--color=y \
+										--verbose=n \
+										--verbose-conflicts \
+										--with-bdeps=n \
+										--with-bdeps-auto=n \
+									--rage-clean ${pr_args} -- "${pr_pkg}" || :
+							;;
+					esac
+				done
 
-				# shellcheck disable=SC2086
-				checkmissing ${pr_remove} || exit ${?}
+				for pr_pkg in ${pr_remove}; do
+					case "${pr_pkg}" in
+						-*)
+							:
+							;;
+						*)
+							# shellcheck disable=SC2086
+							checkmissing "${pr_pkg}" || exit ${?}
+							;;
+					esac
+				done
 
 				#LC_ALL='C' emerge --depclean -v
 
 				for pr_pkg in ${pr_remove}; do
-					rm -vr "${ROOT%"/"}/var/db/pkg/"*"/${pr_pkg}"* 2>/dev/null ||
-						rm -vr "${ROOT%"/"}/var/db/pkg/${pr_pkg}"* 2>/dev/null || :
-					if [ -e "${ROOT%"/"}/var/lib/portage/world" ]; then
-						pr_str="$( echo "${pr_pkg}" | sed 's|/|\\/|g' )"
-						if sed -i "/${pr_str}/ d" \
-								"${ROOT%"/"}/var/lib/portage/world"
-						then
-							print "Manually removed '${pr_pkg}' from world profile"
-						else
-							warn "Failed to remove '${pr_pkg}' from world" \
-								"profile (or package already removed)"
-						fi
-						unset pr_str
-					fi
+					case "${pr_pkg}" in
+						-*)
+							:
+							;;
+						*)
+							rm -r${pr_verbose} \
+									"${ROOT%"/"}/var/db/pkg/"*"/${pr_pkg}"* 2>/dev/null ||
+								rm -r${pr_verbose} \
+										"${ROOT%"/"}/var/db/pkg/${pr_pkg}"* 2>/dev/null || :
+
+							if [ -e "${ROOT%"/"}/var/lib/portage/world" ]; then
+								pr_str="$( echo "${pr_pkg}" | sed 's|/|\\/|g' )"
+								if sed -i "/${pr_str}/ d" \
+										"${ROOT%"/"}/var/lib/portage/world"
+								then
+									print "Manually removed '${pr_pkg}' from world profile"
+								else
+									warn "Failed to remove '${pr_pkg}' from world" \
+										"profile (or package already removed)"
+								fi
+								unset pr_str
+							fi
+							;;
+					esac
 				done
 				unset pr_pkg
 			fi  # [ -n "${pr_remove:-}" ] && echo "${pr_remove}" | grep -Eq -- '(^|\s)[a-z]'
@@ -1108,7 +1146,7 @@ pkg_mask_pkg='' pkg_mask_file='' extra_file='' extra_files=''
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
 post_pkgs='' post_use='' post_remove=''
-rebuild='' depclean_extra='' depclean_exclude=''
+rebuild='' depclean_extra='' depclean_exclude='' intent='keep'
 depclean=0 change_sysroot=0 pkg_use=0 pkg_mask=0 no_use=0 rc=0
 for arg in "${@}"; do
 	#print "Read argument '${arg}'"
@@ -1184,6 +1222,12 @@ for arg in "${@}"; do
 			;;
 		--depclean-exclude=*)
 			depclean_exclude="$( # <- Syntax
+				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+			)"
+			continue
+			;;
+		--intent=*)
+			intent="$( # <- Syntax
 				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
 			)"
 			continue
@@ -1264,6 +1308,22 @@ for arg in "${@}"; do
 	esac
 done
 unset pkg_mask_pkg pkg_use_file pkg_use_pkg pkg_use_use arg
+
+case "${intent}" in
+	'keep')
+		:
+		;;
+	'tmp'|'temp'|'discard')
+		intent='tmp'
+		if [ $(( depclean )) -ne 0 ]; then
+			ewarn "Disabling --depclean for invocation with 'discard' intent"
+			depclean=0
+		fi
+		;;
+	*)	die "Unknown intent '${intent}' - recognised values are" \
+			"'keep' & 'discard'"
+		;;
+esac
 
 if [ ! -f /etc/locale.gen ] || [ ! -s /etc/locale.gen ]; then
 	cat >/etc/locale.gen <<-EOF
@@ -2488,7 +2548,8 @@ case "${1:-}" in
 							-- ${gcc_pkgs} ${gcc_build_pkgs}
 					) || : $(( rc = rc + ${?} ))
 
-					pkg_remove 'post-installation' ${gcc_build_pkgs}
+					[ "${intent:-}" = 'keep' ] &&
+						pkg_remove 'post-installation' ${gcc_build_pkgs}
 				fi  # [ -n "${gcc_pkgs:-}" ]
 				unset gcc_build_pkgs gcc_pkgs
 			fi  # [ -n "${gcc_exclude:-}" ] && echo "${post_pkgs}" | grep -Fq -- 'gcc'
@@ -2508,7 +2569,7 @@ esac
 savefailed
 check ${rc} "${first_package}"
 
-if [ -n "${post_remove:-}" ]; then
+if [ -n "${post_remove:-}" ] && [ "${intent:-}" = 'keep' ]; then
 	pkg_remove 'post-installation' "${post_remove}"
 fi
 
@@ -2541,16 +2602,27 @@ if [ $(( depclean )) -ne 0 ]; then
 	# ... so let's just do the best we can.
 	#
 	filtered_depclean_exclude=''
-	for arg in ${depclean_exclude}; do
+	for arg in ${depclean_exclude:-}; do
 		filtered_depclean_exclude="${filtered_depclean_exclude:+"${filtered_depclean_exclude} "}$( # <- Syntax
 			echo "${arg}" |
 				sed 's/^[<>]\?=\?// ; s/-[0-9].*$// ; s/::.*$//'
 		)"
 	done
 	unset arg
-	depclean_exclude="sys-apps/busybox sys-apps/gentoo-functions"
+	depclean_exclude='sys-apps/busybox sys-apps/gentoo-functions sys-apps/grep'
 	[ -n "${filtered_depclean_exclude:-}" ] &&
 		depclean_exclude="${depclean_exclude} ${filtered_depclean_exclude}"
+	filtered_depclean_exclude=''
+	for arg in ${depclean_exclude}; do
+		if echo "${filtered_depclean_exclude:-}" | grep -Fq -- " \?--exclude=${arg} \?"; then
+			print "depclean_exclude item '${arg}' included multiple times"
+		else
+			filtered_depclean_exclude="${filtered_depclean_exclude:+"${filtered_depclean_exclude} "}--exclude=${arg}"
+		fi
+	done
+	unset arg
+	[ -n "${filtered_depclean_exclude:-}" ] &&
+		depclean_exclude="${filtered_depclean_exclude}"
 	unset filtered_depclean_exclude
 
 	# FIXME: This may be overkill, but some containers which don't use perl
@@ -2562,11 +2634,11 @@ if [ $(( depclean )) -ne 0 ]; then
 	(
 		#do_emerge \
 		#		--depclean \
-		#		  ${depclean_exclude:+"--exclude=${depclean_exclude}"} \
+		#		  ${depclean_exclude} \
 		#		--verbose=y \
 		#		--with-bdeps=n \
 		pkg_remove 'final' \
-			${depclean_exclude:+"--exclude=${depclean_exclude}"} \
+			${depclean_exclude:-} \
 			-- $( # <- Syntax
 				echo "${first_package} ${post_pkgs}" |
 						grep -Fq -- 'dev-lang/perl' ||
@@ -2595,18 +2667,21 @@ if [ $(( depclean )) -ne 0 ]; then
 			#		--verbose=y \
 			#		--with-bdeps=n \
 			pkg_remove 'final extra' \
-				--exclude="sys-apps/busybox sys-apps/gentoo-functions" \
+				--exclude=sys-apps/busybox \
+				--exclude=sys-apps/gentoo-functions \
 				-- ${depclean_extra}
 		) || :
 	fi
 	(
 		#do_emerge \
 		#	--depclean \
-		#	--exclude="dev-libs/libffi${depclean_exclude:+" ${depclean_exclude}"}" \
+		#	--exclude=dev-libs/libffi \
+		#	${depclean_exclude:-} \
 		#	--verbose=y \
 		#	--with-bdeps=n
 		pkg_remove 'last' \
-			--exclude="dev-libs/libffi${depclean_exclude:+" ${depclean_exclude}"}"
+			--exclude=dev-libs/libffi \
+			${depclean_exclude:-}
 	) || :
 
 	if [ -s /etc/portage/profile/package.provided.backup ]; then

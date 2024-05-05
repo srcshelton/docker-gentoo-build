@@ -310,6 +310,6 @@ fi
 # Provide a '--name' to prevent the container being removed on exit.
 # Invoke with '--usepkg=n' to rebuild existing packages...
 
-_docker_build ${@+"${@}"}
+_docker_build --intent=discard ${@+"${@}"}
 
 # vi: set colorcolumn=80 syntax=sh:
