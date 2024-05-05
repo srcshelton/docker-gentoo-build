@@ -120,6 +120,8 @@
 =sys-apps/haveged-1.9.14-r1				~arm64
 =sys-apps/kexec-tools-2.0.24				~arm64
 =sys-apps/memtester-4.5.1				~arm64
+#=sys-apps/mlocate-0.26-r3				~arm64
+=sys-apps/plocate-1.1.18				~arm64
 =sys-apps/watchdog-5.16					~arm64
 =sys-auth/pam_mobile_otp-0.6.2				 **
 =sys-power/powertop-2.15				~arm64
