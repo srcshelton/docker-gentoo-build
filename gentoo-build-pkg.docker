@@ -307,9 +307,25 @@ if [ -n "${postuse:-}" ]; then
 	set -- "${@}" --post-use="${postuse}"
 fi
 
-# Provide a '--name' to prevent the container being removed on exit.
-# Invoke with '--usepkg=n' to rebuild existing packages...
+# Add '--cap-add' entries sync'd with 'fcaps' calls in ebuilds...
+#
+# FIXME: Add a distinct 'DOCKER_CAPS' or similar
+DOCKER_CMD_VARS="
+	--cap-add=DAC_OVERRIDE
+	--cap-add=DAC_READ_SEARCH
+	--cap-add=NET_ADMIN
+	--cap-add=NET_BIND_SERVICE
+	--cap-add=NET_RAW
+	--cap-add=SETGID
+	--cap-add=SETUID
+	--cap-add=SYS_ADMIN
+	--cap-add=SYS_RESOURCE
+	--cap-add=SYS_TTY_CONFIG
+"
 
-_docker_build --intent=discard ${@+"${@}"}
+# Provide a '--name' to prevent the container being removed on exit;
+# invoke with '--usepkg=n' to rebuild existing packages...
+#
+_docker_build --intent=discard ${@+"${@}"} \
 
 # vi: set colorcolumn=80 syntax=sh:
