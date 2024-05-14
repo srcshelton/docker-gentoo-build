@@ -52,6 +52,7 @@ services=(
 	fwupd
 	imapproxyd
 	irqbalance
+	kea
 	less
 	lighttpd
 	lynis
@@ -146,6 +147,7 @@ set -- "${args[@]:-}"
 
 declare zxtm_service_version=''
 declare -i rc=0
+declare -a container_caps=()
 
 # shellcheck disable=SC2154
 declare IMAGE="${build_name}:latest"
@@ -433,6 +435,8 @@ case "${service:-}" in
 		service='>=net-mail/imapproxy-1.2.8_p14637::srcshelton' ;;
 	irqbalance)
 		service='sys-apps/irqbalance' ;;
+	kea)
+		service='net-misc/kea' ;;
 	less)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='sys-apps/less' ;;
@@ -768,6 +772,20 @@ case "${package_name}" in
 
 		container_cmd='/usr/sbin/irqbalance'
 		;;
+	*.kea)
+		output "Setting build variables for package 'kea' ..."
+		pre_pkgs='sys-devel/gcc'
+
+		#ports='67/udp 68/udp 647/tcp 7911/tcp'
+		#user='dhcp'
+		#group='dhcp'
+		container_caps=( # <- Syntax
+			--cap-add NET_BIND_SERVICE
+			--cap-add NET_RAW
+		)
+		container_cmd='/usr/sbin/kea-dhcp4'
+		etcdir='kea'
+		;;
 	*.less)
 		output "Setting build variables for package 'less' ..."
 		extra_pkgs='app-text/lesspipe'
@@ -856,6 +874,10 @@ case "${package_name}" in
 		ports='19999/tcp'
 		user='netdata'
 		group='netdata'
+		container_caps=( # <- Syntax
+			--cap-add DAC_OVERRIDE
+			--cap-add NET_ADMIN
+		)
 		container_cmd='/usr/sbin/netdata'
 		container_cwd='/var/lib/netdata'
 		etcdir='netdata'
@@ -1798,6 +1820,7 @@ else
 			ROOT='/service' \
 			name="${container_prefix}-${container_name}" \
 			image="${IMAGE}" \
+			DOCKER_CMD_VARS="${container_caps[*]:-}" \
 	_docker_run "${args[@]}" 2>&1 |
 		tee "log/docker.${container_prefix}.${alt_log:-"${container_name}"}.log"
 	rc=${?}
@@ -1892,6 +1915,9 @@ args+=(
 	--tag "service.${package_name}:${package_version}"
 	#--network slirp4netns
 )
+if [[ -n "${container_caps[*]:-}" ]]; then
+	args+=( "${container_caps[@]}" )
+fi
 
 # With the addition of the '--squash-all' parameter, the 'build' image is
 # re-squashed when 'gentoo-build'-svc.docker invokes 'Dockerfile.*service' to

@@ -1,0 +1,8 @@
+
+#net-misc/kea				 benchmark debug doc examples filecaps mysql +openssl postgres +shell systemd tmpfiles test
+net-misc/kea				 filecaps openssl shell
+
+dev-libs/boost				-python
+dev-libs/log4cplus			-iconv -server explicit-initialization  # (threads)
+
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
