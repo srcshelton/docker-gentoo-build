@@ -192,6 +192,7 @@ net-nds/openldap			-cxx -slp overlays pbkdf2 sha2
 net-p2p/bitcoind			 bitcoin_policy_cpfp bitcoin_policy_cltv bitcoin_policy_dcmp bitcoin_policy_rbf bitcoin_policy_spamfilter knots ljr logrotate upnp
 # move net-misc/openvpn net-vpn/openvpn
 net-vpn/openvpn				 down-root eurephia iproute2 passwordsave
+net-vpn/wireguard-tools			-wg-quick
 perl-core/bignum			 test
 sci-mathematics/pari			-X
 sys-apps/baselayout			 varrun
