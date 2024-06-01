@@ -91,9 +91,14 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 		unset base_dir
 	fi
 
-	use_cpu_arch='' use_cpu_flags='' use_cpu_flags_raw='' gcc_target_opts='-march=native'
-	description='' vendor=''
+	use_cpu_arch='' use_cpu_flags='' use_cpu_flags_raw=''
+	gcc_target_opts='-march=native' description='' vendor='' sub_cpu_arch=''
+
 	use_cpu_arch="$( uname -m | cut -c 1-3 | sed 's/aar/arm/' )"
+	case "$( uname -m )" in
+		aarch64)	sub_cpu_arch='arm64' ;;
+		x86_64)		sub_cpu_arch='amd64' ;;
+	esac
 	if command -v cpuid2cpuflags >/dev/null 2>&1; then
 		use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- )"
 	else
@@ -169,28 +174,28 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 v4 v5 v6 v7 thumb2'
 				gcc_target_opts='-mcpu=cortex-a7 -mfpu=neon-vfpv4 -mneon-for-64bits -mthumb' ;;
 			*': Raspberry Pi 3 '*|*': Raspberry Pi Zero 2 W '*)
-				# ARMv8, 64bit (no longer needs '-mneon-for-64bits')
+				# ARMv8, 64bit (no longer needs '-mneon-for-64bits', '-mfpu=*')
 				use_cpu_arch='arm'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2'
-				gcc_target_opts='-mcpu=cortex-a53+crc -mfpu=neon-fp-armv8' ;;
+				gcc_target_opts='-mcpu=cortex-a53+crc' ;;
 			*': Raspberry Pi 4 '*|*': Raspberry Pi Compute Module 4 '*)
 				use_cpu_arch='arm'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='-mcpu=cortex-a72+crc -mfpu=neon-fp-armv8' ;;
+				gcc_target_opts='-mcpu=cortex-a72+crc' ;;
 			*': Raspberry Pi 400 '*)
 				use_cpu_arch='arm'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='-mcpu=cortex-a72+crc -mfpu=neon-fp-armv8' ;;
+				gcc_target_opts='-mcpu=cortex-a72+crc' ;;
 			*': Raspberry Pi 5 '*)
 				use_cpu_arch='arm'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='-mcpu=cortex-a72+aes+crc+crypto -mfpu=crypto-neon-fp-armv8' ;;
+				gcc_target_opts='-mcpu=cortex-a72+aes+crc+crypto' ;;
 
 			*': Mixtile Blade 3 '*)
 				# ARMv8, big.LITTLE
 				use_cpu_arch='arm'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='-mcpu=cortex-a76.cortex-a55+aes+crc+crypto+sha2 -mfpu=crypto-neon-fp-armv8' ;;
+				gcc_target_opts='-mcpu=cortex-a76.cortex-a55+aes+crc+crypto+sha2' ;;
 
 			*': 0xd07'|'Apple M1'*)
 				use_cpu_arch='arm'
@@ -277,7 +282,9 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	fi
 	case "${use_cpu_arch:-"x86"}" in
 		arm)
-			gcc_target_opts="${gcc_target_opts:+"${gcc_target_opts} "}-mfloat-abi=hard"
+			if [ -z "${sub_cpu_arch:-}" ]; then
+				gcc_target_opts="${gcc_target_opts:+"${gcc_target_opts} "}-mfloat-abi=hard"
+			fi
 			;;
 	esac
 	export use_cpu_arch use_cpu_flags gcc_target_opts
