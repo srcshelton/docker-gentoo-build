@@ -512,9 +512,11 @@ pkg_remove() {
 
 savefailed() {
 	#inherit PORTAGE_LOGDIR PORTAGE_LOGDIR
+	sf_rc=0
 
 	# Save failed build logs ...
 	# (e.g. /var/tmp/portage/app-misc/mime-types-9/temp/build.log)
+	# (e.g. /var/tmp/portage/net-misc/dhcpcd-10.0.6-r2/work/dhcpcd-10.0.6/config.log)
 
 	#[ -n "${trace:-}" ] || set -o xtrace
 
@@ -522,23 +524,48 @@ savefailed() {
 	#
 	# shellcheck disable=SC2012
 	if [ -n "$( # <- Syntax
-			ls -1 "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log 2>/dev/null |
-			head -n 1
+			ls -1 2>/dev/null \
+					"${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log \
+					"${PORTAGE_TMPDIR}"/portage/*/*/work/*/config.log |
+				head -n 1 || :
 	)" ]; then
 		mkdir -p "${PORTAGE_LOGDIR}"/failed
-		for file in "${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log; do
-			cat="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"
-			pkg="$( echo "${file}" | rev | cut -d'/' -f 3 | rev )"
+		for file in \
+				"${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log \
+				"${PORTAGE_TMPDIR}"/portage/*/*/work/*/config.log
+		do
+			[ -e "${file}" ] || continue
+
+			sf_rc=1
+			type="$( echo "${file}" | rev | cut -d'/' -f 1 | rev )"
+			case "${type}" in
+				build.log)
+					cat="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"
+					pkg="$( echo "${file}" | rev | cut -d'/' -f 3 | rev )"
+					;;
+				config.log)
+					cat="$( echo "${file}" | rev | cut -d'/' -f 5 | rev )"
+					pkg="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"
+					;;
+				*)
+					warn "Unknown log type '${type}'"
+					continue
+					;;
+			esac
 			mkdir --parents "${PORTAGE_LOGDIR}/failed/${cat}"
-			mv --verbose "${file}" "${PORTAGE_LOGDIR}/failed/${cat}/${pkg}.log"
+			mv --verbose "${file}" \
+				"${PORTAGE_LOGDIR}/failed/${cat}/${pkg}-${type}" 2>/dev/null || :
 			rmdir \
 					--parents \
 					--ignore-fail-on-non-empty \
-				"$( dirname "${file}" )" || :
+				"$( dirname "${file}" )" "${PORTAGE_LOGDIR}/failed/${cat}" || :
+			unset type pkg cat
 		done
 	fi
 
 	#[ -n "${trace:-}" ] || set +o xtrace
+
+	return ${sf_rc}
 }  # savefailed
 
 applyworkarounds() {

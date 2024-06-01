@@ -314,6 +314,64 @@ resolve_python_flags() {
 	return 0
 }  # resolve_python_flags
 
+savefailed() {
+	#inherit PORTAGE_LOGDIR PORTAGE_LOGDIR
+	sf_rc=0
+
+	# Save failed build logs ...
+	# (e.g. /var/tmp/portage/app-misc/mime-types-9/temp/build.log)
+	# (e.g. /var/tmp/portage/net-misc/dhcpcd-10.0.6-r2/work/dhcpcd-10.0.6/config.log)
+
+	#[ -n "${trace:-}" ] || set -o xtrace
+
+	# We can't rely on findutils being present...
+	#
+	# shellcheck disable=SC2012
+	if [ -n "$( # <- Syntax
+			ls -1 2>/dev/null \
+					"${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log \
+					"${PORTAGE_TMPDIR}"/portage/*/*/work/*/config.log |
+				head -n 1 || :
+	)" ]; then
+		mkdir -p "${PORTAGE_LOGDIR}"/failed
+		for file in \
+				"${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log \
+				"${PORTAGE_TMPDIR}"/portage/*/*/work/*/config.log
+		do
+			[ -e "${file}" ] || continue
+
+			sf_rc=1
+			type="$( echo "${file}" | rev | cut -d'/' -f 1 | rev )"
+			case "${type}" in
+				build.log)
+					cat="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"
+					pkg="$( echo "${file}" | rev | cut -d'/' -f 3 | rev )"
+					;;
+				config.log)
+					cat="$( echo "${file}" | rev | cut -d'/' -f 5 | rev )"
+					pkg="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"
+					;;
+				*)
+					warn "Unknown log type '${type}'"
+					continue
+					;;
+			esac
+			mkdir --parents "${PORTAGE_LOGDIR}/failed/${cat}"
+			mv --verbose "${file}" \
+				"${PORTAGE_LOGDIR}/failed/${cat}/${pkg}-${type}" 2>/dev/null || :
+			rmdir \
+					--parents \
+					--ignore-fail-on-non-empty \
+				"$( dirname "${file}" )" "${PORTAGE_LOGDIR}/failed/${cat}" || :
+			unset type pkg cat
+		done
+	fi
+
+	#[ -n "${trace:-}" ] || set +o xtrace
+
+	return ${sf_rc}
+}  # savefailed
+
 do_emerge() {
 	emerge_arg=''
 	emerge_opts=''
@@ -488,6 +546,8 @@ do_emerge() {
 		[ -f /etc/._cfg0000_hosts ] && rm -f /etc/._cfg0000_hosts
 		etc-update -q --automode -5
 		LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
+	else
+		savefailed
 	fi
 
 	unset emerge_opts emerge_arg
@@ -802,7 +862,7 @@ fi
 LC_ALL='C' eselect --colour=yes profile list | grep 'stable'
 LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" # 2>/dev/null
 info "Selected profile '$( # <- Syntax
-	LC_ALL='C' eselect --colour=yes profile show | tail -n 1
+	LC_ALL='C' eselect --colour=yes profile show | tail -n 1 | sed 's/\s\+//'
 )'"
 
 LC_ALL='C' emaint --fix binhost
