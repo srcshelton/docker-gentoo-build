@@ -42,7 +42,7 @@ readonly package_default
 
 declare binutils_min_ver='2.25.0'
 declare gcc_min_ver='5.1.0'  # 12.0.0 on PA-RISC
-declare llvm_min_ver='11.0.0'  # 15.0.0 on S390, 18.0.0 on loongarch
+declare llvm_min_ver='11.0.0'  # 13.0.1 from 6.9.0, 15.0.0 on S390, 18.0.0 on loongarch
 
 declare firmware=''
 declare microcode=''
@@ -523,7 +523,7 @@ if ! echo " ${*:-} " | grep -q -- ' --no-patch'; then
 			;;
 		6.1.79*|6.1.[89][0-9]*|6.1.[1-9][0-9][0-9]*|6.[234567].*)
 			kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-6.1.79-6.8-rc3.patch' ;;
-		6.8.*)
+		6.[89].*)
 			kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-6.8-rc4%2B.patch' ;;
 		'')
 			: ;;
@@ -585,6 +585,12 @@ fi
 
 # End of argument handling
 
+case "${package_version}" in
+	6.9.*)
+		llvm_min_ver='13.0.1'
+		;;
+esac
+
 if [[ "${compiler}" == 'clang' ]]; then
 	declare rust_ver=''
 	# https://github.com/rust-lang/rust-bindgen/issues/2312
@@ -623,6 +629,11 @@ if [[ "${compiler}" == 'clang' ]]; then
 			;;
 		6.8.*)
 			rust_ver='1.74.1'
+			bindgen_ver='0.65.1'
+			(( llvm_default_slot = 17 ))
+			;;
+		6.9.*)
+			rust_ver='1.76.0'
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 17 ))
 			;;
@@ -1852,7 +1863,9 @@ time {
 	output " -> ${rc}"
 }
 
-if [[ -d /boot/dtbs ]] && [[ "$( find /boot/dtbs -maxdepth 0 -empty )" == '/boot/dtbs' ]]; then
+if [[ -d /boot/dtbs ]] &&
+		[[ "$( find /boot/dtbs -maxdepth 0 -empty )" == '/boot/dtbs' ]]
+then
 	rmdir /boot/dtbs
 fi
 
