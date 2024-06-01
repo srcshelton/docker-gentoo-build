@@ -673,8 +673,14 @@ _docker_resolve() {
 					esac
 				done
 
-				# Assume we also lack 'portageq'...
-				if [[ -d /var/db/repos ]]; then
+				if type -pf portageq; then
+					repopath="$( portageq get_repo_path "${EROOT:-"/"}" $(
+						portageq get_repos "${EROOT:-"/"}" |
+							xargs -rn 1 2>/dev/null |
+							grep -iw gentoo |
+							tail -n 1
+					))"
+				elif [[ -d /var/db/repos ]]; then
 					repopath='/var/db/repos/gentoo'
 				elif [[ -d /var/db/repo ]]; then
 					repopath='/var/db/repo/gentoo'
