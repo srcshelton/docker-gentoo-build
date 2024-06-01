@@ -28,7 +28,10 @@ ARG gentoo_stage3_image_ref="docker.io/gentoo/stage3:latest"
 
 ARG stage3_flags_file="/usr/libexec/stage3_flags.sh"
 
-ARG new_root_name="split-usr-root"
+# amd64 images are now merged-usr :(
+#ARG new_root_name="split-usr-root"
+# ... but it looks as if other architectures are still split-usr :o
+ARG new_root_name=""
 
 
 # -----------------------------------------------------------------------------
@@ -101,6 +104,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
 # files' intended filesystem locations.
 #
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
+    test -n "${new_root_name:-}" || exit 0 ; \
     : ; \
     mkdir "/${new_root_name}" ; \
     : ; \

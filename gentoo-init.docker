@@ -81,8 +81,7 @@ declare -i NOTIFY_MKDIR=0
 if [ "${_command}" = 'podman' ]; then
 	if [ "$( uname -s )" != 'Darwin' ]; then
 		# Update: Support 'core' user for podman+machine Fedora default user...
-		if [ $(( $( id -u ) )) -ne 0 ] && [ "$( id -un )" != 'core' ]
-		then
+		if [ $(( $( id -u ) )) -ne 0 ] && [ "$( id -un )" != 'core' ]; then
 			# This could be an expensive check, so leave it until last...
 			if "${_command}" info | grep -q -- 'rootless: false'
 			then
@@ -871,6 +870,15 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	# USED_BY: init
 
 	declare -a build_args=()
+	if [ 'symbolic link' = "$(
+			docker run --rm --network none --entrypoint /bin/sh \
+				"${gentoo_stage3_image}@${ref}" -c "stat -c '%F' /lib"
+		)" ]
+	then
+		build_args+=( --build-arg new_root_name="split-usr-root" )
+	else
+		build_args+=( --build-arg new_root_name="" )
+	fi
 	build_args+=( # <- Syntax
 		--platform "linux/${docker_arch}"
 		--build-arg ARCH="${arch}"
