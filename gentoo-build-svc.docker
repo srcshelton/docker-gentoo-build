@@ -70,6 +70,8 @@ services=(
 	php74
 	php80
 	php81
+	php82
+	php83
 	pinfo
 	postfix
 	postgrey
@@ -475,6 +477,10 @@ case "${service:-}" in
 		service='=dev-lang/php-8.0*' ;;
 	php81)
 		service='=dev-lang/php-8.1*' ;;
+	php82)
+		service='=dev-lang/php-8.2*' ;;
+	php83)
+		service='=dev-lang/php-8.3*' ;;
 	pinfo|info)
 		# Launcher loads running services' /usr/share/info volumes
 		service='app-text/pinfo' ;;
@@ -616,7 +622,7 @@ fi
 #  failures with at least app-editors/vim :(
 #
 # from common/vars.sh:
-#use_essential="asm ipv6 ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
+#use_essential="asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
 #use_essential_gcc='-default-stack-clash-protection -default-znow -fortran graphite -jit nptl openmp pch -sanitize ssp -vtv zstd'
 
 force_python=''
@@ -651,7 +657,7 @@ else
 			;;
 		*)
 			# FIXME: Hard-coded
-			php_targets='php_targets_php8-1'
+			php_targets='php_targets_php8-2'
 			;;
 	esac
 fi
@@ -1661,6 +1667,8 @@ case "${package_mask_svc_name}-${package_version}" in
 	php-7.4.*) package_mask_svc_name='php74' ;;
 	php-8.0.*) package_mask_svc_name='php80' ;;
 	php-8.1.*) package_mask_svc_name='php81' ;;
+	php-8.2.*) package_mask_svc_name='php82' ;;
+	php-8.3.*) package_mask_svc_name='php83' ;;
 esac
 if \
 		! docker_extra_mounts+=( $( add_mount --print \
