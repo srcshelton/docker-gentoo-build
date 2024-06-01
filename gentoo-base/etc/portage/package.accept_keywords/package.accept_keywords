@@ -22,4 +22,4 @@
 ~sys-fs/fatcat-1.1.1					~amd64             ~x86
 ~sys-process/ctop-0.7.7					~amd64 ~arm ~arm64 ~x86
 
-# vi: set syntax=gentoo-package-keywords:
+# vi: set syntax=gentoo-package-keywords sw=8 ts=8:
