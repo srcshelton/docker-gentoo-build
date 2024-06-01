@@ -5,7 +5,7 @@ net-mail/fetchmail			 nls
 mail-filter/procmail			 mbox
 #net-mail/dovecot			 argon2 bzip2 caps doc (ipv6) kerberos ldap lua lucene lz4 lzma managesieve mysql pam postgres (-selinux) sieve solr sqlite static-libs suid tcpd textcat unwind vpopmail (zlib)
 net-mail/dovecot			 bzip2 caps lzma managesieve sieve solr sqlite tcpd textcat unwind
-#dev-lang/perl				-debug -doc  berkdb gdbm (ithreads) -minimal
+#dev-lang/perl				-debug -doc  berkdb gdbm (perl_features_ithreads) -minimal
 
 app-alternatives/sh			-busybox bash
 

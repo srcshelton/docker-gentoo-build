@@ -3,19 +3,20 @@
 # package.use.svc - USE-flags for service builds
 
 # Keep the following in sync with common/vars.sh
-*/*					-* asm ipv6 ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads # ${use_cpu_flags}  # from 'use-essential'
+*/*					-* asm ipv6 ktls mdev multiarch native-extensions nptl split-usr ssp threads # ${use_cpu_flags}  # from 'use-essential'
 #*/*					-fortran graphite (nptl) openmp pch -sanitize ssp -vtv zstd
 
 # Add 'varrun', otherwise we end up with broken '/var/lock -> ../run/lock'
 # symlinks...
 */*					 openssl pie ssl varrun
 
+*/*					 CURL_SSL: openssl
 */*					 LUA_SINGLE_TARGET: luajit
 */*					 LUA_TARGETS: luajit
+*/*					 PERL_FEATURES: ithreads
+*/*					 PHP_TARGETS: php8-2
 */*					 PYTHON_SINGLE_TARGET: -* python3_11
 */*					 PYTHON_TARGETS: -* python3_11
-*/*					 PHP_TARGETS: php8-1
-*/*					 CURL_SSL: openssl
 
 dev-lang/perl				 minimal
 dev-lang/python-exec			 native-symlinks

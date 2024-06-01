@@ -15,7 +15,7 @@ mail-filter/dcc				 milter rrdtool
 dev-lang/php				 bzip2 cgi sqlite
 
 #app-admin/gamin
-#dev-lang/perl				-debug -doc berkdb gdbm (ithreads) -minimal
+#dev-lang/perl				-debug -doc berkdb gdbm (perl_features_ithreads) -minimal
 dev-db/libdbi-drivers			 sqlite
 
 # required by dev-lang/php-7.4.21-r1[jit?,unicode]

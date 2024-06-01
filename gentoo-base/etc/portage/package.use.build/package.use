@@ -1,6 +1,6 @@
 
 # General USE flags:
-#*/*					-* asm ipv6 ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
+#*/*					-* asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
 */*					-apache2 -awt acpi adns aio ao asm audit
 */*					-berkdb bash-completion bzip2
 */*					-cairo -cdb -cet -common-lisp -cups caps chroot curl cxx
@@ -8,7 +8,7 @@
 */*					 encode expat
 */*					-fontconfig -fortran fam fftw filecaps ftp
 */*					-gnutls -gpm -graph -gtk -gtk3 -guile gd gdbm gmp
-*/*					-introspection icu idn inotify io-uring iodbc ipv6 ithreads
+*/*					-introspection icu idn inotify io-uring iodbc ipv6
 */*					-java javascript jemalloc json
 */*					-kerberos
 */*					-libedit -ldap -lua libatomic libffi libidn2 libwww lighttpd lto lz4 lzma lzo
@@ -27,6 +27,8 @@
 */*					 zlib zstd
 
 net-misc/curl				 CURL_SSL: openssl
+# Packages outside of dev-perl and perl-core also reference these flags...
+*/*					 PERL_FEATURES: ithreads
 
 # A/V & Fonts USE flags:
 */*					-truetype -xpm
@@ -169,6 +171,7 @@ net-fs/samba				-avahi async automount ldb libclamav oav quota quotas smbsharemo
 net-im/bitlbee				 libevent twitter
 net-libs/gnutls				 dane tools  # requires net-dns/unbound
 #net-libs/ldns				-python dane  # requires dev-lang/swig, but only as a DEPEND
+net-libs/ldns				-python # incompatible with python:3.12, requires dev-lang/swig, but only as a DEPEND
 net-libs/libpcap			-netlink libnl
 net-libs/miniupnpc			-python
 net-mail/dovecot			 cydir dbox managesieve imapc lucene mdbox sdbox sieve solr  # suid
@@ -257,7 +260,7 @@ sys-libs/ncurses			 trace unicode
 sys-libs/pam				-debug
 sys-libs/timezone-data			 leaps-timezone leaps_timezone right_timezone # zic-slim
 sys-power/powertop			-X
-#sys-process/audit			-python  # requires dev-lang/swig, but only as a DEPEND
+sys-process/audit			-python  # incompatible with python:3.12, requires dev-lang/swig, but only as a DEPEND
 sys-process/cronie			-anacron
 sys-process/glances			-doc
 sys-process/procps			 modern-top
