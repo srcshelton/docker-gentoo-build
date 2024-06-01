@@ -1025,7 +1025,7 @@ _docker_run() {
 		esac
 		unset name
 		local dev_mode_script_dir="${PWD%"/"}"
-		if [[ "${dev_mode_script_dir}" != *"/gentoo-base}" ]]; then
+		if [[ "${dev_mode_script_dir}" != *"/gentoo-base" ]]; then
 			dev_mode_script_dir="${dev_mode_script_dir}/gentoo-base"
 		fi
 		if ! [[
