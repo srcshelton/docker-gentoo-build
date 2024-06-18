@@ -11,11 +11,12 @@ net-libs/nodejs				 icu snapshot system-icu system-ssl
 
 acct-user/netdata			 podman ssl
 app-containers/netavark			 dns
-app-containers/podman			 wrapper
+app-containers/podman			 seccomp wrapper
 dev-libs/libpcre2			 unicode
 dev-libs/nettle				 gmp
 net-firewall/iptables			 nftables
 sys-apps/nvme-cli			 json
+sys-apps/util-linux			 logger
 sys-libs/libnvme			 json
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
