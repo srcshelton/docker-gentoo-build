@@ -1232,7 +1232,7 @@ esac
 				virtual/linux-sources
 			)
 			declare -a _docker_run_arguments=( # <- Syntax
-				--with-use="${USE}"
+				--with-use="$( replace_flags '-lib-only' -- "${USE:-}" )"
 				${rustext:+"--with-pkg-mask=>virtual/rust${rust_ver:+"-${rust_ver}"}"}
 				${rustext:+"--with-pkg-mask=>dev-lang/rust${rust_ver:+"-${rust_ver}"}"}
 				${rustext:+"--with-pkg-mask=>dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"}
@@ -1585,19 +1585,29 @@ esac
 			export LDFLAGS_MODULE HOSTLDFLAGS ;
 		fi ;
 		if [ '${compiler}' = 'clang' ]; then
-			if echo "\${CFLAGS:-}" | xargs -rn 1 | grep -v -- '^-mcpu=' | grep -q -- '^-m'; then
-				echo "NOTE:  Filtering GNU CFLAGS for ${compiler}: \$(
+			if echo "\${CFLAGS:-}" | xargs -rn 1 | grep -Ev -- '^-m(arch|cpu)=' | grep -q -- '^-m'; then
+				echo "NOTE:  Filtering GNU CFLAGS ('\${CFLAGS}') for ${compiler}: \$(
 					echo "\${CFLAGS}" |
 						xargs -rn 1 |
-						grep -v -- '-mcpu=' |
+						grep -Ev -- '-m(arch|cpu)=' |
 						grep -- '^-m' |
 						sort -V |
 						xargs -r -I'{}' -- echo "\'{}\'" |
 						xargs -r ;
 				)" ;
-				mcpu="\$( echo "\${CFLAGS}" | xargs -rn 1 | grep '^-mcpu=' )" ;
-				export CFLAGS="\$( { echo "\${CFLAGS}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${mcpu:-"-mcpu=native"}" ; } | sort -V | xargs -r )" ;
-				unset mcpu ;
+				case '${arch:-"${ARCH:-}"}' in
+					'arm'*)
+						mcpu="\$( echo "\${CFLAGS}" | xargs -rn 1 | grep '^-mcpu=' || : )" ;
+						export CFLAGS="\$( { echo "\${CFLAGS}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${mcpu:-"-mcpu=native"}" ; } | sort -V | xargs -r )" ;
+						unset mcpu ;
+						;;
+					*)
+						: march="\$( echo "\${CFLAGS}" | xargs -rn 1 | grep '^-march=' || : )" ;
+						export CFLAGS="\$( { echo "\${CFLAGS}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${march:-"-march=native"}" ; } | sort -V | xargs -r )" ;
+						unset march ;
+						;;
+				esac
+				echo "NOTE:  ${compiler} CFLAGS are '\${CFLAGS}'" ;
 			fi ;
 		fi ;
 		kernel='bzImage' ;
