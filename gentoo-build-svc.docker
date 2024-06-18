@@ -98,6 +98,7 @@ services=(
 	unifi75
 	unifi80
 	unifi81
+	unifi82
 	vim
 	watchdog
 	xmrig
@@ -535,6 +536,8 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-8.0*' ;;
 	unifi81|unifi-controller81|unifi-controller-81|unifi-controller-bin81|unifi-controller-bin-81)
 		service='=net-misc/unifi-controller-bin-8.1*' ;;
+	unifi82|unifi-controller82|unifi-controller-82|unifi-controller-bin82|unifi-controller-bin-82)
+		service='=net-misc/unifi-controller-bin-8.2*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
@@ -876,6 +879,7 @@ case "${package_name}" in
 		pre_pkgs+=' acct-group/dhcp acct-user/dhcp'
 		pre_pkgs+=' acct-group/dovecot acct-group/dovenull acct-user/dovecot'
 		pre_pkgs+=' acct-group/mysql acct-user/mysql acct-group/named'
+		extra_pkgs='sys-apps/util-linux'
 
 		ports='19999/tcp'
 		user='netdata'
@@ -949,6 +953,7 @@ case "${package_name}" in
 		case "${original_service:-}" in
 			php[0-9][0-9])
 				PHP_SLOT="${original_service%[0-9]}.${original_service#"php"[0-9]}"
+				with_use="php_targets_php${PHP_SLOT/./-}"
 				;;
 			*)
 				PHP_SLOT="$( for t in $( portageq envvar 'PHP_TARGETS' ); do echo "${t/-/.}"; done | sort -V | tail -n 1 )"
@@ -1661,6 +1666,7 @@ docker_extra_mounts+=( $( add_mount --print \
 
 # package.mask.svc
 #
+declare package_mask_svc_name=''
 package_mask_svc_name="${package_name#*"."}"
 case "${package_mask_svc_name}-${package_version}" in
 	php-7.3.*) package_mask_svc_name='php73' ;;
@@ -1685,6 +1691,7 @@ if \
 then
 	note "No 'package.mask' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/'"
 fi
+unset package_mask_svc_name
 
 # package.mask
 #
@@ -1729,11 +1736,32 @@ docker_extra_mounts+=( $( add_mount --print \
 
 # package.use.svc
 #
+declare package_use_svc_name='' package_use_svc_name_extra=''
+declare -i have_package_use_svc_name=0
+package_use_svc_name="${package_name#*"."}"
+case "${package_use_svc_name}-${package_version}" in
+	php-7.3.*) package_use_svc_name_extra='php73' ;;
+	php-7.4.*) package_use_svc_name_extra='php74' ;;
+	php-8.0.*) package_use_svc_name_extra='php80' ;;
+	php-8.1.*) package_use_svc_name_extra='php81' ;;
+	php-8.2.*) package_use_svc_name_extra='php82' ;;
+	php-8.3.*) package_use_svc_name_extra='php83' ;;
+esac
 if docker_extra_mounts+=( $( add_mount --print \
-		"%base%/etc/portage/package.use.svc/${package_name#*"."}" \
-		"/etc/portage/package.use.override/${package_name#*"."}"
+		"%base%/etc/portage/package.use.svc/${package_use_svc_name}" \
+		"/etc/portage/package.use.override/${package_use_svc_name}"
 	) )
 then
+	have_package_use_svc_name=1
+fi
+if docker_extra_mounts+=( $( add_mount --print \
+		"%base%/etc/portage/package.use.svc/${package_use_svc_name_extra}" \
+		"/etc/portage/package.use.override/${package_use_svc_name_extra}"
+	) )
+then
+	have_package_use_svc_name=1
+fi
+if (( have_package_use_svc_name )); then
 	docker_extra_mounts+=( $( add_mount --print \
 			'%base%/etc/portage/package.use.svc/package.use.header' \
 			'/etc/portage/package.use.override/package.use.header'
@@ -1745,6 +1773,7 @@ elif ! docker_extra_mounts+=( $( add_mount --print \
 then
 	note "No 'package.use' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/'"
 fi
+unset have_package_use_svc_name package_use_svc_name_extra package_use_svc_name
 
 if [ -n "${arch:-}" ] &&
 	[ -s "${base_dir:+"${base_dir}/"}etc/portage/profile/use.mask.${arch}" ]
