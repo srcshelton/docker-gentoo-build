@@ -320,7 +320,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 					sys-apps/less \
 					sys-apps/portage \
 					dev-libs/nettle ;
-			} || { ! USE="-* ${alt_use} ${use_cpu_flags:-} asm compile-locales cxx ipv6 ithreads ktls lib-only minimal openssl pcre pie reference ssl varrun python_single_target_${python_default_target} python_targets_${python_default_target}" \
+			} || { ! USE="-* ${alt_use} ${use_cpu_flags:-} asm compile-locales cxx ipv6 perl_features_ithreads ktls lib-only minimal openssl pcre pie reference ssl varrun python_single_target_${python_default_target} python_targets_${python_default_target}" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.init' \
@@ -471,7 +471,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 				failures="${failures:+"${failures} "}gentoo-build-pkg;1:${err}"
 			fi
 
-			if ! USE="-* ${use} python_targets_${python_default_target:-"python3_11"}" \
+			if ! USE="-* ${use} python_targets_${python_default_target:-"python3_12"}" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -558,7 +558,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 			if [ "${ARCH}" = 'arm64' ]; then
 				USE='gold'
 			fi
-			if ! USE="-* ${alt_use} ${USE} python_targets_${python_default_target:-"python3_11"} pam tools" \
+			if ! USE="-* ${alt_use} ${USE} python_targets_${python_default_target:-"python3_12"} pam tools" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -717,7 +717,7 @@ if [ "${update:-"0"}" = '1' ]; then
 			# sys-devel/gcc also requires USE='reference' (or 'samurai')...
 			#
 			# shellcheck disable=SC2031
-			export USE="${gcc_use} ${alt_use} reference python_targets_${python_default_target:-"python3_11"}"
+			export USE="${gcc_use} ${alt_use} reference python_targets_${python_default_target:-"python3_12"}"
 			{
 				./gentoo-build-pkg.docker \
 							--buildpkg=y \

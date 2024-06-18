@@ -14,9 +14,9 @@
 */*					 LUA_SINGLE_TARGET: luajit
 */*					 LUA_TARGETS: luajit
 */*					 PERL_FEATURES: ithreads
-*/*					 PHP_TARGETS: php8-2
-*/*					 PYTHON_SINGLE_TARGET: -* python3_11
-*/*					 PYTHON_TARGETS: -* python3_11
+#*/*					 PHP_TARGETS: php8-2
+*/*					 PYTHON_SINGLE_TARGET: -* python3_12
+*/*					 PYTHON_TARGETS: -* python3_12
 
 dev-lang/perl				 minimal
 dev-lang/python-exec			 native-symlinks

@@ -6,8 +6,8 @@
 #*/*					 LLVM_TARGETS: -* BPF X86 ...
 #sys-boot/grub				 GRUB_PLATFORMS: -* efi-64 ...
 
-*/*					 PYTHON_SINGLE_TARGET: -* python3_11
-*/*					 PYTHON_TARGETS: -* python3_11
+*/*					 PYTHON_SINGLE_TARGET: -* python3_12
+*/*					 PYTHON_TARGETS: -* python3_12
 
 app-arch/unzip				-natspec bzip2 unicode
 

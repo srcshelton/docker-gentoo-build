@@ -1,5 +1,5 @@
 
-*/*					PYTHON_TARGETS: -* python3_11
-*/*					PYTHON_SINGLE_TARGET: -* python3_11
+*/*					PYTHON_TARGETS: -* python3_12
+*/*					PYTHON_SINGLE_TARGET: -* python3_12
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

@@ -302,7 +302,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#          'postfix' in their own container rather than any container-local
 	#          binaries) then we may wish not to force this flag here...
 	#
-	#  dev-lang/perl:	    ithreads
+	#  dev-lang/perl:	    perl_features_ithreads
 	#  dev-libs/openssl:    asm ktls ~tls-heartbeat~ ~zlib~
 	#  net-misc/curl:	   ~curl_ssl_openssl~
 	#  sys-apps/busybox:    mdev
@@ -311,7 +311,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#  sys-libs/glibc	    multiarch ssp
 	# (General:			    ipv6 ~openssl~ split-usr ~ssl~ threads)
 	#
-	use_essential="asm ipv6 ithreads ktls mdev multiarch native-extensions split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
+	use_essential="asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
 	export use_essential
 
 	# Even though we often want a minimal set of flags, gcc's flags are
@@ -398,7 +398,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	export TMPDIR="${tmp}"
 	unset tmp
 
-	python_default_target='python3_11'
+	python_default_target='python3_12'
 	export python_default_target
 
 	if [ -f common/local.sh ]; then

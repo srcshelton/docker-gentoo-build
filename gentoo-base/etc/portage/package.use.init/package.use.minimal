@@ -1,12 +1,19 @@
 
 # General USE flags:
-#*/*					-* asm ipv6 ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
+#*/*					-* asm ipv6 ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
 */*					-* pie split-usr
 
-*/*					 PYTHON_SINGLE_TARGET: -* python3_11
-*/*					 PYTHON_TARGETS: -* python3_11
+*/*					 PYTHON_SINGLE_TARGET: -* python3_12
+*/*					 PYTHON_TARGETS: -* python3_12
 
 net-misc/curl				 CURL_SSL: openssl
+# Packages outside of dev-perl and perl-core also reference these flags..
+#
+# ... but don't enable them for base builds, as the stage3 image has this flag
+# disabled and turning it on is a hard-blocker rather than causing rebuilds in
+# dependent packages :(
+#
+#*/*					 PERL_FEATURES: ithreads
 
 app-alternatives/awk			 gawk  # busybox mawk nawk
 app-alternatives/bc			 gnu  # gh
@@ -24,7 +31,7 @@ app-arch/tar				 xattr
 app-arch/xz-utils			-extra-filters nls threads  # static-libs
 app-crypt/gnupg				-smartcard -tofu
 #app-crypt/libb2			-openmp
-dev-lang/perl				 ithreads
+#dev-lang/perl				 ithreads
 dev-lang/python-exec			 native-symlinks
 dev-lang/python				 ssl xml
 dev-libs/libgcrypt			 getentropy
@@ -46,6 +53,7 @@ sys-apps/util-linux			-pam -su  # conflicts sys-apps/shadow[su]
 sys-auth/pambase			 passwdqc -pwquality
 sys-libs/glibc				 clone3
 sys-libs/ncurses			 unicode
+sys-process/audit			-python  # Not compatible with python:3.12
 
 # required by sys-apps/busybox-1.31.1-r3[static]
 # required by virtual/dev-manager-0-r2
