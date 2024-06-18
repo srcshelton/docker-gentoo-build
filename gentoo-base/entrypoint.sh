@@ -17,7 +17,7 @@ stage3_flags_file="${stage3_flags_file:-"__FLAGSFILE__"}"
 environment_file="${environment_file:-"__ENVFILE__"}"
 environment_filter="${environment_filter:-"__ENVFILTER__"}"
 
-python_default_targets='python3_11'
+python_default_targets='python3_12'
 stage3_flags=''
 
 export arch="${ARCH}"
@@ -138,11 +138,32 @@ get_stage3() {
 			--values|--values-only|-v)
 				get_values=1 ;;
 			USE|STAGE3_USE)
-				get_type='USE' ;;
+				if [ -n "${get_type:-}" ]; then
+					error "Multiple 'stage3' variable types specified in" \
+						"arguments '${*}'"
+					return 1
+				else
+					get_type='USE'
+				fi
+				;;
 			PYTHON_SINGLE_TARGET|STAGE3_PYTHON_SINGLE_TARGET)
-				get_type='PYTHON_SINGLE_TARGET' ;;
+				if [ -n "${get_type:-}" ]; then
+					error "Multiple 'stage3' variable types specified in" \
+						"arguments '${*}'"
+					return 1
+				else
+					get_type='PYTHON_SINGLE_TARGET'
+				fi
+				;;
 			PYTHON_TARGETS|STAGE3_PYTHON_TARGETS)
-				get_type='PYTHON_TARGETS' ;;
+				if [ -n "${get_type:-}" ]; then
+					error "Multiple 'stage3' variable types specified in" \
+						"arguments '${*}'"
+					return 1
+				else
+					get_type='PYTHON_TARGETS'
+				fi
+				;;
 			*)
 				warn "Invalid 'stage3' variable '${get_type}' from arguments" \
 					"'${*:-}'"
@@ -191,7 +212,8 @@ get_stage3() {
 				xargs -r
 			unset get_exclude
 		)"
-		print "get_stage3 get_result for USE('${get_type}') after filter is '${get_result}'"
+		print "get_stage3 get_result for USE('${get_type}') after filter is" \
+			"'${get_result}'"
 
 		entries='' entry=''
 		entries="$( # <- Syntax
@@ -204,7 +226,8 @@ get_stage3() {
 		for entry in ${entries}; do
 			get_result="${get_result:+"${get_result} "}python_single_target_${entry}"
 		done
-		print "get_stage3 get_result for USE('${get_type}') after single is '${get_result}'"
+		print "get_stage3 get_result for USE('${get_type}') after single is" \
+			"'${get_result}'"
 
 		entries="$( # <- Syntax
 			echo "${stage3_flags}" |
@@ -216,7 +239,8 @@ get_stage3() {
 		for entry in ${entries}; do
 			get_result="${get_result:+"${get_result} "}python_targets_${entry}"
 		done
-		print "get_stage3 get_result for USE('${get_type}') after targets is '${get_result}'"
+		print "get_stage3 get_result for USE('${get_type}') after targets is" \
+			"'${get_result}'"
 
 		unset entry entires
 	fi
@@ -300,6 +324,7 @@ resolve_python_flags() {
 	printf '%s="%s"\n' 'USE' "$( # <- Syntax
 		echo "${resolve_use}" | xargs -rn 1 | sort | uniq | xargs -r
 	)"
+	# Auto-select greatest value... is this reasonable?
 	printf '%s="%s"\n' 'PYTHON_SINGLE_TARGET' "$( # <- Syntax
 		echo "${resolve_python_single_target}" | xargs -rn 1 | sort -V | uniq |
 			tail -n 1
@@ -417,6 +442,7 @@ do_emerge() {
 
 			'--defaults'|--*-defaults)
 				set -- "${@}" \
+					--backtrack=100 \
 					--binpkg-respect-use=y \
 					--quiet-build=y \
 					  ${opts:-} \
@@ -586,7 +612,9 @@ fi
 
 if set | grep -q -- '=__[A-Z]\+__$'; then
 	die "Unexpanded variable(s) in environment: $( # <- Syntax
-		set | grep -- '=__[A-Z]\+__$' | cut -d'=' -f 1 | xargs -r
+		#set | grep -- '=__[A-Z]\+__$' | cut -d'=' -f 1 | xargs -r
+		echo
+		set | grep -- '=__[A-Z]\+__$' | sed 's/^/  /'
 	)"
 fi
 
@@ -931,7 +959,7 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 	echo "Package list: ${list}"
 	echo
 	# shellcheck disable=SC2086
-	do_emerge --depclean-defaults ${list}
+	do_emerge --depclean-defaults ${list} || :
 )
 
 if portageq get_repos / | grep -Fq -- 'srcshelton'; then
@@ -1023,20 +1051,6 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	done
 	unset pkg
 	rm -r "/usr/${oldchost:?}" "/usr/bin/${oldchost:?}"*
-	#find \
-	#		/bin/ \
-	#		/sbin/ \
-	#		/usr/bin/ \
-	#		/usr/sbin/ \
-	#		/usr/libexec/ \
-	#		/usr/local/ \
-	#	-name "*${oldchost}*" \
-	#	-exec ls -Fhl --color=always {} +
-	#find /usr/ \
-	#	-mindepth 1 \
-	#	-maxdepth 1 \
-	#	-name "*${oldchost}*" \
-	#	-exec ls -dFhl --color=always {} +
 	grep -l -- "${oldchost}" /etc/env.d/0*gcc* /etc/env.d/0*binutils* |
 		xargs -r rm
 	find /etc/env.d/ -name "*${oldchost}*" -delete
@@ -1122,7 +1136,7 @@ echo
 ( # <- Syntax
 	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 	# shellcheck disable=SC2046
-	USE='-gmp ssl' \
+		USE='-gmp ssl' \
 	do_emerge --single-defaults dev-build/libtool sys-libs/pam $(
 		# sys-devel/gcc is a special case with a conditional gen_usr_ldscript
 		# call...
@@ -1170,13 +1184,6 @@ echo
 #
 ( # <- Syntax
 	USE="-* $( get_stage3 --values-only USE ) symlink"
-	# Since app-alternatives/* packages are now mandatory, the USE flags these
-	# packages rely upon must also be set in order to avoid REQUIRED_USE
-	# errors.
-	#
-	# TODO: Fix this better...
-	#
-	#USE="${USE} gawk gnu"
 	export USE
 	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 	do_emerge --single-defaults sys-kernel/gentoo-sources
@@ -1237,25 +1244,21 @@ do
 		export USE
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 		case "${pkg}" in
-			#app-alternatives/awk)
-			#	USE="-busybox ${USE} gawk"
-			#	;;
 			dev-libs/libxml2)
 				USE="${USE} -lzma -python_targets_python3_10"
 				;;
-			#sys-devel/gcc|app-crypt/libb2)
-			#	USE="${USE} openmp"
-			#	;;
 			sys-libs/libcap)
 				USE="${USE} -tools"
 				;;
-			#sys-libs/libxcrypt|virtual/libcrypt)
-			#	USE="${USE} static-libs"
-			#	;;
 			sys-process/audit)
 				# sys-process/audit is the first package which can pull-in an
 				# older python release, which causes preserved libraries...
-				USE="${USE} -berkdb -ensurepip -gdbm -ncurses -readline -sqlite"
+				#
+				# Update for python:3.12 - audit is not compatible, so disable
+				# python support entirely
+				# (This can't come through package.use as the environment USE
+				#  flags set above override it)
+				USE="${USE} -berkdb -ensurepip -gdbm -ncurses -python -readline -sqlite"
 				;;
 		esac
 		do_emerge --single-defaults "${pkg}"
@@ -1478,19 +1481,13 @@ if [ -n "${pkg_initial:-}" ]; then
 				export SYSROOT="${ROOT}"
 				export PORTAGE_CONFIGROOT="${SYSROOT}"
 
-				#case "${pkg}" in
-				#	*libcrypt|*libxcrypt)
-				#		USE="${USE:-} static-libs"
-				#		;;
-				#esac
-
 				# First package in '${pkg_initial}' to have python deps...
 				#
 				# TODO: It'd be nice to have a had_deps() function here to
 				#       remove this hard-coding...
 				#
 				#       (There is 'equery depgraph', but it is unreliable with
-				#       unlimmited depth)
+				#       unlimited depth)
 				#
 				if [ "${pkg}" = 'sys-apps/help2man' ]; then
 					(
@@ -1504,6 +1501,12 @@ if [ -n "${pkg_initial:-}" ]; then
 									"${USE:-} ${use_essential} ${use_essential_gcc}" \
 									"${PYTHON_SINGLE_TARGET}" \
 									"${PYTHON_TARGETS}"
+						)"
+						PERL_FEATURES='-ithreads'
+						USE="$( # <- Syntax
+							echo " ${USE} " |
+								sed 's/ perl_features_ithreads / /g' |
+								sed 's/^ // ; s/ $//'
 						)"
 						if [ "${ARCH}" = 'arm64' ]; then
 							USE="${USE:-} gold"
@@ -1547,20 +1550,20 @@ if [ -n "${pkg_initial:-}" ]; then
 						echo
 						unset info
 
-						#USE="static-libs" \
-						#do_emerge --build-defaults \
-						#	sys-libs/libxcrypt virtual/libcrypt
-
-						# FIXME: --emptytree is needed if that upstream stage3
+						# FIXME: --emptytree is needed if the upstream stage3
 						#        image is built against a different python
 						#        version to what we're now trying to build, but
 						#        use of this option is fragile when binary
 						#        packages don't already exist.
-						#        Perhaps we need to pre-build all dependents as
+						# TODO:  Perhaps we need to pre-build all dependents as
 						#        binary packages in a more controlled
 						#        environment first?
 						#
-						do_emerge --build-defaults app-crypt/libmd dev-libs/libbsd dev-python/setuptools # || :
+						do_emerge --build-defaults --emptytree \
+							app-crypt/libmd \
+							dev-libs/libbsd \
+							dev-python/hatchling \
+							dev-python/setuptools # || :
 					)
 					# Install same dependencies again within our build ROOT...
 					(
@@ -1570,26 +1573,28 @@ if [ -n "${pkg_initial:-}" ]; then
 									"${PYTHON_SINGLE_TARGET}" \
 									"${PYTHON_TARGETS}"
 						)"
+						PERL_FEATURES='-ithreads'
+						USE="$( # <- Syntax
+							echo " ${USE} " |
+								sed 's/ perl_features_ithreads / /g' |
+								sed 's/ openmp / /g' |
+								sed 's/^ // ; s/ $//'
+						)"
 						if [ "${ARCH}" = 'arm64' ]; then
 							USE="${USE:-} gold"
 						fi
-						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+						export USE PERL_FEATURES PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
-						do_emerge --build-defaults app-crypt/libmd dev-libs/libbsd dev-python/setuptools # || :
+						do_emerge --build-defaults --emptytree \
+							app-crypt/libmd \
+							dev-libs/libbsd \
+							dev-python/hatchling \
+							dev-python/setuptools # || :
 					)
 				fi  # [ "${pkg}" = 'sys-apps/help2man' ]
 
-				#if [ "${pkg}" = 'sys-apps/util-linux' ]; then
-				#	(
-				#	#USE="-busybox ${USE:-} gawk"
-				#
-				#	# shellcheck disable=SC2086
-				#	do_emerge --initial-defaults ${pkg} ${pkg_exclude:-} # || :
-				#	)
-				#else
-					# shellcheck disable=SC2086
-					do_emerge --initial-defaults ${pkg} ${pkg_exclude:-} # || :
-				#fi
+				# shellcheck disable=SC2086
+				do_emerge --initial-defaults ${pkg} ${pkg_exclude:-} # || :
 
 				etc-update --quiet --preen
 				find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
@@ -1695,13 +1700,6 @@ echo
 		#	DEBUG=1 \
 			USE="${USE:+"${USE} "}openmp" \
 		do_emerge --system-defaults sys-devel/gcc
-		#echo
-		#echo " * Ensuring we have sys-devel/gcc & app-crypt/libb2 (for" \
-		#	"USE='openmp') ..."
-		#echo
-		#	DEBUG=1 \
-		#	USE="${USE:+"${USE} "}openmp" \
-		#do_emerge --rebuild-defaults sys-devel/gcc app-crypt/libb2
 
 		# ... likewise sys-apps/net-tools[hostname] (for which the recommended
 		# fix is sys-apps/coreutils[hostname]?)
@@ -1727,15 +1725,25 @@ echo
 		echo
 		echo " * Trying to avoid preserved libraries ..."
 		echo
-		# shellcheck disable=SC2086
+		# shellcheck disable=SC2046,SC2086
 		#	DEBUG=1 \
-			USE="${USE:+"${USE} "}asm cxx -ensurepip -gdbm gmp minimal -ncurses openssl -readline -sqlite -zstd" \
+			USE="${USE:+"${USE} "}asm cxx -ensurepip -gdbm gmp minimal -ncurses openssl perl_features_ithreads -readline -sqlite -zstd" \
+			PERL_FEATURES="ithreads" \
 		do_emerge --once-defaults \
 			net-libs/gnutls \
 			dev-libs/nettle \
 			dev-lang/python \
 			dev-lang/perl \
-			sys-libs/gdbm
+			sys-libs/gdbm \
+			$(
+				grep -lw 'perl_features_ithreads' \
+						"${ROOT:-}"/var/db/pkg/*/*/IUSE |
+					rev |
+					cut -d'/' -f 2-3 |
+					rev |
+					sed 's/^/=/' |
+					xargs -r
+			)
 
 		root_use='' arm64_use=''
 		if [ -z "${ROOT:-}" ] || [ "${ROOT}" = '/' ]; then
@@ -1746,22 +1754,12 @@ echo
 		#
 		[ "${ARCH:-}" = 'arm64' ] && arm64_use='ncurses'
 
-		# For some reason, portage is selecting dropbear to satisfy
-		# virtual/ssh?
-		#
-		#echo
-		#echo " * Ensuring we have sys-devel/gcc & app-crypt/libb2 built with" \
-		#	"the required USE-flags ..."
-		#echo
-		# shellcheck disable=SC2086
-		#	DEBUG=1 \
-		#	USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp ${arm64_use:+"${arm64_use} "}-nettle -nls openmp openssl" \
-		#do_emerge \
-		#		--system-defaults \
-		#	sys-devel/gcc app-crypt/libb2
 		echo
 		echo " * Ensuring we have system packages ..."
 		echo
+		# For some reason, portage is selecting dropbear to satisfy
+		# virtual/ssh?
+		#
 		# shellcheck disable=SC2086
 		#	DEBUG=1 \
 			USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp ${arm64_use:+"${arm64_use} "}-nettle -nls openmp openssl" \
@@ -1772,18 +1770,6 @@ echo
 				--system-defaults \
 			${pkg_system} dev-libs/nettle net-libs/gnutls dev-lang/python \
 				dev-libs/libxml2 sys-devel/gettext
-			#${pkg_system} $( # <- Syntax
-			#	find "${ROOT%"/"}/var/db/pkg/" \
-			#			-mindepth 3 \
-			#			-maxdepth 3 \
-			#			-type f \
-			#			-name 'IUSE' \
-			#			-print0 |
-			#		xargs -r0 grep -Flw -- 'openmp' |
-			#		sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||' |
-			#		xargs -r
-			#) dev-libs/nettle net-libs/gnutls dev-lang/python \
-			#	dev-libs/libxml2 sys-devel/gettext
 		unset root_use
 
 		echo
@@ -2072,13 +2058,6 @@ case "${1:-}" in
 			echo 'Resolved build variables for post-installation packages:'
 			echo '-------------------------------------------------------'
 			echo
-			#echo "ROOT                = $( # <- Syntax
-			#	echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
-			#)"
-			#echo "SYSROOT             = $( # <- Syntax
-			#	echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
-			#)"
-			#echo "${info}" | format 'FEATURES'
 			echo "${info}" | format 'USE'
 			echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 			echo "${info}" | format 'PYTHON_TARGETS'
@@ -2096,19 +2075,10 @@ case "${1:-}" in
 							;;
 					esac
 				done
-				#first=''
 				for arg in ${post_pkgs}; do
 					case "${arg}" in
 						-*)	continue ;;
 						*)
-							#if [ -z "${first:-}" ]; then
-							#	first="${arg}"
-							#	if echo " ${EMERGE_OPTS} " |
-							#			grep -Eq -- ' --swap(-post)? '
-							#	then
-							#		continue
-							#	fi
-							#fi
 							echo
 							echo " * Building single post-package '${arg}'" \
 								"from '${post_pkgs}' ..."
@@ -2225,7 +2195,7 @@ case "${1:-}" in
 					sort -V |
 					tail -n 1
 			)"
-			# python3_11 -> dev-lang/python-3.11
+			# python3_12 -> dev-lang/python-3.12
 			targetpkg="dev-lang/$( # <- Syntax
 				echo "${target}" | sed 's/^python/python-/ ; s/_/./'
 			)"
@@ -2304,7 +2274,6 @@ case "${1:-}" in
 								print "Matched - 'use' is now '${use}'"
 
 								pkgs="${pkgs:-} $( # <- Syntax
-									#grep -Flw -- "${arg}" "${ROOT%"/"}"/var/db/pkg/*/*/IUSE |
 									find "${ROOT%"/"}/var/db/pkg/" \
 											-mindepth 3 \
 											-maxdepth 3 \
@@ -2351,7 +2320,6 @@ case "${1:-}" in
 								"${PYTHON_TARGETS}"
 						)"
 						pkgs="${pkgs:-} $( # <- Syntax
-							#ls -1d "${ROOT%"/"}"/var/db/pkg/dev-python/* |
 							find "${ROOT%"/"}/var/db/pkg/dev-python/" \
 									-mindepth 1 \
 									-maxdepth 1 \
@@ -2385,56 +2353,15 @@ case "${1:-}" in
 						echo "${info}" | format 'PYTHON_TARGETS'
 						print "pkgs: '${pkgs}'"
 
-						# These packages seem to break dependencies, stating
-						# that gcc[openmp] is not present when it actually
-						# is...
-						#
-						# At one point, we hit a problem with USE='ssp', but we
-						# really don't want to leave this permanently disabled,
-						# so let's try bringing it back... ?
-						#
-						#for root in $( echo '/' "${ROOT:-}" | xargs -n 1 | sort | uniq ); do
-						#	arm64_pkgs=''
-						#	# '>=dev-python/cython-3.0.6' is failing on arm64 :(
-						#	#
-						#	[ "${ARCH:-}" = 'arm64' ] && arm64_pkgs='>=dev-python/cython-3.0.6'
-						#
-						#	for pkg in \
-						#			${arm64_pkgs:-} \
-						#			sys-devel/gcc \
-						#			app-crypt/libb2 \
-						#			app-portage/portage-utils
-						#	do
-						#			ROOT="${root}" \
-						#			SYSROOT="${root}" \
-						#			USE="$( # <- Syntax
-						#				echo " ${USE} " |
-						#					sed -r \
-						#						-e 's/ python_targets_[^ ]+ / /g' \
-						#						-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
-						#						-e 's/^ // ; s/ $//'
-						#			#) -fortran graphite -jit -nls openmp -sanitize -ssp" \
-						#			) -fortran graphite -jit -nls openmp -sanitize" \
-						#			PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
-						#		do_emerge \
-						#					--rebuild-defaults \
-						#					--deep \
-						#				"${pkg}" ||
-						#			rc=${?}
-						#		if [ $(( rc )) -ne 0 ]; then
-						#			echo "ERROR: Stage 1a cleanup for root '${ROOT}': ${rc}"
-						#			break
-						#		fi
-						#	done  # pkg in ...
-						#	unset pkg
-						#done  # root in $(...)
-						#unset root
+						# Don't force USE='python' until sys-process/audit
+						# supports python:3.12...
 						# shellcheck disable=SC2015,SC2086
 							USE="$( # <- Syntax
 								echo " ${USE} " |
 									sed -r \
 										-e 's/ python_targets_[^ ]+ / /g' \
 										-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
+										-e 's/ python //g' \
 										-e 's/^ // ; s/ $//'
 							) openmp" \
 							PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
@@ -2472,7 +2399,6 @@ case "${1:-}" in
 
 							if echo "${remove}" | grep -qw -- "${arg}"; then
 								pkgs="${pkgs:-} $( # <- Syntax
-									#grep -Flw -- "${arg}" "${ROOT}"/var/db/pkg/*/*/IUSE |
 									find "${ROOT%"/"}/var/db/pkg/" \
 											-mindepth 3 \
 											-maxdepth 3 \
@@ -2493,7 +2419,6 @@ case "${1:-}" in
 							fi
 						done
 						pkgs="${pkgs:-} $( # <- Syntax
-							#ls -1d "${ROOT}"/var/db/pkg/dev-python/* |
 							find "${ROOT%"/"}/var/db/pkg/dev-python/" \
 									-mindepth 1 \
 									-maxdepth 1 \
@@ -2511,16 +2436,6 @@ case "${1:-}" in
 							pkgs="${pkgs:-} virtual/tmpfiles::srcshelton"
 						fi
 						print "pkgs: '${pkgs}'"
-
-						#USE="${USE:+"${USE} "}-acl -cxx -fortran graphite -jit -ncurses -nls openmp -sanitize" \
-						#	do_emerge --rebuild-defaults \
-						#			app-crypt/libb2 app-portage/portage-utils \
-						#			sys-devel/gcc sys-devel/gettext ||
-						#		rc=${?}
-						#if [ $(( rc )) -ne 0 ]; then
-						#	echo "ERROR: Stage 2 pre-cleanup for root '${ROOT}': ${rc}"
-						#	break
-						#fi
 
 						# shellcheck disable=SC2086
 						do_emerge --rebuild-defaults --update ${pkgs} ||
