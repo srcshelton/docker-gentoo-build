@@ -3,6 +3,7 @@
 
 # Don't archive logs
 /log/*
+/.backup/
 /common.run.sh.debug.log
 /inspect.docker.debug.log
 
