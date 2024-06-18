@@ -1,0 +1,8 @@
+
+~net-analyzer/netdata-1.44.3				~amd64 ~arm ~arm64 ~x86
+~net-analyzer/netdata-1.45.6				~amd64 ~arm ~arm64 ~x86
+
+~container/netdata-1.44.3::container				~amd64 ~arm ~arm64 ~x86
+~container/netdata-1.45.6::container				~amd64 ~arm ~arm64 ~x86
+
+# vi: set syntax=gentoo-package-keywords:
