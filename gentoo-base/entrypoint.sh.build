@@ -1442,10 +1442,13 @@ do
 		if [ -f "${target_dir}/${override_file}" ]; then
 			info "Overwriting file '${target_dir}/${override_file}' with" \
 				"data from '${override_dir}/${override_file}' ..."
-		else
+		elif [ -e "${target_dir}/${override_file}" ]; then
 			warn "Replacing non-file object" \
 				"'${target_dir}/${override_file}' with file" \
 				"'${override_dir}/${override_file}' ..."
+		else
+			print "Adding new file '${override_dir}/${override_file}' as" \
+				"'${target_dir}/${override_file}' ..."
 		fi
 		[ -e "${target_dir}/${override_file}" ] &&
 			rm -rf "${target_dir:?}/${override_file}"
