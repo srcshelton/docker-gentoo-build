@@ -1502,7 +1502,7 @@ if [ -n "${pkg_initial:-}" ]; then
 									"${PYTHON_SINGLE_TARGET}" \
 									"${PYTHON_TARGETS}"
 						)"
-						PERL_FEATURES='-ithreads'
+						PERL_FEATURES=''  # Negation ('-ithreads') not allowed
 						USE="$( # <- Syntax
 							echo " ${USE} " |
 								sed 's/ perl_features_ithreads / /g' |
@@ -1573,7 +1573,7 @@ if [ -n "${pkg_initial:-}" ]; then
 									"${PYTHON_SINGLE_TARGET}" \
 									"${PYTHON_TARGETS}"
 						)"
-						PERL_FEATURES='-ithreads'
+						PERL_FEATURES=''  # Negation ('-ithreads') not allowed
 						USE="$( # <- Syntax
 							echo " ${USE} " |
 								sed 's/ perl_features_ithreads / /g' |
