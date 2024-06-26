@@ -129,7 +129,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             echo >&2 "FATAL: Unable to source '${environment_file}': ${?}" ; \
             exit 1 ; \
         } ; \
-    command -v grep || \
+    command -v grep >/dev/null 2>&1 || \
         { \
             echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
             exit 1 ; \

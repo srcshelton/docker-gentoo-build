@@ -81,7 +81,7 @@ RUN if ! [ "${ZEUSHOME}" = '/usr/local/zeus' ]; then \
 # linter ignore=SC2094,SC2015,ER0001
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
     set -u ; \
-    command -v grep || \
+    command -v grep >/dev/null 2>&1 || \
         { \
             echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
             exit 1 ; \
@@ -184,7 +184,7 @@ RUN test -x /bin/busybox
 
 # linter ignore=SC2050,SC2012,ER0001
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
-    command -v grep || \
+    command -v grep >/dev/null 2>&1 || \
         { \
             echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
             exit 1 ; \

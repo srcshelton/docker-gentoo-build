@@ -1065,8 +1065,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 	# Handle leftover container from previous run ...
 	trap '' INT
 	if docker container ps -a | grep -q -- "${base_name#*"/"}$"; then
-		docker container stop "${base_name#*"/"}"
-		docker container rm --volumes "${base_name#*"/"}"
+		docker container stop "${base_name#*"/"}" >/dev/null
+		docker container rm --volumes "${base_name#*"/"}" >/dev/null
 	fi
 	trap - INT
 
