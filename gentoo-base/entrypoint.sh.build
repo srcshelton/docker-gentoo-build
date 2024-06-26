@@ -896,7 +896,7 @@ applyworkarounds() {
 			aw_post_use="$( # <- Syntax
 				echo "${aw_post_use}" |
 					xargs -rn 1 |
-					sort -V |
+					sort |
 					uniq |
 					xargs -r
 			)"
@@ -921,7 +921,7 @@ applyworkarounds() {
 			#aw_USE="$( # <- Syntax
 			#	echo "${aw_USE}" |
 			#		xargs -rn 1 |
-			#		sort -V |
+			#		sort |
 			#		uniq |
 			#		xargs -r
 			#)"
