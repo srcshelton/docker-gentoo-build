@@ -37,7 +37,7 @@ info() {
 }  # info
 
 print() {
-	if [ -n "${DEBUG:-}" ]; then
+	if [ -n "${debug:-}" ]; then
 		if [ -z "${*:-}" ]; then
 			echo >&2
 		else
@@ -461,18 +461,19 @@ do_emerge() {
 						set -- "${@}" \
 							  ${parallel} \
 							--binpkg-changed-deps=y \
-							--buildpkg=n \
+							--buildpkg=y \
 							--deep \
 							--usepkg=y \
 							--with-bdeps=y \
 							--with-bdeps-auto=y
+							#--buildpkg=n \
 						;;
 
-					# --buildpkg=n
+					# --buildpkg=n (but no longer)
 					'--once-defaults'|'--single-defaults'|'--chost-defaults'| \
 					'--initial-defaults')
 						set -- "${@}" \
-							--buildpkg=n \
+							--buildpkg=y \
 							--usepkg=y \
 							--with-bdeps=n \
 							--with-bdeps-auto=n
@@ -570,7 +571,11 @@ do_emerge() {
 
 	if [ $(( emerge_rc )) -eq 0 ]; then
 		[ -f /etc/._cfg0000_hosts ] && rm -f /etc/._cfg0000_hosts
-		etc-update -q --automode -5
+		# For some reason, after dealing with /usr/sbin being a symlink to
+		# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
+		# following line is encountered, despite both elements still appearing
+		# in $PATH ...
+		LC_ALL='C' /usr/sbin/etc-update -q --automode -5
 		LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 	else
 		savefailed
@@ -919,6 +924,7 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 	USE="-* $( get_stage3 --values-only USE ) -udev"
 	export USE
 	export FEATURES="${FEATURES:+"${FEATURES} "}-fakeroot"
+	export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
 	list='virtual/dev-manager virtual/tmpfiles'
 	if LC_ALL='C' portageq get_repos / | grep -Fq -- 'srcshelton'; then
 		list="${list:-} sys-apps/systemd-utils"
@@ -970,6 +976,7 @@ if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 		USE="-* $( get_stage3 --values-only USE )"
 		export USE
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean -fakeroot"
+		export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
 		do_emerge --single-defaults 'sys-apps/gentoo-functions::srcshelton'
 	)
 fi
@@ -981,12 +988,66 @@ echo
 	USE="-* $( get_stage3 --values-only USE )"
 	export USE
 	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean -fakeroot"
+	export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
 	do_emerge --single-defaults sys-apps/fakeroot
 )
 export FEATURES="${FEATURES:+"${FEATURES} "}fakeroot"
 export FEATURES="${FEATURES} -preserve-libs"
 
 export QA_XLINK_ALLOWED='*'
+
+usex() {
+	usex_var="${1:-}"
+	usex_true="${2:-}"
+	usex_false="${3:-}"
+
+	if [ -z "${usex_var:-}" ]; then
+		printf '%s' "${usex_false:-}"
+	else
+		usex_value="$( eval echo "\$${usex_var}" )"
+		if [ -n "${usex_value:-}" ]; then
+			printf '%s' "${usex_true:-}"
+		else
+			printf '%s' "${usex_false:-}"
+		fi
+	fi
+	unset usex_value usex_false usex_true usex_var
+}
+# We need to leave the system in a similar state to before we started, so build
+# ithreads packages first, then reinstall the previous packages without
+# ithreads
+#
+ithreads=''
+for ithreads in 'ithreads' ''; do
+	echo
+	echo " * Building 'dev-lang/perl' package (with$(usex ithreads '' 'out')" \
+		"ithreads) for stage3 ..."
+	echo
+	( # <- Syntax
+		USE="-* $( get_stage3 --values-only USE )"
+		USE="$( # <- Syntax
+			echo " ${USE} berkdb gdbm $(usex ithreads '' '-')perl_features_ithreads " |
+				sed "s/ $(usex ithreads '-' '')perl_features_ithreads / /g" |
+				xargs -rn 1 |
+				sort -u |
+				xargs -r
+		)"
+		export USE
+		export PERL_FEATURES="${ithreads:-}"
+		export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+		do_emerge --single-defaults dev-lang/perl dev-perl/libintl-perl \
+			$(
+				grep -lw 'perl_features_ithreads' \
+						"${ROOT:-}"/var/db/pkg/*/*/IUSE |
+					rev |
+					cut -d'/' -f 2-3 |
+					rev |
+					sed 's/^/=/' |
+					xargs -r
+			)
+	)
+done
+unset ithreads usex
 
 
 if ! [ -d "/usr/${CHOST}" ]; then
@@ -1009,9 +1070,14 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		USE="-* livecd nptl $( get_stage3 --values-only USE )"
 		export USE
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
+		export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/chost"
 		do_emerge --chost-defaults '@system' '@world'
 	)
-	LC_ALL='C' etc-update --quiet --preen
+	# For some reason, after dealing with /usr/sbin being a symlink to
+	# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
+	# following line is encountered, despite both elements still appearing in
+	# $PATH ...
+	LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 	echo
@@ -1032,9 +1098,14 @@ if ! [ -d "/usr/${CHOST}" ]; then
 			USE="-* nptl $( get_stage3 --values-only USE )"
 			export USE
 			export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
+			export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/chost"
 			do_emerge --single-defaults "${pkg}"
 		)
-		LC_ALL='C' etc-update --quiet --preen
+		# For some reason, after dealing with /usr/sbin being a symlink to
+		# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
+		# following line is encountered, despite both elements still appearing
+		# in $PATH ...
+		LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 		find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 		case "${pkg}" in
 			*binutils*)
@@ -1074,9 +1145,14 @@ if ! [ -d "/usr/${CHOST}" ]; then
 			USE="-* $( get_stage3 --values-only USE )"
 			export USE
 			export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
+			export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/chost"
 			do_emerge --single-defaults "${pkg}"
 		)
-		LC_ALL='C' etc-update --quiet --preen
+		# For some reason, after dealing with /usr/sbin being a symlink to
+		# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
+		# following line is encountered, despite both elements still appearing
+		# in $PATH ...
+		LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 		find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 	done
 	unset pkg
@@ -1088,6 +1164,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		USE="-* nptl $( get_stage3 --values-only USE )"
 		export USE
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
+		export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/chost"
 
 		# clashing USE flags can't be resolved with current level of
 		# command-line fine-grained package flag control :(
@@ -1121,7 +1198,11 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	#	printf '\n---\n\n'
 	#fi
 
-	LC_ALL='C' etc-update --quiet --preen
+	# For some reason, after dealing with /usr/sbin being a symlink to
+	# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
+	# following line is encountered, despite both elements still appearing in
+	# $PATH ...
+	LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 	# }  # chost_change
@@ -1135,6 +1216,7 @@ echo
 
 ( # <- Syntax
 	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
+	export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
 	# shellcheck disable=SC2046
 		USE='-gmp ssl' \
 	do_emerge --single-defaults dev-build/libtool sys-libs/pam $(
@@ -1186,6 +1268,7 @@ echo
 	USE="-* $( get_stage3 --values-only USE ) symlink"
 	export USE
 	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
+	export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
 	do_emerge --single-defaults sys-kernel/gentoo-sources
 )
 
@@ -1243,9 +1326,12 @@ do
 		fi
 		export USE
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
+		export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
 		case "${pkg}" in
 			dev-libs/libxml2)
-				USE="${USE} -lzma -python_targets_python3_10"
+				# Don't install previous versions of python ...
+				#
+				USE="${USE} -lzma -python_targets_python3_10 -python_targets_python3_11"
 				;;
 			sys-libs/libcap)
 				USE="${USE} -tools"
@@ -1269,7 +1355,11 @@ do
 	#	printf '\n---\n\n'
 	#fi
 
-	LC_ALL='C' etc-update --quiet --preen
+	# For some reason, after dealing with /usr/sbin being a symlink to
+	# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
+	# following line is encountered, despite both elements still appearing in
+	# $PATH ...
+	LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 done  # for pkg in ...
 unset pkg
@@ -1496,6 +1586,12 @@ if [ -n "${pkg_initial:-}" ]; then
 						PORTAGE_CONFIGROOT="${SYSROOT}"
 						export ROOT SYSROOT PORTAGE_CONFIGROOT
 
+						case "${ROOT:-}" in
+							''|'/')
+								export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+								;;
+						esac
+
 						eval "$( # <- Syntax
 							resolve_python_flags \
 									"${USE:-} ${use_essential} ${use_essential_gcc}" \
@@ -1550,6 +1646,10 @@ if [ -n "${pkg_initial:-}" ]; then
 						echo
 						unset info
 
+						echo
+						echo " * Building pre-requisites into ROOT" \
+							"'${ROOT:-"/"}' ..."
+						echo
 						# FIXME: --emptytree is needed if the upstream stage3
 						#        image is built against a different python
 						#        version to what we're now trying to build, but
@@ -1564,9 +1664,42 @@ if [ -n "${pkg_initial:-}" ]; then
 							dev-libs/libbsd \
 							dev-python/hatchling \
 							dev-python/setuptools # || :
+
+						echo
+						echo " * Building perl (without ithreads) into ROOT" \
+							"'${ROOT:-"/"}' ..."
+						echo
+						# shellcheck disable=SC2086
+							PERL_FEATURES='' \
+							USE="$( # <- Syntax
+								echo " ${USE} -perl_features_ithreads " |
+									sed 's/ perl_features_ithreads / /g' |
+									xargs -rn 1 |
+									sort |
+									uniq |
+									xargs -r
+							)" \
+						do_emerge --build-defaults --emptytree \
+							dev-lang/perl \
+							$(
+								grep -lw 'perl_features_ithreads' \
+										"${ROOT:-}"/var/db/pkg/*/*/IUSE |
+									rev |
+									cut -d'/' -f 2-3 |
+									rev |
+									sed 's/^/=/' |
+									xargs -r
+							) \
+							${pkg} # || :
 					)
 					# Install same dependencies again within our build ROOT...
 					(
+						case "${ROOT:-}" in
+							''|'/')
+								export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+								;;
+						esac
+
 						eval "$( # <- Syntax
 							resolve_python_flags \
 									"${USE:-} ${use_essential} ${use_essential_gcc}" \
@@ -1585,18 +1718,105 @@ if [ -n "${pkg_initial:-}" ]; then
 						fi
 						export USE PERL_FEATURES PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
+						echo
+						echo " * Building pre-requisites into ROOT" \
+							"'${ROOT:-"/"}' ..."
+						echo
 						do_emerge --build-defaults --emptytree \
 							app-crypt/libmd \
 							dev-libs/libbsd \
 							dev-python/hatchling \
 							dev-python/setuptools # || :
+
+						echo
+						echo " * Building perl (with ithreads) into ROOT" \
+							"'${ROOT:-"/"}' ..."
+						echo
+						# shellcheck disable=SC2086
+							PERL_FEATURES='ithreads' \
+							USE="$( # <- Syntax
+								echo " ${USE} perl_features_ithreads " |
+									sed 's/ -perl_features_ithreads / /g' |
+									xargs -rn 1 |
+									sort |
+									uniq |
+									xargs -r
+							)" \
+						do_emerge --build-defaults --emptytree \
+							dev-lang/perl \
+							$(
+								grep -lw 'perl_features_ithreads' \
+										"${ROOT:-}"/var/db/pkg/*/*/IUSE |
+									rev |
+									cut -d'/' -f 2-3 |
+									rev |
+									sed 's/^/=/' |
+									xargs -r
+							) \
+							${pkg} # || :
 					)
+				elif [ "${pkg}" = 'dev-perl/Locale-gettext' ]; then  # [ "${pkg}" != 'sys-apps/help2man' ]
+					(
+						echo
+						echo " * Building perl (with ithreads) into ROOT" \
+							"'${ROOT:-"/"}' for package '${pkg}' ..."
+						echo
+
+						case "${ROOT:-}" in
+							''|'/')
+								export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+								;;
+						esac
+
+						# shellcheck disable=SC2086
+							debug=1 \
+							PERL_FEATURES='' \
+							USE="$( # <- Syntax
+								echo " ${USE} -perl_features_ithreads " |
+									sed 's/ perl_features_ithreads / /g' |
+									xargs -rn 1 |
+									sort |
+									uniq |
+									xargs -r
+							)" \
+						do_emerge \
+								--build-defaults \
+								--emptytree \
+							dev-lang/perl \
+							$(
+								grep -lw 'perl_features_ithreads' \
+										"${ROOT:-}"/var/db/pkg/*/*/IUSE |
+									rev |
+									cut -d'/' -f 2-3 |
+									rev |
+									sed 's/^/=/' |
+									xargs -r
+							) \
+							${pkg} # || :
+					)
+				else  # [ "${pkg}" != 'sys-apps/help2man' ] && [ "${pkg}" != 'dev-perl/Locale-gettext' ]
+
+					echo
+					echo " * Building initial packages '${pkg:-}' into ROOT" \
+						"'${ROOT:-"/"}'" \
+						"${pkg_exclude:+"excluding packages with '${pkg_exclude}' "}..."
+					echo
+
+					case "${ROOT:-}" in
+						''|'/')
+							export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+							;;
+					esac
+
+					# shellcheck disable=SC2086
+					do_emerge --initial-defaults ${pkg} ${pkg_exclude:-} # || :
 				fi  # [ "${pkg}" = 'sys-apps/help2man' ]
 
-				# shellcheck disable=SC2086
-				do_emerge --initial-defaults ${pkg} ${pkg_exclude:-} # || :
-
-				etc-update --quiet --preen
+				# For some reason, after dealing with /usr/sbin being a symlink
+				# to /usr/bin, the resultant /usr/sbin/etc-update isn't found
+				# when this following line is encountered, despite both
+				# elements still appearing in $PATH ...
+				LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 				find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 				if echo " ${pkg} " | grep -q -- ' app-shells/bash '; then
@@ -1644,6 +1864,12 @@ echo
 		export SYSROOT="${ROOT}"
 		export PORTAGE_CONFIGROOT="${SYSROOT}"
 
+		case "${ROOT:-}" in
+			''|'/')
+				export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+				;;
+		esac
+
 		eval "${format_fn_code}"
 
 		info="$( LC_ALL='C' emerge --info --verbose=y )"
@@ -1689,7 +1915,7 @@ echo
 		echo " * Ensuring we have sys-apps/baselayout ..."
 		echo
 		[ ! -f "${ROOT%"/"}/var/lock" ] || rm "${ROOT%"/"}/var/lock"
-		#	DEBUG=1 \
+		#	debug=1 \
 		do_emerge --system-defaults sys-apps/baselayout
 
 		# portage is tripping over sys-devel/gcc[openmp] :(
@@ -1697,7 +1923,7 @@ echo
 		echo
 		echo " * Ensuring we have sys-devel/gcc ..."
 		echo
-		#	DEBUG=1 \
+		#	debug=1 \
 			USE="${USE:+"${USE} "}openmp" \
 		do_emerge --system-defaults sys-devel/gcc
 
@@ -1707,14 +1933,14 @@ echo
 		echo
 		echo " * Ensuring we have sys-apps/coreutils ..."
 		echo
-		#	DEBUG=1 \
+		#	debug=1 \
 			USE="${USE:+"${USE} "}-hostname" \
 		do_emerge --system-defaults sys-apps/coreutils
 
 		echo
 		echo " * Ensuring we have sys-apps/net-tools ..."
 		echo
-		#	DEBUG=1 \
+		#	debug=1 \
 			USE="${USE:+"${USE} "}hostname" \
 		do_emerge --system-defaults sys-apps/net-tools
 
@@ -1726,7 +1952,7 @@ echo
 		echo " * Trying to avoid preserved libraries ..."
 		echo
 		# shellcheck disable=SC2046,SC2086
-		#	DEBUG=1 \
+		#	debug=1 \
 			USE="${USE:+"${USE} "}asm cxx -ensurepip -gdbm gmp minimal -ncurses openssl perl_features_ithreads -readline -sqlite -zstd" \
 			PERL_FEATURES="ithreads" \
 		do_emerge --once-defaults \
@@ -1761,7 +1987,7 @@ echo
 		# virtual/ssh?
 		#
 		# shellcheck disable=SC2086
-		#	DEBUG=1 \
+		#	debug=1 \
 			USE="${USE:+"${USE} "}${root_use:+"${root_use} "}cxx -extra-filters gmp ${arm64_use:+"${arm64_use} "}-nettle -nls openmp openssl" \
 		do_emerge \
 				--exclude='dev-libs/libtomcrypt' \
@@ -1776,13 +2002,16 @@ echo
 		echo " * Rebuilding any preserved dependencies ..."
 		echo
 		# We're hitting errors here that dev-libs/nettle[gmp] is required...
-		#	DEBUG=1 \
+		#	debug=1 \
 			USE="${USE:+"${USE} "}asm -ensurepip -gdbm -ncurses openssl -readline -sqlite -zstd" \
 		do_emerge --preserved-defaults '@preserved-rebuild'
 	done  # for ROOT in $(...)
 )  # @system
 
-LC_ALL='C' etc-update --quiet --preen
+# For some reason, after dealing with /usr/sbin being a symlink to /usr/bin,
+# the resultant /usr/sbin/etc-update isn't found when this following line is
+# encountered, despite both elements still appearing in $PATH ...
+LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 # Ensure we have a valid /bin/sh symlink in our ROOT ...
@@ -2192,7 +2421,7 @@ case "${1:-}" in
 					xargs -rn 1 |
 					grep -- 'python_single_target_python' |
 					sed 's/python_single_target_//' |
-					sort -V |
+					sort |
 					tail -n 1
 			)"
 			# python3_12 -> dev-lang/python-3.12
@@ -2308,7 +2537,7 @@ case "${1:-}" in
 						USE="$( # <- Syntax
 							echo "${use:-} python_single_target_${PYTHON_SINGLE_TARGET}" |
 								xargs -rn 1 |
-								sort -V |
+								sort |
 								uniq |
 								xargs -r
 						)"
