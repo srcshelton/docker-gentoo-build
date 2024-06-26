@@ -50,7 +50,7 @@ ARG new_root_name
 #
 # linter ignore=ER0001,SC2028,SC2046
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
-    command -v grep || \
+    command -v grep >/dev/null 2>&1 || \
         { \
             echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
             exit 1 ; \
@@ -100,6 +100,10 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
 
 # Restore separate /lib* and /usr/lib* directories...
 #
+# (Update: It's worse - /usr/sbin is a symlink to /usr/bin, and packages such
+#          as autotools are now hard-coding /usr/sbin/perl despite this not
+#          existing with split=usr!)
+#
 # ... despite the root-directory symlinks, /var/db/pkg/**/CONTENTS still record
 # files' intended filesystem locations.
 #
@@ -115,14 +119,18 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             -name "${new_root_name}" \
         \) -printf '%P\n' ; \
     ) | tar -C "/${new_root_name}" --sparse -xpf - ; \
-    for d in bin sbin; do \
+    for d in bin sbin usr/sbin; do \
         if test -L "/${d}"; then \
-            mkdir "/${new_root_name}/${d}" ; \
+            test -L "/${new_root_name}/${d}" && \
+                rm "/${new_root_name}/${d}" ; \
+            mkdir -p "/${new_root_name}/${d}" ; \
         fi ; \
     done ; \
     for ext in '' 32 x32 64; do \
         if test -L "/lib${ext}"; then \
-            mkdir "/${new_root_name}/lib${ext}" ; \
+            test -L "/${new_root_name}/lib${ext}" && \
+                rm "/${new_root_name}/lib${ext}" ; \
+            mkdir -p "/${new_root_name}/lib${ext}" ; \
         fi ; \
     done ; \
     : ; \
@@ -132,18 +140,46 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             if [ -f "/${new_root_name}/usr${f}" ]; then \
                 mkdir -p "/${new_root_name}$( dirname "${f}" )" ; \
                 mv "/${new_root_name}/usr${f}" "/${new_root_name}${f}" ; \
+            elif [ -f "/usr${f}" ]; then \
+                mkdir -p "/${new_root_name}$( dirname "${f}" )" ; \
+                cp -a "/usr${f}" "/${new_root_name}${f}" ; \
             else \
                 echo >&2 "WARN:  File '${f}' from CONTENTS does not exist" ; \
             fi ; \
         done ; \
+    grep -E 'obj /usr/sbin/' /var/db/pkg/*/*/CONTENTS | \
+        awk '{ print $2 }' | \
+        while read -r f; do \
+            r="$( echo "${f}" | sed 's|/sbin/|/bin/|' )" ; \
+            if [ -f "/${new_root_name}${r}" ]; then \
+                mkdir -p "/${new_root_name}$( dirname "${f}" )" ; \
+                mv "/${new_root_name}${r}" "/${new_root_name}${f}" ; \
+            elif [ -f "${r}" ]; then \
+                mkdir -p "/${new_root_name}$( dirname "${f}" )" ; \
+                cp -a "${r}" "/${new_root_name}${f}" ; \
+            else \
+                echo >&2 "WARN:  File '${f}' from CONTENTS does not exist" \
+                    "as file '${r}'" ; \
+            fi ; \
+        done ; \
     grep -E 'sym /(s?bin/|lib)' /var/db/pkg/*/*/CONTENTS | \
         awk '{ print $2, $4 }' | \
-        while read -r t f; do \
-            ln -s "${f}" "/${new_root_name}${t}" ; \
+        while read -r l t; do \
+            ln -s "${t}" "/${new_root_name}${l}" ; \
+        done ; \
+    grep -E 'sym /usr/sbin/' /var/db/pkg/*/*/CONTENTS | \
+        awk '{ print $2, $4 }' | \
+        while read -r l t; do \
+            ln -s "${t}" "/${new_root_name}${l}" ; \
         done ; \
     : ; \
-    sed -e '/GREP/s|/usr/bin/grep|/bin/grep|' \
-        -i "/${new_root_name}/usr/sbin/zgrep" ; \
+    if [ -f "/${new_root_name}/usr/sbin/zgrep" ]; then \
+        sed -e '/GREP/s|/usr/bin/grep|/bin/grep|' \
+            -i "/${new_root_name}/usr/sbin/zgrep" ; \
+    elif [ -f "/${new_root_name}/usr/bin/zgrep" ]; then \
+        sed -e '/GREP/s|/usr/bin/grep|/bin/grep|' \
+            -i "/${new_root_name}/usr/bin/zgrep" ; \
+    fi ; \
     : ; \
     touch "/${new_root_name}/etc/ld.so.conf.${new_root_name}" ; \
     for ext in 64 x32 32 ''; do \
