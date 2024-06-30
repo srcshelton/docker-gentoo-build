@@ -43,7 +43,8 @@ fi
 
 kbuild_opt="${kbuild_opt:-"--config-from=config.gz --keep-build --no-patch --clang --llvm-unwind"}"
 all=0
-alt_use='bison flex gnu http2'  # http2 targeting curl for rust packages...
+#alt_use='bison flex gnu http2'  # http2 targeting curl for rust packages...
+alt_use='flex gnu http2'  # http2 targeting curl for rust packages...
 arg=''
 force=0
 haveargs=0
