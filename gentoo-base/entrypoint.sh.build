@@ -2083,7 +2083,7 @@ case "${1:-}" in
 
 		echo
 		echo " * Building requested '${packages}' package(s)" \
-			"${post_pkgs:+"(with post-package list)"} ..."
+			"${post_pkgs:+"(with post-package list) "}..."
 		echo
 
 		if
@@ -2565,6 +2565,7 @@ case "${1:-}" in
 					echo
 					# shellcheck disable=SC2086
 					(
+							USE="${USE} ${use_essential_gcc}" \
 						do_emerge \
 								  ${opts} \
 								  ${parallel} \
@@ -2575,7 +2576,23 @@ case "${1:-}" in
 								--with-bdeps-auto=n \
 								--with-bdeps=n \
 								  ${flags:-} \
-							-- ${gcc_pkgs} ${gcc_build_pkgs}
+							-- ${gcc_build_pkgs}
+
+							USE="${USE} ${use_essential_gcc}$( # <- Syntax
+								echo " ${USE} " | grep -q -- ' lib-only ' &&
+									echo ' lto pgo'
+							)" \
+						do_emerge \
+								  ${opts} \
+								  ${parallel} \
+								--buildpkg=y \
+								--nodeps \
+								--oneshot \
+								--usepkg=y \
+								--with-bdeps-auto=n \
+								--with-bdeps=n \
+								  ${flags:-} \
+							-- ${gcc_pkgs}
 					) || : $(( rc = rc + ${?} ))
 
 					[ "${intent:-}" = 'keep' ] &&
