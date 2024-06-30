@@ -519,6 +519,10 @@ do_emerge() {
 							--with-bdeps-auto=n
 
 						case "${emerge_arg}" in
+							'--multi-defaults')
+								set -- "${@}" \
+									--usepkg=y
+								;;
 							'--rebuild-defaults')
 								set -- "${@}" \
 									--oneshot \
@@ -952,11 +956,16 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 	list="$( # <- Syntax
 		{
 			sed 's/#.*$//' /etc/portage/package.mask/* |
-				grep -v -- 'gentoo-functions'
+					grep -v -- 'gentoo-functions'
 
 			sed 's/#.*$//' /etc/portage/package.mask/* |
-				grep -Eow -- '((virtual|sys-fs)/)?e?udev' &&
-			printf 'sys-apps/hwids sys-fs/udev-init-scripts'
+					grep -Eow -- '((virtual|sys-fs)/)?e?udev' &&
+				echo 'sys-apps/hwids sys-fs/udev-init-scripts'
+
+			echo "<dev-lang/$(
+				echo "${python_default_targets}" |
+					sed 's/3_/-3./'
+			)"
 		} |
 			grep -Fv -- '::' |
 			sort -V |
@@ -976,7 +985,9 @@ if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 		USE="-* $( get_stage3 --values-only USE )"
 		export USE
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean -fakeroot"
-		export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+		pkgdir="$( LC_ALL='C' portageq pkgdir )"
+		export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/stage3"
+		unset pkgdir
 		do_emerge --single-defaults 'sys-apps/gentoo-functions::srcshelton'
 	)
 fi
@@ -1034,7 +1045,10 @@ for ithreads in 'ithreads' ''; do
 		)"
 		export USE
 		export PERL_FEATURES="${ithreads:-}"
-		export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+		pkgdir="$( LC_ALL='C' portageq pkgdir )"
+		export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/stage3"
+		unset pkgdir
+		# shellcheck disable=SC2046
 		do_emerge --single-defaults dev-lang/perl dev-perl/libintl-perl \
 			$(
 				grep -lw 'perl_features_ithreads' \
@@ -1070,7 +1084,9 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		USE="-* livecd nptl $( get_stage3 --values-only USE )"
 		export USE
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
-		export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/chost"
+		pkgdir="$( LC_ALL='C' portageq pkgdir )"
+		export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/stage3"
+		unset pkgdir
 		do_emerge --chost-defaults '@system' '@world'
 	)
 	# For some reason, after dealing with /usr/sbin being a symlink to
@@ -1098,7 +1114,9 @@ if ! [ -d "/usr/${CHOST}" ]; then
 			USE="-* nptl $( get_stage3 --values-only USE )"
 			export USE
 			export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
-			export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/chost"
+			pkgdir="$( LC_ALL='C' portageq pkgdir )"
+			export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/stage3"
+			unset pkgdir
 			do_emerge --single-defaults "${pkg}"
 		)
 		# For some reason, after dealing with /usr/sbin being a symlink to
@@ -1145,7 +1163,9 @@ if ! [ -d "/usr/${CHOST}" ]; then
 			USE="-* $( get_stage3 --values-only USE )"
 			export USE
 			export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
-			export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/chost"
+			pkgdir="$( LC_ALL='C' portageq pkgdir )"
+			export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/stage3"
+			unset pkgdir
 			do_emerge --single-defaults "${pkg}"
 		)
 		# For some reason, after dealing with /usr/sbin being a symlink to
@@ -1164,7 +1184,9 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		USE="-* nptl $( get_stage3 --values-only USE )"
 		export USE
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
-		export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/chost"
+		pkgdir="$( LC_ALL='C' portageq pkgdir )"
+		export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/stage3"
+		unset pkgdir
 
 		# clashing USE flags can't be resolved with current level of
 		# command-line fine-grained package flag control :(
@@ -1210,8 +1232,8 @@ fi
 
 echo
 echo
-echo " * Installing stage3 prerequisites to allow for flexible filesystem" \
-	"configurations ..."
+echo " * Installing stage3 prerequisites to allow for working 'split-usr'" \
+	"setups ..."
 echo
 
 ( # <- Syntax
@@ -1254,6 +1276,10 @@ echo
 				done
 			done
 	)
+
+	echo
+	echo " * Rebuilding preserved dependencies, if any ..."
+	echo
 	do_emerge --single-defaults '@preserved-rebuild'
 )
 
@@ -1305,8 +1331,6 @@ for pkg in \
 		'app-alternatives/awk' \
 		'sys-devel/gcc' \
 		'app-crypt/libb2'
-		#'app-eselect/eselect-awk' \
-		#'virtual/awk' \
 do
 	echo
 	echo
@@ -1326,12 +1350,17 @@ do
 		fi
 		export USE
 		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
-		export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+		pkgdir="$( LC_ALL='C' portageq pkgdir )"
+		export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/stage3"
+		unset pkgdir
 		case "${pkg}" in
 			dev-libs/libxml2)
 				# Don't install previous versions of python ...
 				#
 				USE="${USE} -lzma -python_targets_python3_10 -python_targets_python3_11"
+				;;
+			sys-devel/gcc)
+				USE="${USE} -nls"
 				;;
 			sys-libs/libcap)
 				USE="${USE} -tools"
@@ -1504,7 +1533,9 @@ if [ -n "${pkg_initial:-}" ]; then
 				)"
 			fi
 		else
-			print "'python_targets' is '${python_targets:-}', 'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}', 'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
+			print "'python_targets' is '${python_targets:-}'," \
+				"'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}'," \
+				"'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
 			PYTHON_SINGLE_TARGET="${python_targets:+"${python_targets%%" "*}"}"
 			PYTHON_TARGETS="${python_targets:-}"
 			eval "$( # <- Syntax
@@ -1514,7 +1545,9 @@ if [ -n "${pkg_initial:-}" ]; then
 						"${PYTHON_TARGETS}"
 			)"
 			export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
-			print "'python_targets' is '${python_targets:-}', 'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}', 'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
+			print "'python_targets' is '${python_targets:-}'," \
+				"'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}'," \
+				"'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
 		fi
 
 		info="$( LC_ALL='C' emerge --info --verbose=y )"
@@ -1588,7 +1621,13 @@ if [ -n "${pkg_initial:-}" ]; then
 
 						case "${ROOT:-}" in
 							''|'/')
-								export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+								pkgdir="$( LC_ALL='C' portageq pkgdir )"
+								export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/stage3"
+								unset pkgdir
+								;;
+							*)
+								die "Unexpected value '${ROOT:-}' for ROOT" \
+									"prior to buildling python prerequisites"
 								;;
 						esac
 
@@ -1611,17 +1650,24 @@ if [ -n "${pkg_initial:-}" ]; then
 
 						info="$( LC_ALL='C' emerge --info --verbose=y )"
 						echo
-						echo 'Resolved build variables for python builddeps:'
+						echo 'Resolved build variables for python' \
+							'prerequisites:'
 						echo '---------------------------------------------'
 						echo
 						echo "ROOT                = $( # <- Syntax
-							echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
+							echo "${info}" |
+								grep -- '^ROOT=' |
+								cut -d'=' -f 2-
 						)"
 						echo "SYSROOT             = $( # <- Syntax
-							echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
+							echo "${info}" |
+								grep -- '^SYSROOT=' |
+								cut -d'=' -f 2-
 						)"
 						echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-							echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
+							echo "${info}" |
+								grep -- '^PORTAGE_CONFIGROOT=' |
+								cut -d'=' -f 2-
 						)"
 						echo
 						echo "${info}" | format 'FEATURES'
@@ -1631,23 +1677,31 @@ if [ -n "${pkg_initial:-}" ]; then
 						echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 						echo "${info}" | format 'PYTHON_TARGETS'
 						echo "MAKEOPTS            = $( # <- Syntax
-							echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
+							echo "${info}" |
+								grep -- '^MAKEOPTS=' |
+								cut -d'=' -f 2-
 						)"
 						echo
 						echo "DISTDIR             = $( # <- Syntax
-							echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
+							echo "${info}" |
+								grep -- '^DISTDIR=' |
+								cut -d'=' -f 2-
 						)"
 						echo "PKGDIR              = $( # <- Syntax
-							echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
+							echo "${info}" |
+								grep -- '^PKGDIR=' |
+								cut -d'=' -f 2-
 						)"
 						echo "PORTAGE_LOGDIR      = $( # <- Syntax
-							echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
+							echo "${info}" |
+								grep -- '^PORTAGE_LOGDIR=' |
+								cut -d'=' -f 2-
 						)"
 						echo
 						unset info
 
 						echo
-						echo " * Building pre-requisites into ROOT" \
+						echo " * Building python prerequisites into ROOT" \
 							"'${ROOT:-"/"}' ..."
 						echo
 						# FIXME: --emptytree is needed if the upstream stage3
@@ -1664,39 +1718,18 @@ if [ -n "${pkg_initial:-}" ]; then
 							dev-libs/libbsd \
 							dev-python/hatchling \
 							dev-python/setuptools # || :
-
-						echo
-						echo " * Building perl (without ithreads) into ROOT" \
-							"'${ROOT:-"/"}' ..."
-						echo
-						# shellcheck disable=SC2086
-							PERL_FEATURES='' \
-							USE="$( # <- Syntax
-								echo " ${USE} -perl_features_ithreads " |
-									sed 's/ perl_features_ithreads / /g' |
-									xargs -rn 1 |
-									sort |
-									uniq |
-									xargs -r
-							)" \
-						do_emerge --build-defaults --emptytree \
-							dev-lang/perl \
-							$(
-								grep -lw 'perl_features_ithreads' \
-										"${ROOT:-}"/var/db/pkg/*/*/IUSE |
-									rev |
-									cut -d'/' -f 2-3 |
-									rev |
-									sed 's/^/=/' |
-									xargs -r
-							) \
-							${pkg} # || :
 					)
+
 					# Install same dependencies again within our build ROOT...
+					#
 					(
 						case "${ROOT:-}" in
 							''|'/')
-								export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+								die "Unexpected value '${ROOT:-}' for ROOT" \
+									"prior to buildling python prerequisites"
+								;;
+							*)
+								:
 								;;
 						esac
 
@@ -1708,6 +1741,8 @@ if [ -n "${pkg_initial:-}" ]; then
 						)"
 						PERL_FEATURES=''  # Negation ('-ithreads') not allowed
 						USE="$( # <- Syntax
+							# Add additional USE-flags for sys-devel/gcc to
+							# prevent unnecessary rebuilds ...
 							echo " ${USE} " |
 								sed 's/ perl_features_ithreads / /g' |
 								sed 's/ openmp / /g' |
@@ -1719,7 +1754,7 @@ if [ -n "${pkg_initial:-}" ]; then
 						export USE PERL_FEATURES PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
 						echo
-						echo " * Building pre-requisites into ROOT" \
+						echo " * Building python prerequisites into ROOT" \
 							"'${ROOT:-"/"}' ..."
 						echo
 						do_emerge --build-defaults --emptytree \
@@ -1727,52 +1762,29 @@ if [ -n "${pkg_initial:-}" ]; then
 							dev-libs/libbsd \
 							dev-python/hatchling \
 							dev-python/setuptools # || :
-
-						echo
-						echo " * Building perl (with ithreads) into ROOT" \
-							"'${ROOT:-"/"}' ..."
-						echo
-						# shellcheck disable=SC2086
-							PERL_FEATURES='ithreads' \
-							USE="$( # <- Syntax
-								echo " ${USE} perl_features_ithreads " |
-									sed 's/ -perl_features_ithreads / /g' |
-									xargs -rn 1 |
-									sort |
-									uniq |
-									xargs -r
-							)" \
-						do_emerge --build-defaults --emptytree \
-							dev-lang/perl \
-							$(
-								grep -lw 'perl_features_ithreads' \
-										"${ROOT:-}"/var/db/pkg/*/*/IUSE |
-									rev |
-									cut -d'/' -f 2-3 |
-									rev |
-									sed 's/^/=/' |
-									xargs -r
-							) \
-							${pkg} # || :
 					)
 				elif [ "${pkg}" = 'dev-perl/Locale-gettext' ]; then  # [ "${pkg}" != 'sys-apps/help2man' ]
 					(
-						echo
-						echo " * Building perl (with ithreads) into ROOT" \
-							"'${ROOT:-"/"}' for package '${pkg}' ..."
-						echo
-
 						case "${ROOT:-}" in
 							''|'/')
-								export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+								die "Unexpected value '${ROOT:-}' for ROOT" \
+									"prior to buildling perl prerequisites"
+								;;
+							*)
+								:
 								;;
 						esac
 
-						# shellcheck disable=SC2086
-							debug=1 \
+						echo
+						echo " * Building perl (without ithreads) into ROOT" \
+							"'${ROOT:-"/"}' for package '${pkg}' ..."
+						echo
+
+						# shellcheck disable=SC2046,SC2086
 							PERL_FEATURES='' \
 							USE="$( # <- Syntax
-								echo " ${USE} -perl_features_ithreads " |
+								echo " ${USE} ${use_essential_gcc}" \
+										"-perl_features_ithreads " |
 									sed 's/ perl_features_ithreads / /g' |
 									xargs -rn 1 |
 									sort |
@@ -1797,14 +1809,18 @@ if [ -n "${pkg_initial:-}" ]; then
 				else  # [ "${pkg}" != 'sys-apps/help2man' ] && [ "${pkg}" != 'dev-perl/Locale-gettext' ]
 
 					echo
-					echo " * Building initial packages '${pkg:-}' into ROOT" \
+					echo " * Building initial package '${pkg:-}' into ROOT" \
 						"'${ROOT:-"/"}'" \
 						"${pkg_exclude:+"excluding packages with '${pkg_exclude}' "}..."
 					echo
 
 					case "${ROOT:-}" in
 						''|'/')
-							export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+							die "Unexpected value '${ROOT:-}' for ROOT" \
+								"prior to buildling initial package '${pkg:-}'"
+							;;
+						*)
+							:
 							;;
 					esac
 
@@ -1866,7 +1882,12 @@ echo
 
 		case "${ROOT:-}" in
 			''|'/')
-				export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+				pkgdir="$( LC_ALL='C' portageq pkgdir )"
+				export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/stage3"
+				unset pkgdir
+				;;
+			*)
+				:
 				;;
 		esac
 
@@ -2210,41 +2231,108 @@ case "${1:-}" in
 
 	*)
 		echo
-		if [ -z "${post_pkgs:-}" ]; then
-			echo " * Building requested '$( # <- Syntax
-				printf '%s' "${*}" | sed 's/--[^ ]\+ //g'
-			)' packages ..."
-			echo
+		echo " * Building requested '$( # <- Syntax
+			printf '%s' "${*}" |
+				sed 's/--[^ ]\+ //g'
+		)' packages ${post_pkgs:+"(with post-package list) "}..."
+		echo
 
-			(
-				for ROOT in $( # <- Syntax
-						echo "${extra_root:-}" "${ROOT}" |
-							xargs -rn 1 |
-							sort -u |
-							xargs -r
-				); do
-					export ROOT
-					export SYSROOT="${ROOT}"
-					export PORTAGE_CONFIGROOT="${SYSROOT}"
-					do_emerge --multi-defaults "${@}" || rc=${?}
-					if [ $(( rc )) -ne 0 ]; then
-						break
-					fi
-				done
-				exit ${rc}
-			) || rc=${?}
-
-			check ${rc} "${@}"
-
+		(
+			for ROOT in $( # <- Syntax
+					echo "${extra_root:-}" "${ROOT}" |
+						xargs -rn 1 |
+						sort -u |
+						xargs -r
+			); do
+				export ROOT
+				export SYSROOT="${ROOT}"
+				export PORTAGE_CONFIGROOT="${SYSROOT}"
+				# shellcheck disable=SC2086
+				do_emerge --multi-defaults "${@}" || rc=${?}
+				if [ $(( rc )) -ne 0 ]; then
+					break
+				fi
+			done
 			exit ${rc}
+		) || rc=${?}
 
-		else # [ -n "${post_pkgs:-}" ]
-			echo " * Building requested '$( # <- Syntax
-				printf '%s' "${*}" |
-					sed 's/--[^ ]\+ //g'
-			)' packages (with post-package list) ..."
-			echo
+		check ${rc} "${@}"
 
+		if [ -z "${post_pkgs:-}" ]; then
+			exit ${rc}
+		fi
+
+
+		echo
+		echo " * Building specified post-installation '${post_pkgs}'" \
+			"packages ${post_use:+"with USE='${post_use}' "}..."
+		echo
+
+		[ -n "${post_use:-}" ] && export USE="${post_use}"
+		eval "$( # <- Syntax
+			resolve_python_flags \
+				"${USE:-}" \
+				"${PYTHON_SINGLE_TARGET:-}" \
+				"${PYTHON_TARGETS:-}"
+		)"
+		export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+
+		info="$( LC_ALL='C' emerge --info --verbose=y )"
+
+		echo
+		echo 'Resolved build variables for post-installation packages:'
+		echo '-------------------------------------------------------'
+		echo
+		echo "${info}" | format 'USE'
+		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+		echo "${info}" | format 'PYTHON_TARGETS'
+		echo
+		unset info
+
+		if [ -n "${EMERGE_OPTS:-}" ] &&
+			echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-post)? '
+		then
+			flags=''
+			for arg in "${@}" ${post_pkgs}; do
+				case "${arg}" in
+					-*)
+						flags="${flags:+"${flags} "}${arg}"
+						;;
+				esac
+			done
+			for arg in ${post_pkgs}; do
+				case "${arg}" in
+					-*)	continue ;;
+					*)
+						echo
+						echo " * Building single post-package '${arg}'" \
+							"from '${post_pkgs}' ..."
+						echo
+						(
+							export FEATURES='-fail-clean'
+							for ROOT in $( # <- Syntax
+									echo "${extra_root:-}" "${ROOT}" |
+										xargs -rn 1 |
+										sort -u |
+										xargs -r
+							); do
+								export ROOT
+								export SYSROOT="${ROOT}"
+								export PORTAGE_CONFIGROOT="${SYSROOT}"
+								# shellcheck disable=SC2086
+								do_emerge --defaults ${parallel} \
+									--usepkg=y ${flags:-} ${arg} || rc=${?}
+								if [ $(( rc )) -ne 0 ]; then
+									break
+								fi
+							done
+							exit ${rc}
+						) || rc=${?}
+						;;
+				esac
+			done  # for arg in ${post_pkgs}
+
+		else # grep -Eq -- ' --single(-post)? ' <<<" ${EMERGE_OPTS} "
 			(
 				for ROOT in $( # <- Syntax
 						echo "${extra_root:-}" "${ROOT}" |
@@ -2255,126 +2343,38 @@ case "${1:-}" in
 					export ROOT
 					export SYSROOT="${ROOT}"
 					export PORTAGE_CONFIGROOT="${SYSROOT}"
+					echo
+					echo " * Building temporary post-packages 'app-crypt/libb2 sys-apps/coreutils sys-devel/gcc sys-devel/gettext sys-libs/glibc' to ROOT '${ROOT:-"/"}' ..."
+					echo
+
 					# shellcheck disable=SC2086
-					do_emerge --defaults ${parallel} --usepkg=y "${@}" ||
+						USE="${use_essential_gcc} compile-locales -gmp minimal multiarch -openmp" \
+					do_emerge --defaults ${parallel} --usepkg=y \
+							app-crypt/libb2 \
+							sys-apps/coreutils \
+							sys-devel/gcc \
+							sys-devel/gettext \
+							sys-libs/glibc ||
 						rc=${?}
+
+					echo
+					echo " * Building post-packages '${post_pkgs}' to ROOT '${ROOT:-"/"}' ..."
+					echo
+
+					# shellcheck disable=SC2086
+						USE='asm compile-locales gmp minimal native-extensions rsync-verify ssl ssp xattr' \
+					do_emerge --defaults ${parallel} --usepkg=y \
+						${post_pkgs} || rc=${?}
+
 					if [ $(( rc )) -ne 0 ]; then
 						break
 					fi
 				done
 				exit ${rc}
 			) || rc=${?}
+		fi
 
-			check ${rc} "${@}"
-
-			echo
-			echo " * Building specified post-installation '${post_pkgs}'" \
-				"packages ${post_use:+"with USE='${post_use}' "}..."
-			echo
-
-			[ -n "${post_use:-}" ] && export USE="${post_use}"
-			eval "$( # <- Syntax
-				resolve_python_flags \
-					"${USE:-}" \
-					"${PYTHON_SINGLE_TARGET:-}" \
-					"${PYTHON_TARGETS:-}"
-			)"
-			export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
-
-			info="$( LC_ALL='C' emerge --info --verbose=y )"
-
-			echo
-			echo 'Resolved build variables for post-installation packages:'
-			echo '-------------------------------------------------------'
-			echo
-			echo "${info}" | format 'USE'
-			echo "${info}" | format 'PYTHON_SINGLE_TARGET'
-			echo "${info}" | format 'PYTHON_TARGETS'
-			echo
-			unset info
-
-			if [ -n "${EMERGE_OPTS:-}" ] &&
-				echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-post)? '
-			then
-				flags=''
-				for arg in "${@}" ${post_pkgs}; do
-					case "${arg}" in
-						-*)
-							flags="${flags:+"${flags} "}${arg}"
-							;;
-					esac
-				done
-				for arg in ${post_pkgs}; do
-					case "${arg}" in
-						-*)	continue ;;
-						*)
-							echo
-							echo " * Building single post-package '${arg}'" \
-								"from '${post_pkgs}' ..."
-							echo
-							(
-								export FEATURES='-fail-clean'
-								for ROOT in $( # <- Syntax
-										echo "${extra_root:-}" "${ROOT}" |
-											xargs -rn 1 |
-											sort -u |
-											xargs -r
-								); do
-									export ROOT
-									export SYSROOT="${ROOT}"
-									export PORTAGE_CONFIGROOT="${SYSROOT}"
-									# shellcheck disable=SC2086
-									do_emerge --defaults ${parallel} \
-										--usepkg=y ${flags:-} ${arg} || rc=${?}
-									if [ $(( rc )) -ne 0 ]; then
-										break
-									fi
-								done
-								exit ${rc}
-							) || rc=${?}
-							;;
-					esac
-				done  # for arg in ${post_pkgs}
-
-			else # grep -Eq -- ' --single(-post)? ' <<<" ${EMERGE_OPTS} "
-				(
-					for ROOT in $( # <- Syntax
-							echo "${extra_root:-}" "${ROOT}" |
-								xargs -rn 1 |
-								sort -u |
-								xargs -r
-					); do
-						export ROOT
-						export SYSROOT="${ROOT}"
-						export PORTAGE_CONFIGROOT="${SYSROOT}"
-						echo
-						echo " * Building post-packages '${post_pkgs}' to ROOT '${ROOT:-"/"}' ..."
-						echo
-
-						# shellcheck disable=SC2086
-							USE='compile-locales -gmp minimal -openmp' \
-						do_emerge --defaults ${parallel} --usepkg=y \
-								app-crypt/libb2 \
-								sys-apps/coreutils \
-								sys-devel/gcc \
-								sys-devel/gettext \
-								sys-libs/glibc ||
-							rc=${?}
-						# shellcheck disable=SC2086
-							USE='compile-locales gmp minimal' \
-						do_emerge --defaults ${parallel} --usepkg=y \
-							${post_pkgs} || rc=${?}
-
-						if [ $(( rc )) -ne 0 ]; then
-							break
-						fi
-					done
-					exit ${rc}
-				) || rc=${?}
-			fi
-
-			check ${rc} "${@}"
-		fi # [ -n "${post_pkgs:-}" ]
+		check ${rc} "${@}"
 
 		# Attempt to clean-up Python packages/versions...
 		#
