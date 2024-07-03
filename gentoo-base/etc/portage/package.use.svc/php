@@ -35,7 +35,7 @@ app-crypt/gnupg				-ssl
 #dev-libs/nettle			 gmp
 
 #virtual/mta				 no-mta
-virtual/mta				 msmtp
+virtual/mta				-* msmtp
 mail-mta/msmtp				-ssl mta  # requires gnutls
 # dependency required by dev-php/PEAR-Console_Getopt-1.4.3
 # dependency required by dev-php/PEAR-PEAR-1.10.12
