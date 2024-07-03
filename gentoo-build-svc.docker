@@ -1178,6 +1178,9 @@ case "${package_name}" in
 		# 'eval: failed to locate the triplets.txt file' is normal, the file was removed but
 		# the eval wasn't :o
 		#
+		# FIXME: Why are we including full-fat sys-devel/gcc here?  The update
+		#        process is (now?) handled by spamassassin-update, above...
+		#
 		output "Setting build variables for package 'spampd' ..."
 		pre_pkgs='sys-apps/help2man acct-group/mail acct-user/mail acct-group/spamd acct-user/spamd'
 		extra_pkgs='
@@ -1200,6 +1203,7 @@ case "${package_name}" in
 			sys-devel/gcc
 			virtual/perl-DB_File
 		'
+		post_use='-graphite'
 
 		ports='6276/udp 6276/tcp 6277/udp 6277/tcp'  # razor/dcc
 		if [[ "$( # <- Syntax
@@ -1737,29 +1741,45 @@ docker_extra_mounts+=( $( add_mount --print \
 # package.use.svc
 #
 declare package_use_svc_name='' package_use_svc_name_extra=''
+declare -a package_use_svc_name_extras=()
 declare -i have_package_use_svc_name=0
 package_use_svc_name="${package_name#*"."}"
-case "${package_use_svc_name}-${package_version}" in
-	php-7.3.*) package_use_svc_name_extra='php73' ;;
-	php-7.4.*) package_use_svc_name_extra='php74' ;;
-	php-8.0.*) package_use_svc_name_extra='php80' ;;
-	php-8.1.*) package_use_svc_name_extra='php81' ;;
-	php-8.2.*) package_use_svc_name_extra='php82' ;;
-	php-8.3.*) package_use_svc_name_extra='php83' ;;
+case "${package_use_svc_name}" in
+	lighttpd)
+		if [[ -n "${php_default_target:-}" ]]; then
+			package_use_svc_name_extras+=( "${php_default_target//-}" )
+		fi
+		;;
+	php)
+		case "${package_use_svc_name}-${package_version}" in
+			php-7.3.*) package_use_svc_name_extras+=( 'php73' ) ;;
+			php-7.4.*) package_use_svc_name_extras+=( 'php74' ) ;;
+			php-8.0.*) package_use_svc_name_extras+=( 'php80' ) ;;
+			php-8.1.*) package_use_svc_name_extras+=( 'php81' ) ;;
+			php-8.2.*) package_use_svc_name_extras+=( 'php82' ) ;;
+			php-8.3.*) package_use_svc_name_extras+=( 'php83' ) ;;
+		esac
+		;;
 esac
-if docker_extra_mounts+=( $( add_mount --print \
-		"%base%/etc/portage/package.use.svc/${package_use_svc_name}" \
-		"/etc/portage/package.use.override/${package_use_svc_name}"
-	) )
+if [[ -n "${package_use_svc_name:-}" ]] && docker_extra_mounts+=( $( # <- Syntax
+			add_mount --print \
+				"%base%/etc/portage/package.use.svc/${package_use_svc_name}" \
+				"/etc/portage/package.use.override/${package_use_svc_name}"
+		) )
 then
 	have_package_use_svc_name=1
 fi
-if docker_extra_mounts+=( $( add_mount --print \
-		"%base%/etc/portage/package.use.svc/${package_use_svc_name_extra}" \
-		"/etc/portage/package.use.override/${package_use_svc_name_extra}"
-	) )
-then
-	have_package_use_svc_name=1
+if (( ${#package_use_svc_name_extras[@]} )); then
+	for package_use_svc_name_extra in "${package_use_svc_name_extras[@]}"; do
+		if docker_extra_mounts+=( $( # <- Syntax
+					add_mount --print \
+						"%base%/etc/portage/package.use.svc/${package_use_svc_name_extra}" \
+						"/etc/portage/package.use.override/${package_use_svc_name_extra}"
+				) )
+		then
+			have_package_use_svc_name=1
+		fi
+	done
 fi
 if (( have_package_use_svc_name )); then
 	docker_extra_mounts+=( $( add_mount --print \
