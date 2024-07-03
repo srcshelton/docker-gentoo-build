@@ -401,6 +401,9 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	python_default_target='python3_12'
 	export python_default_target
 
+	php_default_target='php8-2'
+	export php_default_target
+
 	if [ -f common/local.sh ]; then
 		# shellcheck disable=SC1091
 		. common/local.sh
