@@ -1517,7 +1517,7 @@ if [ -n "${use_essential:-}" ]; then
 	if ! echo "${post_use:-}" |
 			grep -Fq -- "${use_essential}"
 	then
-		post_use="${post_use:+"${post_use} "}${use_essential}"
+		post_use="${use_essential}${post_use:+" ${post_use}"}"
 	fi
 fi
 if [ -n "${TUSE:-}" ]; then
@@ -1529,7 +1529,7 @@ if [ -n "${TUSE:-}" ]; then
 	then
 		USE="${TUSE}"
 	else
-		USE="${TUSE} ${use_essential}"
+		USE="${use_essential} ${TUSE}"
 	fi
 	export USE
 fi
@@ -2565,7 +2565,7 @@ case "${1:-}" in
 					echo
 					# shellcheck disable=SC2086
 					(
-							USE="${USE} ${use_essential_gcc}" \
+							USE="${use_essential_gcc} ${USE} -nls" \
 						do_emerge \
 								  ${opts} \
 								  ${parallel} \
@@ -2578,7 +2578,7 @@ case "${1:-}" in
 								  ${flags:-} \
 							-- ${gcc_build_pkgs}
 
-							USE="${USE} ${use_essential_gcc}$( # <- Syntax
+							USE="${use_essential_gcc} ${USE}$( # <- Syntax
 								echo " ${USE} " | grep -q -- ' lib-only ' &&
 									echo ' lto pgo'
 							)" \
