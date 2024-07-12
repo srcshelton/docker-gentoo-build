@@ -111,9 +111,11 @@
 #~app-containers/podman-5.0.0				 **
 #~app-containers/podman-5.0.1				 **
 #~app-containers/podman-5.0.2				 **
-~app-containers/podman-5.0.3				 **
+#~app-containers/podman-5.0.3				 **
 #~app-containers/podman-5.1.0_rc1			 **
-~app-containers/podman-5.1.0				 **
+#~app-containers/podman-5.1.0				 **
+~app-containers/podman-5.1.1				 **
+~app-containers/podman-5.1.2				 **
 
 #~app-containers/podman-tui-0.14.0			 **
 #~app-containers/podman-tui-0.17.0			 **
