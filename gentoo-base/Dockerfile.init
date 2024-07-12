@@ -72,7 +72,13 @@ RUN for base in \
             test "${object}" != '/etc/portage/package.use.build' || continue ; \
             test ! -e "${object}" || rm -rf "${object}" ; \
         done ; \
-    done
+    done ; \
+    if [ -n "${ARCH:-}" ]; then \
+        if [ -f "/etc/portage/profile/use.mask.${ARCH}" ]; then \
+            mv "/etc/portage/profile/use.mask.${ARCH}" /etc/portage/profile/use.mask ; \
+        fi ; \
+    fi ; \
+    rm -f /etc/portage/profile/use.mask.*
 
 
 # Confirm correct extraction...
