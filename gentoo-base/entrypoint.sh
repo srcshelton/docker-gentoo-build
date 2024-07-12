@@ -933,9 +933,9 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 	if LC_ALL='C' portageq get_repos / | grep -Fq -- 'srcshelton'; then
 		list="${list:-} sys-apps/systemd-utils"
 	fi
-	# 'dhcpcd' is now built with USE='udev'...
+	# 'dhcpcd' is now built with USE='udev', and libmd needs 'split-usr'...
 	#
-	do_emerge --once-defaults net-misc/dhcpcd
+	do_emerge --once-defaults app-crypt/libmd net-misc/dhcpcd
 
 	# To make the following output potentially clearer, attempt to remove any
 	# masked packages which exist in the image we're building from...
@@ -2041,7 +2041,8 @@ fix_sh_symlink "${ROOT}" '@system'
 
 # ... and fix the default bash prompt setup w.r.t. 'screen' window names!
 #
-if [ -s /etc/bash/bashrc.patch ]; then
+if [ -s /etc/bash/bashrc.patch ] && grep -q -- 'PS1=' "${ROOT}"/etc/bashrc
+then
 	if ! command -v patch >/dev/null; then
 		warn "@system build has not installed package 'sys-devel/patch'"
 	else
