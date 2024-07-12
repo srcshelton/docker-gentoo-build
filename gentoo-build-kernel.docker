@@ -42,7 +42,7 @@ readonly package_default
 
 declare binutils_min_ver='2.25.0'
 declare gcc_min_ver='5.1.0'  # 12.0.0 on PA-RISC
-declare llvm_min_ver='11.0.0'  # 13.0.1 from 6.9.0, 15.0.0 on S390, 18.0.0 on loongarch
+declare llvm_min_ver='13.0.1'  # 11.0.0 before 6.9.0, 15.0.0 on S390, 18.0.0 on loongarch
 
 declare firmware=''
 declare microcode=''
@@ -585,9 +585,154 @@ fi
 
 # End of argument handling
 
+# scripts/min-tool-version.sh first appeared in Linux v5.12
 case "${package_version}" in
-	6.9.*)
-		llvm_min_ver='13.0.1'
+	[01234].*|5.[0123456789].*|5.1[01].*)
+		die "Minimum supported kernel version is 5.12.0, found" \
+			"'${package_version}'"
+		;;
+	5.12.*)
+		binutils_min_ver='2.23.0'
+		case "${arch:-"${ARCH:-}"}" in
+			arm64)
+				gcc_min_ver='5.1.0'
+				;;
+			*)
+				gcc_min_ver='4.9.0'
+				;;
+		esac
+		llvm_min_ver='10.0.1'
+		;;
+	5.13.*)
+		binutils_min_ver='2.23.0'
+		case "${arch:-"${ARCH:-}"}" in
+			arm64)
+				gcc_min_ver='5.1.0'
+				;;
+			*)
+				gcc_min_ver='4.9.0'
+				;;
+		esac
+		case "${arch:-"${ARCH:-}"}" in
+			s390)
+				llvm_min_ver='13.0.0'
+				;;
+			*)
+				llvm_min_ver='10.0.1'
+				;;
+		esac
+		;;
+	5.1[45].*)
+		binutils_min_ver='2.23.0'
+		gcc_min_ver='5.1.0'
+		case "${arch:-"${ARCH:-}"}" in
+			s390)
+				llvm_min_ver='13.0.0'
+				;;
+			*)
+				llvm_min_ver='10.0.1'
+				;;
+		esac
+		;;
+	5.1[67].*)
+		binutils_min_ver='2.23.0'
+		gcc_min_ver='5.1.0'
+		case "${arch:-"${ARCH:-}"}" in
+			s390)
+				llvm_min_ver='13.0.0'
+				;;
+			*)
+				llvm_min_ver='11.0.0'
+				;;
+		esac
+		;;
+	5.1[89].*|6.0.*)
+		binutils_min_ver='2.23.0'
+		gcc_min_ver='5.1.0'
+		case "${arch:-"${ARCH:-}"}" in
+			s390)
+				llvm_min_ver='14.0.0'
+				;;
+			*)
+				llvm_min_ver='11.0.0'
+				;;
+		esac
+		;;
+	6.[123].*)
+		binutils_min_ver='2.25.0'
+		gcc_min_ver='5.1.0'
+		case "${arch:-"${ARCH:-}"}" in
+			s390)
+				llvm_min_ver='15.0.0'
+				;;
+			*)
+				llvm_min_ver='11.0.0'
+				;;
+		esac
+		;;
+	6.[456].*)
+		binutils_min_ver='2.25.0'
+		case "${arch:-"${ARCH:-}"}" in
+			hppa)
+				gcc_min_ver='12.0.0'
+				;;
+			*)
+				gcc_min_ver='5.1.0'
+				;;
+		esac
+		case "${arch:-"${ARCH:-}"}" in
+			s390)
+				llvm_min_ver='15.0.0'
+				;;
+			*)
+				llvm_min_ver='11.0.0'
+				;;
+		esac
+		;;
+	6.7.*)
+		binutils_min_ver='2.25.0'
+		case "${arch:-"${ARCH:-}"}" in
+			hppa)
+				gcc_min_ver='12.0.0'
+				;;
+			*)
+				gcc_min_ver='5.1.0'
+				;;
+		esac
+		case "${arch:-"${ARCH:-}"}" in
+			loong)
+				llvm_min_ver='18.0.0'
+				;;
+			s390)
+				llvm_min_ver='15.0.0'
+				;;
+			*)
+				llvm_min_ver='11.0.0'
+				;;
+		esac
+		;;
+	#6.8.*)
+	*)
+		binutils_min_ver='2.25.0'
+		case "${arch:-"${ARCH:-}"}" in
+			hppa)
+				gcc_min_ver='12.0.0'
+				;;
+			*)
+				gcc_min_ver='5.1.0'
+				;;
+		esac
+		case "${arch:-"${ARCH:-}"}" in
+			loong)
+				llvm_min_ver='18.0.0'
+				;;
+			s390)
+				llvm_min_ver='15.0.0'
+				;;
+			*)
+				llvm_min_ver='13.0.1'
+				;;
+		esac
 		;;
 esac
 
@@ -634,6 +779,11 @@ if [[ "${compiler}" == 'clang' ]]; then
 			;;
 		6.9.*)
 			rust_ver='1.76.0'
+			bindgen_ver='0.65.1'
+			(( llvm_default_slot = 17 ))
+			;;
+		6.10.*)
+			rust_ver='1.78.0'
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 17 ))
 			;;
