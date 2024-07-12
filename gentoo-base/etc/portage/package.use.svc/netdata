@@ -15,6 +15,7 @@ app-containers/podman			 seccomp wrapper
 dev-libs/libpcre2			 unicode
 dev-libs/nettle				 gmp
 net-firewall/iptables			 nftables
+net-libs/ngtcp2				 gnutls  # openssl is currently masked due to lack of stable QUIC support
 sys-apps/nvme-cli			 json
 sys-apps/util-linux			 logger
 sys-libs/libnvme			 json
