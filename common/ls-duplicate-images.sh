@@ -21,9 +21,15 @@ if echo " ${*:-} " | grep -Fq -- ' --latest '; then
 	latest=''
 fi
 
+php_pattern_1='^(localhost/service.dev-lang.php)(\s+)([0-9])\.([0-9])(\..*)$'
+php_replacement_1='\1\3\4\2\3.\4\5'
+php_pattern_2='^(localhost/service.dev-lang.php)([0-9]{2})(.*)$'
+php_replacement_2='\1\3'
+
 images="$(
 	eval "podman image list --noheading ${all:+" ${all}"}"			|
-		cut -d' ' -f 1							|
+		sed -r "s|${php_pattern_1}|${php_replacement_1}|"		|
+		awk '{ print $1 }'						|
 		grep -v '<none>'						|
 		sort								|
 		uniq -c								|
@@ -53,13 +59,14 @@ images="$(
 			s/([0-9]+)_([^_]+)_ago/\1 \2 ago/ ;
 			s/About_([^_]+)_([^_]+)_ago/About \1 \2 ago/ ;
 			s/_(.)B$/ \1B/
-		'
+		'								|
+		sed -r "s|${php_pattern_2}|${php_replacement_2}|"
 )"
 
 # Relocate headers to top of output...
 #echo "${images}" | tail -n 1
 #echo "${images}" | head -n -1
 echo "${images}" | grep -m 1 '^REPOSITORY\s'
-echo "${images}" | grep -v '^REPOSITORY\s'
+echo "${images}" | grep -v -e '^REPOSITORY\s' -e '^\s*$'
 
 # vi: set sw=8 ts=8:
