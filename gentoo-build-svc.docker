@@ -825,7 +825,6 @@ case "${package_name}" in
 		;;
 	*.lynis)
 		output "Setting build variables for package 'lynis' ..."
-		#extra_pkgs='app-admin/eselect app-eselect/eselect-awk net-misc/openssh sys-apps/coreutils sys-apps/findutils sys-apps/gawk'
 		# 'srcshelton' repo relocates gawk to /bin/
 		impl='::srcshelton'
 		with_use='gawk'
@@ -837,7 +836,6 @@ case "${package_name}" in
 		output "Setting build variables for package 'man-db' ..."
 		pre_pkgs='sys-apps/help2man sys-apps/man-pages sys-apps/man-pages-posix sys-devel/gcc'
 		with_use='-timezone-tools compile-locales'
-		#extra_pkgs='app-text/lesspipe app-text/manpager net-misc/rsync sys-apps/less'
 		extra_pkgs='app-text/manpager net-misc/rsync sys-apps/less'
 
 		container_cmd='/usr/bin/man'
@@ -910,7 +908,6 @@ case "${package_name}" in
 	*.opendmarc)
 		output "Setting build variables for package 'opendmarc' ..."
 		pre_pkgs='sys-devel/gcc acct-group/milter acct-group/opendmarc acct-user/milter acct-user/opendmarc'
-		#extra_pkgs='mail-mta/msmtp'
 
 		ports='8893/tcp'
 		#user='opendmarc'
@@ -925,7 +922,6 @@ case "${package_name}" in
 		pre_pkgs='acct-user/openntpd acct-user/openntpd'
 		case "${package_version}" in
 			6.[02]_p)
-				#pre_remove='app-arch/libarchive dev-libs/openssl dev-python/pypy dev-python/pypy3 dev-python/pypy3-exe net-misc/wget'
 				# shellcheck disable=SC2034
 				pre_remove='app-arch/libarchive dev-libs/openssl' # net-misc/wget'
 				pre_use='-openssl libressl'
@@ -961,52 +957,11 @@ case "${package_name}" in
 		esac
 		output "Setting build variables for package 'php' ..."
 		# eselect-php-0.9.6+ required for ROOT support
-		pre_pkgs='dev-php/PEAR-PEAR media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6'
-		pre_pkgs+=' acct-group/lighttpd acct-user/lighttpd acct-group/nobody'
-		# TODO: There has to be a better way... ?
-		#extra_pkgs="acct-group/lighttpd dev-db/mysql-connector-c dev-php/pecl-imagick >=dev-php/pecl-memcache-4 media-gfx/imagemagick $(
-		#	roundcube_flags='change-password enigma exif managesieve mysql plugins ssl spell zxcvbn'
-		#	php_flags='bzip2 cli ctype url fileinfo filter fpm gd hash iconv intl json pdo phar posix readline session sockets unicode xml zip zlib'
-		#	webapp_config_flags='lighttpd'
-		#	nettle_flags='gmp'
-		#	libcap_flags='pam'
-		#	zx_utils_flags='static-libs'
-		#	libpcre2_flags='jit'
-		#	USE="-* curl_ssl_openssl openssl ssl python_targets_${python_target}" \
-		#		"${libpcre2_flags}" \
-		#		"${zx_utils_flags}" \
-		#		"${libcap_flags}" \
-		#		"${nettle_flags}" \
-		#		"${webapp_config_flags}" \
-		#		"${php_flags}" \
-		#		"${roundcube_flags}" \
-		#	emerge -ep roundcube |
-		#		cut -d']' -f 2- |
-		#		awk '{ print $1 }' |
-		#		grep -- '^dev-php' |
-		#		sed 's/::.*$// ; s/^/>=/'
-		#)"
+		pre_pkgs='media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6'
+		pre_pkgs+=' acct-group/lighttpd acct-user/lighttpd acct-group/nobody acct-group/mail'
 		extra_pkgs='
 			>=dev-php/pecl-memcache-4
 			dev-db/mysql-connector-c
-			dev-php/Endroid-QrCode
-			dev-php/Masterminds-HTML5
-			dev-php/pear
-			dev-php/PEAR-Archive_Tar
-			dev-php/PEAR-Auth_SASL
-			dev-php/PEAR-Console_CommandLine
-			dev-php/PEAR-Console_Getopt
-			dev-php/PEAR-Crypt_GPG
-			dev-php/PEAR-Exception
-			dev-php/PEAR-Mail_Mime
-			dev-php/PEAR-Mail_mimeDecode
-			dev-php/PEAR-Net_IDNA2
-			dev-php/PEAR-Net_Sieve
-			dev-php/PEAR-Net_SMTP
-			dev-php/PEAR-Net_Socket
-			dev-php/PEAR-PEAR
-			dev-php/PEAR-Structures_Graph
-			dev-php/PEAR-XML_Util
 			dev-php/pecl-imagick
 			dev-php/pecl-redis
 			dev-php/ZxcvbnPhp
@@ -1017,7 +972,6 @@ case "${package_name}" in
 			sys-apps/shadow
 			virtual/mta
 		'
-			#dev-util/strace
 
 		container_cmd="/usr/${LIB}/${PHP_SLOT}/bin/php-fpm"
 		etcdir='php'
@@ -1045,8 +999,6 @@ case "${package_name}" in
 			net-libs/courier-unicode
 			sys-devel/gcc
 		'
-		#extra_pkgs='dev-libs/cyrus-sasl'
-		#post_pkgs='app-shells/bash mail-filter/maildrop mail-filter/procmail net-mail/dovecot sys-apps/shadow'  # dovecot for lda
 		extra_pkgs='dev-libs/cyrus-sasl mail-filter/maildrop mail-filter/procmail net-mail/dovecot sys-apps/shadow'  # dovecot for lda
 			# ... shadow as postfix user isn't getting its groups
 		extra_pkgs+=' app-shells/bash'
@@ -1143,7 +1095,6 @@ case "${package_name}" in
 				sys-libs/glibc
 				virtual/libc
 			"
-				#app-eselect/eselect-awk${impl:+"${impl}"}
 
 			container_cmd='/usr/bin/sa-update'
 		else
@@ -1250,7 +1201,6 @@ case "${package_name}" in
 				extra_pkgs='dev-java/openjdk-bin:8'
 				;;
 			7.3.*|7.4.*)
-				#extra_pkgs='dev-java/openjdk-bin:11'
 				extra_pkgs='dev-java/openjdk:11'
 				;;
 			#7.5.*)
@@ -1294,47 +1244,7 @@ case "${package_name}" in
 				export CFLAGS="${CFLAGS:+"${CFLAGS} "}-w"  # mongodb is *really* noisy...
 				pre_use="$( replace_flags '-graphite' 'headless-awt' -- "${gcc_use}" )"
 				force_python='python2_7'
-				#pre_pkgs='dev-java/openjdk-bin:8 dev-lang/python:2.7 sys-devel/gcc'
 				pre_pkgs="${masked_packages} <sys-devel/gcc-11 acct-group/mongodb acct-group/unifi acct-user/mongodb acct-user/unifi"
-				#extra_pkgs='
-				#	  sys-devel/gcc
-				#	 =app-misc/pax-utils-1.2.4
-				#	 =sys-apps/file-5.37-r1
-				#	 =sys-apps/util-linux-2.33.2
-				#	 =sys-apps/portage-2.3.89-r1
-				#	 =dev-util/boost-build-1.72.0
-				#		  app-admin/eselect
-				#		  app-eselect/eselect-python
-				#	  dev-lang/python:2.7
-				#		 =dev-python/setuptools-46.4.0-r3
-				#		 =dev-java/java-config-2.2.0-r4
-				#	  dev-java/openjdk-bin:8
-				#		  acct-group/mongodb
-				#		  acct-user/mongodb
-				#		>=app-arch/snappy-1.1.3
-				#		>=dev-build/scons-2.5.0
-				#		>=dev-cpp/yaml-cpp-0.5.3
-				#		>=dev-libs/boost-1.60
-				#		>=dev-libs/libpcre-8.41
-				#		  dev-libs/snowball-stemmer
-				#		  net-libs/libpcap
-				#		  net-misc/curl
-				#		>=sys-libs/zlib-1.2.11
-				#		>=dev-libs/openssl-1.0.1g:0
-				#		  dev-python/cheetah
-				#		  dev-python/pyyaml
-				#		  dev-python/typing
-				#		  sys-libs/ncurses:0
-				#		  sys-libs/readline:0
-				#	      dev-python/regex
-				#	 <dev-db/mongodb-4.2'
-				# If we try to build 'openjdk:8' in ${extra_pkgs} then it now complains
-				# that there is no available Java 8 VM available, even though we have
-				# openjdk-bin:8 available in the build container with ROOT=/
-				# TODO: Consider post-install and post-remove hooks to allow openjdk:8
-				#       to be build with ROOT != / and then openjdk-bin:8 removed...
-				#extra_pkgs='<dev-db/mongodb-4.2 dev-java/openjdk:8 dev-lang/python:2.7 app-admin/eselect app-eselect/eselect-python'
-				#post_remove="${extra_pkgs}"
 				extra_pkgs="${extra_pkgs} <dev-db/mongodb-4.2 dev-lang/python:2.7" # app-admin/eselect app-eselect/eselect-python'
 				extra_pkgs="${extra_pkgs} app-misc/ca-certificates${ECLASS_OVERRIDE:+"::${ECLASS_OVERRIDE}"}"
 				extra_pkgs="${extra_pkgs} ${masked_packages} <sys-devel/gcc-11"
