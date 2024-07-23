@@ -99,6 +99,7 @@ services=(
 	unifi80
 	unifi81
 	unifi82
+	unifi83
 	vim
 	watchdog
 	xmrig
@@ -538,6 +539,8 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-8.1*' ;;
 	unifi82|unifi-controller82|unifi-controller-82|unifi-controller-bin82|unifi-controller-bin-82)
 		service='=net-misc/unifi-controller-bin-8.2*' ;;
+	unifi83|unifi-controller83|unifi-controller-83|unifi-controller-bin83|unifi-controller-bin-83)
+		service='=net-misc/unifi-controller-bin-8.3*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
