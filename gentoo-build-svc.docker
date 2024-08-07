@@ -806,10 +806,9 @@ case "${package_name}" in
 		;;
 	*.lighttpd)
 		output "Setting build variables for package 'lighttpd' ..."
-		pre_pkgs='app-admin/gamin >=dev-lang/php-8.1 media-gfx/imagemagick sys-apps/help2man sys-devel/gcc virtual/fam'
+		pre_pkgs='>=dev-lang/php-8.1 media-gfx/imagemagick sys-apps/help2man sys-devel/gcc'
 		pre_pkgs+=' acct-group/lighttpd acct-user/lighttpd'
 		extra_pkgs='
-			app-admin/gamin
 			dev-lang/perl
 			dev-perl/CGI
 			dev-perl/IO-Socket-INET6
@@ -820,6 +819,18 @@ case "${package_name}" in
 			sys-apps/findutils
 		'
 		extra_pkgs+=' app-shells/bash'
+
+		if [[ "$( # <- Syntax
+				printf '1.4.76\n%s' "${package_version:-}" |
+				sort -V |
+				head -n 1
+		)" == '1.4.76' ]]; then
+			output "Configuring '${package_name##*.}-${package_version:-}' for v1.4.76 or later ..."
+		else
+			output "Configuring '${package_name##*.}-${package_version:-}' for v1.4.75 or prior ..."
+			pre_pkgs+=' app-admin/gamin virtual/fam'
+			extra_pkgs+=' app-admin/gamin'
+		fi
 
 		#ports='80/tcp 443/tcp'
 		ports='7080/tcp 7443/tcp'
@@ -1165,10 +1176,10 @@ case "${package_name}" in
 				sort -V |
 				head -n 1
 		)" == '2.61' ]]; then
-			output "Configuring 'spampd-${package_version:-}' for v2.61 or later ..."
+			output "Configuring '${package_name##*.}-${package_version:-}' for v2.61 or later ..."
 			container_cmd='/usr/sbin/spampd'
 		else
-			output "Configuring 'spampd-${package_version:-}' for v2.53 or prior ..."
+			output "Configuring '${package_name##*.}-${package_version:-}' for v2.53 or prior ..."
 			container_cmd='/usr/sbin/spampd.pl'
 		fi
 		;;
@@ -1858,6 +1869,7 @@ args+=(
 )
 [[ -n "${ZEUSHOME:-}" ]] && args+=( --build-arg ZEUSHOME="${ZEUSHOME}" )
 [[ -n "${environment_file:-}" ]] && args+=( --build-arg environment_file="${environment_file}" )
+# shellcheck disable=SC2154
 args+=(
 	--build-arg environment_filter="${environment_filter}"
 	--build-arg image_name="${container_prefix}-${package_name}"
@@ -1865,6 +1877,7 @@ args+=(
 )
 [[ -n "${container_cwd:-}" ]] && args+=( --build-arg service_cwd="${container_cwd}" )
 [[ -n "${fs_name:-}" ]] && args+=( --build-arg service_fs_name="${fs_name}" )
+# shellcheck disable=SC2154
 args+=(
 	--build-arg service_group="${group}"
 	--build-arg service_name="${package_name/.//}"
