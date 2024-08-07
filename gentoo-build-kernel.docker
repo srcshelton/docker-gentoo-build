@@ -978,14 +978,18 @@ if (( opt_o3 )); then
 	container_KCFLAGS="KCFLAGS=\"${add_flags}\""
 	unset add_flags
 fi
+
+# Unconditionally add sys-devel/gcc USE-flags, in case we need to rebuild it even
+# when we are primarily using clang/LLVM...
+#
+# shellcheck disable=SC2154
+compiler_USE+="-lib-only ${use_essential_gcc}"
 case "${compiler}" in
 	gcc)
 		compiler_pkgs=(
 			"$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )"
 			"$( pkgslot sys-devel/gcc "${gcc_min_ver:-}" )"
 		)
-		# shellcheck disable=SC2154
-		compiler_USE="-lib-only ${use_essential_gcc}"
 		;;
 	clang|llvm)
 		(( llvm_slot )) || die "'llvm_slot' is required for clang builds"
@@ -1114,7 +1118,7 @@ case "${unwind:-}" in
 		compiler_pkgs+=(
 			sys-libs/llvm-libunwind
 		)
-		compiler_USE="$( replace_flags 'llvm-libunwind' -- "${compiler_USE:-}" )"
+		compiler_USE="$( replace_flags 'llvm-libunwind' -- "${compiler_USE}" )"
 		#pre_remove='sys-libs/libunwind'
 		#pre_use="$( replace_flags '-default-compiler-rt' '-default-libcxx' '-default-lld' '-llvm-libunwind' -- "${pre_use:-}" )"
 		#pre_pkgs="$( pkgslot sys-libs/llvm-libunwind "${llvm_slot}" )"
@@ -1344,7 +1348,7 @@ esac
 				'symlink'
 				'threads'
 				'zlib'
-				${compiler_USE:-}
+				${compiler_USE}
 			)
 			USE="${use[*]}"
 			unset use
