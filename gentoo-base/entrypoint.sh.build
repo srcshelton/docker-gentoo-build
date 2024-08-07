@@ -321,7 +321,8 @@ check() {
 	#
 	[ -n "${check_rc:-}" ] || return 1
 
-	check_pkg='' check_arg=''
+	check_arg='' check_pkg='' check_fallback=''
+	check_op='die'
 
 	if [ $(( check_rc )) -eq 0 ]; then
 		# Process first package of list only...
@@ -329,22 +330,30 @@ check() {
 		for check_arg in "${@}"; do
 			case "${check_arg}" in
 				-*)	continue ;;
+				*'*'*)
+					[ -n "${check_fallback:-}" ] ||
+						check_fallback="${check_arg}"
+					;;
 				*)	check_pkg="${check_arg}" ; break ;;
 			esac
 		done
+		if [ -z "${check_pkg:-}" ]; then
+			check_pkg="${check_fallback:-}"
+			check_op='warn'
+		fi
 		check_pkg="$( echo "${check_pkg}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
 		if echo "${check_pkg}" | grep -Fq -- '/'; then
 			if ! ls -1d \
 					"${ROOT:-}/var/db/pkg/${check_pkg%"::"*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package" \
+				${check_op:-"die"} "emerge indicated success but package" \
 					"'${check_pkg%"::"*}' does not appear to be installed"
 			fi
 		else
 			if ! ls -1d \
 					"${ROOT:-}/var/db/pkg"/*/"${check_pkg%"::"*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package" \
+				${check_op:-"die"} "emerge indicated success but package" \
 					"'${check_pkg%"::"*}' does not appear to be installed"
 			fi
 		fi
@@ -358,7 +367,7 @@ check() {
 
 checkmissing() {
 	#inherit ROOT
-	cm_arg='' cm_package='' cm_path=''
+	cm_arg='' cm_pkg='' cm_fallback='' cm_path=''
 
 	# Check that packages passed in as arguments have been removed
 	#
@@ -367,34 +376,44 @@ checkmissing() {
 	for cm_arg in "${@}"; do
 		case "${cm_arg}" in
 			-*)	continue ;;
-			*)	cm_package="${cm_arg}" ; break ;;
+			*'*'*)
+				[ -n "${cm_fallback:-}" ] ||
+					cm_fallback="${cm_arg}"
+				;;
+			*)	cm_pkg="${cm_arg}" ; break ;;
 		esac
 	done
-	cm_package="$( echo "${cm_package}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
-	if echo "${cm_package}" | grep -Fq -- '/'; then
-		cm_path="${ROOT:-}/var/db/pkg/${cm_package%"::"*}"
+	[ -n "${cm_pkg:-}" ] ||
+		cm_pkg="${cm_fallback:-}"
+	cm_pkg="$( echo "${cm_pkg}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
+	if echo "${cm_pkg}" | grep -Fq -- '/'; then
+		cm_path="${ROOT:-}/var/db/pkg/${cm_pkg%"::"*}"
 	else
-		cm_path="${ROOT:-}/var/db/pkg/*/${cm_package%"::"*}"
+		cm_path="${ROOT:-}/var/db/pkg/*/${cm_pkg%"::"*}"
 	fi
-	if echo "${cm_package}" | grep -Fq -- '/'; then
-		if ls -1d ${cm_path}/* >/dev/null 2>&1; then
-			warn "emerge indicated success but package '${cm_package%"::"*}'" \
+	if echo "${cm_pkg}" | grep -Fq -- '/' &&
+			! echo "${cm_pkg}" | grep -Fq -- '*'
+	then
+		# shellcheck disable=SC2086
+		if ls -1d "${cm_path}"/* >/dev/null 2>&1; then
+			warn "emerge indicated success but package '${cm_pkg%"::"*}'" \
 				"still appears to be installed under root '${ROOT:-"/"}'"
 			return 1
 		fi
 	fi
 
-	unset cm_package cm_arg
+	unset cm_pkg cm_arg
 	return 0
 }  # checkmissing
 
 pkg_remove() {
 	#inherit ROOT
-	pr_force=1 pr_verbose=''
-	if [ "${1:-}" = '--no-force' ]; then
-		pr_force=0
-		shift
-	fi
+	#pr_force=1 pr_verbose=''
+	#if [ "${1:-}" = '--no-force' ]; then
+	#	pr_force=0
+	#	shift
+	#fi
+	pr_verbose=''
 	if [ "${1:-}" = '--verbose' ]; then
 		pr_verbose='v'
 		shift
@@ -2595,6 +2614,7 @@ case "${1:-}" in
 							-- ${gcc_pkgs}
 					) || : $(( rc = rc + ${?} ))
 
+					# shellcheck disable=SC2086
 					[ "${intent:-}" = 'keep' ] &&
 						pkg_remove 'post-installation' ${gcc_build_pkgs}
 				fi  # [ -n "${gcc_pkgs:-}" ]
@@ -2684,6 +2704,7 @@ if [ $(( depclean )) -ne 0 ]; then
 		#		  ${depclean_exclude} \
 		#		--verbose=y \
 		#		--with-bdeps=n \
+		# shellcheck disable=SC2086
 		pkg_remove 'final' \
 			${depclean_exclude:-} \
 			-- $( # <- Syntax
@@ -2726,6 +2747,7 @@ if [ $(( depclean )) -ne 0 ]; then
 		#	${depclean_exclude:-} \
 		#	--verbose=y \
 		#	--with-bdeps=n
+		# shellcheck disable=SC2086
 		pkg_remove 'last' \
 			--exclude=dev-libs/libffi \
 			${depclean_exclude:-}
