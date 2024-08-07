@@ -91,7 +91,8 @@ check() {
 	#
 	[ -n "${check_rc:-}" ] || return 1
 
-	check_pkg='' check_arg=''
+	check_pkg='' check_fallback='' check_arg=''
+	check_op='die'
 
 	if [ $(( check_rc )) -eq 0 ]; then
 		# Process first package of list only...
@@ -99,22 +100,30 @@ check() {
 		for check_arg in "${@}"; do
 			case "${check_arg}" in
 				-*)	continue ;;
+				'*')
+					[ -n "${check_fallback:-}" ] ||
+						check_fallback="${check_arg}"
+					;;
 				*)	check_pkg="${check_arg}" ; break ;;
 			esac
 		done
+		if [ -z "${check_pkg:-}" ]; then
+			check_pkg="${check_fallback:-}"
+			check_op='warn'
+		fi
 		check_pkg="$( echo "${check_pkg}" | sed -r 's/^[^a-z]+([a-z])/\1/' )"
 		if echo "${check_pkg}" | grep -Fq -- '/'; then
 			if ! ls -1d \
 					"${ROOT:-}/var/db/pkg/${check_pkg%"::"*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package" \
+				${check_op:-"die"} "emerge indicated success but package" \
 					"'${check_pkg%"::"*}' does not appear to be installed"
 			fi
 		else
 			if ! ls -1d \
 					"${ROOT:-}/var/db/pkg"/*/"${check_pkg%"::"*}"* >/dev/null 2>&1
 			then
-				die "emerge indicated success but package" \
+				${check_op:-"die"} "emerge indicated success but package" \
 					"'${check_pkg%"::"*}' does not appear to be installed"
 			fi
 		fi
@@ -1241,7 +1250,7 @@ echo
 	export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
 	# shellcheck disable=SC2046
 		USE='-gmp ssl' \
-	do_emerge --single-defaults dev-build/libtool sys-libs/pam $(
+	do_emerge --single-defaults dev-build/libtool sys-libs/libxcrypt sys-libs/pam $(
 		# sys-devel/gcc is a special case with a conditional gen_usr_ldscript
 		# call...
 		# N.B. Using 'grep -lm 1' and so having to read the whole file where
