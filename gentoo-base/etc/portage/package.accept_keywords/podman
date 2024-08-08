@@ -310,8 +310,9 @@
 #~app-containers/crun-1.14.1				 **
 #~app-containers/crun-1.14.2				 **
 #~app-containers/crun-1.14.3				 **
-~app-containers/crun-1.14.4				 **
+#~app-containers/crun-1.14.4				 **
 ~app-containers/crun-1.15				 **
+~app-containers/crun-1.16				 **
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
