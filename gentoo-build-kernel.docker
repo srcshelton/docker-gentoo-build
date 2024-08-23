@@ -357,7 +357,7 @@ if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 				echo " ${*} " |
 					grep -Eo -- '--force-llvm=[^ ]+ ' |
 					cut -d'=' -f 2- |
-					sed 's/ $//' |
+					sed 's/-r.*$// ; s/ $//' |
 					sort -V |
 					tail -n 1
 			)"
@@ -366,7 +366,7 @@ if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 				echo " ${*} " |
 					grep -Eo -- '--force-llvm [^ ]+ ' |
 					cut -d' ' -f 2- |
-					sed 's/ $//' |
+					sed 's/-r.*$// ; s/ $//' |
 					sort -V |
 					tail -n 1
 			)"
