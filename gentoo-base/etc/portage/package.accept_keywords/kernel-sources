@@ -1,20 +1,15 @@
 
-# Current stable package is gentoo-sources-5.10.221
-~sys-kernel/gentoo-sources-5.10.223			~amd64             ~x86
+# Current stable package is gentoo-sources-5.10.224
+#~sys-kernel/gentoo-sources-5.10.224			~amd64             ~x86
 
-# Current stable package is gentoo-sources-5.15.162
-~sys-kernel/gentoo-sources-5.15.164			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-5.15.165
 
-# Current stable package is gentoo-sources-6.1.97
-~sys-kernel/gentoo-sources-6.1.103			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-6.1.106
 
-# Current stable package is gentoo-sources-6.6.38
-~sys-kernel/gentoo-sources-6.6.44			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-6.6.47
 
-~sys-kernel/gentoo-sources-6.9.12			~amd64 ~arm ~arm64 ~x86
-
-~sys-kernel/gentoo-sources-6.10.3			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/vanilla-sources-6.10.3			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.10.6			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-6.10.6			~amd64 ~arm ~arm64 ~x86
 
 # Required for rust modules...
 #
@@ -44,7 +39,7 @@
 ~virtual/rust-1.76.0					~amd64
 ~dev-lang/rust-1.76.0					~amd64
 ~dev-lang/rust-bin-1.76.0				~amd64
-# 6.10.x
+# 6.10.x/6.11.x
 ~virtual/rust-1.78.0					~amd64
 ~dev-lang/rust-1.78.0					~amd64
 ~dev-lang/rust-bin-1.78.0				~amd64

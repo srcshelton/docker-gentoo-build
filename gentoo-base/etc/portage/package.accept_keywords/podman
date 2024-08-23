@@ -113,7 +113,8 @@
 #~app-containers/podman-5.2.0_rc2			 **
 #~app-containers/podman-5.2.0_rc3			 **
 #~app-containers/podman-5.2.0				 **
-~app-containers/podman-5.2.1				 **
+#~app-containers/podman-5.2.1				 **
+~app-containers/podman-5.2.2				 **
 
 #~app-containers/podman-tui-0.14.0			 **
 #~app-containers/podman-tui-0.17.0			 **
@@ -220,7 +221,8 @@
 #~app-containers/buildah-1.35.3				 **
 ~app-containers/buildah-1.36.0				 **
 #~app-containers/buildah-1.37.0				 **
-~app-containers/buildah-1.37.1				 **
+#~app-containers/buildah-1.37.1				 **
+~app-containers/buildah-1.37.2				 **
 
 # originally required by app-emulation/buildah-1.15.0
 # move app-emulation/skopeo app-containers/skopeo
@@ -263,7 +265,8 @@
 #~app-containers/skopeo-1.15.0				 **
 #~app-containers/skopeo-1.15.1				 **
 ~app-containers/skopeo-1.15.2				 **
-~app-containers/skopeo-1.16.0				 **
+#~app-containers/skopeo-1.16.0				 **
+~app-containers/skopeo-1.16.1				 **
 
 # move app-emulation/crun app-containers/crun
 #~app-containers/crun-0.14.1				 **
