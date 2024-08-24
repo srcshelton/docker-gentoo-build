@@ -540,7 +540,7 @@ _docker_parse() {
 				print "Adding extra argument '${dp_arg}'"
 
 			elif echo "${dp_arg}" |
-					grep -Eq -- '((virtual|[a-z]{3,7}-[a-z]+)/)?[a-z0-9Z][a-zA-Z0-9_.+-]+\*?(:[0-9.]+\*?)?(::.*)?$'
+					grep -Eq -- '((virtual|[a-z]{3,7}-[a-z]+)/)?[a-zA-Z0-9][a-zA-Z0-9_.+-]+\*?(:[0-9.]+\*?)?(::.*)?$'
 			then
 				# Currently category general names are between 3 and
 				# 7 ("gnustep") letters, package names start with [023469Z] or
