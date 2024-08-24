@@ -1246,6 +1246,15 @@ echo " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 echo
 
 ( # <- Syntax
+	# There's something weird happening with sys-libs/pam - if it's built
+	# separately (albeit on our split-usr capable image) then everything
+	# works.  If the exact same package is built below, all of the shared
+	# objects end up being linked to /usr/lib64/libpam.so.0 which then
+	# (correctly) triggers a QA violation.
+	#
+	do_emerge --unmerge-defaults sys-libs/pam
+	rmdir -p /usr/lib*/security/pam_filter || :
+
 	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 	export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
 	# shellcheck disable=SC2046
