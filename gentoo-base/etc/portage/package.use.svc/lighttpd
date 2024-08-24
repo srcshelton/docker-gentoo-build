@@ -22,7 +22,11 @@ dev-db/libdbi-drivers			 sqlite
 #dev-libs/libpcre2			 bzip2 +jit libedit pcre16 pcre32 +readline +recursion-limit static-libs unicode (zlib)
 dev-libs/libpcre2			 jit recursion-limit unicode
 
+app-admin/sudo				 secure-path
 app-alternatives/sh			-busybox bash
+media-libs/gd				 png zlib
+sys-apps/util-linux			 tty-helpers
+sys-power/apcupsd			 cgi snmp usb
 
 virtual/mta				 no-mta
 #mail-mta/nullmailer			-ssl
