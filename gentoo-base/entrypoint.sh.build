@@ -408,7 +408,7 @@ checkmissing() {
 
 pkg_remove() {
 	#inherit ROOT
-	#pr_force=1 pr_verbose=''
+	#pr_force=1
 	#if [ "${1:-}" = '--no-force' ]; then
 	#	pr_force=0
 	#	shift
@@ -597,7 +597,7 @@ applyworkarounds() {
 	# N.B. Ensure any status/user-information output goes to &2!
 	#
 	# modes:
-	#  0 - Add required USE-flags
+	#  0 - Add required USE flags
 	#  1 - Add required post_pkgs
 	#  2 - Add required post_use
 
@@ -686,7 +686,7 @@ applyworkarounds() {
 	if aw_pkg="$( # <- Syntax
 			echo " ${aw_arg} " |
 				sed 's/ /  /g' |
-				grep -E0 -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
 		)" && [ -n "${aw_pkg:-}" ]
 	then
 		if [ $(( aw_mode )) -eq 1 ]; then
@@ -878,7 +878,7 @@ applyworkarounds() {
 		else
 			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
 			if [ $(( aw_mode )) -eq 2 ]; then
-				# 'default-compiler-rt' is a USE-flag for
+				# 'default-compiler-rt' is a USE flag for
 				# sys-devel/clang:14 but for sys-devel/clang-common
 				# thereafter...
 				warn >&2 "Adding post-package USE flags 'default-compiler-rt" \
@@ -1520,7 +1520,7 @@ if command -v pypy3 >/dev/null 2>&1; then
 	print "$( LC_ALL='C' emerge --info | head -n 1 2>&1 )"
 fi
 
-#warn >&2 "Inherited USE-flags: '${USE:-}'"
+#warn >&2 "Inherited USE flags: '${USE:-}'"
 
 # post_use should be based on the original USE flags, without --with-use
 # additions...
@@ -1793,7 +1793,8 @@ fi
 (
 	ROOT="${service_root}"
 	FEATURES="${FEATURES:+"${FEATURES} "}-fail-clean"
-	USE="-* -lib-only make-symlinks mdev openmp timezone-tools"
+	USE="-* -lib-only ${use_essential_gcc} make-symlinks mdev multiarch openmp"
+	USE="${USE} timezone-tools"
 	# ... we also need 'http2' if any rust packages need to be updated
 	USE="${USE} http2"
 	LC_ALL='C'
@@ -2369,7 +2370,7 @@ case "${1:-}" in
 			#
 			extra_pkgs=''
 			if grep -qw -- 'openmp' "${ROOT%"/"}"/var/db/pkg/*/*/USE; then
-				# FIXME: Apparently we need USE-flags for app-alternatives/yacc
+				# FIXME: Apparently we need USE flags for app-alternatives/yacc
 				# and app-alternatives/lex here too...
 				post_use="${post_use:+"${post_use} "}bison flex openmp"
 				extra_pkgs="$( # <- Syntax
@@ -2386,7 +2387,7 @@ case "${1:-}" in
 				)"
 			fi
 			if [ -n "${extra_pkgs:-}" ]; then
-				print "Adding 'openmp' USE-flag and additional packages" \
+				print "Adding 'openmp' USE flag and additional packages" \
 					"'${extra_pkgs}' to resolve dependency-calculation issues"
 				post_pkgs="${post_pkgs:+"${post_pkgs} "}${extra_pkgs}"
 			fi
@@ -2540,7 +2541,8 @@ case "${1:-}" in
 
 			echo
 			echo " * Building specified post-installation '${packages}'" \
-				"package(s) into installation root '${ROOT}' ..."
+				"package(s) excluding 'sys-devel/gcc' into installation root" \
+				"'${ROOT}' ..."
 			echo
 			# shellcheck disable=SC2086
 			(
@@ -2577,42 +2579,56 @@ case "${1:-}" in
 					# BDEPEND packages to be present...
 					#
 					gcc_build_pkgs="app-portage/elt-patches sys-apps/texinfo sys-devel/flex sys-devel/m4"
-					echo
-					echo " * Building post-installation '${gcc_pkgs}" \
-						"${gcc_build_pkgs}' package(s) into installation" \
-						"root '${ROOT}' ..."
-					echo
-					# shellcheck disable=SC2086
-					(
-							USE="${use_essential_gcc} ${USE} -nls" \
-						do_emerge \
-								  ${opts} \
-								  ${parallel} \
-								--buildpkg=y \
-								--nodeps \
-								--oneshot \
-								--usepkg=y \
-								--with-bdeps-auto=n \
-								--with-bdeps=n \
-								  ${flags:-} \
-							-- ${gcc_build_pkgs}
 
-							USE="${use_essential_gcc} ${USE}$( # <- Syntax
+					# shellcheck disable=SC2086
+					{
+						(
+							export USE="${USE} ${use_essential_gcc} -nls"
+
+							echo
+							echo " * Building post-installation" \
+								"'${gcc_pkgs}' support packages" \
+								"'${gcc_build_pkgs}' into installation root" \
+								"'${ROOT}' with USE flags '${USE}' ..."
+							echo
+
+							do_emerge \
+									  ${opts} \
+									  ${parallel} \
+									--buildpkg=y \
+									--nodeps \
+									--oneshot \
+									--usepkg=y \
+									--with-bdeps-auto=n \
+									--with-bdeps=n \
+									  ${flags:-} \
+								-- ${gcc_build_pkgs}
+						) && (
+							USE="${USE} ${use_essential_gcc} $( # <- Syntax
 								echo " ${USE} " | grep -q -- ' lib-only ' &&
 									echo ' lto pgo'
-							)" \
-						do_emerge \
-								  ${opts} \
-								  ${parallel} \
-								--buildpkg=y \
-								--nodeps \
-								--oneshot \
-								--usepkg=y \
-								--with-bdeps-auto=n \
-								--with-bdeps=n \
-								  ${flags:-} \
-							-- ${gcc_pkgs}
-					) || : $(( rc = rc + ${?} ))
+							)"
+							export USE
+
+							echo
+							echo " * Building post-installation" \
+								"'${gcc_pkgs}' package(s) into installation" \
+								"root '${ROOT}' with USE flags '${USE}' ..."
+							echo
+
+							do_emerge \
+									  ${opts} \
+									  ${parallel} \
+									--buildpkg=y \
+									--nodeps \
+									--oneshot \
+									--usepkg=y \
+									--with-bdeps-auto=n \
+									--with-bdeps=n \
+									  ${flags:-} \
+								-- ${gcc_pkgs}
+						)
+					} || : $(( rc = rc + ${?} ))
 
 					# shellcheck disable=SC2086
 					[ "${intent:-}" = 'keep' ] &&
@@ -2697,7 +2713,7 @@ if [ $(( depclean )) -ne 0 ]; then
 	#
 	# ...and we're still getting some build-time dependencies retained...
 	#
-	# shellcheck disable=SC2046
+	# shellcheck disable=SC2046,SC2086
 	(
 		#do_emerge \
 		#		--depclean \
@@ -2740,6 +2756,7 @@ if [ $(( depclean )) -ne 0 ]; then
 				-- ${depclean_extra}
 		) || :
 	fi
+	# shellcheck disable=SC2086
 	(
 		#do_emerge \
 		#	--depclean \
