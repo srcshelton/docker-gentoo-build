@@ -17,6 +17,8 @@ stage3_flags_file="${stage3_flags_file:-"__FLAGSFILE__"}"
 environment_file="${environment_file:-"__ENVFILE__"}"
 environment_filter="${environment_filter:-"__ENVFILTER__"}"
 
+# N.B. If multiple python_default_targets are required, the primary version
+#      must be listed *first*:
 python_default_targets='python3_12'
 stage3_flags=''
 
@@ -352,7 +354,7 @@ savefailed() {
 	#inherit PORTAGE_LOGDIR PORTAGE_LOGDIR
 	sf_rc=0
 
-	# Save failed build logs ...
+	# Save failed build logs...
 	# (e.g. /var/tmp/portage/app-misc/mime-types-9/temp/build.log)
 	# (e.g. /var/tmp/portage/net-misc/dhcpcd-10.0.6-r2/work/dhcpcd-10.0.6/config.log)
 
@@ -581,13 +583,14 @@ do_emerge() {
 		"${ROOT:+" with ROOT='${ROOT}'"}"
 	#FEATURES="${emerge_features:-}" \
 	emerge --ignore-default-opts --color=y "${@:-}" || emerge_rc="${?}"
+	echo "   -> ${emerge_rc}"
 
 	if [ $(( emerge_rc )) -eq 0 ]; then
 		[ -f /etc/._cfg0000_hosts ] && rm -f /etc/._cfg0000_hosts
 		# For some reason, after dealing with /usr/sbin being a symlink to
 		# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
 		# following line is encountered, despite both elements still appearing
-		# in $PATH ...
+		# in $PATH...
 		LC_ALL='C' /usr/sbin/etc-update -q --automode -5
 		LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 	else
@@ -603,7 +606,7 @@ fix_sh_symlink() {
 	symlink_root="${1:-"${ROOT:-}"}"
 	symlink_msg="${2:-}"  # expected 'pre-deploy' or '@system'
 
-	# Ensure we have a valid /bin/sh symlink in our ROOT ...
+	# Ensure we have a valid /bin/sh symlink in our ROOT...
 	if ! [ -x "${symlink_root}"/bin/sh ]; then
 		echo " * Fixing ${symlink_msg:+"${symlink_msg} "}'/bin/sh' symlink ..."
 		[ ! -e "${symlink_root}"/bin/sh ] || rm "${symlink_root}"/bin/sh
@@ -930,6 +933,21 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 # To try to work around this, snapshot the current stage3 version...
 #quickpkg --include-config y --include-unmodified-config y sys-libs/zlib
 
+if portageq get_repos / | grep -Fq -- 'srcshelton'; then
+	echo
+	echo " * Building linted 'sys-apps/gentoo-functions' package for stage3 ..."
+	echo
+	(
+		USE="-* $( get_stage3 --values-only USE )"
+		export USE
+		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean -fakeroot"
+		pkgdir="$( LC_ALL='C' portageq pkgdir )"
+		export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/stage3"
+		unset pkgdir
+		do_emerge --single-defaults 'sys-apps/gentoo-functions::srcshelton'
+	)
+fi
+
 ( # <- Syntax
 	mkdir -p /var/lib/portage
 	echo 'virtual/libc' > /var/lib/portage/world
@@ -944,7 +962,12 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 	fi
 	# 'dhcpcd' is now built with USE='udev', and libmd needs 'split-usr'...
 	#
-	do_emerge --once-defaults app-crypt/libmd net-misc/dhcpcd
+	# ... and /usr/lib64/libmd.so is being preserved :(
+	#
+	(
+		export FEATURES='-preserve-libs'
+		do_emerge --once-defaults app-crypt/libmd net-misc/dhcpcd
+	)
 
 	# To make the following output potentially clearer, attempt to remove any
 	# masked packages which exist in the image we're building from...
@@ -973,7 +996,9 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 
 			echo "<dev-lang/$(
 				echo "${python_default_targets}" |
-					sed 's/3_/-3./'
+					sed 's/3_/-3./' |
+					sort -V |
+					tail -n 1
 			)"
 		} |
 			grep -Fv -- '::' |
@@ -986,19 +1011,110 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 	do_emerge --depclean-defaults ${list} || :
 )
 
-if portageq get_repos / | grep -Fq -- 'srcshelton'; then
+if [ $(( $( # <- Syntax
+		find /var/db/pkg/dev-lang/ \
+				-mindepth 1 -maxdepth 1 \
+				-type d \
+				-name 'python-3.*' \
+				-print |
+			wc -l
+	) )) -gt 1 ]
+then
 	echo
-	echo " * Building linted 'sys-apps/gentoo-functions' package for stage3 ..."
+	echo " * Multiple python interpreters present, attempting to" \
+		"rebuild for '${python_default_targets%%" "*}' ..."
 	echo
 	(
-		USE="-* $( get_stage3 --values-only USE )"
+		export QA_XLINK_ALLOWED='*'
+		export FEATURES='-preserve-libs'
+		export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/python"
+		USE="-* $( get_stage3 --values-only USE ) -udev split-usr"
+		USE="$( # <- Syntax
+			echo "${USE}" |
+				xargs -rn 1 |
+				grep -v -e '^python_single_target_' -e 'python_targets_' |
+				xargs -r
+			echo "python_single_target_${python_default_targets%%" "*}"
+			echo "python_targets_${python_default_targets%%" "*}"
+		)"
 		export USE
-		export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean -fakeroot"
-		pkgdir="$( LC_ALL='C' portageq pkgdir )"
-		export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/stage3"
-		unset pkgdir
-		do_emerge --single-defaults 'sys-apps/gentoo-functions::srcshelton'
+		export PYTHON_DEFAULT_TARGET="${python_default_targets%%" "*}"
+		export PYTHON_TARGETS="${python_default_targets}"
+		eval "$( # <- Syntax
+			resolve_python_flags \
+				"${USE}" \
+				"python_single_target_${python_default_targets%%" "*}" \
+				"python_targets_${python_default_targets%%" "*}"
+		)"
+
+		# FIXME: Nasty hack to avoid preserved libraries...
+		# shellcheck disable=SC2046
+		{
+			rm -f /usr/lib64/libuuid.so.1*
+			rm -f /usr/lib/$( echo "${python_default_targets%%" "*}" | sed 's/_/./' )/lib-dynload/_uuid.cpython-*.so
+		}
+
+		# shellcheck disable=SC2046,SC2086
+		#	debug=1 \
+		do_emerge --once-defaults \
+			$(
+				# The 20240605 arm64 stage3 image contains several outdated
+				# pakages which no longer exist in the portage tree :(
+				#
+				grep 'python_[^ ]*target' \
+						"${ROOT:-}"/var/db/pkg/*/*/USE |
+					grep -v "_${python_default_targets%%" "*}" |
+					grep '_python3_' |
+					grep -v 'backports' |
+					cut -d':' -f 1 |
+					rev |
+					cut -d'/' -f 2-3 |
+					rev |
+					sed -r 's|^(.*)-[0-9].*$|\1|' |
+					xargs -r
+			)
+
+		list="$( # <- Syntax
+			{
+				echo "<dev-lang/$(
+					echo "${python_default_targets}" |
+						sed 's/3_/-3./' |
+						sort -V |
+						tail -n 1
+				)"
+				grep 'python_[^ ]*target' \
+						"${ROOT:-}"/var/db/pkg/*/*/USE |
+					grep -v "_${python_default_targets%%" "*}" |
+					grep '_python3_' |
+					grep 'backports' |
+					cut -d':' -f 1 |
+					rev |
+					cut -d'/' -f 2-3 |
+					rev |
+					sed -r 's|^(.*)-[0-9].*$|\1|' |
+					xargs -r
+			} |
+				grep -Fv -- '::' |
+				sort -V |
+				xargs -r
+		)"
+		echo "Package list: ${list}"
+		echo
+		# shellcheck disable=SC2086
+		do_emerge --depclean-defaults ${list} || :
+
+		do_emerge --preserved-defaults '@preserved-rebuild'
 	)
+fi
+# shellcheck disable=SC2046
+if ! test -d $(
+		printf '/var/db/pkg/dev-lang/%s*/.' "$( # <- Syntax
+			echo "${python_default_targets%%" "*}" |
+				sed 's/3_/-3./'
+	)" )
+then
+	die "No installed package found for python_default_target" \
+		"'${python_default_targets%%" "*}'"
 fi
 
 echo
@@ -1101,7 +1217,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	# For some reason, after dealing with /usr/sbin being a symlink to
 	# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
 	# following line is encountered, despite both elements still appearing in
-	# $PATH ...
+	# $PATH...
 	LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
@@ -1131,7 +1247,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		# For some reason, after dealing with /usr/sbin being a symlink to
 		# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
 		# following line is encountered, despite both elements still appearing
-		# in $PATH ...
+		# in $PATH...
 		LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 		find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 		case "${pkg}" in
@@ -1180,7 +1296,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		# For some reason, after dealing with /usr/sbin being a symlink to
 		# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
 		# following line is encountered, despite both elements still appearing
-		# in $PATH ...
+		# in $PATH...
 		LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 		find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 	done
@@ -1232,7 +1348,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	# For some reason, after dealing with /usr/sbin being a symlink to
 	# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
 	# following line is encountered, despite both elements still appearing in
-	# $PATH ...
+	# $PATH...
 	LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
@@ -1246,59 +1362,71 @@ echo " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 echo
 
 ( # <- Syntax
-	# There's something weird happening with sys-libs/pam - if it's built
-	# separately (albeit on our split-usr capable image) then everything
-	# works.  If the exact same package is built below, all of the shared
-	# objects end up being linked to /usr/lib64/libpam.so.0 which then
-	# (correctly) triggers a QA violation.
-	#
-	do_emerge --unmerge-defaults sys-libs/pam
-	rmdir -p /usr/lib*/security/pam_filter || :
-
 	export FEATURES="${FEATURES:+"${FEATURES} "}fail-clean"
 	export PKGDIR="${PKGDIR:-"$( LC_ALL='C' portageq pkgdir )"}/stages/stage3"
+
+	# There's something weird happening with sys-libs/pam - if it's built
+	# separately (albeit on our split-usr capable image) then everything works.
+	# If the exact same package is built below, all of the shared objects end
+	# up being linked to /usr/lib64/libpam.so.0 which then (correctly) triggers
+	# a QA violation.
+	#
+	do_emerge --unmerge-defaults sys-libs/pam
+	rmdir -p --ignore-fail-on-non-empty /usr/lib*/security/pam_filter || :
+
 	# shellcheck disable=SC2046
-		USE='-gmp ssl' \
-	do_emerge --single-defaults dev-build/libtool sys-libs/libxcrypt sys-libs/pam $(
-		# sys-devel/gcc is a special case with a conditional gen_usr_ldscript
-		# call...
-		# N.B. Using 'grep -lm 1' and so having to read the whole file where
-		#      there is no match is about twice as fast as finding the
-		#      'inherit' line only and then checking for 'usr-ldscript' but
-		#      having to invoke 'sed', 'grep', and 'cut' (with a cold cache)
-		{
-			grep -lm 1 '^inherit[^#]\+usr-ldscript' \
-					"$( portageq vdb_path )"/*/*/*.ebuild |
-				rev |
-				cut -d'/' -f 3,4 |
-				rev
-			if LC_ALL='C' portageq get_repos / |
-					grep -Fq -- 'srcshelton'
-			then
-				grep -lm 1 '^inherit[^#]\+usr-ldscript' \
-						"$( portageq get_repo_path / srcshelton )"/*/*/*.ebuild |
-					rev |
-					cut -d'/' -f 2,3 |
-					rev
-			fi
-		} |
-			sort |
-			uniq |
-			grep -Fxv 'sys-devel/gcc' |
-			while read -r ebuild; do
-				for file in "$( portageq vdb_path )/${ebuild}"-*/CONTENTS; do
-					if [ -f "${file}" ]; then
-						grep -Eqm 1 -- '(sym|obj) /lib(x?32|64)' "${file}" ||
-							echo "${ebuild}"
+	(
+		export FEATURES='-preserve-libs'
+		export USE='-gmp ssl'
+		do_emerge --single-defaults dev-build/libtool sys-libs/libxcrypt \
+			sys-libs/pam $(
+				# sys-devel/gcc is a special case with a conditional
+				# gen_usr_ldscript call...
+				# N.B. Using 'grep -lm 1' and so not having to read the whole
+				#      file where there is no match is about twice as fast as
+				#      finding the 'inherit' line only and then checking for
+				#      'usr-ldscript' but having to invoke 'sed', 'grep', and
+				#      'cut' (with a cold cache)
+				{
+					grep -lm 1 '^inherit[^#]\+usr-ldscript' \
+							"$( portageq vdb_path )"/*/*/*.ebuild |
+						rev |
+						cut -d'/' -f 3,4 |
+						rev
+					if LC_ALL='C' portageq get_repos / |
+							grep -Fq -- 'srcshelton'
+					then
+						grep -lm 1 '^inherit[^#]\+usr-ldscript' \
+								"$( # <- Syntax
+										portageq get_repo_path / srcshelton
+									)"/*/*/*.ebuild |
+							rev |
+							cut -d'/' -f 2,3 |
+							rev
 					fi
-				done
-			done
+				} |
+					sort |
+					uniq |
+					grep -Fxv 'sys-devel/gcc' |
+					while read -r ebuild; do
+						for file in "$( # <- Syntax
+								portageq vdb_path
+							)/${ebuild}"-*/CONTENTS
+						do
+							if [ -f "${file}" ]; then
+								grep -Eqm 1 -- '(sym|obj) /lib(x?32|64)' \
+										"${file}" ||
+									echo "${ebuild}"
+							fi
+						done
+					done
+			)
 	)
 
 	echo
 	echo " * Rebuilding preserved dependencies, if any ..."
 	echo
-	do_emerge --single-defaults '@preserved-rebuild'
+	do_emerge --preserved-defaults '@preserved-rebuild'
 )
 
 echo
@@ -1306,7 +1434,7 @@ echo " * Installing stage3 'sys-kernel/gentoo-sources' kernel source" \
 	"package ..."
 echo
 
-# Some packages require prepared kernel sources ...
+# Some packages require prepared kernel sources...
 #
 ( # <- Syntax
 	USE="-* $( get_stage3 --values-only USE ) symlink"
@@ -1357,6 +1485,20 @@ do
 
 	(
 		USE="-* $( get_stage3 --values-only USE )"
+		USE="$( # <- Syntax
+			echo "${USE}" |
+				xargs -rn 1 |
+				grep -v -e '^python_single_target_' -e 'python_targets_' |
+				xargs -r
+			echo "python_single_target_${python_default_targets%%" "*}"
+			echo "python_targets_${python_default_targets%%" "*}"
+		)"
+		eval "$( # <- Syntax
+			resolve_python_flags \
+				"${USE}" \
+				"${PYTHON_SINGLE_TARGET:-"${python_default_targets%%" "*}"}" \
+				"${PYTHON_TARGETS:-"${python_default_targets}"}"
+		)"
 		# Add 'xml' to prevent an additional python install/rebuild for
 		# sys-process/audit (which pulls-in dev-lang/python without USE='xml')
 		# vs. dev-libs/libxml2 (which requires dev-lang/python[xml])
@@ -1373,7 +1515,9 @@ do
 		unset pkgdir
 		case "${pkg}" in
 			dev-libs/libxml2)
-				# Don't install previous versions of python ...
+				# Don't install previous versions of python...
+				#
+				# FIXME: Remove hard-coding of previous python targets
 				#
 				USE="${USE} -lzma -python_targets_python3_10 -python_targets_python3_11"
 				;;
@@ -1405,14 +1549,14 @@ do
 	# For some reason, after dealing with /usr/sbin being a symlink to
 	# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
 	# following line is encountered, despite both elements still appearing in
-	# $PATH ...
+	# $PATH...
 	LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 done  # for pkg in ...
 unset pkg
 #LC_ALL='C' eselect awk set gawk || :
 
-# Now we can build our ROOT environment ...
+# Now we can build our ROOT environment...
 #
 echo
 echo
@@ -1760,7 +1904,7 @@ if [ -n "${pkg_initial:-}" ]; then
 						PERL_FEATURES=''  # Negation ('-ithreads') not allowed
 						USE="$( # <- Syntax
 							# Add additional USE-flags for sys-devel/gcc to
-							# prevent unnecessary rebuilds ...
+							# prevent unnecessary rebuilds...
 							echo " ${USE} " |
 								sed 's/ perl_features_ithreads / /g' |
 								sed 's/ openmp / /g' |
@@ -1801,7 +1945,8 @@ if [ -n "${pkg_initial:-}" ]; then
 						# shellcheck disable=SC2046,SC2086
 							PERL_FEATURES='' \
 							USE="$( # <- Syntax
-								echo " ${USE} ${use_essential_gcc}" \
+								echo " ${USE} ${use_essential}" \
+										"${use_essential_gcc}" \
 										"-perl_features_ithreads " |
 									sed 's/ perl_features_ithreads / /g' |
 									xargs -rn 1 |
@@ -1849,7 +1994,7 @@ if [ -n "${pkg_initial:-}" ]; then
 				# For some reason, after dealing with /usr/sbin being a symlink
 				# to /usr/bin, the resultant /usr/sbin/etc-update isn't found
 				# when this following line is encountered, despite both
-				# elements still appearing in $PATH ...
+				# elements still appearing in $PATH...
 				LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 				find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
@@ -2015,7 +2160,7 @@ echo
 			root_use='-acl compat -bzip2 -e2fsprogs -expat -iconv -lzma -lzo -nettle -xattr -zstd'
 		fi
 		# These packages seem to include sys-process/procps, which is breaking
-		# due to (forced) USE='unicode' requiring USE='ncurses' ...
+		# due to (forced) USE='unicode' requiring USE='ncurses'...
 		#
 		[ "${ARCH:-}" = 'arm64' ] && arm64_use='ncurses'
 
@@ -2049,11 +2194,11 @@ echo
 
 # For some reason, after dealing with /usr/sbin being a symlink to /usr/bin,
 # the resultant /usr/sbin/etc-update isn't found when this following line is
-# encountered, despite both elements still appearing in $PATH ...
+# encountered, despite both elements still appearing in $PATH...
 LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
-# Ensure we have a valid /bin/sh symlink in our ROOT ...
+# Ensure we have a valid /bin/sh symlink in our ROOT...
 #
 fix_sh_symlink "${ROOT}" '@system'
 
@@ -2087,7 +2232,7 @@ echo
 echo ' * Cleaning up ...'
 echo
 
-# Save failed build logs ...
+# Save failed build logs...
 # (e.g. /var/tmp/portage/app-misc/mime-types-9/temp/build.log)
 #
 # shellcheck disable=SC2012
@@ -2107,7 +2252,7 @@ then
 	unset pkg cat file
 fi
 
-# Cleanup any failed bulids/temporary files ...
+# Cleanup any failed bulids/temporary files...
 #
 [ ! -f "${ROOT}"/etc/portage/profile/package.provided ] ||
 	rm "${ROOT}"/etc/portage/profile/package.provided
@@ -2125,7 +2270,7 @@ echo ' * System deployment complete'
 echo
 echo
 
-# Check for ROOT news ...
+# Check for ROOT news...
 #if LC_ALL='C' eselect --colour=yes news read new |
 #		grep -Fv -- 'No news is good news.'
 #then
@@ -2381,7 +2526,7 @@ case "${1:-}" in
 					echo
 
 					# shellcheck disable=SC2086
-						USE='asm compile-locales gmp minimal native-extensions rsync-verify ssl ssp xattr' \
+						USE='asm compile-locales gmp minimal multiarch native-extensions rsync-verify ssl ssp xattr' \
 					do_emerge --defaults ${parallel} --usepkg=y \
 						${post_pkgs} || rc=${?}
 
