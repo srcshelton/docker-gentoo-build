@@ -1,0 +1,17 @@
+# Remove files that shall not be installed from this list.
+brcm/brcmfmac43430-sdio.bin
+brcm/brcmfmac43430-sdio.clm_blob
+brcm/brcmfmac43430-sdio.raspberrypi,3-model-b.txt
+brcm/brcmfmac43430-sdio.raspberrypi,model-zero-2-w.txt
+brcm/brcmfmac43430-sdio.raspberrypi,model-zero-w.txt
+brcm/brcmfmac43455-sdio.bin
+brcm/brcmfmac43455-sdio.Raspberry Pi Foundation-Raspberry Pi 4 Model B.txt
+brcm/brcmfmac43455-sdio.Raspberry Pi Foundation-Raspberry Pi Compute Module 4.txt
+brcm/brcmfmac43455-sdio.clm_blob
+brcm/brcmfmac43455-sdio.raspberrypi,3-model-a-plus.txt
+brcm/brcmfmac43455-sdio.raspberrypi,3-model-b-plus.txt
+brcm/brcmfmac43455-sdio.raspberrypi,4-model-b.txt
+cypress/cyfmac43430-sdio.bin
+cypress/cyfmac43430-sdio.clm_blob
+cypress/cyfmac43455-sdio.bin
+cypress/cyfmac43455-sdio.clm_blob
