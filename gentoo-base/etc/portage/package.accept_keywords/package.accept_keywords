@@ -1,6 +1,6 @@
 
 ~app-admin/cancd-0.2.2					~amd64 ~arm ~arm64 ~x86
-~app-admin/checksec-2.6.0-r1				~amd64 ~arm ~arm64 ~x86
+~app-admin/checksec-2.6.0				~amd64 ~arm ~arm64 ~x86
 ~app-admin/mei-amt-check-20180507			~amd64             ~x86
 # move app-arch/upx-ucl app-arch/upx
 ~app-arch/upx-4.0.2					       ~arm ~arm64
@@ -8,13 +8,14 @@
 ~app-portage/gemato-20.4				~amd64 ~arm ~arm64 ~x86
 ~app-portage/gentoolkit-0.6.5				~amd64 ~arm ~arm64 ~x86
 ~app-portage/pycargoebuild-0.6.3			       ~arm ~arm64 ~x86
+~app-vim/vim-nftables-0_pre20200629			~amd64 ~arm ~arm64 ~x86
 ~dev-perl/Net-MAC-Vendor-1.268::srcshelton		~amd64 ~arm ~arm64 ~x86
 ~dev-perl/Net-Subnet-1.30.0				~amd64 ~arm ~arm64 ~x86
 ~dev-util/bcc-0.28.0					~amd64
 ~dev-util/dropwatch-1.4_p20150706			~amd64 ~arm ~arm64 ~x86
 ~dev-util/pkgcruft-0.0.2				~amd64 ~arm ~arm64 ~x86
 ~net-analyzer/masscan-1.3.2				~amd64 ~arm ~arm64 ~x86
-~net-im/bitlbee-3.6-r3					       ~arm ~arm64
+~net-im/bitlbee-3.6					       ~arm ~arm64
 ~net-misc/kea-2.4.0					~amd64 ~arm ~arm64 ~x86
 ~net-nds/phpldapadmin-1.2.6.3				~amd64 ~arm ~arm64 ~x86
 ~sys-apps/bpftune-0.1.3_p20230802			~amd64 ~arm ~arm64 ~x86
