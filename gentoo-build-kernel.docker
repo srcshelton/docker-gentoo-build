@@ -1,4 +1,5 @@
 #! /usr/bin/env bash
+# shellcheck disable=SC2207
 
 declare trace="${TRACE:-}"
 # shellcheck disable=SC2034
@@ -29,6 +30,8 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 declare IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh
+
+declare -ir PARALLEL_MEMORY_MIN=4
 
 declare -ir build_space_reqiured=750
 declare -ir temp_space_required=2800
@@ -75,20 +78,57 @@ readonly microcode microcode_blob
 pkgslot() {
 	local pkg="${1:-}"
 	local ver="${2:-}"
+	local usemax="${3:-}"
+	local -i maxver=0
+	local -i rc=0
 
 	[[ -n "${pkg:-}" ]] || return 1
 
 	if [[ -z "${ver:-}" ]]; then
+		if [[ -n "${usemax:-}" ]]; then
+			warn "pkgslot(${*}): Third argument of pkgslot() is" \
+				"ignored when no version is specified"
+		fi
 		printf '%s\n' "${pkg}"
 		return 1
 	fi
 
 	if [[ "${ver:0:1}" == ':' ]]; then
+		if [[ -n "${usemax:-}" ]]; then
+			warn "pkgslot(${*}): Third argument of pkgslot() is" \
+				"ignored when a SLOT is specified"
+			(( rc = 1 ))
+		fi
 		printf '%s:%s\n' "${pkg}" "${ver:1}"
 	else
 		[[ "${ver:0:1}" == '-' ]] || ver="-${ver}"
-		printf '>=%s%s\n' "${pkg}" "${ver}"
+		if [[ -n "${usemax:-}" ]]; then
+			case "${usemax}" in
+				'1'|'=')
+					: ;;
+				*)
+					warn "pkgslot(${*}): Third argument" \
+						"is ambiguous (expected '1'" \
+						"or '=')"
+					(( rc = 1 ))
+					;;
+			esac
+			(( maxver = $( cut -d'.' -f 1 <<<"${ver:1}" ) + 1 ))
+			if (( maxver )); then
+				printf '>=%s%s <%s-%s\n' "${pkg}" "${ver}" \
+					"${pkg}" "${maxver}"
+			else
+				warn "pkgslot(${*}): Unable to determine" \
+					"maximum version for arguments"
+				printf '>=%s%s\n' "${pkg}" "${ver}"
+				(( rc = 1 ))
+			fi
+		else
+			printf '>=%s%s\n' "${pkg}" "${ver}"
+		fi
 	fi
+
+	return $(( rc ))
 }  # pkgslot
 
 _docker_setup
@@ -523,7 +563,7 @@ if ! echo " ${*:-} " | grep -q -- ' --no-patch'; then
 			;;
 		6.1.79*|6.1.[89][0-9]*|6.1.[1-9][0-9][0-9]*|6.[234567].*)
 			kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-6.1.79-6.8-rc3.patch' ;;
-		6.[89].*)
+		6.[89].*|6.1[0-9].*)
 			kpatch='https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/master/more-uarches-for-kernel-6.8-rc4%2B.patch' ;;
 		'')
 			: ;;
@@ -987,8 +1027,8 @@ compiler_USE+="-lib-only ${use_essential_gcc}"
 case "${compiler}" in
 	gcc)
 		compiler_pkgs=(
-			"$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )"
-			"$( pkgslot sys-devel/gcc "${gcc_min_ver:-}" )"
+			$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )
+			$( pkgslot sys-devel/gcc "${gcc_min_ver:-}" )
 		)
 		;;
 	clang|llvm)
@@ -996,55 +1036,60 @@ case "${compiler}" in
 
 		# pkgslot() outputs a '>=' specifier if no slot is requested
 		#
-		# N.B. LLVM package SLOT values are no consistent across versions, so
-		#      for example sys-libs/compiler-rt-14.0.6 has slot '14.0.6',
-		#      whereas sys-libs/compiler-rt-16.0.6 has slot '16'.
+		# N.B. LLVM package SLOT values are not consistent across
+		#      versions, so for example sys-libs/compiler-rt-14.0.6 has
+		#      slot '14.0.6', whereas sys-libs/compiler-rt-16.0.6 has
+		#      slot '16'.
 		#
 		compiler='clang'
 		inconsistent_slot="${llvm_sub_slot}"
 		if (( llvm_slot > 15 )); then
 			inconsistent_slot="${llvm_slot}"
 		fi
+
+		case "${bindgen_ver:-}" in
+			'0.56.0'*)
+				declare limit='='
+				;;
+		esac
 		# shellcheck disable=SC2086
 		compiler_pkgs=(
-			"$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )"
-			"$( pkgslot sys-devel/clang "${llvm_min_ver:-}" )"
-			"$( pkgslot sys-devel/llvm "${llvm_min_ver:-}" )"
-
+			$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )
 			sys-devel/binutils-config
 
-			"$( pkgslot sys-devel/clang-common ${llvm_slot} )" # SLOT=0
-			"$( pkgslot sys-devel/llvm-common ${llvm_slot} )" # SLOT=0
+			$( pkgslot sys-libs/compiler-rt ":${inconsistent_slot}" ) # SLOT=14.0.6, 16
+			$( pkgslot sys-libs/compiler-rt-sanitizers ":${inconsistent_slot}" ) # SLOT=14.0.6, 16
+
+			$( pkgslot sys-libs/libcxx ${llvm_slot} ${limit:-} ) # SLOT=0
+			$( pkgslot sys-libs/libcxxabi ${llvm_slot} ${limit:-} ) # SLOT=0
+
+			$( pkgslot sys-libs/libomp ${llvm_slot} ${limit:-} ) # SLOT=0, 0/16
+
+			$( pkgslot sys-devel/lld ":${llvm_slot}" ) # SLOT=14/14, 16/16
+			$( pkgslot sys-devel/lld-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
 			# As-of 5.10.1: "gold linker 'ld.gold' not supported"...
-			#"$( pkgslot sys-devel/llvmgold ${llvm_slot} )" # SLOT=0
-			"$( pkgslot sys-libs/libcxx ${llvm_slot} )" # SLOT=0
-			"$( pkgslot sys-libs/libcxxabi ${llvm_slot} )" # SLOT=0
+			#$( pkgslot sys-devel/llvmgold ${llvm_slot} ) # SLOT=0
 
-			"$( pkgslot sys-libs/libomp ${llvm_slot} )" # SLOT=0, 0/16
+			$( pkgslot sys-devel/llvm-common ${llvm_slot} ${limit:-} ) # SLOT=0
+			$( pkgslot sys-devel/llvm ":${llvm_slot}" ) # SLOT=14, 16/16
+			$( pkgslot sys-devel/llvm-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
 
-			"$( pkgslot sys-devel/clang ":${llvm_slot}" )" # SLOT=14, 16/16
-			"$( pkgslot sys-devel/llvm ":${llvm_slot}" )" # SLOT=14, 16/16
-
-			"$( pkgslot sys-devel/lld ":${llvm_slot}" )" # SLOT=14/14, 16/16
-
-			"$( pkgslot sys-devel/clang-toolchain-symlinks ":${llvm_slot}" )" # SLOT=14, 16
-			"$( pkgslot sys-devel/lld-toolchain-symlinks ":${llvm_slot}" )" # SLOT=14, 16
-			"$( pkgslot sys-devel/llvm-toolchain-symlinks ":${llvm_slot}" )" # SLOT=14, 16
-
-			"$( pkgslot sys-devel/clang-runtime ":${inconsistent_slot}" )" # SLOT=14.0.6, 16
-			"$( pkgslot sys-libs/compiler-rt ":${inconsistent_slot}" )" # SLOT=14.0.6, 16
-			"$( pkgslot sys-libs/compiler-rt-sanitizers ":${inconsistent_slot}" )" # SLOT=14.0.6, 16
+			$( pkgslot sys-devel/clang-common ${llvm_slot} ${limit:-} ) # SLOT=0
+			$( pkgslot sys-devel/clang-runtime ":${inconsistent_slot}" ) # SLOT=14.0.6, 16
+			$( pkgslot sys-devel/clang ":${llvm_slot}" ) # SLOT=14, 16/16
+			$( pkgslot sys-devel/clang-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
 		)
 		if [[ "${unwind:-}" == 'llvm' ]]; then
 			# shellcheck disable=SC2086
 			compiler_pkgs=(
-				"$( pkgslot sys-libs/llvm-libunwind ${llvm_slot} )" # SLOT=0
+				$( pkgslot sys-libs/llvm-libunwind ${llvm_slot} ${limit:-} ) # SLOT=0
 			)
 		else
 			compiler_pkgs=(
 				sys-libs/libunwind
 			)
 		fi
+		unset limit
 		unset inconsistent_slot
 		compiler_USE+=' clang default-compiler-rt default-libcxx default-lld' # gold
 
@@ -1057,19 +1102,10 @@ case "${compiler}" in
 				# python3_10, so patching the older bindgen source seems to
 				# make more sense...
 				#
-				compiler_pkgs+=(
-					"<sys-devel/clang-$(( llvm_slot + 1 ))"
-					"<sys-devel/clang-common-$(( llvm_slot + 1 ))"
-					"<sys-devel/clang-runtime-$(( llvm_slot + 1 ))"
-					"<sys-devel/clang-toolchain-symlinks-$(( llvm_slot + 1 ))"
-					"<sys-devel/llvm-$(( llvm_slot + 1 ))"
-					"<sys-devel/llvm-common-$(( llvm_slot + 1 ))"
-					"<sys-devel/llvm-toolchain-symlinks-$(( llvm_slot + 1 ))"
-				)
-				force_python=1
 				USE+='  python_single_target_python3_10  python_targets_python3_10'
 				USE+=' -python_single_target_python3_11 -python_targets_python3_11'
 				USE+=' -python_single_target_python3_12 -python_targets_python3_12'
+				force_python=1
 				;;
 			*)
 				if [[ "${unwind:-}" == 'llvm' ]]; then
@@ -1098,7 +1134,6 @@ case "${compiler}" in
 			compiler_USE+='  python_single_target_python3_10  python_targets_python3_10'
 			compiler_USE+=' -python_single_target_python3_11 -python_targets_python3_11'
 			compiler_USE+=' -python_single_target_python3_12 -python_targets_python3_12'
-			#compiler_USE+=" python_targets_${python_default_target}"
 		fi
 		unset force_python
 
@@ -1116,7 +1151,7 @@ esac
 case "${unwind:-}" in
 	llvm)
 		compiler_pkgs+=(
-			sys-libs/llvm-libunwind
+			$( pkgslot sys-libs/llvm-libunwind "${llvm_slot}" '=' ) # SLOT=0
 		)
 		compiler_USE="$( replace_flags 'llvm-libunwind' -- "${compiler_USE}" )"
 		#pre_remove='sys-libs/libunwind'
@@ -1736,6 +1771,21 @@ esac
 		if portageq has_version / sys-libs/llvm-libunwind; then
 			LDFLAGS_MODULE='-unwindlib=libunwind' ;
 			HOSTLDFLAGS='-unwindlib=libunwind' ;
+			export LDFLAGS_MODULE HOSTLDFLAGS ;
+		fi ;
+		if [ $(( $( # <- Syntax
+				head /proc/meminfo |
+				grep -m 1 '^MemAvailable:' |
+				awk '{ print $2 }'
+			) / ( 1024 * 1024 ) )) -lt ${PARALLEL_MEMORY_MIN} ] ;
+		then
+			echo >&2 "WARN: Instructing 'ld' to use less memory ..." ;
+			LDFLAGS_MODULE="\${LDFLAGS_MODULE:+"\${LDFLAGS_MODULE} "}-Wl,--no-keep-memory" ;
+			HOSTLDFLAGS="\${HOSTLDFLAGS:+"\${HOSTLDFLAGS} "}-Wl,--no-keep-memory" ;
+			if [ '${compiler}' = 'clang' ]; then
+				LDFLAGS_MODULE="\${LDFLAGS_MODULE} -Wl,--no-mmap-output-file" ;
+				HOSTLDFLAGS="\${HOSTLDFLAGS} -Wl,--no-mmap-output-file" ;
+			fi ;
 			export LDFLAGS_MODULE HOSTLDFLAGS ;
 		fi ;
 		if [ '${compiler}' = 'clang' ]; then
