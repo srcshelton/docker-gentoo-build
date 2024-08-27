@@ -1776,7 +1776,7 @@ esac
 		if [ $(( $( # <- Syntax
 				head /proc/meminfo |
 				grep -m 1 '^MemAvailable:' |
-				awk '{ print $2 }'
+				awk '{ print $2 }' ;
 			) / ( 1024 * 1024 ) )) -lt ${PARALLEL_MEMORY_MIN} ] ;
 		then
 			echo >&2 "WARN: Instructing 'ld' to use less memory ..." ;
@@ -1810,7 +1810,7 @@ esac
 						export CFLAGS="\$( { echo "\${CFLAGS}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${march:-"-march=native"}" ; } | sort -V | xargs -r )" ;
 						unset march ;
 						;;
-				esac
+				esac ;
 				echo "NOTE:  ${compiler} CFLAGS are '\${CFLAGS}'" ;
 			fi ;
 		fi ;
@@ -1894,7 +1894,9 @@ esac
 			echo ;
 			[ -f ../build/.config ] && [ -s ../build/.config ] && grep -Fm 1 'CONFIG_EXTRA_FIRMWARE' ../build/.config 2>/dev/null && echo ;
 		fi ;
-		if [ $(( clean )) -ne 0 ]; then
+		if [ $(( clean )) -eq 0 ]; then
+			make ${kernel_make_opts[@]} O=../build -C tools/objtool clean ;
+		else
 			config="\$( cat ../build/.config )" ;
 			make ${kernel_make_opts[@]} O=../build distclean ;
 			if [ ! -f ../build/.config ] || [ ! -s ../build/.config ]; then
