@@ -316,9 +316,10 @@
 #~app-containers/crun-1.14.2				 **
 #~app-containers/crun-1.14.3				 **
 #~app-containers/crun-1.14.4				 **
-~app-containers/crun-1.15				 **
+#~app-containers/crun-1.15				 **
 #~app-containers/crun-1.16				 **
 ~app-containers/crun-1.16.1				 **
+~app-containers/crun-1.17				 **
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -343,9 +344,11 @@
 #~app-containers/runc-1.1.10				 **
 #~app-containers/runc-1.1.11				 **
 #~app-containers/runc-1.1.12				 **
-~app-containers/runc-1.1.13				 **
+#~app-containers/runc-1.1.13				 **
+~app-containers/runc-1.1.14				 **
 #~app-containers/runc-1.2.0_rc1				 **
-~app-containers/runc-1.2.0_rc2				 **
+#~app-containers/runc-1.2.0_rc2				 **
+~app-containers/runc-1.2.0_rc3				 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
