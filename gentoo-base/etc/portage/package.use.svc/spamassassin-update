@@ -4,7 +4,8 @@
 dev-lang/perl				 berkdb
 
 #dev-perl/DBD-mysql			-mariadb +mysql test +(ssl)
-dev-perl/DBD-mysql			 mariadb mysql
+dev-perl/DBD-MariaDB			-mysql mariadb
+dev-perl/DBD-mysql			-mariadb mysql
 
 #dev-perl/Net-DNS-SEC			+dsa +ecdsa gost +private-key test
 dev-perl/Net-DNS-SEC			 dsa ecdsa private-key

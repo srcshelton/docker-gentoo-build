@@ -108,6 +108,8 @@ dev-libs/libsecp256k1			 endomorphism  # ecdh experimental
 dev-libs/libxml2			 test
 dev-libs/oniguruma			 combination-explosion-check crnl-as-line-terminator
 dev-libs/openssl			-sslv3 ktls rfc3779
+dev-perl/DBD-MariaDB			-mysql mariadb
+dev-perl/DBD-mysql			-mariadb mysql
 dev-perl/File-HomeDir			-xdg
 dev-perl/GD				 animgif test
 dev-perl/Spreadsheet-ParseExcel		 test
@@ -237,7 +239,7 @@ sys-devel/clang-runtime			 compiler-rt libcxx
 # gccgo from gcc-6.4.0 tries to include a deprecated glibc header, ustat.h, and fails.
 #~sys-devel/gcc-6.4.0			-go
 #sys-devel/gcc				-fortran -graphite -lto -pgo -sanitize -ssp -vtv pch  # graphite has a runtime dependency on dev-libs/isl
-sys-devel/gcc				-nls -fortran -graphite -sanitize -vtv default-stack-clash-protection lto pch pgo ssp zstd  # graphite has a runtime dependency on dev-libs/isl
+sys-devel/gcc				-fortran -graphite -nls -sanitize -vtv default-stack-clash-protection lto pch pgo ssp zstd  # graphite has a runtime dependency on dev-libs/isl
 sys-devel/gettext			 cvs git
 sys-devel/llvm				 clang llvm-gcc udis86
 # move sys-apps/microcode-data sys-firmware/intel-microcode

@@ -1,6 +1,7 @@
 
 acct-user/postfix			 milter
-dev-perl/DBD-mysql			 mysql
+dev-perl/DBD-MariaDB			-mysql mariadb
+dev-perl/DBD-mysql			-mariadb mysql
 mail-filter/opendmarc			 milter reports spf
 
 virtual/mail-mta			 no-mta
