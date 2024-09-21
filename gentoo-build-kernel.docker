@@ -164,6 +164,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 '       --force                  Overwrite build-cache configuration with'
 	output >&2 '                                the specified file'
 	output >&2 '       --patch <url>            Apply patch (-p1) from specified file or URL'
+	output >&2 '       --clear-linux            Apply Intel "Clear Linux" patches'
 	output >&2 '       --menuconfig             Interactively reconfigure the kernel via ncurses'
 	output >&2 '       --nconfig                Interactively reconfigure the kernel via nconfig'
 	output >&2 '       --package <package>      Specify kernel package to build'
@@ -204,6 +205,7 @@ declare -i install=1
 declare -i llvm_slot=0
 declare -i llvm_slot_override=0
 declare -i opt_o3=0
+declare -i intel_patch=0
 declare -i raise_mem=0
 declare -i rust=0
 declare build_dir=''
@@ -346,6 +348,14 @@ fi
 
 # --patch: see below
 
+if echo " ${*:-} " | grep -Fq -- ' --clear-linux '; then
+	if type -pf curl >/dev/null 2>&1; then
+		intel_patch=1
+	else
+		warn "Disabling '--clear-linux' since net-misc/curl is not installed"
+	fi
+fi
+
 # --menuconfig: see above
 
 # --nconfig: see above
@@ -378,6 +388,11 @@ fi
 
 if echo " ${*:-} " | grep -Fq -- ' -O3 '; then
 	opt_o3=1
+else
+	if (( intel_patch )); then
+		warn "Intel Clear Linux '-O3' patches are excluded due to specifying" \
+			"'-march=westmere': invoke with '-O3' to restore other tunings"
+	fi
 fi
 
 if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
@@ -609,6 +624,29 @@ if echo " ${*:-} " | grep -q -- ' --patch'; then
 		)'"
 	fi
 fi
+if (( intel_patch )); then
+	declare clear_commit='' clear_patch=''
+	clear_commit="$( # <- Syntax
+		curl -fLSs 'https://api.github.com/repos/clearlinux-pkgs/linux/commits' |
+			jq -r "map_values(select(.commit.message == \"Stable update to ${package_version}\"))[].sha"
+	)"
+	if [[ -z "${clear_commit:-}" ]]; then
+		error "Intel Clear Linux has no patches for kernel" \
+			"${package_version}"
+		intel_patch=0
+	else
+		info >&2 "Clear Linux patches for kernel ${package_version} are commit '${clear_commit}'"
+		while read -r clear_patch; do
+			patch="${patch:+"${patch} "}https://raw.githubusercontent.com/clearlinux-pkgs/linux/${clear_commit}/${clear_patch}"
+		done < <( # <- Syntax
+			curl -fLSs "https://raw.githubusercontent.com/clearlinux-pkgs/linux/${clear_commit}/linux.spec" |
+				grep -- '^Patch[0-9]' |
+				awk '{print $2}' |
+				grep -v '0133-novector.patch'
+		)
+	fi
+	unset clear_patch clear_commit
+fi
 if [[ -n "${kpatch:-}" ]]; then
 	patch="${kpatch}${patch:+" ${patch}"}"
 fi
@@ -822,10 +860,17 @@ if [[ "${compiler}" == 'clang' ]]; then
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 17 ))
 			;;
-		6.10.*)
+		6.1[01].*)
 			rust_ver='1.78.0'
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 17 ))
+			;;
+		*)
+			if (( rust )); then
+				warn "Disabling dev-lang/rust support for unknown kernel" \
+					"${package_version}"
+				rust=0
+			fi
 			;;
 	esac
 
@@ -996,7 +1041,10 @@ if (( opt_o3 )); then
 		*)		declare add_flags='-O3 -fno-tree-vectorize' ;;
 	esac
 	if [[ -e /proc/cpuinfo && -r /proc/cpuinfo ]]; then
-		if grep -Fq 'sse4_2' /proc/cpuinfo; then
+		# FIXME: Only valid when the build-host is of similar architecture to
+		#        the target host...
+		#
+		if grep -Fq -e ' sse4_2' -e ' popcnt' /proc/cpuinfo; then
 			add_flags+=' -mpopcnt'
 		fi
 	fi
@@ -1009,10 +1057,33 @@ if (( opt_o3 )); then
 				add_flags+=' --unwindlib=libunwind'
 				add_flags+=' --stdlib=libc++'
 				add_flags+=' -fuse-ld=lld'
-				add_flags+=' -fstack-clash-protection'
-				add_flags+=' -fstack-protector-strong'
-				add_flags+=' -fPIE'
+
+				# I don't recall whether these are only needed for clang:14, or
+				# whether the intent was to apply these to >=clang:14 but this
+				# was lost...
+				#
+				# gcc is now built with 'default-stack-clash-protection';
+				# At least CONFIG_CC_STACKPROTECTOR_STRONG should control
+				# -fstack-protector-strong, as opposed to hard-coding here;
+				# CONFIG_X86_PIE appears to have been proposed for x86_64 in
+				# 2017/2018, and was then renewed in 2023, but still doesn't
+				# appear to have been merged
+				#
+				# ... therefore I'm calling schenanigans on these!
+				#
+				#add_flags+=' -fstack-clash-protection'
+				#add_flags+=' -fstack-protector-strong'
+				#add_flags+=' -fPIE'
 			fi
+			;;
+		gcc)
+			# TODO: Intel adds '-fivopts' with [1], but this should be enabled
+			#       at -O1 and above by default (but also reports this as a
+			#       patch for >=gcc-12 only)?
+			#
+			# [1] https://github.com/clearlinux-pkgs/linux/blob/main/0133-novector.patch
+			#
+			add_flags+=' -fivopts -fmodulo-sched'
 			;;
 	esac
 	container_KCFLAGS="KCFLAGS=\"${add_flags}\""
@@ -1842,25 +1913,29 @@ esac
 		set +x ;
 		if [ -n '${patch:-}' ]; then
 			for p in ${patch}; do
-				echo "INFO:  Processing patch '\${p}' ..." ;
+				echo "INFO:  Processing patch '\$( basename "\${p}" )' ..." ;
 				case "\${p}" in
 					http*)
-						if wget "\${p}" -qO patch.diff && cat patch.diff | patch -p1 --dry-run --force --quiet; then
-							cat patch.diff | patch -p1 ;
+						if ! wget "\${p}" -qO patch.diff || ! [ -s patch.diff ]; then
+							echo >&2 "ERROR: patch '\${p}' failed to download" ;
 						else
-							echo >&2 "WARN:  patch '\${p}' failed to download or apply" ;
+							if cat patch.diff | patch -p1 --dry-run --force --quiet >/dev/null 2>&1 ; then
+								cat patch.diff | patch -p1 --quiet ;
+							else
+								echo >&2 "WARN:  patch '\$( basename "\${p}" )' failed to apply" ;
+							fi ;
+							rm patch.diff ;
 						fi ;
-						rm patch.diff ;
 						;;
 					'')
 						: ;
 						;;
 					*)
 						if [ -e "\${p}" ] && [ -f "\${p}" ] && [ -s "\${p}" ]; then
-							if cat "\${p}" | patch -p1 --dry-run --force --quiet; then
-								cat "\${p}" | patch -p1 ;
+							if cat "\${p}" | patch -p1 --dry-run --force --quiet >/dev/null 2>&1 ; then
+								cat "\${p}" | patch -p1 --quiet ;
 							else
-								echo >&2 "WARN:  patch '\${p}' failed to download or apply" ;
+								echo >&2 "WARN:  patch '\$( basename "\${p}" )' failed to apply" ;
 							fi ;
 						else
 							echo >&2 "WARN: patch '\${p}' could not be found" ;
