@@ -1862,6 +1862,19 @@ if [ -n "${pkg_initial:-}" ]; then
 						echo
 						unset info
 
+						# Specifically python-3.12.6 is throwing:
+						#
+						#   ImportError: cannot import name 'HeaderWriteError'
+						#   from 'email.errors'
+						#
+						# ... when built below, but only if PORTAGE_ELOG_SYSTEM
+						# includes 'mail_summary' - without (or even with just
+						# 'mail'), the process completes successfully as
+						# expected.
+						#
+						PORTAGE_ELOG_SYSTEM='echo save'
+						export PORTAGE_ELOG_SYSTEM
+
 						echo
 						echo " * Building python prerequisites into ROOT" \
 							"'${ROOT:-"/"}' ..."
@@ -1917,7 +1930,7 @@ if [ -n "${pkg_initial:-}" ]; then
 
 						echo
 						echo " * Building python prerequisites into ROOT" \
-							"'${ROOT:-"/"}' ..."
+							"'${ROOT}' ..."
 						echo
 						do_emerge --build-defaults --emptytree \
 							app-crypt/libmd \

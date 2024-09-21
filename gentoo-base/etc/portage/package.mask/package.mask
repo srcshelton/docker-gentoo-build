@@ -1,4 +1,16 @@
 
+# There's something weird going on with dev-lang/python - during the container
+# build-process only, the following error is causing an abort when python
+# dependencies are built with --emptytree when /etc/portage/make.conf contains
+# PORTAGE_ELOG_SYSTEM='mail_summary' - but not with prior versions of python or
+# when PORTAGE_ELOG_SYSTEM instead contains 'mail'!
+#
+# ImportError: cannot import name 'HeaderWriteError' from 'email.errors'
+#
+# ... this also seems to have occurred on ARM64 builds /before/ AMD64?
+#
+#=dev-lang/python-3.12.6
+
 # libplist-2.2.x and libplist-2.3.x are incompatible, but there are only two
 # consumers of libplist-2.2.x remaining in-tree, and they're both older
 # releases...
