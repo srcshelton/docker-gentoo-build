@@ -43,8 +43,8 @@ fi
 
 kbuild_opt="${kbuild_opt:-"--config-from=config.gz --keep-build --no-patch --clang --llvm-unwind"}"
 all=0
-#alt_use='bison flex gnu http2'  # http2 targeting curl for rust packages...
-alt_use='flex gnu http2'  # http2 targeting curl for rust packages...
+alt_use='bison flex gnu http2'  # http2 targeting curl for rust packages...
+#alt_use='flex gnu http2'  # http2 targeting curl for rust packages...
 arg=''
 force=0
 haveargs=0
@@ -266,10 +266,25 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 	# or libraries)...
 
 	(
-		stage3_flags_file=''
-		python_default_target=''
+		#stage3_flags_file=''
+		#python_default_target=''
 		# shellcheck disable=SC1091
 		. ./common/vars.sh
+
+		[ -n "${python_default_target:-}" ] ||
+			die "No valid python default target set"
+
+		perl_features='ithreads'
+		export PERL_FEATURES="${perl_features}"
+		export PYTHON_SINGLE_TARGET="${python_default_target}"
+		export PYTHON_TARGETS="${python_default_target}"
+
+		default_use="$( # <- Syntax
+				echo "${perl_features}" |
+					xargs -rI'{}' echo "perl_features_{}"
+			)
+			python_single_target_${python_default_target}
+			python_targets_${python_default_target}"
 
 		# shellcheck disable=SC2030
 		failures=''
@@ -285,10 +300,9 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 		{
 			# shellcheck disable=SC2030
 			if { ! USE="$( # <- Syntax
-					echo "-* -asm ${alt_use} ${use_cpu_flags:-} compat embedded" \
-							"ftp getentropy gmp ipv6 nls python readline" \
-							"python_single_target_${python_default_target}" \
-							"python_targets_${python_default_target}" |
+					echo " -* -asm ${alt_use} ${use_cpu_flags:-} compat" \
+							"embedded ftp getentropy gmp ipv6 nls python" \
+							"readline" ${default_use} ' ' |
 						sed 's/ asm //g'
 			)" \
 				./gentoo-build-pkg.docker 2>&1 \
@@ -321,7 +335,10 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 					sys-apps/less \
 					sys-apps/portage \
 					dev-libs/nettle ;
-			} || { ! USE="-* ${alt_use} ${use_cpu_flags:-} asm compile-locales cxx ipv6 perl_features_ithreads ktls lib-only minimal openssl pcre pie reference ssl varrun python_single_target_${python_default_target} python_targets_${python_default_target}" \
+			} || { ! USE="$( echo "-* ${alt_use} ${use_cpu_flags:-} asm" \
+						"compile-locales cxx ipv6 ktls lib-only minimal" \
+						"openssl pcre pie reference ssl varrun" ${default_use}
+					)" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.init' \
@@ -350,7 +367,9 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 					sys-apps/openrc \
 					sys-apps/man-db \
 					sys-devel/gcc ;
-			} || { ! USE="-* ${alt_use} ${use_cpu_flags:-} mdev native-extensions pie python_single_target_${python_default_target} python_targets_${python_default_target}" \
+			} || { ! USE="$( echo "-* ${alt_use} ${use_cpu_flags:-} mdev" \
+						"native-extensions pie" ${default_use}
+					)" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.init' \
@@ -360,7 +379,9 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 					sys-apps/portage \
 					net-misc/openssh \
 					sys-apps/busybox ;
-			} || { ! USE="-* ${alt_use} ${use_cpu_flags:-} acl bzip2 e2fsprogs expat iconv lzma lzo xattr zstd" \
+			} || { ! USE="$( echo "-* ${alt_use} ${use_cpu_flags:-} acl" \
+						"bzip2 e2fsprogs expat iconv lzma lzo xattr zstd"
+					)" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.init' \
@@ -369,7 +390,9 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 					app-arch/libarchive \
 					sys-devel/binutils \
 					sys-apps/kmod ;
-			} || { ! USE="-* ${alt_use} ${use_cpu_flags:-} lzma python zstd python_single_target_${python_default_target} python_targets_${python_default_target}" \
+			} || { ! USE="$( echo "-* ${alt_use} ${use_cpu_flags:-} lzma" \
+						"python zstd" ${default_use}
+					)" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.init' \
@@ -420,7 +443,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 		done
 		if [ -z "${USE:-}" ]; then
 			# shellcheck disable=SC2030
-			python_default_target=''
+			#python_default_target=''
 			# shellcheck disable=SC1091
 			. ./common/vars.sh
 
@@ -455,6 +478,8 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 		{
 			# shellcheck disable=SC2030
 			if ! USE="-* ${use} bison nls readline zstd python_single_target_${python_default_target} python_targets_${python_default_target}" \
+					PYTHON_SINGLE_TARGET="${python_default_target}" \
+					PYTHON_TARGETS="${python_default_target}" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -473,6 +498,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 			fi
 
 			if ! USE="-* ${use} python_targets_${python_default_target:-"python3_12"}" \
+					PERL_FEATURES='ithreads' \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -481,6 +507,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 					virtual/libc \
 					app-arch/bzip2 \
 					app-arch/xz-utils \
+					dev-lang/perl \
 					dev-lang/python \
 					dev-libs/libsodium \
 					dev-perl/List-MoreUtils \
@@ -524,7 +551,9 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 				: $(( rc = rc + err ))
 				failures="${failures:+"${failures} "}gentoo-build-pkg;4:${err}"
 			fi
-			if ! USE="-* ${use} hostname nls" \
+			if ! USE="-* ${use} hostname nls python_single_target_${python_default_target} python_targets_${python_default_target}" \
+					PYTHON_SINGLE_TARGET="${python_default_target}" \
+					PYTHON_TARGETS="${python_default_target}" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -532,6 +561,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 						--with-bdeps=n \
 						--with-pkg-use='sys-apps/net-tools hostname' \
 						--with-pkg-use='sys-apps/coreutils -hostname' \
+						--with-pkg-use="app-editors/vim python_single_target_${python_default_target} python_targets_${python_default_target}" \
 					virtual/libc \
 					app-editors/vim-core \
 					app-editors/vim
