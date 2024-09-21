@@ -64,9 +64,9 @@ declare -i _common_run_show_command=1
 
 output() {
 	if [[ -z "${*:-}" ]]; then
-		echo
+		printf '\n'
 	else
-		echo -e "${*:-}"
+		printf '%s\n' "${*}"
 	fi
 }  # output
 
