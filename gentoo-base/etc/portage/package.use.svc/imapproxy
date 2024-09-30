@@ -1,5 +1,7 @@
 
-#net-mail/imapproxy			 kerberos (ssl) +tcpd
+*/*					 ssl
+
+#net-mail/imapproxy			 kerberos (+ssl) +tcpd
 net-mail/imapproxy			 tcpd
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

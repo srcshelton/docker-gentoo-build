@@ -1,11 +1,13 @@
 
+*/*					 ipv6
+
 #net-misc/zxtm-init-scripts		 perl -saveconfig
 net-misc/zxtm-init-scripts		 perl
 
-#net-firewall/iptables			 conntrack (ipv6) netlink nftables pcap static-libs systemd
+#net-firewall/iptables			 conntrack (+ipv6) netlink nftables pcap static-libs systemd
 net-firewall/iptables			 conntrack netlink nftables pcap
 
-#sys-apps/iproute2			 atm berkdb caps elf +iptables (ipv6) minimal selinux
+#sys-apps/iproute2			 atm berkdb caps elf +iptables (+ipv6) minimal selinux
 sys-apps/iproute2			 caps iptables
 
 app-alternatives/sh			-busybox bash

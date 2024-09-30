@@ -1,9 +1,9 @@
 
-*/*					 mysql
+*/*					 zlib
 
 #dev-db/mariadb				+backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 (-selinux) +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl
 dev-db/mariadb				 backup cracklib extraengine innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jemalloc latin1 perl server
-#dev-libs/libpcre			 bzip2 +cxx +jit libedit pcre16 pcre32 +readline +recursion-limit static-libs unicode (zlib)
+#dev-libs/libpcre			 bzip2 +cxx +jit libedit pcre16 pcre32 +readline +recursion-limit static-libs unicode (+zlib)
 dev-libs/libpcre			 jit recursion-limit
 #sys-libs/glibc				 audit caps cet compile-locales +crypt custom-cflags doc gd headers-only +multiarch multilib multilib-bootstrap nscd profile selinux +ssp +static-libs static-pie suid systemd systemtap test -timezone-tools +tmpfiles vanilla
 sys-libs/glibc				-crypt -timezone-tools ssp compile-locales multiarch

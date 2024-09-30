@@ -1,10 +1,10 @@
 
-*/*					 unicode
+*/*					 threads unicode zlib
 
-#dev-libs/libpcre2			 bzip2 +jit libedit pcre16 pcre32 +readline +recursion-limit static-libs unicode (zlib)
+#dev-libs/libpcre2			 bzip2 +jit libedit pcre16 pcre32 +readline +recursion-limit static-libs unicode (+zlib)
 dev-libs/libpcre2			 jit recursion-limit
-#sys-apps/less				 pcre (unicode)
+#sys-apps/less				 pcre (+unicode)
 sys-apps/less				 pcre
-#sys-libs/ncurses			 ada +cxx debug doc gpm minimal profile static-libs test (threads) tinfo trace (unicode)
+#sys-libs/ncurses			 ada +cxx debug doc gpm minimal profile static-libs test (+threads) tinfo trace (+unicode)
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

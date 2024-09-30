@@ -1,4 +1,6 @@
 
-#mail-filter/dcc			 cgi (ipv6) milter rrdtool
+*/*					 ipv6
+
+#mail-filter/dcc			 cgi (+ipv6) milter rrdtool
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

@@ -1,7 +1,7 @@
 
 */*					 unicode
 
-#sys-power/powertop			 nls unicode -X
+#sys-power/powertop			 nls (+unicode) -X
 
 dev-lang/python				 xml
 

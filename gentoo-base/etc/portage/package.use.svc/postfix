@@ -1,11 +1,13 @@
 
-#dev-libs/cyrus-sasl			 authdaemond berkdb gdbm kerberos ldapdb mysql openldap pam postgres sample selinux sqlite srp static-libs systemd urandom (ssl)
+*/*					 ipv6 ssl zlib
+
+#dev-libs/cyrus-sasl			 authdaemond berkdb gdbm kerberos ldapdb mysql openldap pam postgres sample selinux sqlite srp static-libs systemd urandom (+ssl)
 dev-libs/cyrus-sasl			 gdbm srp urandom
 
-#mail-mta/postfix			+berkdb cdb dovecot-sasl +eai hardened ldap ldap-bind lmdb memcached mbox mysql nis pam postgres sasl selinux sqlite (ssl)
+#mail-mta/postfix			+berkdb cdb dovecot-sasl +eai hardened ldap ldap-bind lmdb memcached mbox mysql nis pam postgres sasl selinux sqlite (+ssl)
 mail-mta/postfix			 berkdb cdb dovecot-sasl eai lmdb mbox memcached sasl sqlite
 
-#net-mail/dovecot			 argon2 bzip2 caps doc (ipv6) kerberos ldap lua lucene lz4 lzma managesieve mysql pam postgres selinux sieve solr sqlite static-libs suid tcpd textcat unwind vpopmail (zlib)
+#net-mail/dovecot			 argon2 bzip2 caps doc (+ipv6) kerberos ldap lua lucene lz4 lzma managesieve mysql pam postgres selinux sieve solr sqlite static-libs suid tcpd textcat unwind vpopmail (+zlib)
 #net-mail/dovecot			 bzip2 caps lzma managesieve pam sieve solr sqlite tcpd textcat unwind
 net-mail/dovecot			 caps sieve
 

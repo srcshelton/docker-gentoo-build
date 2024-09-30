@@ -1,5 +1,7 @@
 
-#net-im/bitlbee				 debug +gnutls (ipv6) libevent msn nss oscar otr +plugins purple selinux test twitter xinetd +xmpp
+*/*					 ipv6
+
+#net-im/bitlbee				 debug +gnutls (+ipv6) libevent msn nss oscar otr +plugins purple selinux test twitter xinetd +xmpp
 net-im/bitlbee				 libevent plugins twitter xmpp
 
 dev-libs/libpcre2			 unicode

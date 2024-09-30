@@ -1,12 +1,12 @@
 
-*/*					 berkdb nls  # gmp
+*/*					 berkdb ipv6 nls ssl  # gmp
 
 #dev-perl/DBD-mysql			-mariadb +mysql test +(ssl)
 dev-perl/DBD-MariaDB			-mysql mariadb
 dev-perl/DBD-mysql			-mariadb mysql
 #mail-filter/spampd			 html systemd
-#mail-filter/spamassassin		+berkdb cron dkim geoip (ipv6) largenet ldap mysql office pacct postgres qmail razor +sa-update spf sqlite (ssl) systemd test unicode
-#mail-filter/spamassassin		 berkdb cron (ipv6) ldap mysql postgres qmail sqlite (ssl) test
+#mail-filter/spamassassin		+berkdb cron dkim geoip (+ipv6) largenet ldap mysql office pacct postgres qmail razor +sa-update spf sqlite (+ssl) systemd test unicode
+#mail-filter/spamassassin		 berkdb cron (+ipv6) ldap mysql postgres qmail sqlite (+ssl) test
 mail-filter/spamassassin		 berkdb cron dkim geoip largenet mysql pacct razor spd sqlite unicode
 
 # Avoid libisl dependency...

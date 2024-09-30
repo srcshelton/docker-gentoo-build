@@ -1,4 +1,5 @@
 
+*/*					 threads
 */*					 L10N: en
 #*/*					 PYTHON_SINGLE_TARGET: python2_7
 #*/*					 PYTHON_TARGETS: -* python2_7
@@ -23,7 +24,7 @@ app-crypt/p11-kit			 asn1 trust
 
 # required by dev-db/mongodb-4.0.12
 dev-libs/libpcre			 cxx
-dev-libs/boost				-python  # (threads)
+dev-libs/boost				-python  # (+threads)
 
 # required by dev-db/mongodb-4.4.20
 dev-libs/boost				 nls
