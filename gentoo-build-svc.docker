@@ -891,17 +891,52 @@ case "${package_name}" in
 	*.netdata)
 		output "Setting build variables for package 'netdata' ..."
 		pre_pkgs='acct-group/netdata acct-user/netdata'
+		pre_pkgs+=' acct-group/cron acct-user/cron'
+		pre_pkgs+=' acct-group/crontab'
 		pre_pkgs+=' acct-group/dhcp acct-user/dhcp'
 		pre_pkgs+=' acct-group/dovecot acct-group/dovenull acct-user/dovecot'
-		pre_pkgs+=' acct-group/mysql acct-user/mysql acct-group/named'
+		pre_pkgs+=' acct-group/hugetlb'
+		pre_pkgs+=' acct-group/ldap acct-user/ldap'
+		pre_pkgs+=' acct-group/mail acct-user/mail'
+		pre_pkgs+=' acct-group/mysql acct-user/mysql'
+		pre_pkgs+=' acct-group/named acct-user/named'
+		pre_pkgs+=' acct-group/netdata acct-user/netdata'
+		pre_pkgs+=' acct-group/pcap acct-user/pcap'
+		pre_pkgs+=' acct-group/podman'
+		pre_pkgs+=' acct-group/postdrop'
+		pre_pkgs+=' acct-group/postfix acct-user/postfix'
+		pre_pkgs+=' acct-group/tty'
+		pre_pkgs+=' acct-group/ulogd acct-user/ulogd'
+		pre_pkgs+=' acct-group/wheel'
+		pre_pkgs+=' acct-user/postmaster'
+		# 'compile-locales' forces 'minimal', which breaks sys-apps/iproute2
+		# dependency for net-firewall/firehol...
+		#
+		with_use='-timezone-tools' # compile-locales
 		extra_pkgs='sys-apps/util-linux'
+		# portage sometimes struggles to resolve apparently obvious
+		# dependencies :(
+		#
+		pre_use='-timezone-tools'
+		pre_pkgs+=' sys-libs/glibc'
+		with_use+=' ncurses unicode zlib'
+		extra_pkgs+=' dev-lang/python dev-libs/libpcre2 sys-libs/glibc'
 
 		ports='19999/tcp'
 		user='netdata'
 		group='netdata'
 		container_caps=( # <- Syntax
+			--cap-add AUDIT_READ
+			--cap-add CHOWN
 			--cap-add DAC_OVERRIDE
+			--cap-add DAC_READ_SEARCH
 			--cap-add NET_ADMIN
+			--cap-add NET_RAW
+			--cap-add SETGID
+			--cap-add SETUID
+			--cap-add SYSLOG
+			--cap-add SYS_ADMIN
+			--cap-add SYS_PTRACE
 		)
 		container_cmd='/usr/sbin/netdata'
 		container_cwd='/var/lib/netdata'
@@ -1316,6 +1351,11 @@ case "${package_name}" in
 		warn "Package '${package_name}' has no pre-set configuration"
 		;;
 esac
+
+# Somehow, we're losing CPU_FLAGS_${ARCH} during builds...
+pre_use="${use_cpu_flags}${pre_use:+"${pre_use}"}"
+with_use="${use_cpu_flags}${with_use:+"${with_use}"}"
+with_use="${use_cpu_flags}${with_use:+"${with_use}"}"
 
 for arg in pre_remove pre_use pre_pkgs with_use extra_pkgs post_use post_pkgs \
 	post_remove
