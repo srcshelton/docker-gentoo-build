@@ -28,6 +28,7 @@ app-containers/netavark			 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boo
 #dev-libs/libbsd			 BSD-4
 #app-arch/libarchive			 BSD-4 public-domain
 #sys-apps/util-linux			 BSD-4 public-domain
+net-libs/libpcap			 BSD-with-attribution
 app-arch/bzip2				 BZIP2
 app-crypt/mit-krb5			 CC-BY-SA-3.0 HPND openafs-krb5-a OPENLDAP RSA
 app-crypt/libb2				 CC0-1.0
@@ -227,10 +228,15 @@ app-containers/netavark			 0BSD
 app-containers/podman			 CC-BY-SA-4.0 MPL-2.0
 app-misc/jq				 CC-BY-3.0
 dev-libs/libbsd				 BEER-WARE
+dev-python/python-ldap			 PSF-2
 # required by net-analyzer/netdata[nodejs]
 net-libs/nodejs				 Apache-1.1
+# required by net-libs/nodejs
+dev-libs/simdjson			 Boost-1.0
 # required by dev-python/jsonschema
 dev-python/rpds-py			 Apache-2.0-with-LLVM-exceptions MPL-2.0 Unicode-DFS-2016
+# required by dev-python/pandas
+dev-python/versioneer			 Unlicense
 
 # required by service net-dns/bind
 container/bind				 HPND MPL-2.0
