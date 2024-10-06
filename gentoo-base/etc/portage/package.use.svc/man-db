@@ -6,5 +6,6 @@ sys-apps/man-db				 gdbm manpager nls seccomp
 
 dev-lang/python				 xml
 net-misc/rsync				-ssl system-zlib
+sys-libs/glibc				-timezone-tools compile-locales
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

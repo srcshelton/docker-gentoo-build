@@ -2539,7 +2539,7 @@ case "${1:-}" in
 					echo
 
 					# shellcheck disable=SC2086
-						USE='asm compile-locales gmp minimal multiarch native-extensions rsync-verify ssl ssp xattr' \
+						USE='asm compile-locales gmp minimal multiarch native-extensions ssl ssp xattr' \
 					do_emerge --defaults ${parallel} --usepkg=y \
 						${post_pkgs} || rc=${?}
 

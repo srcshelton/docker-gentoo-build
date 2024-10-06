@@ -27,6 +27,11 @@
 */*					 zlib zstd
 
 net-misc/curl				 CURL_SSL: openssl
+# It's not possible to remove all flags with an empty flag-set as follows:
+#net-misc/curl				 CURL_QUIC:
+# ... therefore, since the default of 'CURL_QUIC: openssl' forces
+# 'USE=openssl', the only other option is to use 'USE=-curl_quic_openssl' :(
+
 # Packages outside of dev-perl and perl-core also reference these flags...
 */*					 PERL_FEATURES: ithreads
 
@@ -74,7 +79,7 @@ app-text/enchant			-aspell
 dev-build/cmake				-server
 # mariadb and mysql are unusual in that the same ebuild can provide only client
 # or only server binaries.  The flags below are suitable for a server build,
-# which never uses this file any more - client-only overrides are in host.use
+# which never uses this file any more - client-only overrides are in 05_host.use
 # whilst server flags are now in the mariadb service-flags file.
 #dev-db/mariadb				-tcmalloc client-libs extraengine innodb-lz4 innodb-lzo innodb-snappy oqgraph sphinx tokudb
 #dev-db/mysql				 big-tables community extraengine max-idx-128 pbxt profiling xtradb
@@ -107,7 +112,7 @@ dev-libs/libpcre2			-pcre16 -pcre32
 dev-libs/libsecp256k1			 endomorphism  # ecdh experimental
 dev-libs/libxml2			 test
 dev-libs/oniguruma			 combination-explosion-check crnl-as-line-terminator
-dev-libs/openssl			-sslv3 ktls rfc3779
+dev-libs/openssl			-quic -sslv3 ktls rfc3779
 dev-perl/DBD-MariaDB			-mysql mariadb
 dev-perl/DBD-mysql			-mariadb mysql
 dev-perl/File-HomeDir			-xdg
@@ -181,7 +186,7 @@ net-mail/fetchmail			 hesiod
 net-misc/bfgminer			-adl -opencl
 >=net-misc/bfgminer-3.1.0		-lm-sensors cpumining
 #net-misc/cgminer			-adl -lm-sensors -opencl  # CPU mining removed before 2015 :o
-net-misc/curl				-adns -ares -http2 -psl libssh2 test  # http2 required by dev-lang/rust
+net-misc/curl				-adns -ares -curl_quic_openssl -http2 -http3 -psl -quic libssh2 test  # http2 required by dev-lang/rust
 net-misc/dhcpcd				-compat privsep
 net-misc/ntp				-snmp openntpd
 <net-misc/openntpd-6.8_p1-r1		 libressl
