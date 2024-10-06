@@ -1,4 +1,6 @@
 
-~www-servers/pound-3.0.2				~amd64 ~arm ~arm64 ~x86
+#							~amd64 ~arm ~arm64 ~x86
+~www-servers/pound-4.10					 **
+~container/pound-4.10::container			 **
 
 # vi: set colorcolumn=56 syntax=gentoo-package-keywords:
