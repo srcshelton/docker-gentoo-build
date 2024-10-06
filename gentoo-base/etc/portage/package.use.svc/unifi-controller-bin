@@ -17,6 +17,8 @@ dev-lang/python				 xml
 
 dev-python/pyyaml			-libyaml
 
+media-libs/harfbuzz			-cairo -glib -graphite -introspection -truetype
+
 sys-apps/util-linux			 userland_GNU
 
 # required by sys-apps/baselayout-java-0.1.0-r1
