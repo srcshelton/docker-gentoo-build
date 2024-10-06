@@ -485,13 +485,15 @@
 #~app-containers/containers-common-0.58.2		 **
 #~app-containers/containers-common-0.58.3		 **
 #~app-containers/containers-common-0.58.4		 **
+#~app-containers/containers-common-0.58.5		 **
 #~app-containers/containers-common-0.59.0		 **
 #~app-containers/containers-common-0.59.1		 **
 ~app-containers/containers-common-0.59.2		 **
 #~app-containers/containers-common-0.60.0		 **
 #~app-containers/containers-common-0.60.1		 **
 #~app-containers/containers-common-0.60.2		 **
-~app-containers/containers-common-0.60.3		 **
+#~app-containers/containers-common-0.60.3		 **
+~app-containers/containers-common-0.60.4		 **
 
 ~app-containers/containers-image-5.30.0			 **
 
