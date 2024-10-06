@@ -860,7 +860,7 @@ if [[ "${compiler}" == 'clang' ]]; then
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 17 ))
 			;;
-		6.1[01].*)
+		6.1[0-9].*)
 			rust_ver='1.78.0'
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 17 ))
@@ -1213,7 +1213,7 @@ case "${compiler}" in
 		#container_LD='ld.bfd'
 		container_LD='ld.lld' # lld required for LTO
 		container_LLVM='1'
-		#LLVM_TARGETS='-* BPF X86' - moved to ${base_dir}/etc/portage/package.use.build/package.use
+		#LLVM_TARGETS='-* BPF X86' - moved to ${base_dir}/etc/portage/package.use.build/00_package.use
 		;;
 	*)
 		die "Unknown compiler '${compiler}'"
@@ -1329,19 +1329,10 @@ esac
 				'.../package.use'
 		) ) || :
 	else
-		# Add a prefix so that host.use can override package.use...
 		docker_extra_mounts+=( # <- Syntax
-			$( add_mount --print \
-					'/etc/portage/package.use/package.use' \
-					'/etc/portage/package.use/aa-package.use'
-			)
-			$( add_mount --print \
-					'/etc/portage/package.use/host.use' \
-					'/etc/portage/package.use/zz-host.use'
-			)
-			$( add_mount --print \
-					'/etc/portage/package.use/python_targets'
-			)
+			$( add_mount --print '/etc/portage/package.use/00_package.use' )
+			$( add_mount --print '/etc/portage/package.use/05_host.use' )
+			$( add_mount --print '/etc/portage/package.use/20_python_targets' )
 		) || :
 	fi
 

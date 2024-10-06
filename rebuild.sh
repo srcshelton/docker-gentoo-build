@@ -662,7 +662,7 @@ if [ "${update:-"0"}" = '1' ]; then
 	#tee log/buildpkg.hostpkgs.update.log
 
 	# Look for "build" gcc USE-flags in package.use only (or use defaults above) ...
-	if ! [ -s /etc/portage/package.use/package.use ]; then
+	if ! [ -s /etc/portage/package.use/00_package.use ]; then
 		if [ -z "${use_essential_gcc:-}" ]; then
 			# shellcheck disable=SC1091
 			. ./common/vars.sh
@@ -673,7 +673,7 @@ if [ "${update:-"0"}" = '1' ]; then
 		)"
 	else
 		gcc_use="$(
-			sed 's/#.*$//' /etc/portage/package.use/package.use |
+			sed 's/#.*$//' /etc/portage/package.use/00_package.use |
 			tr -s '[:space:]' |
 			grep -E '^\s?([<>=~]=?)?sys-devel/gcc' |
 			cut -f 2- |
@@ -742,9 +742,9 @@ if [ "${update:-"0"}" = '1' ]; then
 		gcc_use='-* lib-only nptl openmp'
 		# ... and look for "host" gcc USE-flags in host.use only (or use defaults)
 		# FIXME: What about package.use.local?
-		if [ -s /etc/portage/package.use/host.use ]; then
+		if [ -s /etc/portage/package.use/05_host.use ]; then
 			gcc_use="$(
-				sed 's/#.*$//' /etc/portage/package.use/host.use |
+				sed 's/#.*$//' /etc/portage/package.use/05_host.use |
 				tr -s '[:space:]' |
 				grep -E '^\s?([<>=~]=?)?sys-devel/gcc' |
 				cut -f 2- |

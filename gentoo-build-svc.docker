@@ -851,21 +851,20 @@ case "${package_name}" in
 		;;
 	*.man-db)
 		output "Setting build variables for package 'man-db' ..."
-		pre_pkgs='sys-apps/help2man sys-apps/man-pages sys-apps/man-pages-posix sys-devel/gcc'
-		with_use='-timezone-tools compile-locales'
-		extra_pkgs='app-text/manpager net-misc/rsync sys-apps/less'
+		pre_pkgs='sys-apps/help2man sys-apps/man-pages sys-apps/man-pages-posix sys-devel/gcc' # sys-libs/glibc'
+		# sys-libs/timezone-data needed for man-page tools...
+		extra_pkgs='app-text/manpager net-misc/rsync sys-apps/less' # sys-libs/glibc sys-libs/timezone-data'
 
 		container_cmd='/usr/bin/man'
 		;;
 	*.mariadb)
 		output "Setting build variables for package 'mariadb' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc'
-		pre_pkgs+=' acct-group/hugetlb acct-group/mysql acct-user/mysql'
+		pre_pkgs+=' acct-group/hugetlb acct-group/mysql acct-user/mysql' # sys-libs/glibc'
 		# app-shells/bash needed to run ebuild 'pkg_config' function within container (now from USE-flag to app-alternatives/sh)
 		# sys-libs/glibc needed to provide locale data
-		# sys-libs/timezone-data needed to provide time-zone data for new installations ...
-		with_use='-timezone-tools'
-		extra_pkgs='dev-db/mysqltuner sys-libs/glibc sys-libs/timezone-data'
+		# sys-libs/timezone-data needed to provide time-zone data for new installations...
+		extra_pkgs='dev-db/mysqltuner' # sys-libs/glibc sys-libs/timezone-data'
 		extra_pkgs+=' app-shells/bash'
 
 		ports='3306/tcp 4444/tcp 4567/tcp 4568/tcp' # 4444, 4567-8 for Galera SST
@@ -1152,6 +1151,7 @@ case "${package_name}" in
 		else
 			output "Setting build variables for package 'spamassassin' ..."
 			pre_pkgs+=' sys-devel/gcc'
+			pre_use='-cet'
 			extra_pkgs='
 				>=dev-perl/Crypt-OpenSSL-DSA-0.150.0
 				>=dev-perl/Crypt-OpenSSL-EC-1.10.0
@@ -1279,9 +1279,9 @@ case "${package_name}" in
 				# shellcheck disable=SC2154
 				gcc_use="$( replace_flags '-graphite' -- "${use_essential_gcc}" )"
 				# Look for "build" gcc USE-flags in package.use only (or use defaults above) ...
-				if [ -s /etc/portage/package.use/package.use ]; then
+				if [ -s /etc/portage/package.use/00_package.use ]; then
 					gcc_use="$( # <- Syntax
-						sed 's/#.*$//' /etc/portage/package.use/package.use |
+						sed 's/#.*$//' /etc/portage/package.use/00_package.use |
 							tr -s '[:space:]' |
 							grep -E -- '^\s?([<>=~]=?)?sys-devel/gcc' |
 							cut -f 2- |
@@ -1425,8 +1425,14 @@ case " ${pre_pkgs} " in
 			pre_use="$( replace_flags '-openmp' -- "${pre_use:-}" )"
 			post_use="$( replace_flags '-openmp' -- "${post_use:-}" )"
 		fi
+		# FIXME: Where is the app-portage/portage-utils dependency coming from?
 		pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}app-alternatives/yacc app-crypt/libb2 app-portage/portage-utils"
 		post_pkgs="${post_pkgs:+"${post_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
+		# *If* we really need app-portage/portage-utils, USE='qmanifest' pulls
+		# in app-crypt/gpgme, which we're not handling with the --nodeps final
+		# sys-devel/gcc build :(
+		pre_use="$( replace_flags '-qmanifest' -- "${pre_use}" )"
+		post_use="$( replace_flags '-qmanifest' -- "${post_use}" )"
 
 		if
 				echo " ${use_essential:-} ${use_essential_gcc:-}" \
@@ -1700,8 +1706,8 @@ fi
 # package.use alternatives
 #
 docker_extra_mounts+=( $( add_mount --print \
-		'%base%/etc/portage/package.use.svc/alternatives' \
-		'/etc/portage/package.use.override/alternatives'
+		'%base%/etc/portage/package.use.svc/10_alternatives' \
+		'/etc/portage/package.use.override/10_alternatives'
 	) ) || :
 
 # package.use.svc
@@ -1749,12 +1755,12 @@ if (( ${#package_use_svc_name_extras[@]} )); then
 fi
 if (( have_package_use_svc_name )); then
 	docker_extra_mounts+=( $( add_mount --print \
-			'%base%/etc/portage/package.use.svc/package.use.header' \
-			'/etc/portage/package.use.override/package.use.header'
+			'%base%/etc/portage/package.use.svc/00_package.use.header' \
+			'/etc/portage/package.use.override/00_package.use.header'
 		) ) || :
 elif ! docker_extra_mounts+=( $( add_mount --print \
-		'%base%/etc/portage/package.use.svc/package.use.header' \
-		'/etc/portage/package.use.override/package.use'
+		'%base%/etc/portage/package.use.svc/00_package.use.header' \
+		'/etc/portage/package.use.override/00_package.use'
 	) )
 then
 	note "No 'package.use' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/'"
@@ -1774,12 +1780,8 @@ else
 		) ) || :
 fi
 docker_extra_mounts+=( # <- Syntax
-		$( add_mount --print \
-			'%base%/etc/portage/profile/package.use.force'
-		)
-		$( add_mount --print \
-			'%base%/etc/portage/profile/package.use.mask'
-		)
+		$( add_mount --print '%base%/etc/portage/profile/package.use.force' )
+		$( add_mount --print '%base%/etc/portage/profile/package.use.mask' )
 	) || :
 
 export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"

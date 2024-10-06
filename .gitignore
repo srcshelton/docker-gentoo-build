@@ -16,11 +16,14 @@
 # Make host-specific changes to these files as necessary...
 #
 /gentoo-base/etc/portage/package.use.build/package.use.local
+/gentoo-base/etc/portage/package.use.build/01_package.use.local
 /common/local.sh
 #
 # ... and then execute
 #
-#  git update-index --skip-worktree gentoo-base/etc/portage/package.use.build/package.use.local common/local.sh
+#  git update-index --skip-worktree gentoo-base/etc/portage/package.use.build/01_package.use.local \
+#	gentoo-base/etc/portage/package.use.build/package.use.local \
+#	common/local.sh
 #
 # ... in order to cause git to ignore further changes.
 

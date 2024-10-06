@@ -194,20 +194,10 @@ if ! [ -d /etc/portage/package.use ]; then
 			'.../package.use'
 		) ) || :
 else
-	# Add a prefix so that host.use can override package.use...
 	docker_extra_mounts+=( # <- Syntax
-		$( add_mount --print \
-				'/etc/portage/package.use/package.use' \
-				'/etc/portage/package.use/aa-package.use'
-			)
-		$( add_mount --print \
-				'/etc/portage/package.use/package.use.local' \
-				'/etc/portage/package.use/ab-package.use.local'
-			)
-		$( add_mount --print \
-				'/etc/portage/package.use/host.use' \
-				'/etc/portage/package.use/zz-host.use'
-			)
+		$( add_mount --print '/etc/portage/package.use/00_package.use' )
+		$( add_mount --print '/etc/portage/package.use/01_package.use.local' )
+		$( add_mount --print '/etc/portage/package.use/05_host.use' )
 	) || :
 	declare targets='' file=''
 	while read -r targets; do
