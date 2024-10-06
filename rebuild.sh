@@ -46,6 +46,7 @@ all=0
 alt_use='bison flex gnu http2'  # http2 targeting curl for rust packages...
 #alt_use='flex gnu http2'  # http2 targeting curl for rust packages...
 arg=''
+exclude=''
 force=0
 haveargs=0
 pkgcache=0
@@ -64,7 +65,7 @@ case " ${*:-} " in
 		if [ -d "${basedir}/docker-dell" ]; then
 			printf >&2 '[--rebuild-utilities] '
 		fi
-		echo >&2 '[--rebuild-images [--skip-build] [--no-tools] [--force] [--all]] [--init-pkg-cache] [--update-pkgs] [--update-system [--pretend]]'
+		echo >&2 '[--rebuild-images [--skip-build] [--no-tools] [--force] [--all]] [--init-pkg-cache] [--update-pkgs [--exclude="<pkg ...>"]] [--update-system [--pretend] [--exclude="<pkg ...>"]]'
 		echo >&2
 		echo >&2 "       kernel build options: kbuild_opt='${kbuild_opt}'"
 		exit 0
@@ -98,6 +99,10 @@ for arg in ${@+"${@}"}; do
 			;;
 		--update-system)
 			system=1
+			haveargs=1
+			;;
+		--exclude=*)
+			exclude="$( echo "${arg}" | sed -r "s/^--exclude=['\"]?(.*)['\"]?$/\1/" )"
 			haveargs=1
 			;;
 		-a|--all)
@@ -152,6 +157,10 @@ fi
 if [ $(( pretend )) -eq 1 ] && [ $(( system )) -ne 1 ]; then
 	echo >&2 "WARN:  Option '--pretend' is only valid with '--update-system'"
 	pretend=0
+fi
+if [ $(( update )) -ne 1 ] && [ $(( system )) -ne 1 ] && [ -n "${exclude:-}" ]; then
+	echo >&2 "WARN:  Options '--exclude' is only valid with '--update-packages' and '--update-system'"
+	unset exclude
 fi
 
 [ -z "${trace:-}" ] || set -o xtrace
@@ -689,6 +698,7 @@ if [ "${update:-"0"}" = '1' ]; then
 						--emptytree \
 						--usepkg=y \
 						--with-bdeps=y \
+						${exclude:+"--exclude=${exclude}"} \
 					$(
 						for pkg in /var/db/pkg/*/*; do
 							pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
@@ -756,6 +766,7 @@ if [ "${update:-"0"}" = '1' ]; then
 							--usepkg=y \
 							--with-bdeps=y \
 							--with-pkg-use='app-alternatives/ninja reference' \
+							${exclude:+"--exclude=${exclude}"} \
 						sys-devel/gcc 2>&1 ||
 					exit ${?}
 			} | tee log/buildpkg.hostpkgs.gcc.update.log
@@ -787,6 +798,7 @@ if [ "${system:-"0"}" = '1' ]; then
 					--binpkg-respect-use=y \
 					--color=n \
 					--deep \
+					${exclude:+"--exclude=${exclude}"} \
 					--newuse \
 					--pretend \
 					--tree \
