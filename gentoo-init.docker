@@ -13,7 +13,7 @@ debug="${DEBUG:-}"
 # we wish to build against or those specified in the host's
 # /etc/portage/package.use file(s), then 'python_targets_override' must be set
 # to the desired release below:
-#declare -x python_targets_override='python3_12'
+#declare -x python_targets_override='python3_13'
 
 if [[ -n "${BASH_VERSINFO[0]:-}" ]] && (( BASH_VERSINFO[0] < 4 )); then
 	echo >&2 "FATAL: bash-4.0.0 or later is required to run this script - on" \
