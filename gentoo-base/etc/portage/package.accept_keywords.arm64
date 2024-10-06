@@ -4,9 +4,7 @@
 
 # RPi System-essential packages
 #
-#=media-libs/raspberrypi-userland-9999-r1		~arm64
-#=media-libs/raspberrypi-userland-9999-r2		~arm64
-#
+
 #=sys-apps/raspberrypi-utilities-armv6-1.20210303	~arm
 #=sys-apps/raspberrypi-utilities-armv6-1.20210430	~arm
 #=sys-apps/raspberrypi-utilities-armv6-1.20210527	~arm
@@ -17,7 +15,34 @@
 #=sys-apps/raspberrypi-utilities-armv6-1.20211007	~arm
 #=sys-apps/raspberrypi-utilities-armv6-1.20211029	~arm
 #=sys-apps/raspberrypi-utilities-armv6-1.20211118	~arm
-#
+#=sys-apps/raspberrypi-utilities-armv6-1.20220118	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20220120	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20220308	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20220328	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20220331	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20220811	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20220830	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20221028	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20221104	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20230106	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20230306	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20230317	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20230405	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20240306	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20240424	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20240529	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20240902	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20240924	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20240926	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20241001	~arm
+
+=sys-apps/raspberrypi-tools-1.20230424			~arm64
+=sys-apps/raspberrypi-tools-1.20240201			~arm64
+=sys-apps/raspberrypi-tools-1.20240402			~arm64
+=sys-apps/raspberrypi-tools-1.20240902			~arm64
+=sys-apps/raspberrypi-tools-1.20240920			~arm64
+=sys-apps/raspberrypi-tools-1.20241004			~arm64
+
 =sys-boot/raspberrypi-firmware-1.20210303		~arm64
 =sys-boot/raspberrypi-firmware-1.20210430		~arm64
 =sys-boot/raspberrypi-firmware-1.20210527		~arm64
@@ -41,12 +66,19 @@
 =sys-boot/raspberrypi-firmware-1.20230306		~arm64
 =sys-boot/raspberrypi-firmware-1.20230317		~arm64
 =sys-boot/raspberrypi-firmware-1.20230405		~arm64
-#
+=sys-boot/raspberrypi-firmware-1.20240306		~arm64
+=sys-boot/raspberrypi-firmware-1.20240424		~arm64
+=sys-boot/raspberrypi-firmware-1.20240529		~arm64
+=sys-boot/raspberrypi-firmware-1.20240902		~arm64
+#=sys-boot/raspberrypi-firmware-1.20240924		~arm64
+#=sys-boot/raspberrypi-firmware-1.20240926		~arm64
+=sys-boot/raspberrypi-firmware-1.20241001		~arm64
+
 #=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p9	~arm64
 #=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p10	~arm64
 =sys-firmware/raspberrypi-wifi-ucode-20190114.1_p11	~arm64
 =sys-firmware/raspberrypi-wifi-ucode-20221012.1_p1	~arm64
-#
+
 =sys-kernel/raspberrypi-image-5.10.17_p20210303-r1	~arm64
 =sys-kernel/raspberrypi-image-5.10.17_p20210430-r1	~arm64
 =sys-kernel/raspberrypi-image-5.10.17_p20210527-r1	~arm64
@@ -70,7 +102,14 @@
 =sys-kernel/raspberrypi-image-5.15.84_p20230306-r1	~arm64
 =sys-kernel/raspberrypi-image-6.1.19_p20230317-r1	~arm64
 =sys-kernel/raspberrypi-image-6.1.21_p20230405-r1	~arm64
-#
+=sys-kernel/raspberrypi-image-6.6.20_p20240306-r1	~arm64
+=sys-kernel/raspberrypi-image-6.6.28_p20240424-r1	~arm64
+=sys-kernel/raspberrypi-image-6.6.31_p20240529-r1	~arm64
+=sys-kernel/raspberrypi-image-6.6.47_p20240902-r1	~arm64
+#=sys-kernel/raspberrypi-image-6.6.51_p20240924-r1	~arm64
+#=sys-kernel/raspberrypi-image-6.6.51_p20240926-r1	~arm64
+=sys-kernel/raspberrypi-image-6.6.51_p20241001-r1	~arm64
+
 =sys-kernel/raspberrypi-sources-5.10.17_p20210303-r1	~arm64
 =sys-kernel/raspberrypi-sources-5.10.17_p20210430-r1	~arm64
 =sys-kernel/raspberrypi-sources-5.10.17_p20210527-r1	~arm64
@@ -97,35 +136,42 @@
 =sys-kernel/raspberrypi-sources-6.1.58_p20231024	~arm64
 =sys-kernel/raspberrypi-sources-6.1.63_p20231123	~arm64
 =sys-kernel/raspberrypi-sources-6.1.73_p20240124	~arm64
+=sys-kernel/raspberrypi-sources-6.6.20_p20240307	~arm64
+=sys-kernel/raspberrypi-sources-6.6.28_p20240423	~arm64
+=sys-kernel/raspberrypi-sources-6.6.31_p20240529	~arm64
+=sys-kernel/raspberrypi-sources-6.6.47_p20240902	~arm64
+#=sys-kernel/raspberrypi-sources-6.6.51_p20240924	~arm64
+#=sys-kernel/raspberrypi-sources-6.6.51_p20240926	~arm64
+=sys-kernel/raspberrypi-sources-6.6.51_p20241001	~arm64
 
 # arm64 is currently not well-keyworded, so match specific 'arm' stable
 # packages in order to build an equivalent base-system, with the intent that
 # the specified overrides will quickly be superseded and no longer applicable,
 # while providing an initial base-line.
+#
+# $ ACCEPT_KEYWORDS='~arm64' emerge --ignore-default-opts -p --nodeps app-misc/colordiff app-misc/splitvt app-text/lesspipe app-text/pinfo app-vim/help-extra-syntax app-vim/info app-vim/json app-vim/vim-spell-en dev-perl/Net-OAuth dev-perl/Net-Twitter-Lite dev-python/pypy3 dev-util/ltrace net-analyzer/arpwatch net-analyzer/darkstat net-misc/linuxptp net-misc/usbip net-proxy/privoxy sys-apps/haveged sys-apps/kexec-tools sys-apps/memtester sys-apps/watchdog sys-auth/pam_mobile_otp sys-power/powertop sys-process/incron dev-libs/log4cplus
 
-=app-misc/colordiff-1.0.19				~arm64
+=app-misc/colordiff-1.0.21				~arm64
 =app-misc/splitvt-1.6.6_p7				 **
-=app-text/lesspipe-2.11-r1				~arm64
+=app-text/lesspipe-2.13					~arm64
 =app-text/pinfo-0.6.13					~arm64
-=app-vim/help-extra-syntax-20050106-r2			 **
+~app-vim/help-extra-syntax-20050106			 **
 =app-vim/info-1.7-r3					 **
 =app-vim/json-20150511					 **
 ~app-vim/vim-spell-en-20060123				~arm64
 ~dev-perl/Net-OAuth-0.280.0				 **
 =dev-perl/Net-Twitter-Lite-0.12008			 **
-~dev-python/pypy3-7.3.15				~arm64
+~dev-python/pypy3-7.3.17				~arm64
 =dev-util/ltrace-0.7.91_p195				~arm64
 ~net-analyzer/arpwatch-3.5				 **
 ~net-analyzer/darkstat-3.0.721				 **
 ~net-misc/linuxptp-4.2					~arm64
-~net-misc/usbip-5.15					 **
+~net-misc/usbip-6.4					 **
 ~net-proxy/privoxy-3.0.34				~arm64
-=sys-apps/haveged-1.9.14-r1				~arm64
-=sys-apps/kexec-tools-2.0.24				~arm64
-=sys-apps/memtester-4.5.1				~arm64
-#=sys-apps/mlocate-0.26-r3				~arm64
-=sys-apps/plocate-1.1.18				~arm64
-=sys-apps/watchdog-5.16					~arm64
+~sys-apps/haveged-1.9.18				~arm64
+~sys-apps/kexec-tools-2.0.29				~arm64
+=sys-apps/memtester-4.6.0				~arm64
+~sys-apps/watchdog-5.16					~arm64
 =sys-auth/pam_mobile_otp-0.6.2				 **
 =sys-power/powertop-2.15				~arm64
 ~sys-process/incron-0.5.12_p20171113			~arm64
