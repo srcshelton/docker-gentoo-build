@@ -159,6 +159,7 @@ dev-php/pecl-redis			 PHP-3.01
 # required by services dev-lang/php & www-server/lighttpd
 dev-lang/tcl				 tcltk
 dev-php/pecl-imagick			 PHP-3.01
+gnome-base/librsvg			 Apache-2.0-with-LLVM-exceptions MPL-2.0 Unicode-DFS-2016
 mail-filter/libmilter			 Sendmail
 media-gfx/imagemagick			 imagemagick
 
