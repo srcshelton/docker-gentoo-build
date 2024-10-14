@@ -2,6 +2,11 @@
 
 set -eu  # x
 
+declare -i debug=${DEBUG:-}
+declare -i trace=${TRACE:-}
+
+(( trace )) && set -o xtrace
+
 export LANG=C
 export LC_ALL=C
 
@@ -10,8 +15,12 @@ declare REMOTE_HOME='/var/home'
 declare REMOTE_USER='core'
 # FIXME: Improve this logic to find a generic REMOTE_USER
 case "$( id -un )" in
-	mixtile)
+	'mixtile')
 		REMOTE_USER='mixtile'
+		;;
+	*)	echo >&2 "WARN:  Unknown user '$( id -un )', using current" \
+			"home '$( eval "readlink -e ~$( id -un )" )' ..."
+		REMOTE_USER="$( id -un )"
 		;;
 esac
 declare -i init=0 xfer=0 cores=4 local_install=0
@@ -79,7 +88,8 @@ if (( local_install )); then
 		echo >&2 "WARN:  Cannot locate 'sync-portage.sh' script - please run" \
 			"this manually in order to populate '/etc/portage'"
 	else
-		sudo ./sync-portage.sh
+		sudo ./sync-portage.sh &&
+			sudo cp gentoo-base/etc/portage/make.conf /etc/portage/
 
 		echo >&2 "INFO:  Please review the settings in '/etc/portage/make.conf'"
 	fi

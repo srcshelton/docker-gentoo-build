@@ -15,7 +15,8 @@ if [ -z "${_command:-}" ]; then
 		_command='podman'
 
 		#extra_build_args='--format docker'
-		# From release 2.0.0, podman should accept docker 'readonly' attributes
+		# From release 2.0.0, podman should accept docker 'readonly'
+		# attributes
 		docker_readonly='ro=true'
 	fi
 	export _command docker_readonly
@@ -163,6 +164,10 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				use_cpu_flags='aes avx f16c mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3'
 				gcc_target_opts='-march=btver2' ;;
 
+			# ARM CPUs: Only sci-libs/blis seems to make use of
+			# v{x} flags, and v9 isn't yet referenced (although
+			# 'sve' is...)
+			#
 			*': Raspberry Pi Zero W Rev 1.1'*)
 				# ARMv6, 32bit
 				use_cpu_arch='arm'
@@ -207,6 +212,17 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
 				#gcc_target_opts='-march=armv8-a'
 				;;
+			*': 0xd40'|'AWS Graviton 3'*)
+				use_cpu_arch='arm'
+				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 sm4 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2'
+				# Requires GCC11+, clang14+
+				#gcc_target_opts='-march=armv8.4-a+crypto+rcpc+sha3+sm4+sve+rng+i8mm+bf16+nodotprod -mcpu=neoverse-v1' ;;
+				gcc_target_opts='-march=zeus+crypto+sha3+sm4+nodotprod+noprofile+nossbs -mcpu=zeus' ;;
+			*': 0xd4f'|'AWS Graviton 4'*)
+				use_cpu_arch='arm'
+				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2' # v9
+				# Requires GCC13+, clang16+
+				gcc_target_opts='-march=armv9-a+crypto+rcpc+rng+sve2-aes+sve2-sha3+sve2-bitperm+i8mm+bf16+nossbs+nopredres -mcpu=neoverse-v2' ;;
 			*)
 				description="$( # <- Syntax
 					echo "${description}" |
