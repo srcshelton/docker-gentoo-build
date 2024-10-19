@@ -1,4 +1,9 @@
 
+# Don't try to use sys-kernel/linux-headers on RPi hardware
+sys-kernel/linux-headers
+# Don't try to use sys-kernel/raspberrypi-headers on other ARM hardware
+#sys-kernel/raspberrypi-headers
+
 # Later releases of RPi firmware fail to boot :(
 # See https://github.com/raspberrypi/firmware/issues/1453
 #>sys-boot/raspberrypi-firmware-1.20200601
