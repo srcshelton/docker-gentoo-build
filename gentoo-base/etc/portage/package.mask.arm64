@@ -1,7 +1,7 @@
 
 # Don't try to use sys-kernel/linux-headers on RPi hardware
 #
-#sys-kernel/linux-headers
+sys-kernel/linux-headers
 
 # ... or, don't try to use sys-kernel/raspberrypi-headers on other ARM hardware
 #
