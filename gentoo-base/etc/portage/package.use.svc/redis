@@ -2,5 +2,6 @@
 #dev-db/redis				+jemalloc luajit systemd tcmalloc test
 dev-db/redis				 jemalloc luajit
 #dev-libs/jemalloc			 debug hardened lazy-lock prof static-libs stats xmalloc
+dev-libs/jemalloc			 stats
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
