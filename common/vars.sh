@@ -222,7 +222,10 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				use_cpu_arch='arm'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2' # v9
 				# Requires GCC13+, clang16+
-				gcc_target_opts='-march=armv9-a+crypto+rcpc+rng+sve2-aes+sve2-sha3+sve2-bitperm+i8mm+bf16+nossbs+nopredres -mcpu=neoverse-v2' ;;
+				# GCC-12.2.0 (Debian 12 default):
+				#gcc_target_opts='-march=armv9-a -mcpu=demeter+crypto+rcpc+sve2-aes+sve2-sha3+noprofile+nomemtag+nossbs+nopredres -mtune=demeter' ;;
+				# GCC-13.3.1:
+				gcc_target_opts='-mcpu=neoverse-v2+crc+sve2-aes+sve2-sha3+nossbs' ;;
 			*)
 				description="$( # <- Syntax
 					echo "${description}" |
