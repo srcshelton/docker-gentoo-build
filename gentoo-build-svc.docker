@@ -50,6 +50,7 @@ services=(
 	dovecot
 	fetchmail
 	fwupd
+	hpl
 	imapproxyd
 	irqbalance
 	kea
@@ -436,6 +437,8 @@ case "${service:-}" in
 		service='net-mail/fetchmail' ;;
 	fwupd)
 		service='sys-apps/fwupd' ;;
+	hpl)
+		service='sys-cluster/hpl' ;;
 	imapproxy|imapproxyd)
 		service='>=net-mail/imapproxy-1.2.8_p14637::srcshelton' ;;
 	irqbalance)
@@ -771,6 +774,14 @@ case "${package_name}" in
 
 		container_cmd='/usr/bin/fwupdtool'
 		etcdir='fwupd'
+		;;
+	*.hpl)
+		output "Setting build variables for package 'hpl' ..."
+		pre_pkgs='sys-devel/gcc'
+		extra_pkgs='blis mpich'
+		post_use='fortran'
+
+		container_cmd='__wait__'
 		;;
 	*.imapproxy)
 		output "Setting build variables for package 'imapproxy' ..."

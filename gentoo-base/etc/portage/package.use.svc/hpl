@@ -1,0 +1,20 @@
+
+*/*					 asm bzip2 caps cxx eselect-ldso fortran gmp lz4 lzma openmp openssl readline seccomp ssl unicode zstd # zlib
+
+sys-cluster/mpich			 mpi-threads romio threads
+virtual/mpi				 romio
+
+dev-db/sqlite				 icu secure-delete
+dev-libs/libevent			 clock-gettime
+dev-libs/libpcre2			 jit
+net-fs/nfs-utils			 junction libmount nfsv3 nfsv4 uuid
+sys-apps/hwloc				 cpuid pci xml
+sys-apps/pciutils			 dns kmod
+sys-apps/util-linux			 hardlink logger magic ncurses suid
+sys-fs/lvm2				 lvm
+sys-libs/ncurses			 tinfo
+
+#sys-apps/coreutils			 acl caps gmp nls openssl (split-usr) stdbuf xattr
+sys-apps/coreutils			 stdbuf
+
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
