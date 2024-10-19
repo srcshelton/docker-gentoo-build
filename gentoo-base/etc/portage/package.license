@@ -111,6 +111,8 @@ sys-libs/libomp				 Apache-2.0-with-LLVM-exceptions
 sys-libs/llvm-libunwind			 Apache-2.0-with-LLVM-exceptions
 
 
+app-arch/lzlib				 libstdc++
+
 # required by sys-libs/glibc-2.32-r6[gd]
 media-libs/gd				 HPND IJG gd
 
@@ -136,6 +138,9 @@ net-analyzer/netdata			 MPL-2.0
 net-misc/kea				 SSLeay
 
 sys-apps/tcp-wrappers			 tcp_wrappers_license
+
+sys-cluster/hpl				 HPL
+sys-cluster/mpich			 mpich2
 
 sys-firmware/intel-microcode		 intel-ucode
 sys-kernel/linux-firmware		 linux-fw-redistributable no-source-code # BSD-4

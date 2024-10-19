@@ -172,11 +172,13 @@
 ~net-analyzer/darkstat-3.0.721				 **
 ~net-misc/linuxptp-4.2					~arm64
 ~net-misc/usbip-6.4					 **
+=sci-libs/blis-1.0					~arm64
 ~sys-apps/haveged-1.9.18				~arm64
 ~sys-apps/kexec-tools-2.0.29				~arm64
 =sys-apps/memtester-4.6.0				~arm64
 ~sys-apps/watchdog-5.16					~arm64
 =sys-auth/pam_mobile_otp-0.6.2				 **
+=sys-cluster/hpl-2.3					 **
 =sys-power/powertop-2.15				~arm64
 ~sys-process/incron-0.5.12_p20171113			~arm64
 
