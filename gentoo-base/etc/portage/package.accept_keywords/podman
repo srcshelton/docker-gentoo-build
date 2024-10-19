@@ -226,7 +226,8 @@
 #~app-containers/buildah-1.37.1				 **
 #~app-containers/buildah-1.37.2				 **
 #~app-containers/buildah-1.37.3				 **
-~app-containers/buildah-1.37.4				 **
+#~app-containers/buildah-1.37.4				 **
+~app-containers/buildah-1.37.5				 **
 
 # originally required by app-emulation/buildah-1.15.0
 # move app-emulation/skopeo app-containers/skopeo
@@ -443,9 +444,10 @@
 #~net-misc/cni-plugins-1.2.0				 **
 #~net-misc/cni-plugins-1.3.0				 **
 #~net-misc/cni-plugins-1.4.0				 **
-~net-misc/cni-plugins-1.4.1				 **
+#~net-misc/cni-plugins-1.4.1				 **
 #~net-misc/cni-plugins-1.5.0				 **
 ~net-misc/cni-plugins-1.5.1				 **
+~net-misc/cni-plugins-1.6.0				 **
 
 # optional for >=app-containers/podman-4.4.0_rc3[rootless]
 # required for >=app-containers/podman-5.0.0_rc7[rootless]
@@ -578,7 +580,8 @@
 #~app-containers/containers-storage-1.52.0		 **
 #~app-containers/containers-storage-1.53.0		 **
 ~app-containers/containers-storage-1.54.0		 **
-~app-containers/containers-storage-1.55.0		 **
+#~app-containers/containers-storage-1.55.0		 **
+~app-containers/containers-storage-1.55.1		 **
 
 # rust build dependencies for netavark/aardvark-dns
 #=dev-util/cargo-ebuild-0.5.1				~amd64
