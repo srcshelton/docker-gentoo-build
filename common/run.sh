@@ -695,14 +695,16 @@ _docker_resolve() {
 					else
 						pkg="${arg}"
 						cat="$( # <- Syntax
-							eval ls -1d "${repopath}/*/${pkg}*" |
+							eval ls -1d "${repopath}/*/${pkg}" |
 								rev |
-								cut -d'/' -f 3 |
-								rev
+								cut -d'/' -f 2 |
+								rev |
+								sort |
+								uniq
 						)"
 					fi
 					for eb in $( # <- Syntax
-						eval ls -1 "${repopath}/${cat}/${pkg}*" |
+						eval ls -1 "${repopath}/${cat}/${pkg}/" |
 							grep -- '\.ebuild$'
 					); do
 						slot='0.0'
@@ -1215,9 +1217,13 @@ _docker_run() {
 		local -A mountpointsro=()
 		local -i skipped=0
 		local mp='' src=''  # cwd=''
-		local default_repo_path='' default_distdir_path=''
-		local default_pkgdir_path=''
+		local default_repo_path=''
+		local default_distdir_path='' default_pkgdir_path=''
 
+		# If 'portageq' is not available, then ensure that all of the variables
+		# referenced immediately prior are set so that it then never needs to
+		# be called.
+		#
 		if ! type -pf portageq >/dev/null 2>&1; then
 			default_repo_path='/var/db/repos/gentoo /var/db/repos/srcshelton'
 			default_distdir_path='/var/cache/portage/dist'
@@ -1233,7 +1239,7 @@ _docker_run() {
 
 		# shellcheck disable=SC2046,SC2206,SC2207
 		mirrormountpointsro=(
-			## We need write access to be able to update eclasses...
+			# We need write access to be able to update eclasses...
 			#/etc/portage/repos.conf
 
 			${default_repo_path:-"$( # <- Syntax
@@ -1242,9 +1248,9 @@ _docker_run() {
 				)
 			)"}
 
-			#/etc/locale.gen
+			#/etc/locale.gen  # FIXME: Uncommented in inspect.docker?
 
-			#/usr/src  # Breaks gentoo-kernel-build package
+			#/usr/src  # FIXME: Breaks gentoo-kernel-build package
 		)
 
 		# N.B.: Read repo-specific masks from the host system...
@@ -1283,7 +1289,7 @@ _docker_run() {
 			print "Using architecture '${ARCH:-"${arch}"}' ..."
 			mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
 		fi
-		mountpoints['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
+		mountpointsro['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
 
 		if [[ -s "gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]; then
 			mountpointsro["${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/package.accept_keywords/${ARCH:-"${arch}"}"
