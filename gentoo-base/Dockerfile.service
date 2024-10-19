@@ -229,15 +229,19 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
 
 # linter ignore=ER0001
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
-    echo "${service_cmd}" ; \
-    test -x "${service_cmd}" && \
-    if ! [ "$( \
-        head -n 1 "${service_cmd}" | \
-        cut -c 1-2 | \
-        tr -d '\0' \
-    )" = '#!' ] ; \
-    then \
-        ldd "${service_cmd}" | tee /dev/stdout | grep -qv 'not found' ; \
+    if ! [ "${service_cmd}" = '__wait__' ]; then \
+        echo "${service_cmd}" ; \
+        test -x "${service_cmd}" && \
+            if ! [ "$( \
+                head -n 1 "${service_cmd}" | \
+                    cut -c 1-2 | \
+                    tr -d '\0' \
+            )" = '#!' ] ; \
+            then \
+                ldd "${service_cmd}" | \
+                    tee /dev/stdout | \
+                    grep -qv 'not found' ; \
+            fi ; \
     fi
 
 # No longer needed, since 'service_cmd' is exposed as an ENV ...
