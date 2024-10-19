@@ -1,9 +1,21 @@
 # USE flag adjustments for host customisation and more minimal host deployment
 
 #*/*					 CPU_FLAGS_X86: ...
-*/*					 L10N: en_GB en
+
+# See profiles/desc/l10n.desc
+*/*					 L10N: en-GB en
+
+# See profiles/desc/video_cards.desc
 #*/*					 VIDEO_CARDS: vesa ...
+
+# See profiles/desc/llvm_targets.desc
+#
+#  AArch64 AMDGPU ARC ARM AVR BPF CSKY DirectX Hexagon Lanai LoongArch M68k
+#  Mips MSP430 NVPTX PowerPC RISCV Sparc SPIRV SystemZ VE WebAssembly X86 XCore
+#  Xtensa
 #*/*					 LLVM_TARGETS: -* BPF X86 ...
+
+# See profiles/desc/grub_platforms.desc
 #sys-boot/grub				 GRUB_PLATFORMS: -* efi-64 ...
 
 */*					 PYTHON_SINGLE_TARGET: -* python3_12
