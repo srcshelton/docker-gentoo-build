@@ -173,7 +173,8 @@ docker_run() {
 	local -i skipped=0
 	local -i runrc=0
 	local mp='' src=''  # cwd=''
-	local default_repo_path='' default_distdir_path='' default_pkgdir_path=''
+	local default_repo_path='' rw_repo_path=''
+	local default_distdir_path='' default_pkgdir_path=''
 
 	#${arr[@]+"${arr[@]}"}
 	(( 0 == ${#args[@]} )) && args=( 'sh' )
@@ -226,13 +227,24 @@ docker_run() {
 		)
 	fi
 
+	# If 'portageq' is not available, then ensure that all of the variables
+	# referenced immedaitely prior are set so that it never needs to be
+	# called.
+	#
+	# For inspect.docker, mount additional repos read-write so that digest
+	# generation, for example, isn't an extended and laborious task.
+	#
 	if ! type -pf portageq >/dev/null 2>&1; then
-		default_repo_path='/var/db/repos/gentoo /var/db/repos/srcshelton'
+		default_repo_path='/var/db/repos/gentoo'
+		rw_repo_path='/var/db/repos/srcshelton'
 		default_distdir_path='/var/cache/portage/dist'
 		default_pkgdir_path='/var/cache/portage/pkg'
 		if [ ! -d /var/db/repos/gentoo ] && [ -d /var/db/repo/gentoo ]; then
-			default_repo_path='/var/db/repo/gentoo /var/db/repo/srcshelton'
+			default_repo_path='/var/db/repo/gentoo'
+			rw_repo_path='/var/db/repo/srcshelton'
 		fi
+		[ -d "${rw_repo_path:-}" ] ||
+			rw_repo_path=''
 	fi
 	if [ -n "${PKGDIR_OVERRIDE:-}" ]; then
 		default_pkgdir_path="${PKGDIR_OVERRIDE}"
@@ -243,15 +255,20 @@ docker_run() {
 		# We need write access to be able to update eclasses...
 		#/etc/portage/repos.conf
 
-		"${default_repo_path:-"$( portageq get_repo_path "${EROOT:-"/"}" $( portageq get_repos "${EROOT:-"/"}" ) )"}"
+		"${default_repo_path:-"$( # <- Syntax
+			portageq get_repo_path "${EROOT:-"/"}" $(
+				portageq get_repos "${EROOT:-"/"}"
+			)
+		)"}"
 
-		/etc/locale.gen
+		/etc/locale.gen  # FIXME: Commented in common/run.sh?
 
 		#/usr/src  # FIXME: Breaks gentoo-kernel-build package, somehow?
 	)
 	mirrormountpoints=(
 		#/var/cache/portage/dist
 		"${default_distdir_path:-"$( portageq distdir )"}"
+		${rw_repo_path:-}
 		'/var/log/portage'
 	)
 
@@ -263,7 +280,7 @@ docker_run() {
 	# Allow use of 'ARCH' variable as an override...
 	print "Using architecture '${ARCH:-"${arch}"}' ..."
 	mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
-	mountpoints['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
+	mountpointsro['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
 	[ -S /var/run/syslog-ng/log ] && mountpoints['/var/run/syslog-ng/log']='/dev/log'
 
 	cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
