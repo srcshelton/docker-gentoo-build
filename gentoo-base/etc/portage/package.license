@@ -64,10 +64,10 @@ app-misc/c_rehash			 openssl
 dev-libs/openssl			 openssl
 dev-libs/openssl-compat			 openssl
 sys-auth/passwdqc			 Openwall
-dev-python/docutils			 PSF-2
 dev-python/typing-extensions		 PSF-2
 dev-lang/php				 PHP-3.01 Zend-2.0 gd
 dev-lang/python				 PSF-2
+dev-python/docutils			 PSF-2.4
 #app-arch/lzma				 public-domain
 #app-arch/xz-utils			 public-domain
 #app-crypt/openpgp-keys-gentoo-release	 public-domain
@@ -89,6 +89,10 @@ sys-libs/zlib				 ZLIB
 net-nds/openldap			 OPENLDAP
 
 sys-apps/memtest86-bin			 PassMark-EULA
+
+# Documentation:
+#
+media-gfx/graphviz			 CPL-1.0
 
 # Gentoo stage3 image:
 #
@@ -127,7 +131,7 @@ dev-ruby/test-unit			 PSF-2
 # Service packages:
 #
 
-dev-db/redis				 Boost-1.0
+dev-db/redis				 Boost-1.0 SSPL-1
 
 dev-perl/Unicode-EastAsianWidth		 CC0-1.0
 
