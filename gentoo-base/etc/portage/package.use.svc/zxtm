@@ -1,8 +1,9 @@
 
 */*					 ipv6
 
-#net-misc/zxtm-init-scripts		 perl -saveconfig
-net-misc/zxtm-init-scripts		 perl
+##net-misc/zxtm-init-scripts		 perl -saveconfig
+#net-misc/zxtm-init-scripts		 perl
+net-misc/zxtm-init-scripts		 telegram
 
 #net-firewall/iptables			 conntrack (+ipv6) netlink nftables pcap static-libs systemd
 net-firewall/iptables			 conntrack netlink nftables pcap
