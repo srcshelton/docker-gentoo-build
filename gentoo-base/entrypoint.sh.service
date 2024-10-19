@@ -42,13 +42,19 @@ if [ -z "${service_cmd:-}" ]; then
 fi
 
 if set | grep -q -- '=__[A-Z]\+__$'; then
-	echo >&2 "FATAL: Unexpanded variable(s) in environment: $( set | grep -- '=__[A-Z]\+__$' | cut -d'=' -f 1 | xargs -r )"
+	echo >&2 "FATAL: Unexpanded variable(s) in environment: $( # <- Syntax
+		set |
+			grep -- '=__[A-Z]\+__$' |
+			cut -d'=' -f 1 |
+			xargs -r
+	)"
 	exit 1
 fi
 
 if [ -d /usr/libexec/entrypoint.d ]; then
 	bin="$( basename "${service_cmd}" )"
-	if [ -n "${bin:-}" ] && [ -s "/usr/libexec/entrypoint.d/${bin}.pre" ]; then
+	if [ -n "${bin:-}" ] && [ -s "/usr/libexec/entrypoint.d/${bin}.pre" ]
+	then
 		# shellcheck disable=SC1090
 		. "/usr/libexec/entrypoint.d/${bin}.pre"
 	fi
@@ -73,8 +79,12 @@ if [ $(( EUID )) -eq 0 ]; then
 	if hostname="$( hostname -s 2>/dev/null )"; then
 		if ! grep -qw -- "${hostname}" /etc/hosts; then
 			print "Adding hostname alias '${hostname}' to /etc/hosts ..."
-			sed -i "/^[1-9:]/ s/\([[:space:]]\)localhost\([[:space:]]\|$\)/\1localhost ${hostname}\2/g" /etc/hosts 2>/dev/null ||
-			printf '%s\n%s\n' "127.0.0.1 localhost ${hostname}" "::1 localhost ${hostname}" >> /etc/hosts 2>/dev/null || :
+			sed -e "/^[1-9:]/ s/\([[:space:]]\)localhost\([[:space:]]\|$\)/\1localhost ${hostname}\2/g" \
+					-i /etc/hosts 2>/dev/null ||
+				printf '%s\n%s\n' \
+						"127.0.0.1 localhost ${hostname}" \
+						"::1 localhost ${hostname}" \
+					>> /etc/hosts 2>/dev/null || :
 		fi
 	fi
 	unset hostname
@@ -105,8 +115,6 @@ if [ -x /usr/bin/eselect ]; then
 			eselect python cleanup
 			eselect python update --if-unset
 			#eselect python list
-			#eselect python --show --python2
-			#eselect python --show --python3
 		fi
 	fi
 	if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then
@@ -125,23 +133,27 @@ if [ -x /usr/bin/install-info ]; then
 	echo >&2 "Synchronising info pages ..."
 	s='' f=''
 	find /srv/ -mindepth 1 -maxdepth 1 -type d -print | while read -r s; do
-		#find "${s}"/usr/share/info/ -type f -not -name dir -exec cp {} /usr/share/info/ +
 		if [ -d "${s}"/usr/share/info ]; then
-			find "${s}"/usr/share/info/ -type f | while read -r f; do
-				echo "${f}" | grep -q '/dir$' && continue
-				[ -e "/usr/share/info/$( basename "${f}" )" ] || cp -v "${f}" /usr/share/info/
+			find "${s}"/usr/share/info/ -type f | while read -r f
+			do
+				echo "${f}" | grep -q '/dir$' &&
+					continue
+				[ -e "/usr/share/info/$( basename "${f}" )" ] ||
+					cp -v "${f}" /usr/share/info/
 			done
 		fi
 	done
 	unset s
-	#find /usr/share/info/ -type f -not -name dir -exec install-info --keep-old {} /usr/share/info/dir \;
 	find /usr/share/info/ -type f | while read -r f; do
-		echo "${f}" | grep -q '/dir$' && continue
+		echo "${f}" | grep -q '/dir$' &&
+			continue
 		install-info --keep-old "${f}" /usr/share/info/dir
 	done
 fi
 
-if [ "${service_cmd}" = '/usr/bin/man' ] && [ -x /usr/bin/mandb ] && getent passwd man >/dev/null && getent group man >/dev/null; then
+if [ "${service_cmd}" = '/usr/bin/man' ] && [ -x /usr/bin/mandb ] &&
+		getent passwd man >/dev/null && getent group man >/dev/null
+then
 	rc=0
 
 	# Use same perms/settings as the ebuild
@@ -154,7 +166,9 @@ if [ "${service_cmd}" = '/usr/bin/man' ] && [ -x /usr/bin/mandb ] && getent pass
 
 	echo >&2 "Synchronising man pages ..."
 	s='' f='' d='' last_d=''
-	find /srv/ -mindepth 1 -maxdepth 1 -type d -print | while read -r s; do
+	find /srv/ -mindepth 1 -maxdepth 1 -type d -print |
+			while read -r s
+	do
 		if [ -d "${s}"/usr/share/man ]; then
 			echo >&2 "  Synchronising man pages for '$( basename "${s}" )' ..."
 			if command -v rsync >/dev/null 2>&1; then
@@ -182,15 +196,20 @@ if [ "${service_cmd}" = '/usr/bin/man' ] && [ -x /usr/bin/mandb ] && getent pass
 					"${s}"/usr/share/man/* \
 					/usr/share/man/
 			else
-				find "${s}"/usr/share/man/ -type f | sort -V | while read -r f; do
-					echo "${f}" | grep -q '/index.db' && continue
+				find "${s}"/usr/share/man/ -type f |
+						sort -V |
+						while read -r f
+				do
+					echo "${f}" | grep -q '/index.db' &&
+						continue
 					d="$( basename "$( dirname "${f}" )" )"
 					if ! [ "${last_d:-}" = "${d}" ]; then
 						echo >&2 "    ${d}"
 						last_d="${d}"
 					fi
 					mkdir -p "/usr/share/man/${d}"
-					[ -e "/usr/share/man/${d}/$( basename "${f}" )" ] || cp -v "${f}" "/usr/share/man/${d}/"
+					[ -e "/usr/share/man/${d}/$( basename "${f}" )" ] ||
+						cp -v "${f}" "/usr/share/man/${d}/"
 				done
 			fi
 		fi
@@ -207,7 +226,8 @@ if [ -d /usr/libexec/entrypoint.d ]; then
 	rc=0
 	bin="$( basename "${service_cmd}" )"
 	if [ -n "${bin:-}" ] && [ -s /usr/libexec/entrypoint.d/"${bin}" ]; then
-		print "Running entrypoint script '/usr/libexec/entrypoint.d/${bin}' ..."
+		print "Running entrypoint script" \
+			"'/usr/libexec/entrypoint.d/${bin}' ..."
 		# shellcheck disable=SC1090
 		. /usr/libexec/entrypoint.d/"${bin}" || rc=${?}
 		# Now that any entrypoint.d script isn't run in a sub-shell, we can't
@@ -223,8 +243,12 @@ if [ -d /usr/libexec/entrypoint.d ]; then
 	fi
 fi
 
-# shellcheck disable=SC2016
-print "Running service '${service_cmd}'${*+ with parameters '${*}'} ..."
-exec "${service_cmd}" ${@+"${@}"}
+if [ "${service_cmd}" = '__wait__' ]; then
+	exec sleep infinity 2>dev/null
+else
+	# shellcheck disable=SC2016
+	print "Running service '${service_cmd}'${*+ with parameters '${*}'} ..."
+	exec "${service_cmd}" ${@+"${@}"}
+fi
 
 # vi: set colorcolumn=80 foldmarker=()\ {,}\ \ #\  foldmethod=marker syntax=sh sw=4 ts=4:
