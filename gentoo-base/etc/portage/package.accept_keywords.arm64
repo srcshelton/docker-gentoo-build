@@ -185,4 +185,15 @@
 # required by net-misc/kea-2.4.0-r1
 ~dev-libs/log4cplus-2.0.7				~arm64
 
+~container/bitlbee-3.6					~arm ~arm64
+~container/dovecot-2.3.21.1				~arm ~arm64
+~container/imapproxy-1.2.8_p14637			 **
+~container/lighttpd-1.4.76				~arm ~arm64
+~container/opendkim-2.10.3				~arm ~arm64
+~container/opendmarc-1.4.1.1				~arm ~arm64
+~container/postgrey-1.37_p20230714			~arm ~arm64
+~container/pound-4.8					 **
+~container/privoxy-3.0.34				~arm ~arm64
+~container/unifi-controller-8.4.62			~arm ~arm64
+
 # vi: set colorcolumn=56,80 syntax=gentoo-package-keywords:
