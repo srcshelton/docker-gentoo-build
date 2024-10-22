@@ -21,6 +21,7 @@
 ~sys-apps/bpftune-0.1.3_p20230802			~amd64 ~arm ~arm64 ~x86
 ~sys-apps/memtest86-bin-10.7				~amd64             ~x86
 ~sys-apps/pkgcraft-tools-0.0.15				~amd64 ~arm ~arm64 ~x86
+~sys-apps/sysvinit-3.11					~amd64 ~arm ~arm64 ~x86
 ~sys-fs/fatcat-1.1.1					~amd64             ~x86
 ~sys-process/ctop-0.7.7					~amd64 ~arm ~arm64 ~x86
 
