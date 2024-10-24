@@ -645,18 +645,31 @@ _docker_resolve() {
 			# replacement...
 			#
 			versionsort() {
+				local -i name=0
+
 				if [[ "${1:-}" == '-n' ]]; then
-					shift
+					name=1
+					if [[ -n "${2:-}" ]]; then
+						shift
+					else
+						return 1
+					fi
 				fi
-				echo "${@:-}" |
-					xargs -n 1 |
-					sed 's/^.*[a-z]-\([0-9].*\)$/\1/' |
-					sort -V
+
+				if (( name )); then
+					xargs -rn 1 <<<"${@:-}" |
+						sed 's/-[0-9].*$//' |
+						sort
+				else
+					xargs -rn 1 <<<"${@:-}" |
+						sed 's/^.*[a-z]-\([0-9].*\)$/\1/' |
+						sort -V
+				fi
 			}  # versionsort
 			export -f versionsort
 			equery() {
 				local -a args=()
-				local arg='' repopath='' cat='' pkg='' eb=''
+				local arg='' repopath='' cat='' pkg='' pv='' eb=''
 				local slot='' masked='' keyworded=''
 
 				if [[ -z "${arch:-}" ]]; then
@@ -690,10 +703,18 @@ _docker_resolve() {
 
 				for arg in "${@:-}"; do
 					if [[ "${arg}" == */* ]]; then
-						cat="${arg%"/"*}"
+						local stripped_arg="$( # <- Syntax
+							sed 's/^[^a-zA-Z]\+//' <<<"${arg}"
+						)"
+						cat="${stripped_arg%"/"*}"
 						pkg="${arg#*"/"}"
+						unset stripped_arg
 					else
-						pkg="${arg}"
+						local stripped_arg="$( # <- Syntax
+							sed 's/^[^a-zA-Z]\+//' <<<"${arg}"
+						)"
+						pkg="${stripped_arg}"
+						unset stripped_arg
 						cat="$( # <- Syntax
 							eval ls -1d "${repopath}/*/${pkg}" |
 								rev |
@@ -703,9 +724,16 @@ _docker_resolve() {
 								uniq
 						)"
 					fi
+
+					if [[ "${pkg}" == *-[0-9]* ]]; then
+						pv="${pkg}"
+						pkg="${pkg%"-"[0-9]*}"
+					fi
+
 					for eb in $( # <- Syntax
 						eval ls -1 "${repopath}/${cat}/${pkg}/" |
-							grep -- '\.ebuild$'
+							grep -- '\.ebuild$' |
+							sort -V
 					); do
 						slot='0.0'
 						masked=' '
@@ -713,15 +741,15 @@ _docker_resolve() {
 						# I - Installed
 						# P - In portage tree
 						# O - In overlay
-						if [[ -s "${repopath}/${cat}/${pkg%"-"[0-9]*}/${eb}" ]]
+						if [[ -s "${repopath}/${cat}/${pkg}/${eb}" ]]
 						then
 							eval "$( # <- Syntax
 								grep 'SLOT=' \
-									"${repopath}/${cat}/${pkg%"-"[0-9]*}/${eb}"
+									"${repopath}/${cat}/${pkg}/${eb}"
 							)"
 							slot="${SLOT:-"${slot}"}"
 							if grep -Fq "~${arch}" \
-									"${repopath}/${cat}/${pkg%"-"[0-9]*}/${eb}"
+									"${repopath}/${cat}/${pkg}/${eb}"
 							then
 								keyworded='~'
 							fi

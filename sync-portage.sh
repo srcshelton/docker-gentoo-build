@@ -17,7 +17,10 @@ find_seq() {
 
 	local -i counter=0
 
-	while [[ -e "$( printf '%s/._cfg%04d_%s' "${path}" ${counter} "${name}" )" ]]; do
+	while [[ -e "$(
+				printf '%s/._cfg%04d_%s' "${path}" ${counter} "${name}"
+			)" ]]
+	do
 		(( counter++ ))
 	done
 
@@ -46,27 +49,31 @@ else
 	}
 
 	if [[ " ${*:-} " =~ \ --dispatch-conf\  ]]; then
-		declare file='' name=''
-		find "${ROOT:-}/etc/portage"/ -type f -name '._cfg[0-9][0-9][0-9][0-9]_*' -print |
-			while read -r update
-		do
-			name="$( echo "${update}" | cut -d'_' -f 3- )"
-			if ! [[ -e "${name}" ]]; then
-				echo >&2 "Can't find original file '${name}' for update" \
-					"'${update}' - skipping"
+		declare file='' dir='' name=''
+		while read -r update; do
+			dir="$( dirname "${update}" )"
+			name="$( basename "${update}" | cut -d'_' -f 3- )"
+			if ! [[ -e "${dir}/${name}" ]]; then
+				echo >&2 "WARN:  Can't find original file '${dir}/${name}'" \
+					"for update '${update}' - skipping"
 				continue
-			elif diff "${name}" "${update}"; then
+			elif diff "${dir}/${name}" "${update}"; then
 				rm "${update}"
 			else
-				vimdiff \
+				vimdiff --not-a-term \
 							-c 'set colorcolumn=80' \
 							-c 'next' \
 							-c 'setlocal noma readonly' \
 							-c 'prev' \
-						"${name}" "${update}" &&
+						-- "${dir}/${name}" "${update}" </dev/tty &&
 					rm "${update}"
 			fi
-		done
+		done < <(
+			find "${ROOT:-}/etc/portage"/ \
+					-type f \
+					-name '._cfg[0-9][0-9][0-9][0-9]_*' \
+					-print
+		)
 		exit 0
 	fi
 fi
@@ -199,3 +206,5 @@ for file in "${ROOT:-}/etc/portage/savedconfig"/*/*; do
 done
 
 exit ${rc}
+
+# vi: set noet sw=4 ts=4:

@@ -1153,7 +1153,7 @@ service_root='/service'
 
 if [ -n "${DEBUG:-}" ]; then
 	# shellcheck disable=SC2013
-	for f in $( grep -Rl -- 'collision' log/docker.*.log ); do
+	for f in $( grep -Rl -- 'collision' log/docker.*.log 2>/dev/null ); do
 		sed '\x1b\[[0-9;]*m//g' "${f}" |
 			awk --assign p=0 '
 				/Detected file collision\(s\):$/ { p = 2 } ;
@@ -1204,7 +1204,7 @@ for arg in "${@}"; do
 				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
 			)"
 			if ! echo "${force_python:-}" |
-					grep -q -- '^python[2-9]_[0-9]$'
+					grep -q -- '^python[2-9]_[0-9]\+$'
 			then
 				die "Portage python token '${force_python:-}' is not valid"
 			fi
@@ -2541,8 +2541,8 @@ case "${1:-}" in
 
 			echo
 			echo " * Building specified post-installation '${packages}'" \
-				"package(s) excluding 'sys-devel/gcc' into installation root" \
-				"'${ROOT}' ..."
+				"package(s) ${gcc_exclude:+"excluding 'sys-devel/gcc' "}into" \
+				"installation root '${ROOT}' ..."
 			echo
 			# shellcheck disable=SC2086
 			(
@@ -2670,7 +2670,7 @@ if [ $(( depclean )) -ne 0 ]; then
 			/etc/portage/profile/package.provided.backup
 	fi
 
-	if [ -n "${gcc_exclude:-}" ]; then
+	if [ -z "${gcc_exclude:-}" ]; then
 		# This list must be kept in sync with sys-devel/gcc dependencies!
 		#
 		cat >> /etc/portage/profile/package.provided <<-EOF
@@ -2735,7 +2735,9 @@ if [ $(( depclean )) -ne 0 ]; then
 					echo 'dev-lang/perl'
 			) 'perl-core/*' 'virtual/perl-*' 'app-admin/perl-cleaner' \
 			$( # <- Syntax
-				[ -z "${gcc_exclude:-}" ] && echo 'sys-devel/gcc'
+				[ -z "${gcc_exclude:-}" ] &&
+					echo 'dev-libs/gmp dev-libs/isl dev-libs/mpc' \
+						'dev-libs/mpfr sys-devel/gcc sys-devel/gcc-config'
 			) \
 			app-alternatives/awk sys-apps/gawk \
 			app-alternatives/bzip2 app-arch/bzip2 \
@@ -2745,9 +2747,7 @@ if [ $(( depclean )) -ne 0 ]; then
 			sys-apps/grep \
 			sys-apps/help2man \
 			sys-apps/kbd \
-			sys-apps/locale-gen \
-			dev-libs/isl \
-			dev-libs/gmp dev-libs/mpc dev-libs/mpfr sys-devel/gcc-config
+			sys-apps/locale-gen
 	) || :
 
 	if [ -n "${depclean_extra:-}" ]; then
