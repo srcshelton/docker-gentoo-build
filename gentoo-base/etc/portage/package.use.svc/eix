@@ -1,0 +1,9 @@
+
+#*/*					-* build minimal symlink xml
+*/*					 build minimal symlink xml
+
+#app-alternatives/yacc			 bison
+#app-alternatives/lex			 flex
+app-alternatives/bzip2			 reference
+
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

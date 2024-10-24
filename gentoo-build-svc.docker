@@ -635,13 +635,13 @@ fi
 #
 # from common/vars.sh:
 #use_essential="asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
-#use_essential_gcc='-default-stack-clash-protection -default-znow -fortran graphite -jit nptl openmp pch -sanitize ssp -vtv zstd'
+#use_essential_gcc='-default-stack-clash-protection -default-znow graphite -jit nptl openmp pch -sanitize ssp -vtv zstd'
 
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
 with_use='' extra_pkgs=''
 post_pkgs='' post_use='' post_remove=''
-gcc_extra_flags='pch'
+gcc_extra_flags='pch'  # N.B. Not longer supported...
 python_target='' etcdir=''
 
 # There's probably a better way of doing this, but for now let's assume that
@@ -750,9 +750,9 @@ case "${package_name}" in
 	*.eix)
 		output 'Setting build variables for non-native tools ...'
 		force_python="${python_target}"
-		pre_use="-* build minimal python_single_target_${python_target} python_targets_${python_target} symlink xml"
+		#pre_use="-* build minimal python_single_target_${python_target} python_targets_${python_target} symlink xml"
 		pre_pkgs='dev-lang/python dev-lang/python-exec sys-devel/gcc virtual/linux-sources'
-		with_use="${pre_use}"
+		#with_use="${pre_use}"
 		extra_pkgs='app-eselect/eselect-python app-portage/gentoolkit'
 
 		# This container must be able to be invoked as 'versionsort' or 'equery'...
@@ -777,9 +777,22 @@ case "${package_name}" in
 		;;
 	*.hpl)
 		output "Setting build variables for package 'hpl' ..."
-		pre_pkgs='sys-devel/gcc'
-		extra_pkgs='blis mpich'
-		post_use='fortran'
+		pre_use='fortran graphite openmp'
+		pre_pkgs='dev-libs/isl sys-devel/gcc sys-devel/gcc-config'
+		with_use="${pre_use}"
+		extra_pkgs="${pre_pkgs}
+			app-shells/bash
+			dev-debug/strace
+			sci-libs/blis
+			sci-libs/openblas
+			sys-apps/portage
+			sys-cluster/mpich
+			sys-devel/binutils
+			sys-devel/binutils-config
+			sys-kernel/linux-headers
+			virtual/openssh
+		"
+		post_use="${pre_use} -lib-only graphite -nls"
 
 		container_cmd='__wait__'
 		;;
@@ -1162,7 +1175,6 @@ case "${package_name}" in
 		else
 			output "Setting build variables for package 'spamassassin' ..."
 			pre_pkgs+=' sys-devel/gcc'
-			pre_use='-cet'
 			extra_pkgs='
 				>=dev-perl/Crypt-OpenSSL-DSA-0.150.0
 				>=dev-perl/Crypt-OpenSSL-EC-1.10.0
@@ -1191,9 +1203,6 @@ case "${package_name}" in
 	*.spampd)
 		# 'eval: failed to locate the triplets.txt file' is normal, the file was removed but
 		# the eval wasn't :o
-		#
-		# FIXME: Why are we including full-fat sys-devel/gcc here?  The update
-		#        process is (now?) handled by spamassassin-update, above...
 		#
 		output "Setting build variables for package 'spampd' ..."
 		pre_pkgs='sys-apps/help2man acct-group/mail acct-user/mail acct-group/spamd acct-user/spamd'
@@ -1364,9 +1373,8 @@ case "${package_name}" in
 esac
 
 # Somehow, we're losing CPU_FLAGS_${ARCH} during builds...
-pre_use="${use_cpu_flags}${pre_use:+"${pre_use}"}"
-with_use="${use_cpu_flags}${with_use:+"${with_use}"}"
-with_use="${use_cpu_flags}${with_use:+"${with_use}"}"
+pre_use="${use_cpu_flags}${pre_use:+" ${pre_use}"}"
+with_use="${use_cpu_flags}${with_use:+" ${with_use}"}"
 
 for arg in pre_remove pre_use pre_pkgs with_use extra_pkgs post_use post_pkgs \
 	post_remove
@@ -1416,10 +1424,19 @@ case " ${pre_pkgs} " in
 			)"
 		fi
 		pre_use="$( replace_flags "${use_essential_gcc:-}" "${gcc_extra_flags:-}" -- "${pre_use:-}" )" || :
-		with_use="$( replace_flags '-lib-only' -- "${with_use}" )"
-		# spamassassin updates require perl and a functioning compiler
-		# in the container...
-		if [ "${original_service}" != 'spamassassin-update' ] && [ "${original_service}" != 'sa-update' ]; then
+		if ! [[ "${extra_pkgs:-}" == *' sys-devel/gcc '* ]]; then
+			with_use="$( replace_flags '-lib-only' -- "${with_use}" )"
+			if [[ " ${gcc_extra_flags:-} " == *' openmp '* ]]; then
+				pre_use="$( replace_flags 'graphite' '-lib-only' 'openmp' 'zstd' -- "${pre_use:-}" )"
+				post_use="$( replace_flags '-graphite' 'lib-only' 'openmp' 'zstd' -- "${post_use:-}" )"
+			else
+				pre_use="$( replace_flags '-openmp' -- "${pre_use:-}" )"
+				post_use="$( replace_flags '-openmp' -- "${post_use:-}" )"
+			fi
+		else
+			# spamassassin updates require perl and a functioning compiler
+			# in the container...
+			#if [ "${original_service}" != 'spamassassin-update' ] && [ "${original_service}" != 'sa-update' ] && [ "${original_service}" != 'hpl' ]; then
 			post_use="$( replace_flags 'lib-only' -- "${post_use}" )"
 			if [ -n "${post_pkgs:-}" ]; then
 				warn "sys-devel/gcc needs to be rebuilt (without dependencies) but 'post_pkgs' is non-empty... suggest moving 'post_pkgs' to 'extra_pkgs'"
@@ -1428,15 +1445,23 @@ case " ${pre_pkgs} " in
 				warning=1
 			fi
 			post_pkgs="${post_pkgs:+"${post_pkgs} "}sys-devel/gcc sys-libs/zlib virtual/libiconv --nodeps"
+			#fi
+			if [[ " ${gcc_extra_flags} " == *' openmp '* ]]; then
+				pre_use="$( replace_flags 'graphite' '-lib-only' 'openmp' 'zstd' -- "${pre_use:-}" )"
+				post_use="$( replace_flags '-graphite' '-lib-only' 'openmp' 'zstd' -- "${post_use:-}" )"
+			else
+				pre_use="$( replace_flags '-openmp' -- "${pre_use:-}" )"
+				post_use="$( replace_flags '-openmp' -- "${post_use:-}" )"
+			fi
+			if [[ " ${gcc_extra_flags} " == *' graphite '* ]]; then
+				pre_use="$( replace_flags 'graphite' -- "${pre_use:-}" )"
+				post_use="$( replace_flags 'graphite' -- "${post_use:-}" )"
+			fi
 		fi
-		if [[ " ${gcc_extra_flags} " == *' openmp '* ]]; then
-			pre_use="$( replace_flags 'graphite' '-lib-only' 'openmp' 'zstd' -- "${pre_use:-}" )"
-			post_use="$( replace_flags '-graphite' 'lib-only' 'openmp' 'zstd' -- "${post_use:-}" )"
-		else
-			pre_use="$( replace_flags '-openmp' -- "${pre_use:-}" )"
-			post_use="$( replace_flags '-openmp' -- "${post_use:-}" )"
-		fi
-		# FIXME: Where is the app-portage/portage-utils dependency coming from?
+		# app-portage/portage-utils includes the 'openmp' USE flag, and
+		# causes dependency problems if not kept in sync with other
+		# packages with the same flag :(
+		#
 		pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}app-alternatives/yacc app-crypt/libb2 app-portage/portage-utils"
 		post_pkgs="${post_pkgs:+"${post_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
 		# *If* we really need app-portage/portage-utils, USE='qmanifest' pulls
