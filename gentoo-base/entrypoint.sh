@@ -216,7 +216,7 @@ get_stage3() {
 		# Remove USE flags which apply to multiple packages, but can only be
 		# present for one package per installation ROOT...
 		get_result="$( # <- Syntax
-			get_exclude='cet|cpudetection|egrep-fgrep|ensurepip|fortran|hostname|installkernel|kill|pcre16|pcre32|pop3|qmanifest|qtegrity|smartcard|su|test-rust|tmpfiles|tofu'
+			get_exclude='cet|cpudetection|egrep-fgrep|ensurepip|hostname|installkernel|kill|pcre16|pcre32|pop3|qmanifest|qtegrity|smartcard|su|test-rust|tmpfiles|tofu'
 			echo "${get_result}" |
 				xargs -rn 1 |
 				grep -Ev "^(${get_exclude})$" |

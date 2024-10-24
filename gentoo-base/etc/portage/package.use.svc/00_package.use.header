@@ -7,7 +7,7 @@
 #
 # 'nptl' has now been removed, and 'pch' is masked by default due to build failures...
 #
-#*/*					-fortran graphite (+nptl) openmp (-pch) -sanitize ssp -vtv zstd
+#*/*					 graphite (+nptl) openmp (-pch) -sanitize ssp -vtv zstd
 
 # Add 'varrun', otherwise we end up with broken '/var/lock -> ../run/lock'
 # symlinks...
