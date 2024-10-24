@@ -40,20 +40,20 @@ ARG ZEUSHOME="/opt/zeus"
 FROM "${zxtm_image_name}:${zxtm_service_version}" AS zxtm
 
 # As-of 20.1 and later:
+#ENV ZEUS_BASE_CONFIG
+#ENV ZEUS_CLUSTER_NAME
+#ENV ZEUS_COMMUNITY_EDITION
+#ENV ZEUS_CONFIG_IMPORT_ARGS
 #ENV ZEUS_EULA
 #ENV ZEUS_LIC
-#ENV ZEUS_PASS=RANDOM
 #ENV ZEUS_PACKAGES
-#ENV ZEUS_COMMUNITY_EDITION
-#ENV ZEUS_CLUSTER_NAME
-#ENV ZEUS_REGISTER_HOST
+#ENV ZEUS_PASS=RANDOM
 #ENV ZEUS_REGISTER_FP
-#ENV ZEUS_REGISTER_POLICY
+#ENV ZEUS_REGISTER_HOST
 #ENV ZEUS_REGISTER_OWNER
+#ENV ZEUS_REGISTER_POLICY
 #ENV ZEUS_REGISTER_SECRET
-#ENV ZEUS_BASE_CONFIG
 #ENV ZEUS_WATCHED_CONFIG
-#ENV ZEUS_CONFIG_IMPORT_ARGS
 
 
 # -----------------------------------------------------------------------------
@@ -277,19 +277,21 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
     fi ; \
     for d in \
             etc/conf.d etc/init.d etc/portage \
-            usr/lib64/pkgconfig usr/share/awk usr/share/udhcpc \
+            usr/share/awk usr/share/udhcpc \
             var/cache/edb var/db/Makefile var/lib/gentoo ; \
     do \
         [ -e "${d}" ] && rm -rf "/${d:?}" ; \
     done ; \
-    if [ "${service_name}" != 'mail-filter/spamassassin-update' ]; then \
-        [ -e usr/include ] && rm -rf /usr/include ; \
-    fi ; \
-    if [ -d usr/share/gcc-data ]; then \
-        rm -rf /usr/share/gcc-data/*/*/man /usr/share/gcc-data/*/*/info ; \
+    if ! [ -L /usr/bin/gcc ]; then \
+        for d in \
+                usr/lib64/pkgconfig usr/include ; \
+        do \
+            [ -e "${d}" ] && rm -rf "/${d:?}" ; \
+        done ; \
+        if [ -d usr/share/gcc-data ]; then \
+            rm -rf /usr/share/gcc-data/*/*/man /usr/share/gcc-data/*/*/info ; \
+        fi ; \
     fi
-
-#RUN eselect iptables list
 
 # Setup entrypoint script to perform a one-time copy of binary system packages
 # to the (hopefully) host-mounted packages directory ...
@@ -315,15 +317,19 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
 
 # linter ignore=ER0001
 #RUN { set -o pipefail 2>/dev/null || true ; } ; \
-#    echo "${service_cmd}" ; \
-#    test -x "${service_cmd}" && \
-#    if ! [ "$( \
-#        head -n 1 "${service_cmd}" | \
-#        cut -c 1-2 | \
-#        tr -d '\0' \
-#    )" = '#!' ] ; \
-#    then \
-#        ldd "${service_cmd}" | tee /dev/stdout | grep -qv 'not found' ; \
+#    if ! [ "${service_cmd}" = '__wait__' ]; then \
+#        echo "${service_cmd}" ; \
+#        test -x "${service_cmd}" && \
+#            if ! [ "$( \
+#                head -n 1 "${service_cmd}" | \
+#                    cut -c 1-2 | \
+#                    tr -d '\0' \
+#            )" = '#!' ] ; \
+#            then \
+#                ldd "${service_cmd}" | \
+#                    tee /dev/stdout | \
+#                    grep -qv 'not found' ; \
+#            fi ; \
 #    fi
 
 # linter ignore=SC2140 # False positive (https://github.com/buddy-works/dockerfile-linter/issues/8)
@@ -392,7 +398,7 @@ RUN test ! -x /usr/bin/mandb || \
 # Run eselect for dependent components...
 #
 # hadolint ignore=SC3028
-#RUN if [ -x /usr/bin/eselect ]; then \
+RUN if [ -x /usr/bin/eselect ]; then \
 #        if [ -s /usr/share/eselect/modules/python.eselect ]; then \
 #            if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \
 #                echo "Setting python implementation ..." ; \
@@ -401,6 +407,10 @@ RUN test ! -x /usr/bin/mandb || \
 #                eselect python update --if-unset ; \
 #            fi ; \
 #        fi ; \
+        if [ -s /usr/share/eselect/modules/iptables.eselect ]; then \
+            echo "Setting NFS as default iptables back-end ..." ; \
+            eselect iptables set xtables-nft-multi ; \
+        fi ; \
 #        if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
 #            echo "Setting Java VM as initial user ..." ; \
 #            if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \
@@ -409,7 +419,7 @@ RUN test ! -x /usr/bin/mandb || \
 #                eselect java-vm set --if-unset user 1 ; \
 #            fi ; \
 #        fi ; \
-#    fi
+    fi
 
 # http://www.gentoo.org/doc/en/prelink-howto.xml
 RUN if [ -x /usr/sbin/prelink ]; then \
@@ -446,6 +456,7 @@ VOLUME ["/srv/${service_name_short}","/var/db/pkg"]
 ENTRYPOINT "${ZEUSHOME}/runzeus.sh"
 
 # Must be in shell-form to interpolate ARG/ENV values...
+#
 # linter ignore=EJ0002
 #CMD "${service_cmd}"
 

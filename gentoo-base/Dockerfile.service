@@ -193,16 +193,20 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
     fi ; \
     for d in \
             etc/conf.d etc/init.d etc/portage \
-            usr/lib64/pkgconfig usr/share/awk usr/share/udhcpc \
+            usr/share/awk usr/share/udhcpc \
             var/cache/edb var/db/Makefile var/lib/gentoo ; \
     do \
         [ -e "${d}" ] && rm -rf "/${d:?}" ; \
     done ; \
-    if [ "${service_name}" != 'mail-filter/spamassassin-update' ]; then \
-        [ -e usr/include ] && rm -rf /usr/include ; \
-    fi ; \
-    if [ -d usr/share/gcc-data ]; then \
-        rm -rf /usr/share/gcc-data/*/*/man /usr/share/gcc-data/*/*/info ; \
+    if ! [ -L /usr/bin/gcc ]; then \
+        for d in \
+                usr/lib64/pkgconfig usr/include ; \
+        do \
+            [ -e "${d}" ] && rm -rf "/${d:?}" ; \
+        done ; \
+        if [ -d usr/share/gcc-data ]; then \
+            rm -rf /usr/share/gcc-data/*/*/man /usr/share/gcc-data/*/*/info ; \
+        fi ; \
     fi
 
 # Setup entrypoint script to perform a one-time copy of binary system packages
@@ -277,6 +281,10 @@ RUN if [ -x /usr/bin/eselect ]; then \
                 eselect python cleanup ; \
                 eselect python update --if-unset ; \
             fi ; \
+        fi ; \
+        if [ -s /usr/share/eselect/modules/iptables.eselect ]; then \
+            echo "Setting NFS as default iptables back-end ..." ; \
+            eselect iptables set xtables-nft-multi ; \
         fi ; \
         if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
             echo "Setting Java VM as initial user ..." ; \
