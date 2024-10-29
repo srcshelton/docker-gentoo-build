@@ -189,6 +189,7 @@
 #~app-containers/buildah-1.27.2				 **
 #~app-containers/buildah-1.27.3				 **
 #~app-containers/buildah-1.27.4				 **
+#~app-containers/buildah-1.27.5				 **
 #~app-containers/buildah-1.28.0				 **
 #~app-containers/buildah-1.28.1				 **
 #~app-containers/buildah-1.28.2				 **
@@ -216,6 +217,7 @@
 #~app-containers/buildah-1.33.7				 **
 #~app-containers/buildah-1.33.8				 **
 #~app-containers/buildah-1.33.10			 **
+#~app-containers/buildah-1.33.11			 **
 #~app-containers/buildah-1.34.0				 **
 #~app-containers/buildah-1.34.1				 **
 #~app-containers/buildah-1.34.2				 **
@@ -414,10 +416,11 @@
 #~app-containers/netavark-1.10.1			 **
 #~app-containers/netavark-1.10.2			 **
 #~app-containers/netavark-1.10.3			 **
-~app-containers/netavark-1.11.0				 **
+#~app-containers/netavark-1.11.0			 **
 # release failed: https://crates.io/crates/netavark/1.12.0
 #~app-containers/netavark-1.12.1			 **
 ~app-containers/netavark-1.12.2				 **
+~app-containers/netavark-1.13.0				 **
 
 #~app-containers/aardvark-dns-1.0.2			 **
 #~app-containers/aardvark-dns-1.0.3			 **
@@ -431,10 +434,12 @@
 #~app-containers/aardvark-dns-1.8.0			 **
 #~app-containers/aardvark-dns-1.9.0			 **
 #~app-containers/aardvark-dns-1.10.0			 **
-# no crate: https://crates.io/crates/aardvark-dns/1.10.1-rhel
-~app-containers/aardvark-dns-1.11.0			 **
+# crate missing: https://crates.io/crates/aardvark-dns/1.10.1-rhel
+#~app-containers/aardvark-dns-1.11.0			 **
 # release failed: https://crates.io/crates/aardvark-dns/1.12.0
-~app-containers/aardvark-dns-1.12.1			 **
+#~app-containers/aardvark-dns-1.12.1			 **
+~app-containers/aardvark-dns-1.12.2			 **
+~app-containers/aardvark-dns-1.13.0			 **
 
 # required for <=app-containers/podman-3.4.7
 # optional for <=podman/podman-4.5.0_rc2:4
@@ -584,6 +589,7 @@
 #~app-containers/containers-storage-1.50.2		 **
 #~app-containers/containers-storage-1.51.0		 **
 #~app-containers/containers-storage-1.51.1		 **
+#~app-containers/containers-storage-1.51.2		 **
 #~app-containers/containers-storage-1.52.0		 **
 #~app-containers/containers-storage-1.53.0		 **
 ~app-containers/containers-storage-1.54.0		 **
