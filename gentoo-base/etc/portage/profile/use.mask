@@ -50,7 +50,7 @@ python_targets_python3_13
 #
 php_targets_php7-4
 php_targets_php8-0
-#php_targets_php8-1
+php_targets_php8-1
 #php_targets_php8-2
 php_targets_php8-3
 
