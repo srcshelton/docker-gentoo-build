@@ -18,6 +18,7 @@ dev-lang/python				 ncurses
 dev-libs/libpcre2			 unicode
 dev-libs/nettle				 gmp
 dev-libs/protobuf			 protobuf protoc
+dev-scheme/guile			 regex
 mail-mta/postfix			 cdb lmdb
 net-firewall/firehol			 ipset
 net-firewall/iptables			 nftables

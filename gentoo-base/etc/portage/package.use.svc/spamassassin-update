@@ -20,7 +20,7 @@ media-libs/leptonica			 zlib
 sys-apps/busybox			-make-symlinks
 #sys-apps/coreutils			 gmp
 # Keep the following in sync with common/vars.sh
-sys-devel/gcc				-fortran -lib-only -nls -sanitize -vtv default-stack-clash-protection graphite lto openmp pch pgo ssp zstd
+sys-devel/gcc				-fortran -lib-only -nls -sanitize -vtv default-stack-clash-protection default-znow graphite lto openmp pch pgo ssp zstd
 sys-devel/gcc-config			 native-symlinks
 sys-devel/binutils-config		 native-symlinks
 

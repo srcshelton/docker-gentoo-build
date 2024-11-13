@@ -29,5 +29,5 @@ dev-libs/libgcrypt			 getentropy
 dev-util/pkgconf			 pkg-config
 sys-apps/busybox			-savedconfig
 sys-apps/portage			-rsync-verify
-sys-devel/gcc				-cet -nls default-stack-clash-protection lto pgo ssp zstd
+sys-devel/gcc				-cet -nls default-stack-clash-protection default-znow lto pgo ssp zstd
 sys-libs/glibc				 clone3 compile-locales minimal ssp timezone-tools

@@ -10,6 +10,6 @@ dev-perl/DBD-mysql			-mariadb mysql
 mail-filter/spamassassin		 berkdb cron dkim geoip largenet mysql pacct razor spd sqlite unicode
 
 # Avoid libisl dependency...
-sys-devel/gcc				-graphite
+#sys-devel/gcc				-graphite
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
