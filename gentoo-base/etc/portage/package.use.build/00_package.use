@@ -1,4 +1,20 @@
 
+# Directory layout:
+#
+# 00_package.use       - Global USE flags;
+# 01_package.use.local - Build-image overrides;
+# 05_host.use          - Package-build & install-time overrides;
+# 10_alternatives      - Global app-alternatives/* flags;
+# 20_ada_targets       - ADA_TARGETS;
+# 20_lua_targets       - LUA_TARGETS / LUA_SINGLE_TARGET;
+# 20_php_targets       - PHP_TARGETS;
+# 20_postgres_targets  - POSTGRES_TARGETS;
+# 20_python_targets    - PYTHON_TARGETS / PYTHON_SINGLE_TARGET;
+# 20_ruby_targets      - RUBY_TARGETS;
+# [package_name]       - Individual overrides for */package_name;
+# [...]                  ...
+#
+
 # General USE flags:
 #*/*					-* asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
 */*					-apache2 -awt acpi adns aio ao asm audit
@@ -43,7 +59,7 @@ net-misc/curl				 CURL_SSL: openssl
 # Filesystem layout USE flags:
 */*					 sep-usr split-usr
 
-# Local USE flags:
+# Repo-specific USE flags:
 */*					-tmpfiles
 
 
@@ -167,7 +183,7 @@ net-analyzer/wireshark			-adns -gtk2 -qt -qt4 -qt5 -ssl ares gcrypt libxml2 rand
 net-analyzer/zabbix			-odbc -postgres -sqlite agent frontend libxml2 openipmi ssh
 net-dialup/freeradius			 pcap udpfromto
 net-dns/avahi				-python autoipd  # howl-compat # mdnsresponder-compat
-net-dns/bind				-geoip -idn -mysql -odbc dnstap filter-aaaa lmdb nslint rpz
+net-dns/bind				-geoip -idn -mysql -odbc dnstap filter-aaaa lmdb nslint rpz tools
 net-dns/bind-tools			-gssapi -idn pkcs11
 net-dns/unbound				 dnscrypt dnstap ecs
 net-firewall/iptables			-extensions -imq -l7filter conntrack netlink nftables pcap xlate
@@ -244,7 +260,8 @@ sys-devel/clang-runtime			 compiler-rt libcxx
 # gccgo from gcc-6.4.0 tries to include a deprecated glibc header, ustat.h, and fails.
 #~sys-devel/gcc-6.4.0			-go
 #sys-devel/gcc				-graphite -lto -pgo -sanitize -ssp -vtv pch  # graphite has a runtime dependency on dev-libs/isl
-sys-devel/gcc				-graphite -nls -sanitize -vtv default-stack-clash-protection lto pch pgo ssp zstd  # graphite has a runtime dependency on dev-libs/isl
+#sys-devel/gcc				-graphite -nls -sanitize -vtv default-stack-clash-protection lto pch pgo ssp zstd  # graphite has a runtime dependency on dev-libs/isl
+sys-devel/gcc				-nls -sanitize -vtv default-stack-clash-protection default-znow lto pch pgo ssp zstd
 sys-devel/gettext			 cvs git
 sys-devel/llvm				 clang llvm-gcc udis86
 # move sys-apps/microcode-data sys-firmware/intel-microcode
@@ -319,4 +336,4 @@ sys-kernel/linux-firmware		 compress compress-xz savedconfig
 # required by sys-apps/kmod-30-r1
 >=net-libs/nghttp2-1.51.0		 utils
 
-# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
+# vi: set colorcolumn=41,80 nowrap syntax=gentoo-package-use sw=8 ts=8:

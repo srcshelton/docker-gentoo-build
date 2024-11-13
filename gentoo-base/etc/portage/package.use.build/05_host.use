@@ -1,45 +1,46 @@
-# USE flag adjustments for host customisation and more minimal host deployment
 
-#*/*					 CPU_FLAGS_X86: ...
-
-# See profiles/desc/l10n.desc
-*/*					 L10N: en-GB en
-
-# See profiles/desc/video_cards.desc
-#*/*					 VIDEO_CARDS: vesa ...
-
-# See profiles/desc/llvm_targets.desc
+# Directory layout:
 #
-#  AArch64 AMDGPU ARC ARM AVR BPF CSKY DirectX Hexagon Lanai LoongArch M68k
-#  Mips MSP430 NVPTX PowerPC RISCV Sparc SPIRV SystemZ VE WebAssembly X86 XCore
-#  Xtensa
-#*/*					 LLVM_TARGETS: -* BPF X86 ...
+# 00_package.use       - Global USE flags;
+# 01_package.use.local - Build-image overrides;
+# 05_host.use          - Package-build & install-time overrides;
+# 10_alternatives      - Global app-alternatives/* flags;
+# 20_ada_targets       - ADA_TARGETS;
+# 20_lua_targets       - LUA_TARGETS / LUA_SINGLE_TARGET;
+# 20_php_targets       - PHP_TARGETS;
+# 20_postgres_targets  - POSTGRES_TARGETS;
+# 20_python_targets    - PYTHON_TARGETS / PYTHON_SINGLE_TARGET;
+# 20_ruby_targets      - RUBY_TARGETS;
+# [package_name]       - Individual overrides for */package_name;
+# [...]                  ...
+#
 
-# See profiles/desc/grub_platforms.desc
-#sys-boot/grub				 GRUB_PLATFORMS: -* efi-64 ...
+# Overrides applied to during package building for more minimal host
+# deployments, on top of customisations in 01_package.use.local...
+#
 
-*/*					 PYTHON_SINGLE_TARGET: -* python3_12
-*/*					 PYTHON_TARGETS: -* python3_12
-
-app-arch/unzip				-natspec bzip2 unicode
-
-container/dovecot			 managesieve sieve
-container/mariadb			 server
-
-container/opendmarc			 milter
-
-## move app-emulation/libpod app-emulation/podman
-## move app-emulation/podman app-containers/podman
+# Uncomment the following in order to add support for the btrfs driver to
+# app-containers/podman et al.:
+#
 #app-containers/buildah			 btrfs
-##app-containers/containers-storage	 btrfs tool
-#app-containers/podman			-fuse -rootless btrfs
+#app-containers/containers-storage	 btrfs tool
+#app-containers/podman			 btrfs
 #app-containers/skopeo			 btrfs
 
-dev-db/mariadb				-* bindist  # avoid sys-libs/binutils-libs dependency
-# backup extraengine innodb-lz4 innodb-lzo innodb-snappy jemalloc odbc oqgraph pam perl sphinx tokudb xml
+app-arch/unzip				-natspec
+#					 bzip2 natspec unicode
 
-dev-lang/perl				 minimal # -perl-cleaner
+#virtual/mta::container			-ssmtp postfix
+container/dovecot			 managesieve sieve
+container/opendmarc			 milter
+
+# Avoid sys-libs/binutils-libs dependency
+dev-db/mariadb				-* bindist
+container/mariadb			 server
+#					 +backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl
+
 # Avoid additional perl dependencies
+dev-lang/perl				 minimal  # -perl-cleaner
 dev-perl/JSON				-xs
 
 dev-lang/python				-ensurepip  # ncurses threads xml
@@ -48,13 +49,10 @@ dev-lang/python				-ensurepip  # ncurses threads xml
 #net-firewall/xtables-addons		 XTABLES_ADDONS: -* geoip
 
 net-misc/dhcp				-* client ipv6 ssl vim-syntax
-# +client ipv6 kernel_linux ldap selinux +server ssl systemd vim-syntax
+#					 +client ipv6 ldap selinux +server ssl systemd +tmpfiles vim-syntax
 
 sys-apps/portage			-trust-helper  # -rsync-verify native-extensions
-# apidoc build doc gentoo-dev +ipc +native-extensions +rsync-verify selinux test xattr
-
-# -lib-only
-#sys-devel/gcc				-* nptl lib-only openmp
+#					 apidoc build doc gentoo-dev +ipc +native-extensions +rsync-verify selinux test +trust-helper xattr
 
 # Avoid udev/eudev dependencies when using busybox mdev
 sys-apps/busybox			 mdev
@@ -62,6 +60,13 @@ net-misc/dhcpcd				-udev
 sys-apps/hwids				-udev
 sys-fs/dosfstools			-udev
 
-#virtual/mta::container			-ssmtp postfix
+# Ensure libgcc_s.so.1 is all that is installed, but with appropriate
+# optimisations
+#
+# TODO: Determine if any of these options do actually affect a 'lib-only'
+#       installation...
+#
+sys-devel/gcc				 lib-only openmp default-stack-clash-protection default-znow lto pgo pie ssp zstd
+#                                        (cxx) -lib-only openmp (split-usr) ada cet (custom-cflags) d debug default-stack-clash-protection default-znow doc (fixed-point) fortran go graphite hardened (ieee-long-double) jit (libssp) lto modula2 (multilib) nls objc objc++ objc-gc (pch) pgo pie sanitize ssp systemtap -test valgrind vanilla vtv zstd
 
-# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
+# vi: set colorcolumn=41,80 nowrap syntax=gentoo-package-use sw=8 ts=8:
