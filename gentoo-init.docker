@@ -47,6 +47,7 @@ declare -i NOTIFY_MKDIR=0
 #declare base_dir=''
 #declare use_cpu_arch=''
 #declare gcc_target_opts=''
+#declare rust_target_opts=''
 #declare use_cpu_flags=''
 #declare use_cpu_flags_raw=''
 #declare use_essential=''
@@ -125,6 +126,7 @@ then
 fi
 
 declare target_opt=''
+declare rust_target_opt=''
 declare -i build_helper=0
 declare -i force=0
 
@@ -641,6 +643,7 @@ case "${docker_arch}" in
 		[[ -z "${gcc_target_opts:-}" ]] &&
 			target_opt='-mcpu=native' ;;
 esac
+rust_target_opt="${rust_target_opts:-}"
 env_id="$( docker image ls --noheading \
 		--format='{{.ID}}' \
 	"${env_name}:latest"
@@ -668,17 +671,35 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 	declare -a build_args=()
 	build_args+=( # <- Syntax
 		--platform "linux/${docker_arch}"
-		--build-arg ARCH="${arch}"
-		--build-arg PROFILE_PATH="${profile:-}"
-		--build-arg CHOST="${chost:-}"
-		--build-arg JOBS="${JOBS:-}"
-		--build-arg MAXLOAD="${MAXLOAD:-}"
-		--build-arg MAIL_FROM="${mail_from:-}"
-		--build-arg MAIL_TO="${mail_to:-}"
-		--build-arg MAIL_MTA="${mail_mta:-}"
+
 		--build-arg SET_TERM="${TERM:-}"
 		--build-arg SET_USE_ESSENTIAL="${use_essential:-}"
 		--build-arg SET_USE_ESSENTIAL_GCC="${use_essential_gcc:-}"
+		--build-arg JOBS="${JOBS:-}"
+		--build-arg MAXLOAD="${MAXLOAD:-}"
+		#--build-arg NICENESS="10"
+		--build-arg MAIL_FROM="${mail_from:-}"
+		--build-arg MAIL_TO="${mail_to:-}"
+		--build-arg MAIL_MTA="${mail_mta:-}"
+
+		--build-arg ARCH="${arch}"
+		--build-arg PROFILE_PATH="${profile:-}"
+		--build-arg CHOST="${chost:-}"
+
+		# Optionally set below:
+		#--build-arg CPU_FLAGS_ARM
+		#--build-arg CPU_FLAGS_PPC
+		#--build-arg CPU_FLAGS_X86
+		#--build-arg TARGET_OPT
+		#--build-arg CPPFLAGS
+		#--build-arg CFLAGS
+		#--build-arg CXXFLAGS
+		#--build-arg FFLAGS
+		#--build-arg FCFLAGS
+		#--build-arg LDFLAGS
+		#--build-arg FLFLAGS
+		#--build-arg RUSTFLAGS
+
 		--compress
 		--file 'Dockerfile.env'
 		--network none
@@ -686,12 +707,97 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		--tag "${env_name}:latest"
 		--rm
 	)
+	# shellcheck disable=SC2154
 	[[ -z "${use_cpu_arch:-}" ]] || build_args+=( # <- Syntax
 		--build-arg "CPU_FLAGS_${use_cpu_arch^^}=${use_cpu_flags_raw}"
 	)
 	[[ -z "${target_opt:-}" ]] || build_args+=( # <- Syntax
 		--build-arg TARGET_OPT="${target_opt}"
 	)
+	[[ -z "${rust_target_opt:-}" ]] || build_args+=( # <- Syntax
+		--build-arg RUST_TARGET_OPT="${rust_target_opt}"
+	)
+	declare cppflags='' cflags='' cxxflags='' fflags='' fcflags='' ldflags='' \
+		flflags='' rustflags=''
+	if type -pf emerge >/dev/null 2>&1; then
+		cppflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^CPPFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
+		cflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^CFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
+		cxxflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^CXXFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
+		fflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^LFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
+		fcflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^FCFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
+		ldflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^LDFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
+		flflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^FLFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
+		rustflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^RUSTFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
+	else
+		# shellcheck disable=SC2034
+		[[ -z "${LDFLAGS:-}" ]] && case "${arch}" in
+			amd64|ppc64|x86)
+				LDFLAGS='-Wl,-O1 -Wl,--as-needed -Wl,-z,pack-relative-relocs'
+				;;
+			*)
+				LDFLAGS='-Wl,-O1 -Wl,--as-needed'
+				;;
+		esac
+		eval ". /etc/portage/make.conf ; set | grep -F -- 'FLAGS=' | sed 's|^[A-Z]\+=|\L&|'"
+	fi
+	[[ -n "${cflags:-}" ]] || cflags='-O2 -pipe'
+	[[ -n "${cxxflags:-}" ]] || cxxflags="${cflags}"
+	[[ -n "${fflags:-}" ]] || fflags="${cflags}"
+	[[ -n "${fcflags:-}" ]] || fcflags="${cflags}"
+	if [[ -z "${ldflags:-}" ]]; then
+		case "${arch}" in
+			amd64|ppc64|x86)
+				ldflags='-Wl,-O1 -Wl,--as-needed -Wl,-z,pack-relative-relocs'
+				;;
+			*)
+				ldflags='-Wl,-O1 -Wl,--as-needed'
+				;;
+		esac
+	fi
+	[[ -n "${flflags:-}" ]] || flflags="${ldflags}"
+	build_args+=( # <- Syntax
+		--build-arg CPPFLAGS="${cppflags:-}"
+		--build-arg CFLAGS="${cflags:-}"
+		--build-arg CXXFLAGS="${cxxflags:-}"
+		--build-arg FFLAGS="${fflags:-}"
+		--build-arg FCFLAGS="${fcflags:-}"
+		--build-arg LDFLAGS="${ldflags:-}"
+		--build-arg FLFLAGS="${flflags:-}"
+		--build-arg RUSTFLAGS="${rustflags:-}"
+	)
+	unset cppflags cflags cxxflags fflags fcflags ldflags flflags rustflags
 	# shellcheck disable=SC2206
 	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
 		--loglevel 3
@@ -881,13 +987,19 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	fi
 	build_args+=( # <- Syntax
 		--platform "linux/${docker_arch}"
+
 		--build-arg ARCH="${arch}"
+
 		--build-arg env_name="${env_name}"
 		--build-arg env_id="${env_id}"
 		--build-arg gentoo_stage3_image="${gentoo_stage3_image}"
 		--build-arg gentoo_stage3_tag="${gentoo_stage3_tag}"
 		--build-arg gentoo_stage3_id="${gentoo_stage3_id}"
 		--build-arg gentoo_stage3_image_ref="${gentoo_stage3_image}@${ref}"
+
+		# Optionally set below:
+		#--build-arg stage3_flags_file
+
 		--compress
 		--file 'Dockerfile.stage3'
 		--network none
@@ -1005,18 +1117,26 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 	# USED_BY: base
 
 	declare -a build_args=()
+	# shellcheck disable=SC2154
 	build_args+=( # <- Syntax
 		--platform "linux/${docker_arch}"
+
 		--build-arg ARCH="${arch}"
+
 		--build-arg gentoo_stage3_image="${gentoo_stage3_image}:${gentoo_stage3_tag}"
 		--build-arg gentoo_stage3_id="${gentoo_stage3_id}"
 		--build-arg stage3_name="${stage3_name}"
+
 		--build-arg entrypoint_sum="${sum}"
 		--build-arg environment_filter="${environment_filter}"
+
+		# Optionally set below:
+		#--build-arg stage3_flags_file
+		#--build-arg environment_file
+
 		--compress
 		--file 'Dockerfile.init'
 		--network none
-		#--network slirp4netns
 		--no-cache
 		--pull=false
 		--tag "${init_name}:latest"
@@ -1279,10 +1399,13 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	build_args+=( # <- Syntax
 		--build-arg env_id="${env_id}"
 		--build-arg environment_filter="${environment_filter}"
+
+		# Optionally set below:
+		#--build-arg environment_file
+
 		--compress
 		--file 'Dockerfile.build'
 		--network none
-		#--network slirp4netns
 		--no-cache
 		--platform "linux/${docker_arch}"
 		--squash-all
