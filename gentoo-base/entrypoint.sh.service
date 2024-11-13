@@ -74,7 +74,7 @@ if [ -z "${EUID:-}" ]; then
 fi
 
 if [ $(( EUID )) -eq 0 ]; then
-	command -V ldconfig >/dev/null 2>&1 && ldconfig
+	command -v ldconfig >/dev/null 2>&1 && ldconfig
 
 	if hostname="$( hostname -s 2>/dev/null )"; then
 		if ! grep -qw -- "${hostname}" /etc/hosts; then

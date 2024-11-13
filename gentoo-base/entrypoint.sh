@@ -857,6 +857,9 @@ echo
 echo 'Resolved build variables for stage3:'
 echo '-----------------------------------'
 echo
+echo "${info}" | format 'CFLAGS'
+echo "${info}" | format 'LDFLAGS'
+echo
 echo "ROOT                = $( # <- Syntax
 	echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
 )"
@@ -895,11 +898,14 @@ unset info
 #
 file=''
 for file in /lib*/libc.so.6; do
-	"${file}" || :
+	printf '%4s: ' 'libc'
+	"${file}" 2>&1 | head -n 1 || :
 done
 unset file
-gcc --version || :
-ld --version || :
+printf '%4s: ' 'gcc'
+gcc --version 2>&1 | head -n 1 || :
+printf '%4s: ' 'ld'
+ld --version 2>&1 | head -n 1 || :
 
 # We should *definitely* have this...
 package='virtual/libc'
@@ -926,6 +932,36 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 #printf '\n---\n\n'
 
 #set -o xtrace
+
+# Until we're rebuilt sys-devel/gcc ourselves, we can't rely on having
+# 'graphite' functionality - therefore, we need to strip these flags to prevent
+# built failures up to that point.
+#
+_o_CFLAGS='' _o_CXXFLAGS=''
+if [ -n "${CFLAGS:-}${CXXFLAGS:-}" ]; then
+	if echo "${CFLAGS:-} ${CXXFLAGS:-}" | grep -Eq -- '(-fgraphite|-floop-)'
+	then
+		cc_flags='' cxx_flags='' cc_opt=''
+		_o_CFLAGS="${CFLAGS:-}"
+		_o_CXXFLAGS="${CFLAGS:-}"
+		cc_flags=" ${CFLAGS:-} "
+		cxx_flags=" ${CXXFLAGS:-} "
+		for cc_opt in graphite graphite-identity loop-nest-optimize \
+				loop-parallelize-all
+		do
+			if echo "${cc_flags:-}" | grep -Fq -- " -f${cc_opt} "; then
+				cc_flags="$( echo "${cc_flags}" | sed "s/ -f${cc_opt} / /g" )"
+			fi
+			if echo "${cxx_flags:-}" | grep -Fq -- " -f${cc_opt} "; then
+				cxx_flags="$( echo "${cxx_flags}" | sed "s/ -f${cc_opt} / /g" )"
+			fi
+		done
+		CFLAGS="$( echo "${cc_flags}" | sed 's/^ // ; s/ \+/ /g ; s/ $//' )"
+		CXXFLAGS="$( echo "${cxx_flags}" | sed 's/^ // ; s/ \+/ /g ; s/ $//' )"
+		export CFLAGS CXXFLAGS
+		unset cc_opt cxx_flags cc_flags
+	fi
+fi
 
 # As-of sys-libs/zlib-1.2.11-r3, zlib builds without error but then the portage
 # merge process aborts with 'unable to read SONAME from libz.so' in src_install
@@ -1025,6 +1061,16 @@ then
 		"rebuild for '${python_default_targets%%" "*}' ..."
 	echo
 	(
+		# First, let's try to get a working 'qatom' from
+		# app-portage/portage-utils...
+		export QA_XLINK_ALLOWED='*'
+		export FEATURES='-preserve-libs'
+		export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/python"
+		export USE='-clang -openmp -qmanifest -static'
+		do_emerge --once-defaults \
+			app-portage/portage-utils || :
+	)
+	(
 		export QA_XLINK_ALLOWED='*'
 		export FEATURES='-preserve-libs'
 		export PKGDIR="${PKGDIR:-"${pkgdir:-}"}/stages/python"
@@ -1051,53 +1097,108 @@ then
 		# shellcheck disable=SC2046
 		{
 			rm -f /usr/lib64/libuuid.so.1*
-			rm -f /usr/lib/$( echo "${python_default_targets%%" "*}" | sed 's/_/./' )/lib-dynload/_uuid.cpython-*.so
+			rm -f /usr/lib/$( echo "${python_default_targets%%" "*}" |
+				sed 's/_/./' )/lib-dynload/_uuid.cpython-*.so
 		}
 
-		# shellcheck disable=SC2046,SC2086
-		#	debug=1 \
-		do_emerge --once-defaults \
-			$(
-				# The 20240605 arm64 stage3 image contains several outdated
-				# pakages which no longer exist in the portage tree :(
-				#
-				grep 'python_[^ ]*target' \
-						"${ROOT:-}"/var/db/pkg/*/*/USE |
-					grep -v "_${python_default_targets%%" "*}" |
-					grep '_python3_' |
-					grep -v 'backports' |
-					cut -d':' -f 1 |
-					rev |
-					cut -d'/' -f 2-3 |
-					rev |
-					sed -r 's|^(.*)-[0-9].*$|\1|' |
-					xargs -r
-			)
+		if command -v qatom >/dev/null; then
+			# shellcheck disable=SC2046,SC2086
+			do_emerge --once-defaults \
+				$(
+					P=''
 
-		list="$( # <- Syntax
-			{
-				echo "<dev-lang/$(
-					echo "${python_default_targets}" |
-						sed 's/3_/-3./' |
-						sort -V |
-						tail -n 1
-				)"
-				grep 'python_[^ ]*target' \
-						"${ROOT:-}"/var/db/pkg/*/*/USE |
-					grep -v "_${python_default_targets%%" "*}" |
-					grep '_python3_' |
-					grep 'backports' |
-					cut -d':' -f 1 |
-					rev |
-					cut -d'/' -f 2-3 |
-					rev |
-					sed -r 's|^(.*)-[0-9].*$|\1|' |
+					# The 20240605 arm64 stage3 image contains several outdated
+					# pakages which no longer exist in the portage tree :(
+					#
+					grep 'python_[^ ]*target' \
+							"${ROOT:-}"/var/db/pkg/*/*/USE |
+						grep -v "_${python_default_targets%%" "*}" |
+						grep '_python3_' |
+						grep -v 'backports' |
+						cut -d':' -f 1 |
+						rev |
+						cut -d'/' -f 2-3 |
+						rev |
+						while read -r P; do
+							qatom -CF '%{CATEGORY}/%{PN}' "${P}"
+						done |
+						xargs -r
+				)
+
+			list="$( # <- Syntax
+				{
+					P=''
+
+					echo "<dev-lang/$(
+						echo "${python_default_targets}" |
+							sed 's/3_/-3./' |
+							sort -V |
+							tail -n 1
+					)"
+					grep 'python_[^ ]*target' \
+							"${ROOT:-}"/var/db/pkg/*/*/USE |
+						grep -v "_${python_default_targets%%" "*}" |
+						grep '_python3_' |
+						grep 'backports' |
+						cut -d':' -f 1 |
+						rev |
+						cut -d'/' -f 2-3 |
+						rev |
+						while read -r P; do
+							qatom -CF '%{CATEGORY}/%{PN}' "${P}"
+						done |
+						xargs -r
+				} |
+					grep -Fv -- '::' |
+					sort -V |
 					xargs -r
-			} |
-				grep -Fv -- '::' |
-				sort -V |
-				xargs -r
-		)"
+			)"
+		else
+			# shellcheck disable=SC2046,SC2086
+			#	debug=1 \
+			do_emerge --once-defaults \
+				$(
+					# The 20240605 arm64 stage3 image contains several outdated
+					# pakages which no longer exist in the portage tree :(
+					#
+					grep 'python_[^ ]*target' \
+							"${ROOT:-}"/var/db/pkg/*/*/USE |
+						grep -v "_${python_default_targets%%" "*}" |
+						grep '_python3_' |
+						grep -v 'backports' |
+						cut -d':' -f 1 |
+						rev |
+						cut -d'/' -f 2-3 |
+						rev |
+						sed -r 's|^(.*)-[0-9].*$|\1|' |
+						xargs -r
+				)
+
+			list="$( # <- Syntax
+				{
+					echo "<dev-lang/$(
+						echo "${python_default_targets}" |
+							sed 's/3_/-3./' |
+							sort -V |
+							tail -n 1
+					)"
+					grep 'python_[^ ]*target' \
+							"${ROOT:-}"/var/db/pkg/*/*/USE |
+						grep -v "_${python_default_targets%%" "*}" |
+						grep '_python3_' |
+						grep 'backports' |
+						cut -d':' -f 1 |
+						rev |
+						cut -d'/' -f 2-3 |
+						rev |
+						sed -r 's|^(.*)-[0-9].*$|\1|' |
+						xargs -r
+				} |
+					grep -Fv -- '::' |
+					sort -V |
+					xargs -r
+			)"
+		fi
 		echo "Package list: ${list}"
 		echo
 		# shellcheck disable=SC2086
@@ -1148,7 +1249,8 @@ usex() {
 		fi
 	fi
 	unset usex_value usex_false usex_true usex_var
-}
+}  # usex
+
 # We need to leave the system in a similar state to before we started, so build
 # ithreads packages first, then reinstall the previous packages without
 # ithreads
@@ -1556,6 +1658,14 @@ done  # for pkg in ...
 unset pkg
 #LC_ALL='C' eselect awk set gawk || :
 
+# Since we've rebuilt sys-devel/gcc, restore user-specified *FLAGS
+#
+[ -n "${_o_CFLAGS:-}" ] &&
+	export CFLAGS="${_o_CFLAGS}"
+[ -n "${_o_CXXFLAGS:-}" ] &&
+	export CXXFLAGS="${_o_CXXFLAGS}"
+unset _o_CFLAGS _o_CXXFLAGS
+
 # Now we can build our ROOT environment...
 #
 echo
@@ -1694,7 +1804,7 @@ if [ -n "${pkg_initial:-}" ]; then
 							"${PYTHON_TARGETS}"
 				)"
 			fi
-		else
+		else # [ "${ROOT:-"/"}" != '/' ]; then
 			print "'python_targets' is '${python_targets:-}'," \
 				"'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}'," \
 				"'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
@@ -1712,10 +1822,41 @@ if [ -n "${pkg_initial:-}" ]; then
 				"'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
 		fi
 
+		# graphite sanity check...
+		#
+		if echo "${CFLAGS:-} ${CXXFLAGS:-} ${FFLAGS:-} ${FCFLAGS:-}" |
+				grep -Fqw \
+					-e '-fgraphite' \
+					-e '-fgraphite-identity' \
+					-e '-floop-nest-optimize' \
+					-e '-floop-parallelize-all'
+		then
+			# USE flags could be set on a per-package basis, from files or in
+			# the environment - I'm not sure there's any better/lower-impact
+			# way to determine what is actually active?
+			#
+			if emerge --ignore-default-opts --color=n -vp --nodeps \
+						sys-devel/gcc 2>&1 |
+					grep -Fqw -- '-graphite'
+			then
+				warn "graphite CFLAGS active but required USE flag not set -" \
+					"adding 'graphite' to USE ..."
+				export USE="${USE:+"${USE} "}graphite"
+			else
+				print "ROOT '${ROOT:-"/"}' correctly has 'graphite' USE flag" \
+					"to match active CFLAGS"
+			fi
+		else
+			print "ROOT '${ROOT:-"/"}' does not need 'graphite' USE flag"
+		fi
+
 		info="$( LC_ALL='C' emerge --info --verbose=y )"
 		echo
 		echo 'Resolved build variables for initial packages:'
 		echo '---------------------------------------------'
+		echo
+		echo "${info}" | format 'CFLAGS'
+		echo "${info}" | format 'LDFLAGS'
 		echo
 		echo "ROOT                = $( # <- Syntax
 			echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
@@ -1808,13 +1949,17 @@ if [ -n "${pkg_initial:-}" ]; then
 						if [ "${ARCH}" = 'arm64' ]; then
 							USE="${USE:-} gold"
 						fi
-						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+						export USE PERL_FEATURES PYTHON_SINGLE_TARGET \
+							PYTHON_TARGETS
 
 						info="$( LC_ALL='C' emerge --info --verbose=y )"
 						echo
 						echo 'Resolved build variables for python' \
 							'prerequisites:'
 						echo '---------------------------------------------'
+						echo
+						echo "${info}" | format 'CFLAGS'
+						echo "${info}" | format 'LDFLAGS'
 						echo
 						echo "ROOT                = $( # <- Syntax
 							echo "${info}" |
@@ -1875,6 +2020,7 @@ if [ -n "${pkg_initial:-}" ]; then
 						PORTAGE_ELOG_SYSTEM='echo save'
 						export PORTAGE_ELOG_SYSTEM
 
+						# ROOT == '/'
 						echo
 						echo " * Building python prerequisites into ROOT" \
 							"'${ROOT:-"/"}' ..."
@@ -1888,7 +2034,12 @@ if [ -n "${pkg_initial:-}" ]; then
 						#        binary packages in a more controlled
 						#        environment first?
 						#
+						# Include sys-devel/gcc and dev-libs/isl here in case
+						# graphite USE flags are enabled...
+						#
 						do_emerge --build-defaults --emptytree \
+							sys-devel/gcc \
+							dev-libs/isl \
 							app-crypt/libmd \
 							dev-libs/libbsd \
 							dev-python/hatchling \
@@ -1898,6 +2049,10 @@ if [ -n "${pkg_initial:-}" ]; then
 					# Install same dependencies again within our build ROOT...
 					#
 					(
+						SYSROOT="/"
+						PORTAGE_CONFIGROOT="${SYSROOT}"
+						export SYSROOT PORTAGE_CONFIGROOT
+
 						case "${ROOT:-}" in
 							''|'/')
 								die "Unexpected value '${ROOT:-}' for ROOT" \
@@ -1926,17 +2081,103 @@ if [ -n "${pkg_initial:-}" ]; then
 						if [ "${ARCH}" = 'arm64' ]; then
 							USE="${USE:-} gold"
 						fi
-						export USE PERL_FEATURES PYTHON_SINGLE_TARGET PYTHON_TARGETS
+						export USE PERL_FEATURES PYTHON_SINGLE_TARGET \
+							PYTHON_TARGETS
 
+						# graphite sanity check...
+						#
+						if echo "${CFLAGS:-} ${CXXFLAGS:-}" \
+									"${FFLAGS} ${FCFLAGS}" |
+								grep -Fqw -e '-fgraphite' \
+									-e '-fgraphite-identity' \
+									-e '-floop-nest-optimize' \
+									-e '-floop-parallelize-all'
+						then
+							# USE flags could be set on a per-package basis,
+							# from files or in the environment - I'm not sure
+							# there's any better/lower-impact way to determine
+							# what is actually active?
+							#
+							#if ! echo "${USE:-}" | grep -Fqw 'graphite'; then
+							if emerge --ignore-default-opts --color=n -vp \
+											--nodeps \
+										sys-devel/gcc 2>&1 |
+									grep -Fqw -- '-graphite'
+							then
+								warn "graphite CFLAGS active but required" \
+									"USE flag not set - adding 'graphite'" \
+									"to USE ..."
+								export USE="${USE:+"${USE} "}graphite"
+							else
+								print "ROOT '${ROOT:-"/"}' correctly has" \
+									"'graphite' USE flag to match active" \
+									"CFLAGS"
+							fi
+						else
+							print "ROOT '${ROOT:-"/"}' does not need" \
+								"'graphite' USE flag"
+						fi
+
+						# openmp sanity check...
+						if echo "${CFLAGS:-} ${CXXFLAGS:-}" |
+								grep -Fqw -e '-fopenmp'
+						then
+							# USE flags could be set on a per-package basis,
+							# from files or in the environment - I'm not sure
+							# there's any better/lower-impact way to determine
+							# what is actually active?
+							#
+							#if ! echo "${USE:-}" | grep -Fqw 'graphite'; then
+							if emerge --ignore-default-opts --color=n -vp \
+											--nodeps \
+										sys-devel/gcc 2>&1 |
+									grep -Fqw -- '-openmp'
+							then
+								warn "OpenMP CFLAGS active but required" \
+									"USE flag not set - adding 'openmp'" \
+									"to USE ..."
+								export USE="${USE:+"${USE} "}openmp"
+							else
+								print "ROOT '${ROOT:-"/"}' correctly has" \
+									"'openmp' USE flag to match active" \
+									"CFLAGS"
+							fi
+						else
+							print "ROOT '${ROOT:-"/"}' does not need" \
+								"'openmp' USE flag"
+						fi
+						# TODO: ... generalise this ^^^
+
+						# ROOT == '/build'
 						echo
 						echo " * Building python prerequisites into ROOT" \
 							"'${ROOT}' ..."
 						echo
-						do_emerge --build-defaults --emptytree \
+						# Include sys-devel/gcc and dev-libs/isl here in case
+						# graphite USE flags are enabled...
+						#
+						# Additionally, (at least) app-arch/libarchive,
+						# app-crypt/libb2, sys-devel/gettext and
+						# sys-libs/libxcrypt depend on 'libgomp', but aren't
+						# rebuilt when 'openmp' is removed from sys-devel/gcc.
+						#
+						# With '--emptytree', portage is trying to install
+						# sys-devel/gcc to "${ROOT}" with the appropriate
+						# flags, but first to re-merge it into '/' with empty
+						# flags, which then breaks later builds with graphite
+						# CFLAGS :(
+						#
+						do_emerge --build-defaults \
+							app-arch/libarchive \
+							app-crypt/libb2 \
 							app-crypt/libmd \
+							dev-libs/isl \
 							dev-libs/libbsd \
 							dev-python/hatchling \
-							dev-python/setuptools # || :
+							dev-python/setuptools \
+							sys-devel/gcc \
+							sys-devel/gettext \
+							sys-libs/libxcrypt # || :
 					)
 				elif [ "${pkg}" = 'dev-perl/Locale-gettext' ]; then  # [ "${pkg}" != 'sys-apps/help2man' ]
 					(
@@ -1955,6 +2196,17 @@ if [ -n "${pkg_initial:-}" ]; then
 							"'${ROOT:-"/"}' for package '${pkg}' ..."
 						echo
 
+						# Using --emptytree below causes portage to
+						# unnecessarily rebuild existing root-dependencies
+						# without any USE flags set, breaking the process if
+						# graphite-specific CFLAGS are active.  So far we've
+						# been trying to ensure that the correct USE flags are
+						# present to suit the user's CFLAGS, but instead if
+						# the approach below doesn't work and --emptytree is
+						# needed (which is due to portage limitations in the
+						# first place), then we'll have to filter the user's
+						# CFLAGS simply in order to proceed >:(
+						#
 						# shellcheck disable=SC2046,SC2086
 							PERL_FEATURES='' \
 							USE="$( # <- Syntax
@@ -1969,7 +2221,6 @@ if [ -n "${pkg_initial:-}" ]; then
 							)" \
 						do_emerge \
 								--build-defaults \
-								--emptytree \
 							dev-lang/perl \
 							$(
 								grep -lw 'perl_features_ithreads' \
@@ -1981,6 +2232,7 @@ if [ -n "${pkg_initial:-}" ]; then
 									xargs -r
 							) \
 							${pkg} # || :
+								#--emptytree \
 					)
 				else  # [ "${pkg}" != 'sys-apps/help2man' ] && [ "${pkg}" != 'dev-perl/Locale-gettext' ]
 
@@ -2074,6 +2326,9 @@ echo
 		echo "Resolved build variables for @system in ROOT '${ROOT}':"
 		echo '------------------------------------'
 		echo
+		echo "${info}" | format 'CFLAGS'
+		echo "${info}" | format 'LDFLAGS'
+		echo
 		echo "ROOT                = $( # <- Syntax
 			echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
 		)"
@@ -2122,7 +2377,8 @@ echo
 		echo
 		#	debug=1 \
 			USE="${USE:+"${USE} "}openmp" \
-		do_emerge --system-defaults sys-devel/gcc
+		do_emerge --system-defaults sys-devel/gcc app-arch/libarchive \
+			app-crypt/libb2 sys-devel/gettext sys-libs/libxcrypt
 
 		# ... likewise sys-apps/net-tools[hostname] (for which the recommended
 		# fix is sys-apps/coreutils[hostname]?)
@@ -2192,7 +2448,9 @@ echo
 				--exclude='sys-apps/net-tools' \
 				--system-defaults \
 			${pkg_system} dev-libs/nettle net-libs/gnutls dev-lang/python \
-				dev-libs/libxml2 sys-devel/gettext
+				dev-libs/libxml2 sys-devel/gettext \
+				app-arch/libarchive app-crypt/libb2 sys-devel/gettext \
+				sys-libs/libxcrypt
 		unset root_use
 
 		echo
@@ -2298,6 +2556,9 @@ info="$( LC_ALL='C' emerge --info --verbose=y )"
 echo
 echo 'Resolved build variables after init stage:'
 echo '-----------------------------------------'
+echo
+echo "${info}" | format 'CFLAGS'
+echo "${info}" | format 'LDFLAGS'
 echo
 echo "ROOT                = $( # <- Syntax
 	echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
@@ -2410,7 +2671,7 @@ case "${1:-}" in
 		echo
 		echo " * Building requested '$( # <- Syntax
 			printf '%s' "${*}" |
-				sed 's/--[^ ]\+ //g'
+				sed 's/--[^ ]\+ \?//g'
 		)' packages ${post_pkgs:+"(with post-package list) "}..."
 		echo
 
@@ -2459,6 +2720,9 @@ case "${1:-}" in
 		echo
 		echo 'Resolved build variables for post-installation packages:'
 		echo '-------------------------------------------------------'
+		echo
+		echo "${info}" | format 'CFLAGS'
+		echo "${info}" | format 'LDFLAGS'
 		echo
 		echo "${info}" | format 'USE'
 		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
@@ -2521,17 +2785,28 @@ case "${1:-}" in
 					export SYSROOT="${ROOT}"
 					export PORTAGE_CONFIGROOT="${SYSROOT}"
 					echo
-					echo " * Building temporary post-packages 'app-crypt/libb2 sys-apps/coreutils sys-devel/gcc sys-devel/gettext sys-libs/glibc' to ROOT '${ROOT:-"/"}' ..."
+					echo " * Building temporary post-packages" \
+						"'app-crypt/libb2 sys-apps/coreutils sys-devel/gcc" \
+						"sys-devel/gettext sys-libs/glibc' to ROOT" \
+						"'${ROOT:-"/"}' ..."
 					echo
 
+					# If we don't include 'openmp' in the USE flags here, we
+					# hit a hard dependencies failure when performing the
+					# ROOT='/build' Stage 1b cleanup below :(
+					#
 					# shellcheck disable=SC2086
-						USE="${use_essential_gcc} compile-locales -gmp minimal multiarch -openmp" \
+					#	USE="${use_essential_gcc} compile-locales -gmp minimal multiarch -openmp" \
+					# shellcheck disable=SC2086
+						USE="${use_essential_gcc} compile-locales -gmp minimal multiarch openmp" \
 					do_emerge --defaults ${parallel} --usepkg=y \
+							app-arch/libarchive \
 							app-crypt/libb2 \
 							sys-apps/coreutils \
 							sys-devel/gcc \
 							sys-devel/gettext \
-							sys-libs/glibc ||
+							sys-libs/glibc \
+							sys-libs/libxcrypt ||
 						rc=${?}
 
 					echo
@@ -2718,7 +2993,6 @@ case "${1:-}" in
 								uniq |
 								xargs -r
 						)"
-						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 						eval "$( # <- Syntax
 							resolve_python_flags \
 								"${USE}" \
@@ -2734,6 +3008,28 @@ case "${1:-}" in
 								sed 's|^.*/var/db/pkg/|>=| ; s|/$||'
 						)"
 
+						# The step below is now failing as
+						# sys-devel/clang-runtime[openmp] - which is not even
+						# installed - is not present, despite 'openmp' being a
+						# specified USE flag :(
+						#
+						#pkgs="${pkgs:-} sys-devel/clang-runtime"
+						#USE="-sanitize ${USE}"
+						#
+						# ... although is this actually because the 'clang' USE
+						# flag is being applied to app-crypt/libb2?
+						#
+						#USE="$( # <- Syntax
+						#	echo " ${USE} " |
+						#		sed -r \
+						#			-e 's/ clang / /g' \
+						#			-e 's/ sanitize / /g' \
+						#			-e 's/ \+/ /g ; s/^ \+// ; s/ \+$//'
+						#) -clang -sanitize"
+						#pkgs="${pkgs:-} sys-devel/clang-runtime"
+
+						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+
 						info="$( # <- Syntax
 								LC_ALL='C' \
 								SYSROOT="${ROOT}" \
@@ -2743,6 +3039,9 @@ case "${1:-}" in
 						echo
 						echo "Resolved build variables for python cleanup stage 1 in ROOT '${ROOT}':"
 						echo '---------------------------------------------------'
+						echo
+						echo "${info}" | format 'CFLAGS'
+						echo "${info}" | format 'LDFLAGS'
 						echo
 						echo "ROOT                = $( # <- Syntax
 							echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
@@ -2759,6 +3058,26 @@ case "${1:-}" in
 						echo "${info}" | format 'PYTHON_TARGETS'
 						print "pkgs: '${pkgs}'"
 
+						# At this point, there seems to be no means by which to
+						# coax the portage dependency-resolving into doing the
+						# right thing :(
+						#
+						# Let's try hand-holding individual packages to see if
+						# we can get it over the line...
+						#
+						#	USE="openmp" \
+						#do_emerge --rebuild-defaults sys-devel/clang-runtime
+						#	USE="-clang openmp" \
+						#do_emerge --rebuild-defaults app-crypt/libb2
+
+						# I give up - even with sys-devel/clang-runtime[openmp]
+						# and app-crypt/libb2[openmp,-clang] installed, the
+						# invocation below fails because - apparently - it
+						# can't resolve sys-devel/clang-runtime[openmp]. And
+						# this is after updating the USE flag for
+						# app-crypt/libb2 to '-clang'. It's all very
+						# frustrating...
+						#
 						# Don't force USE='python' until sys-process/audit
 						# supports python:3.12...
 						# shellcheck disable=SC2015,SC2086
@@ -2767,12 +3086,12 @@ case "${1:-}" in
 									sed -r \
 										-e 's/ python_targets_[^ ]+ / /g' \
 										-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
-										-e 's/ python //g' \
-										-e 's/^ // ; s/ $//'
+										-e 's/ python / /g' \
+										-e 's/ \+/ /g ; s/^ \+// ; s/ \+$//'
 							) openmp" \
 							PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
-						do_emerge --rebuild-defaults --deep ${pkgs} ||
-							rc=${?}
+						do_emerge --rebuild-defaults ${pkgs} ||
+							rc=${?}  # --deep
 						if [ $(( rc )) -ne 0 ]; then
 							echo "ERROR: Stage 1b cleanup for root '${ROOT}': ${rc}"
 							break
@@ -2791,6 +3110,9 @@ case "${1:-}" in
 						echo "Resolved build variables for python cleanup stage 2 in ROOT '${ROOT}':"
 						echo '---------------------------------------------------'
 						echo
+						echo "${info}" | format 'CFLAGS'
+						echo "${info}" | format 'LDFLAGS'
+						echo
 						echo "${info}" | format 'USE'
 						echo "${info}" | format 'PYTHON_TARGETS'
 
@@ -2799,6 +3121,7 @@ case "${1:-}" in
 						# independent, and identifying the packages built
 						# against old python versions should be
 						# exhaustive...
+						#
 						#pkgs=''
 						for arg in ${USE}; do
 							print "Checking for '${arg}' in '${remove}' ..."

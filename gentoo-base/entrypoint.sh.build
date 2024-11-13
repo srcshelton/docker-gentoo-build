@@ -676,7 +676,7 @@ applyworkarounds() {
 
 	aw_pkgs='app-containers/podman app-containers/netavark app-containers/aardvark-dns virtual/rust dev-lang/rust dev-util/bindgen'
 	[ $(( aw_mode )) -ne 2 ] &&
-		info >&2 "Checking for ${aw_pkgs} work-arounds ..."
+		info >&2 "Checking for ${aw_pkgs} work-arounds ..."  # ! post_use
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
 		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
@@ -689,12 +689,12 @@ applyworkarounds() {
 				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
 		)" && [ -n "${aw_pkg:-}" ]
 	then
-		if [ $(( aw_mode )) -eq 1 ]; then
+		if [ $(( aw_mode )) -eq 1 ]; then  # post_pkgs
 			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
 			warn >&2 "Adding post-package entry 'net-misc/curl'" \
 				"due to presence of ${aw_pkg} ..."
 			aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}net-misc/curl"
-		elif [ $(( aw_mode )) -eq 0 ]; then
+		elif [ $(( aw_mode )) -eq 0 ]; then  # USE
 			warn >&2 "Activating app-containers/netavark work-arounds ..."
 			print >&2 "Before work-around, USE is '${aw_USE}' ..."
 			aw_USE="${aw_USE:+"$( # <- Syntax
@@ -706,7 +706,7 @@ applyworkarounds() {
 
 	aw_pkgs='dev-lang/php media-libs/freetype media-libs/harfbuzz'
 	[ $(( aw_mode )) -ne 2 ] &&
-		info >&2 "Checking for ${aw_pkgs} work-arounds ..."
+		info >&2 "Checking for ${aw_pkgs} work-arounds ..."  # !post_use
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
 		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
@@ -719,12 +719,12 @@ applyworkarounds() {
 				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
 		)" && [ -n "${aw_pkg:-}" ]
 	then
-		if [ $(( aw_mode )) -eq 1 ]; then
+		if [ $(( aw_mode )) -eq 1 ]; then  # post_pkgs
 			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
 			warn >&2 "Adding post-package entry 'media-libs/freetype'" \
 				"due to presence of ${aw_pkg} ..."
 			aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}media-libs/freetype"
-		elif [ $(( aw_mode )) -eq 0 ]; then
+		elif [ $(( aw_mode )) -eq 0 ]; then  # USE
 			warn >&2 "Activating media-libs/harfbuzz work-arounds ..."
 			print >&2 "Before work-around, USE is '${aw_USE}' ..."
 			aw_USE="${aw_USE:+"$( # <- Syntax
@@ -754,7 +754,7 @@ applyworkarounds() {
 	#			"due to presence of ${aw_pkg} ..."
 	#		aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}sys-libs/libxcrypt virtual/libcrypt"
 	#	elif [ $(( aw_mode )) -eq 0 ]; then
-	#		if ! command -V equery >/dev/null 2>&1; then
+	#		if ! command -v equery >/dev/null 2>&1; then
 	#			warn >&2 "Unable to activate sys-apps/busybox, sys-libs/libxcrypt &" \
 	#				"virtual/libcrypt work-arounds due to 'equery' missing"
 	#		else
@@ -774,25 +774,37 @@ applyworkarounds() {
 
 	aw_pkgs='sys-devel/gcc'
 	[ $(( aw_mode )) -ne 2 ] &&
-		info >&2 "Checking for ${aw_pkgs} work-arounds ..."
+		info >&2 "Checking for ${aw_pkgs} work-arounds ..."  # ! post_use
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
 		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
 	done
 	aw_pkg=''
-	#print >&2 "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+	#print >&2 "Matching ' ${aw_arg} ' against" \
+	#	"' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
 	if aw_pkg="$( # <- Syntax
 			echo " ${aw_arg} " |
 				sed 's/ /  /g' |
 				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
 		)" && [ -n "${aw_pkg:-}" ]
 	then
-		if [ $(( aw_mode )) -eq 1 ]; then
+		if [ $(( aw_mode )) -eq 2 ]; then  # post_use
+			warn >&2 "Adding post-package USE flag '-graphite' due to" \
+				"presence of ${aw_pkg} ..."
+			aw_post_use="${aw_post_use:+"${aw_post_use} "}-graphite"
+			if echo "${CFLAGS:-} ${CXXFLAGS:-}" |
+					grep -Fqw -- '-fopenmp'
+			then
+				warn >&2 "Adding post-package USE flag 'openmp' due to" \
+					"presence of ${aw_pkg} and '-fopenmp' CFLAG ..."
+				aw_post_use="${aw_post_use:+"${aw_post_use} "}openmp"
+			fi
+		elif [ $(( aw_mode )) -eq 1 ]; then  # post_pkgs
 			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
 			warn >&2 "Adding post-package entry 'sys-devel/gcc'" \
 				"due to presence of ${aw_pkg} ..."
 			aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}sys-devel/gcc"
-		elif [ $(( aw_mode )) -eq 0 ]; then
+		elif [ $(( aw_mode )) -eq 0 ]; then  # USE
 			aw_gcc_use=''
 			warn >&2 "Activating sys-devel/gcc work-arounds ..."
 			print >&2 "Before work-around, USE is '${aw_USE}' ..."
@@ -800,10 +812,40 @@ applyworkarounds() {
 			# ${use_essential_gcc} is referenced unassigned here...
 			#
 			# shellcheck disable=SC2154
-			aw_gcc_use="$( # <- Syntax
-				echo " ${use_essential_gcc} " |
-					sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
-			)"
+			if echo "${CFLAGS:-} ${CXXFLAGS:-}" |
+					grep -Fqw \
+						-e '-fgraphite' \
+						-e '-fgraphite-identity' \
+						-e '-floop-nest-optimize' \
+						-e '-floop-parallelize-all'
+			then
+				if ! echo " ${use_essential_gcc} " | grep -Fq -- ' graphite '
+				then
+					warn >&2 "Adding USE flag 'graphite' due to active CFLAGs"
+					aw_gcc_use="${use_essential_gcc} graphite"
+				else
+					print >&2 "USE flags include 'graphite' as required by" \
+						"active CFLAGS"
+				fi
+			else
+				if echo " ${use_essential_gcc} " | grep -Fq -- ' graphite '
+				then
+					warn >&2 "Safely removing USE flag 'graphite' due to" \
+						"inactive CFLAGs"
+					aw_gcc_use="$( # <- Syntax
+						echo " ${use_essential_gcc} " |
+							sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
+					)"
+				else
+					print >&2 "Neither USE flags for CFLAGS include 'graphite'"
+				fi
+			fi
+			if echo "${CFLAGS:-} ${CXXFLAGS:-}" |
+					grep -Fqw -- '-fopenmp'
+			then
+				warn >&2 "Adding USE flag 'openmp' due to CFLAG '-fopenmp'"
+				aw_gcc_use="${aw_gcc_use:+"${aw_gcc_use} "}openmp"
+			fi
 			aw_USE="${aw_USE:+"$( # <- Syntax
 				echo " ${aw_USE} " |
 					sed 's/ lib-only / / ; s/^ //'
@@ -815,7 +857,7 @@ applyworkarounds() {
 
 	aw_pkgs='sys-libs/glibc'
 	[ $(( aw_mode )) -ne 2 ] &&
-		info >&2 "Checking for ${aw_pkgs} work-arounds ..."
+		info >&2 "Checking for ${aw_pkgs} work-arounds ..."  # ! post_use
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
 		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
@@ -828,12 +870,12 @@ applyworkarounds() {
 				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
 		)" && [ -n "${aw_pkg:-}" ]
 	then
-		if [ $(( aw_mode )) -eq 1 ]; then
+		if [ $(( aw_mode )) -eq 1 ]; then  # post_pkgs
 			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
 			warn >&2 "Adding post-package entry 'sys-libs/glibc'" \
 				"due to presence of ${aw_pkg} ..."
 			aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}sys-libs/glibc"
-		elif [ $(( aw_mode )) -eq 0 ]; then
+		elif [ $(( aw_mode )) -eq 0 ]; then  # USE
 			aw_gcc_use=''
 			warn >&2 "Activating sys-libs/glibc work-arounds ..."
 			print >&2 "Before work-around, USE is '${aw_USE}' ..."
@@ -846,7 +888,7 @@ applyworkarounds() {
 
 	aw_pkgs='sys-libs/llvm-libunwind sys-devel/clang sys-devel/clang-common'
 	[ $(( aw_mode )) -ne 2 ] &&
-		info >&2 "Checking for ${aw_pkgs} work-arounds ..."
+		info >&2 "Checking for ${aw_pkgs} work-arounds ..."  # ! post_use
 	aw_list=''
 	for aw_pkg in ${aw_pkgs}; do
 		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
@@ -859,7 +901,7 @@ applyworkarounds() {
 				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
 		)" && [ -n "${aw_pkg:-}" ]
 	then
-		if [ $(( aw_mode )) -eq 0 ]; then
+		if [ $(( aw_mode )) -eq 0 ]; then  # USE
 			warn >&2 "Activating sys-libs/llvm-libunwind work-arounds ..."
 			print >&2 "Before work-around, USE is '${aw_USE}' ..."
 			aw_USE="${aw_USE:+"$( # <- Syntax
@@ -877,7 +919,7 @@ applyworkarounds() {
 			print >&2 "After work-around, USE is '${aw_USE}'"
 		else
 			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
-			if [ $(( aw_mode )) -eq 2 ]; then
+			if [ $(( aw_mode )) -eq 2 ]; then  # post_use
 				# 'default-compiler-rt' is a USE flag for
 				# sys-devel/clang:14 but for sys-devel/clang-common
 				# thereafter...
@@ -899,7 +941,7 @@ applyworkarounds() {
 					done
 					unset flag
 				fi
-			elif [ $(( aw_mode )) -eq 1 ]; then
+			elif [ $(( aw_mode )) -eq 1 ]; then  # post_pkgs
 				warn >&2 "Adding post-package entries 'sys-devel/clang' and" \
 					"'sys-devel/clang-common' due to presence of" \
 					"${aw_pkg} ..."
@@ -910,7 +952,7 @@ applyworkarounds() {
 
 	unset aw_pkg aw_list aw_pkgs aw_arg
 
-	if [ $(( aw_mode )) -eq 2 ]; then
+	if [ $(( aw_mode )) -eq 2 ]; then  # post_use
 		if [ -n "${aw_post_use:-}" ]; then
 			aw_post_use="$( # <- Syntax
 				echo "${aw_post_use}" |
@@ -922,7 +964,7 @@ applyworkarounds() {
 			#export post_use="${aw_post_use}"
 			echo "${aw_post_use}"
 		fi
-	elif [ $(( aw_mode )) -eq 1 ]; then
+	elif [ $(( aw_mode )) -eq 1 ]; then  # post_pkgs
 		if [ -n "${aw_post_pkgs:-}" ]; then
 			aw_post_pkgs="$( # <- Syntax
 				echo "${aw_post_pkgs}" |
@@ -2371,7 +2413,10 @@ case "${1:-}" in
 			# portage is *still* tripping over sys-devel/gcc[openmp] :(
 			#
 			extra_pkgs=''
-			if grep -qw -- 'openmp' "${ROOT%"/"}"/var/db/pkg/*/*/USE; then
+			if grep -qw -- 'openmp' "${ROOT%"/"}"/var/db/pkg/*/*/USE ||
+					echo "${CFLAGS:-} ${CXXFLAGS:-}" |
+						grep -Fqw -- '-fopenmp'
+			then
 				# FIXME: Apparently we need USE flags for app-alternatives/yacc
 				# and app-alternatives/lex here too...
 				post_use="${post_use:+"${post_use} "}bison flex openmp"
@@ -2572,74 +2617,89 @@ case "${1:-}" in
 						grep -Fv -- 'gcc-config' |
 						xargs -r
 				)"
-				if [ -n "${gcc_pkgs:-}" ]; then
-					# FIXME: If we're building with '--nodeps' (to avoid
-					# unnecessary 'lib-only' dependencies) but we don't have a
-					# pre-exising binary package, then we need sys-devel/gcc
-					# BDEPEND packages to be present...
-					#
-					gcc_build_pkgs="app-portage/elt-patches sys-apps/texinfo sys-devel/flex sys-devel/m4"
+				if [ -z "${gcc_pkgs:-}" ]; then
+					# If the 'lib-only' USE flag is set, then we can reach
+					# this point without sys-devel/gcc being included in the
+					# post-build package list...
+					print "\${gcc_exclude} ('${gcc_exclude}') is set, but no" \
+						"\${gcc_pkgs} discovered from \${packages}" \
+						"('${packages}') for installation"
+					gcc_pkgs='sys-devel/gcc'
+				fi
 
-					# shellcheck disable=SC2086
-					{
-						(
-							export USE="${USE} ${use_essential_gcc} -nls"
+				# FIXME: If we're building with '--nodeps' (to avoid
+				# unnecessary 'lib-only' dependencies) but we don't have a
+				# pre-exising binary package, then we need sys-devel/gcc
+				# BDEPEND packages to be present...
+				#
+				gcc_build_pkgs="app-portage/elt-patches sys-apps/texinfo sys-devel/flex sys-devel/m4"
 
-							echo
-							echo " * Building post-installation" \
-								"'${gcc_pkgs}' support packages" \
-								"'${gcc_build_pkgs}' into installation root" \
-								"'${ROOT}' with USE flags '${USE}' ..."
-							echo
+				# shellcheck disable=SC2086
+				{
+					(
+						export ROOT='/' SYSROOT='/' PORTAGE_CONFIGROOT='/'
+						export USE="${USE} ${use_essential_gcc} -nls"
 
-							do_emerge \
-									  ${opts} \
-									  ${parallel} \
-									--buildpkg=y \
-									--nodeps \
-									--oneshot \
-									--usepkg=y \
-									--with-bdeps-auto=n \
-									--with-bdeps=n \
-									  ${flags:-} \
-								-- ${gcc_build_pkgs}
-						) && (
-							if echo " ${USE} " | grep -q -- ' lib-only '; then
-								USE="${USE} $( # <- Syntax
-									echo " ${use_essential_gcc} " |
-										sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
-								) lto pgo"
-							else
-								USE="${USE} ${use_essential_gcc}"
-							fi
-							export USE
+						echo
+						echo " * Building post-installation" \
+							"'${gcc_pkgs}' support packages" \
+							"'${gcc_build_pkgs}' into installation root" \
+							"'${ROOT}' with USE flags '${USE}' ..."
+						echo
 
-							echo
-							echo " * Building post-installation" \
-								"'${gcc_pkgs}' package(s) into installation" \
-								"root '${ROOT}' with USE flags '${USE}' ..."
-							echo
+						do_emerge \
+								  ${opts} \
+								  ${parallel} \
+								--buildpkg=y \
+								--nodeps \
+								--oneshot \
+								--usepkg=y \
+								--with-bdeps-auto=n \
+								--with-bdeps=n \
+								  ${flags:-} \
+							-- ${gcc_build_pkgs}
+					) && (
+						if echo " ${USE} " | grep -Fq -- ' lib-only '; then
+							# If we're not building a usable toolchain,
+							# then remove dependency on dev-libs/isl...
+							USE="${USE} $( # <- Syntax
+								echo " ${use_essential_gcc} " |
+									sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
+							) lto pgo"
+						else
+							USE="${USE} ${use_essential_gcc}"
+						fi
+						export USE
 
-							do_emerge \
-									  ${opts} \
-									  ${parallel} \
-									--buildpkg=y \
-									--nodeps \
-									--oneshot \
-									--usepkg=y \
-									--with-bdeps-auto=n \
-									--with-bdeps=n \
-									  ${flags:-} \
-								-- ${gcc_pkgs}
-						)
-					} || : $(( rc = rc + ${?} ))
+						echo
+						echo " * Building post-installation" \
+							"'${gcc_pkgs}' package(s) into installation" \
+							"root '${ROOT}' with USE flags '${USE}' ..."
+						echo
 
-					# shellcheck disable=SC2086
+						do_emerge \
+								  ${opts} \
+								  ${parallel} \
+								--buildpkg=y \
+								--nodeps \
+								--oneshot \
+								--usepkg=y \
+								--with-bdeps-auto=n \
+								--with-bdeps=n \
+								  ${flags:-} \
+							-- ${gcc_pkgs}
+					)
+				} || : $(( rc = rc + ${?} ))
+
+				# shellcheck disable=SC2086
+				(
+					export ROOT='/' SYSROOT='/' PORTAGE_CONFIGROOT='/'
 					[ "${intent:-}" = 'keep' ] &&
 						pkg_remove 'post-installation' ${gcc_build_pkgs}
-				fi  # [ -n "${gcc_pkgs:-}" ]
+				)
+
 				unset gcc_build_pkgs gcc_pkgs
-			fi  # [ -n "${gcc_exclude:-}" ] && echo "${post_pkgs}" | grep -Fq -- 'gcc'
+			fi  # [ -n "${gcc_exclude:-}" ]
 
 			unset packages flags
 		fi  # [ -n "${post_pkgs:-}" ]
@@ -2691,12 +2751,20 @@ if [ $(( depclean )) -ne 0 ]; then
 	# ... so let's just do the best we can.
 	#
 	filtered_depclean_exclude=''
-	for arg in ${depclean_exclude:-}; do
-		filtered_depclean_exclude="${filtered_depclean_exclude:+"${filtered_depclean_exclude} "}$( # <- Syntax
-			echo "${arg}" |
-				sed 's/^[<>]\?=\?// ; s/-[0-9].*$// ; s/::.*$//'
-		)"
-	done
+	if command -v qatom >/dev/null 2>&1; then
+		for arg in ${depclean_exclude:-}; do
+			filtered_depclean_exclude="${filtered_depclean_exclude:+"${filtered_depclean_exclude} "}$( # <- Syntax
+				qatom -CF '%{CATEGORY}/%{PN}' "${arg}"
+			)"
+		done
+	else
+		for arg in ${depclean_exclude:-}; do
+			filtered_depclean_exclude="${filtered_depclean_exclude:+"${filtered_depclean_exclude} "}$( # <- Syntax
+				echo "${arg}" |
+					sed 's/^[<>]\?=\?// ; s/-[0-9].*$// ; s/::.*$//'
+			)"
+		done
+	fi
 	unset arg
 	depclean_exclude='sys-apps/busybox sys-apps/gentoo-functions sys-apps/grep'
 	[ -n "${filtered_depclean_exclude:-}" ] &&
@@ -2744,10 +2812,13 @@ if [ $(( depclean )) -ne 0 ]; then
 			app-alternatives/gzip app-arch/gzip \
 			app-alternatives/yacc sys-devel/bison \
 			app-arch/unzip \
+			app-crypt/libb2 \
+			app-portage/portage-utils \
 			sys-apps/grep \
 			sys-apps/help2man \
 			sys-apps/kbd \
-			sys-apps/locale-gen
+			sys-apps/locale-gen \
+			sys-libs/zlib
 	) || :
 
 	if [ -n "${depclean_extra:-}" ]; then
@@ -2790,6 +2861,14 @@ if [ $(( depclean )) -ne 0 ]; then
 	elif [ -e /etc/portage/profile/package.provided ]; then
 		rm /etc/portage/profile/package.provided
 	fi
+
+	# shellcheck disable=SC2086
+	(
+		pkg_remove 'last' \
+			--exclude=dev-libs/libffi \
+			dev-libs/gmp dev-libs/mpc dev-libs/mpfr dev-lang/python-exec \
+				dev-lang/python-exec-conf
+	) || :
 
 	rmdir --ignore-fail-on-non-empty /etc/portage/profile
 fi
