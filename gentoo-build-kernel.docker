@@ -50,12 +50,22 @@ declare llvm_min_ver='13.0.1'  # 11.0.0 before 6.9.0, 15.0.0 on S390, 18.0.0 on 
 declare firmware=''
 declare microcode=''
 declare microcode_blob=''
-if grep 'vendor_id' /proc/cpuinfo | awk '{ print $3 }' | grep -iqm 1 'intel'; then
+if grep 'vendor_id' /proc/cpuinfo |
+		awk '{ print $3 }' |
+		grep -iqm 1 'intel'
+then
 	microcode='sys-firmware/intel-microcode'
 	microcode_blob='intel'
-elif grep 'vendor_id' /proc/cpuinfo | awk '{ print $3 }' | grep -iqm 1 'amd'; then
+elif grep 'vendor_id' /proc/cpuinfo |
+		awk '{ print $3 }' |
+		grep -iqm 1 'amd'
+then
 	firmware='sys-kernel/linux-firmware'
-	case "$( grep -Fm 1 'cpu family' /proc/cpuinfo | cut -d':' -f 2- | awk '{ print $1 }' )" in
+	case "$( # <- Syntax
+				grep -Fm 1 'cpu family' /proc/cpuinfo |
+					cut -d':' -f 2- |
+					awk '{ print $1 }'
+			)" in
 		16|17|18|20)
 			microcode_blob='amd-ucode/microcode_amd.bin'
 			;;
@@ -283,8 +293,7 @@ else
 		warn "'--force' is not a valid option without '--config-from'"
 	fi
 	# Use bash syntax to avoid shellcheck SC2166
-	if
-		[[ -n "${menuconfig:-}" || -n "${nconfig:-}" ]] &&
+	if [[ -n "${menuconfig:-}" || -n "${nconfig:-}" ]] &&
 			! grep -Fq -- ' --keep-build ' <<<" ${*:-} "
 	then
 		warn 'Changes made to configuration will not be saved externally'
@@ -307,7 +316,7 @@ if echo " ${*:-} " | grep -q -- ' --defconfig[= ]'; then
 				sed 's/ $//'
 		)"
 	else
-		warn "Invalid config option '$( # <- Syntax
+		warn "Invalid defconfig option '$( # <- Syntax
 			echo " ${*:-} " |
 				grep -Eo -- '--defconfig[^ ]*[= ][^ ]+ ' |
 				sed 's/ $//'
@@ -376,7 +385,7 @@ if echo " ${*:-} " | grep -Fq -- ' --package'; then
 				sed 's/ $//'
 		)"
 	else
-		warn "Invalid package option '$( # <- Syntax
+		warn "Invalid package version '$( # <- Syntax
 			echo " ${*:-} " |
 				grep -Eo -- ' --package[^ ]+ ' |
 				sed 's/ $//'
@@ -436,7 +445,7 @@ if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 		if [[ -n "${llvm_sub_slot_override:-}" ]]; then
 			print "Override llvm_sub_slot is '${llvm_sub_slot_override}'" \
 				"from '${*}'"
-			(( llvm_slot_override = $(
+			(( llvm_slot_override = $( # <- Syntax
 				cut -d'.' -f 1 <<<"${llvm_sub_slot_override}"
 			) ))
 			rust_llvm_use='-system-llvm'
@@ -640,17 +649,19 @@ if ! echo " ${*:-} " | grep -q -- ' --no-patch'; then
 fi
 case "${arch:-"${ARCH:-}"}" in
 	arm64)
-		# This patch is specific to the Raspberry Pi 4/BCM2711/Cortex-A72.
-		# The RPi5/BCM2712 uses a Cortex-A76, although this patch could itself
-		# be trivially patched to account for this...
+		# This patch is specific to the Raspberry Pi 4/BCM2711/Cortex-A72;
+		# the RPi5/BCM2712 uses a Cortex-A76
+		# FIXME: This patch could itself be trivially patched to account for
+		#        this...
 		if [[ "$( # <- Syntax
 				emerge --info 2>/dev/null |
 					grep '^USE=' |
 					cut -d'"' -f 2
 				)" =~ pi4 ]]
 		then
-			kpatch="${kpatch:+"${kpatch} "}https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/refs/heads/master/other/build-with-mcpu-for-cortex-a72.patch" ;;
+			kpatch="${kpatch:+"${kpatch} "}https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/refs/heads/master/other/build-with-mcpu-for-cortex-a72.patch"
 		fi
+		;;
 esac
 
 print "Kernel patch(es) are: '${kpatch:-}'"
@@ -686,14 +697,15 @@ if (( intel_patch )); then
 	declare clear_commit='' clear_patch=''
 	clear_commit="$( # <- Syntax
 		curl -fLSs 'https://api.github.com/repos/clearlinux-pkgs/linux/commits' |
-			jq -r "map_values(select(.commit.message == \"Stable update to ${package_version}\"))[].sha"
+			jq -r "map_values(select(.commit.message == \"Stable update to ${package_version%-r*}\"))[].sha"
 	)"
 	if [[ -z "${clear_commit:-}" ]]; then
 		error "Intel Clear Linux has no patches for kernel" \
-			"${package_version}"
+			"${package_version%-r*}"
 		intel_patch=0
 	else
-		info >&2 "Clear Linux patches for kernel ${package_version} are commit '${clear_commit}'"
+		info >&2 "Clear Linux patches for kernel ${package_version%-r*} are" \
+			"commit '${clear_commit}'"
 		while read -r clear_patch; do
 			patch="${patch:+"${patch} "}https://raw.githubusercontent.com/clearlinux-pkgs/linux/${clear_commit}/${clear_patch}"
 		done < <( # <- Syntax
@@ -926,7 +938,10 @@ if [[ "${compiler}" == 'clang' ]]; then
 			(( llvm_default_slot = 17 ))
 			;;
 		6.1[0-9].*)
-			rust_ver='1.78.0'
+			# Gentoo skipped rust-1.78.0 and jumped straight from rust-1.77.1
+			# to rust-1.79.0 ...
+			#rust_ver='1.78.0'
+			rust_ver='1.79.0'
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 17 ))
 			;;
@@ -988,7 +1003,9 @@ if [[ "${compiler}" == 'clang' ]]; then
 fi # [[ "${compiler}" == 'clang' ]]
 
 # shellcheck disable=SC2154
-$_command image list "${IMAGE%":"*}" | grep -Eq -- "^(localhost/)?${IMAGE%":"*}" || die "docker image '${IMAGE%":"*}' not found"
+$_command image list "${IMAGE%":"*}" |
+		grep -Eq -- "^(localhost/)?${IMAGE%":"*}" ||
+	die "docker image '${IMAGE%":"*}' not found"
 
 if mount | grep ' on /boot ' | grep -Eq '(\(ro,|,ro,|,ro\))'; then
 	output >&2
@@ -1027,7 +1044,8 @@ if [[ -n "${config_file:-}" ]]; then
 		[[ -s "${build_dir}"/.config ]] &&
 		[[ "${force:-}" != '1' ]]
 	then
-		warn "Not replacing existing '${build_dir}/.config' file without '--force'"
+		warn "Not replacing existing '${build_dir}/.config' file without" \
+			"'--force'"
 		config_file="${build_dir}/.config"
 	else
 		# We've already changed to the script directory, so if there ever were
@@ -1049,24 +1067,30 @@ if [[ -n "${config_file:-}" ]]; then
 			if [[ "${keep_build:-}" = '1' ]]; then
 				config_file="${build_dir}/.config"
 				note >&2 "Extracting /proc/config.gz to '${config_file}' ..."
-				zcat /proc/config.gz > "${config_file}" || die "zcat failed: ${?}"
+				zcat /proc/config.gz > "${config_file}" ||
+					die "zcat failed: ${?}"
 			else
 				config_file="${TMPDIR:-"/tmp"}/linux-${package_version%"-r"[0-9]}.config"
 				if [[ -e "${config_file}" ]]; then
 					die "configuration file '${config_file}' already exists"
 				fi
 				note >&2 "Extracting /proc/config.gz to '${config_file}' ..."
-				zcat /proc/config.gz > "${config_file}" || die "zcat failed: ${?}"
+				zcat /proc/config.gz > "${config_file}" ||
+					die "zcat failed: ${?}"
 			fi
 		else
 			if [[ "${keep_build:-}" = '1' ]]; then
 				if ! file "${config_file}" >/dev/null 2>&1; then
-					die "configuration file '${config_file}' is unreadable or missing"
-				elif file "${config_file}" 2>&1 | grep -Fq -- 'gzip compressed data'; then
+					die "configuration file '${config_file}' is unreadable" \
+						"or missing"
+				elif file "${config_file}" 2>&1 |
+						grep -Fq -- 'gzip compressed data'
+				then
 					die "configuration file '${config_file}' is compressed"
 				else
 					cp "${config_file}" "${build_dir}"/.config ||
-						die "file copy from '${config_file}' to '${build_dir}/.config' failed: ${?}"
+						die "file copy from '${config_file}' to" \
+							"'${build_dir}/.config' failed: ${?}"
 					config_file="${build_dir}/.config"
 				fi
 			fi
@@ -1081,7 +1105,8 @@ if [[ -n "${config_file:-}" ]]; then
 			die "Cannot write to kernel configuration file '${config_file}'"
 		fi
 		if ! [[ "${keep_build:-}" = '1' ]]; then
-			#info >&2 "Using '${config_file}' as kernel configuration - changes WILL BE saved to this file..."
+			#info >&2 "Using '${config_file}' as kernel configuration -" \
+			#	"changes WILL BE saved to this file..."
 			info >&2 "Using '${config_file}' as kernel configuration"
 		fi
 	fi
@@ -1155,11 +1180,11 @@ if (( opt_o3 )); then
 	unset add_flags
 fi
 
-# Unconditionally add sys-devel/gcc USE-flags, in case we need to rebuild it even
-# when we are primarily using clang/LLVM...
+# Unconditionally add sys-devel/gcc USE flags, in case we need to rebuild it
+# even when we are primarily using clang/LLVM...
 #
 # shellcheck disable=SC2154
-compiler_USE+="-lib-only ${use_essential_gcc}"
+compiler_USE+="-fortran -lib-only ${use_essential_gcc}"
 case "${compiler}" in
 	gcc)
 		compiler_pkgs=(
@@ -1291,7 +1316,8 @@ case "${unwind:-}" in
 		)
 		compiler_USE="$( replace_flags 'llvm-libunwind' -- "${compiler_USE}" )"
 		#pre_remove='sys-libs/libunwind'
-		#pre_use="$( replace_flags '-default-compiler-rt' '-default-libcxx' '-default-lld' '-llvm-libunwind' -- "${pre_use:-}" )"
+		#pre_use="$( replace_flags '-default-compiler-rt' '-default-libcxx' \
+		#	'-default-lld' '-llvm-libunwind' -- "${pre_use:-}" )"
 		#pre_pkgs="$( pkgslot sys-libs/llvm-libunwind "${llvm_slot}" )"
 		;;
 esac
@@ -1396,26 +1422,28 @@ esac
 	else
 		docker_extra_mounts+=( # <- Syntax
 			$( add_mount --print '/etc/portage/package.use/00_package.use' )
-			$( add_mount --print '/etc/portage/package.use/05_host.use' )
+			$( add_mount --print '/etc/portage/package.use/01_package.use.local' )
+			#$( add_mount --print '/etc/portage/package.use/05_host.use' )
 			$( add_mount --print '/etc/portage/package.use/20_python_targets' )
 		) || :
 	fi
 
-	# Initially package.use.mask was deployed from the host filesystem and use.mask
-	# was not made available.  The options to deploy both are:
+	# Initially package.use.mask was deployed from the host filesystem and
+	# use.mask was not made available.  The options to deploy both are:
 	#
-	#  - Copy use.mask from %base% (requiring an ARCH-specific overrides in git),
-	#    copy package.use.mask from the host (keeping this consistent);
-	#  - Copy use.mask and package.use.mask from %base% (requiring an ARCH-specific
-	#    override and using a different source of truth for package.use.mask);
-	#  - Copy use.mask and package.use.mask from the host (maintaining consistency
-	#    and no longer requiring an override, so long as the host file has been
-	#    customised)
+	#  - Copy use.mask from %base% (requiring an ARCH-specific overrides in
+	#    git), copy package.use.mask from the host (keeping this consistent);
+	#  - Copy use.mask and package.use.mask from %base% (requiring an
+	#    ARCH-specific override and using a different source of truth for
+	#    package.use.mask);
+	#  - Copy use.mask and package.use.mask from the host (maintaining
+	#    consistency and no longer requiring an override, so long as the host
+	#    file has been customised)
 	#
-	# N.B. An override is still required for service builds, which do not use host
-	#      files.  However, sync-portage.sh will now deploy an override file (if
-	#      one exists) to the host filesystem, so it isn't too much of an issue
-	#      to use both.
+	# N.B. An override is still required for service builds, which do not use
+	#      host files.  However, sync-portage.sh will now deploy an override
+	#      file (if one exists) to the host filesystem, so it isn't too much of
+	#      an issue to use both.
 	#
 	docker_extra_mounts+=(
 		$( add_mount --print '/etc/portage/profile/package.use.force' )
@@ -1487,10 +1515,10 @@ esac
 	unset image_name_and_version
 
 	# shellcheck disable=SC2154
-	if
-		[[ "$(
-			$_command image list "${image_name}:${package_version}" | wc -l
-		)" != '2' ]]
+	if [[ "$( # <- Syntax
+				$_command image list "${image_name}:${package_version}" |
+					wc -l
+			)" != '2' ]]
 	then
 		(
 			ACCEPT_LICENSE='linux-fw-redistributable no-source-code'
@@ -1528,6 +1556,7 @@ esac
 			# shellcheck disable=SC2206
 			declare -a pkgs=( # <- Syntax
 				${compiler_pkgs[@]:-}
+				app-admin/kernel-hardening-checker
 				app-arch/bzip2
 				app-arch/cpio
 				app-arch/lz4
@@ -1542,8 +1571,8 @@ esac
 				sys-process/time
 				${microcode:-}
 				${firmware:-}
-				${rustext:+"${rust_ver:+"="}virtual/rust${rust_ver:+"-${rust_ver}"}"}
-				${rustext:+"${bindgen_ver:+"="}dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"}
+				${rustext:+"${rust_ver:+">="}virtual/rust${rust_ver:+"-${rust_ver}"}"}
+				${rustext:+"${bindgen_ver:+">="}dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"}
 				virtual/os-headers
 				virtual/linux-sources
 			)
@@ -1552,7 +1581,7 @@ esac
 				${rustext:+"--with-pkg-mask=>virtual/rust${rust_ver:+"-${rust_ver}"}"}
 				${rustext:+"--with-pkg-mask=>dev-lang/rust${rust_ver:+"-${rust_ver}"}"}
 				${rustext:+"--with-pkg-mask=>dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"}
-				$(
+				$( # <- Syntax
 					if [[ "${compiler}" == 'clang' ]]; then
 						(( llvm_slot )) ||
 							die "'llvm_slot' is required for clang builds"
@@ -1622,42 +1651,53 @@ esac
 
 			unset DOCKER_EXTRA_MOUNTS
 
-			# It would be nice if we could squash the image layers here to produce
-			# a unified image in response to 'commit', but without an additional
-			# 'container build' operation (which may be viable, as building a
-			# kernel on a pre-existing image requires the definition of many less
-			# environment-variables than when invoking 'emerge' to build
-			# packages) - but even this way, we end up with the base-layer,
-			# ultimate build layer, and above kernel layer - which should result in
-			# kernel source images being the only things depending on stale
-			# build-images...
+			# It would be nice if we could squash the image layers here to
+			# produce a unified image in response to 'commit', but without an
+			# additional 'container build' operation (which may be viable, as
+			# building a kernel on a pre-existing image requires the definition
+			# of many less environment-variables than when invoking 'emerge' to
+			# build packages) - but even this way, we end up with the
+			# base-layer, ultimate build layer, and above kernel layer - which
+			# should result in kernel source images being the only things
+			# depending on stale build-images...
 			#
 			# Update: While 'podman build' can't squash image layers when
-			#         committing containers, it appears that 'buildah commit' can!
+			#         committing containers, it appears that 'buildah commit'
+			#         can!
+			# Update: podman has also gained this ability...
 			#
+			rc=0
 			time {
 				trap '' INT
-				if ! command -v buildah >/dev/null 2>&1; then
-					# shellcheck disable=SC2046
-					$_command $( # <- Syntax
-						add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT:-}"
-					) \
-							container commit \
-								"${name}" \
-								"${image_name}:${package_version}" 2>&1 |
-						tee -a "log/docker.${log_name}.log"
-				else
-					# shellcheck disable=SC2046
-					buildah $( # <- Syntax
-						add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT:-}"
-					) \
-							commit \
-									--squash \
-								"${name}" \
-								"${image_name}:${package_version}" 2>&1 |
-						tee -a "log/docker.${log_name}.log"
-				fi
-				output " -> ${?}"
+				{
+					if ! command -v buildah >/dev/null 2>&1; then
+						# shellcheck disable=SC2046
+						$_command $( # <- Syntax
+							add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT:-}"
+						) \
+								container commit --squash \
+									"${name}" \
+									"${image_name}:${package_version}" 2>&1 ||
+						$_command $( # <- Syntax
+							add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT:-}"
+						) \
+								container commit \
+									"${name}" \
+									"${image_name}:${package_version}" 2>&1
+						rc=${?}
+					else
+						# shellcheck disable=SC2046
+						buildah $( # <- Syntax
+							add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT:-}"
+						) \
+								commit \
+										--squash \
+									"${name}" \
+									"${image_name}:${package_version}" 2>&1
+						rc=${?}
+					fi
+				} | tee -a "log/docker.${log_name}.log"
+				output " -> ${rc}"
 				$_command container rm --volumes "${name}" 2>&1 |
 					tee -a "log/docker.${log_name}.log"
 				trap - INT
@@ -1710,20 +1750,18 @@ esac
 	fi
 
 	declare -i rc=0
-	if
-		[[ -s /etc/containers/storage.conf ]] &&
-		graphroot="$( # <- Syntax
-			sed 's/#.*$//' /etc/containers/storage.conf |
-				grep -m 1 -- '^graphroot' |
-				cut -d'"' -f 2
-		)" && [[ -d "${graphroot:-}" ]]
+	if [[ -s /etc/containers/storage.conf ]] &&
+			graphroot="$( # <- Syntax
+				sed 's/#.*$//' /etc/containers/storage.conf |
+					grep -m 1 -- '^graphroot' |
+					cut -d'"' -f 2
+			)" && [[ -d "${graphroot:-}" ]]
 	then
-		if
-			(( $(
-				df -BM --output=avail "${graphroot}" |
-					tail -n +2 |
-					sed 's/M$//'
-			) < graph_space_required ))
+		if (( $( # <- Syntax
+					df -BM --output=avail "${graphroot}" |
+						tail -n +2 |
+						sed 's/M$//'
+				) < graph_space_required ))
 		then
 			warn "Filesystem containing '${graphroot}' has only $( # <- Syntax
 				df -h --output=avail "${graphroot}" |
@@ -1744,29 +1782,28 @@ esac
 			'container tools may ignore this variable'
 		export TMPDIR
 	fi
-	if
-		(( $(
-			df -BM --output=avail "${TMPDIR:-"/var/tmp/"}" |
-				tail -n +2 |
-				sed 's/M$//'
-		) < temp_space_required ))
+	if (( $( # <- Syntax
+				df -BM --output=avail "${TMPDIR:-"/var/tmp/"}" |
+					tail -n +2 |
+					sed 's/M$//'
+			) < temp_space_required ))
 	then
-		warn "Filesystem containing '${TMPDIR:-"/var/tmp"}' has only $( # <- Syntax
-			df -h --output=avail /var/tmp/ |
-			tail -n +2
-		) space available, need ${temp_space_required}M"
+		warn "Filesystem containing '${TMPDIR:-"/var/tmp"}' has only" \
+			"$( # <- Syntax
+				df -h --output=avail /var/tmp/ |
+				tail -n +2
+			) space available, need ${temp_space_required}M"
 		rc=1
 	fi
-	if
-		(( $(
-			df -BM --output=avail "${build_dir}"/.. |
+	if (( $( # <- Syntax
+				df -BM --output=avail "${build_dir}"/.. |
+					tail -n +2 |
+					sed 's/M$//'
+			) + $( # <- Syntax
+				df -BM --output=used "${build_dir}" |
 				tail -n +2 |
 				sed 's/M$//'
-		) + $(
-			df -BM --output=used "${build_dir}" |
-			tail -n +2 |
-			sed 's/M$//'
-		) < build_space_reqiured ))
+			) < build_space_reqiured ))
 	then
 		warn "Filesystem containing '${build_dir}' has only $( # <- Syntax
 			df -h --output=avail "${build_dir}" |
@@ -1822,10 +1859,17 @@ esac
 		#O=../build
 	)
 	RUST_VERBOSE=''
+	RUSTFLAGS="$( # <- Syntax
+		emerge --info 2>&1 | grep -- '^RUSTFLAGS=' | cut -d'"' -f 2
+	)"
+	_LLVM_RUSTC_LTO="$( # <- Syntax
+		emerge --info 2>&1 | grep -- '^_LLVM_RUSTC_LTO=' | cut -d'"' -f 2
+	)"
+
 	# 'bindgen's output being incorrectly processed was fixed in (at least)
-	# linux-6.1.53 & linux-6.5.4 - but as-of early 2024 the oldest in-tree kernel
-	# with rust support is now linux-6.1.67, and the earliest kernel after 6.1.x is
-	# linux-6.6.10, so this patch is no longer needed.
+	# linux-6.1.53 & linux-6.5.4 - but as-of early 2024 the oldest in-tree
+	# kernel with rust support is now linux-6.1.67, and the earliest kernel
+	# after 6.1.x is linux-6.6.10, so this patch is no longer needed.
 	#
 	#case "${package_version}" in
 	#	6.[1234].*|6.5.[123])
@@ -1916,30 +1960,60 @@ esac
 			export LDFLAGS_MODULE HOSTLDFLAGS ;
 		fi ;
 		if [ '${compiler}' = 'clang' ]; then
-			if echo "\${CFLAGS:-}" | xargs -rn 1 | grep -Ev -- '^-m(arch|cpu)=' | grep -q -- '^-m'; then
-				echo "NOTE:  Filtering GNU CFLAGS ('\${CFLAGS}') for ${compiler}: \$(
-					echo "\${CFLAGS}" |
-						xargs -rn 1 |
-						grep -Ev -- '-m(arch|cpu)=' |
-						grep -- '^-m' |
-						sort -V |
-						xargs -r -I'{}' -- echo "\'{}\'" |
-						xargs -r ;
-				)" ;
-				case '${arch:-"${ARCH:-}"}' in
-					'arm'*)
-						mcpu="\$( echo "\${CFLAGS}" | xargs -rn 1 | grep '^-mcpu=' || : )" ;
-						export CFLAGS="\$( { echo "\${CFLAGS}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${mcpu:-"-mcpu=native"}" ; } | sort -V | xargs -r )" ;
-						unset mcpu ;
-						;;
-					*)
-						: march="\$( echo "\${CFLAGS}" | xargs -rn 1 | grep '^-march=' || : )" ;
-						export CFLAGS="\$( { echo "\${CFLAGS}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${march:-"-march=native"}" ; } | sort -V | xargs -r )" ;
-						unset march ;
-						;;
+			: Correct as-of LLVM 18.1.8-r1 - see https://clang.llvm.org/docs/CommandGuide/clang.html ;
+			good_flags='' ;
+			bad_flags='' ;
+			for flag in \${CFLAGS:-}; do
+				case "\${flag}" in
+					-fdevirtualize-at-ltrans)				bad_flags="\${bad_flags} \${flag}" ;;
+					-fdevirtualize-speculatively)			bad_flags="\${bad_flags} \${flag}" ;;
+					-fgcse-las)								bad_flags="\${bad_flags} \${flag}" ;;
+					-fgcse-sm)								bad_flags="\${bad_flags} \${flag}" ;;
+					-fgraphite-identity)					bad_flags="\${bad_flags} \${flag}" ;;
+					-fipa-pta)								bad_flags="\${bad_flags} \${flag}" ;;
+					-fisolate-erroneous-paths-attribute)	bad_flags="\${bad_flags} \${flag}" ;;
+					-fivopts)								bad_flags="\${bad_flags} \${flag}" ;;
+					-flive-range-shrinkage)					bad_flags="\${bad_flags} \${flag}" ;;
+					-floop-nest-optimize)					bad_flags="\${bad_flags} \${flag}" ;;
+					-flto)									good_flags="\${good_flags} -flto=thin" ;;
+					-fmodulo-sched)							bad_flags="\${bad_flags} \${flag}" ;;
+					-fmodulo-sched-allow-regmoves)			bad_flags="\${bad_flags} \${flag}" ;;
+					-fsched-pressure)						bad_flags="\${bad_flags} \${flag}" ;;
+					-fstdarg-opt)							bad_flags="\${bad_flags} \${flag}" ;;
+					-ftree-loop-im)							bad_flags="\${bad_flags} \${flag}" ;;
+					-ftree-loop-ivcanon)					bad_flags="\${bad_flags} \${flag}" ;;
+					-fuse-linker-plugin)					bad_flags="\${bad_flags} \${flag}" ;;
+					-march=*)								good_flags="\${good_flags} \${flag}" ;;
+					-mcpu=*)								good_flags="\${good_flags} \${flag}" ;;
+					-mtune=*)								good_flags="\${good_flags} \${flag}" ;;
+					-m*)									bad_flags="\${bad_flags} \${flag}" ;;
+					-Ofast)									good_flags="\${good_flags} -O3 -ffast-math" ;;
+					-Werror=lto-type-mismatch)				bad_flags="\${bad_flags} \${flag}" ;;
+					-Wl,*)									bad_flags="\${bad_flags} \${flag}" ;;
+					*)										good_flags="\${good_flags} \${flag}" ;;
 				esac ;
-				echo "NOTE:  ${compiler} CFLAGS are '\${CFLAGS}'" ;
+			done ;
+			if [ -n "\${bad_flags:-}" ]; then
+				bad_flags="\$( echo "\${bad_flags}" | xargs -rn 1 | sort | uniq | xargs -r )" ;
+				echo "NOTE:  Filtering GNU CFLAGS ('\${CFLAGS}') for ${compiler}: Removing '\${bad_flags}'" ;
 			fi ;
+			good_flags="\$( echo "\${good_flags:-} ${_LLVM_W:-}" | xargs -rn 1 | sort | uniq | xargs -r )" ;
+			CFLAGS="\${good_flags}" ;
+			case '${arch:-"${ARCH:-}"}' in
+				'arm'*)
+					mcpu="\$( echo "\${CFLAGS}" | xargs -rn 1 | grep '^-mcpu=' || : )" ;
+					CFLAGS="\$( { echo "\${CFLAGS}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${mcpu:-"-mcpu=native"}" ; } | sort -V | xargs -r )" ;
+					unset mcpu ;
+					;;
+				*)
+					: march="\$( echo "\${CFLAGS}" | xargs -rn 1 | grep '^-march=' || : )" ;
+					CFLAGS="\$( { echo "\${CFLAGS}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${march:-"-march=native"}" ; } | sort -V | xargs -r )" ;
+					unset march ;
+					;;
+			esac ;
+			export CFLAGS ;
+			unset CXXFLAGS FFLAGS FCFLAGS FLFLAGS ;
+			echo "NOTE:  ${compiler} CFLAGS are '\${CFLAGS}'" ;
 		fi ;
 		kernel='bzImage' ;
 		dir='x86' ;
@@ -2049,6 +2123,17 @@ esac
 				echo >&2 "ERROR: rust_is_available.sh returns \${?}" ;
 				exit 1 ;
 			} ;
+			if [ '${compiler}' = 'clang' ]; then
+				[ -n '${_LLVM_RUSTC_LTO:-}' ] &&
+					RUSTFLAGS="${RUSTFLAGS:+"${RUSTFLAGS} "}${_LLVM_RUSTC_LTO}" ;
+				echo " \${RUSTFLAGS} " | grep -Fq -- ' -Clinker=clang ' ||
+					RUSTFLAGS="\${RUSTFLAGS:+"\${RUSTFLAGS} "}-Clinker=clang" ;
+				echo " \${RUSTFLAGS} " | grep -Fq -- ' -Clinker-plugin-lto ' ||
+					RUSTFLAGS="\${RUSTFLAGS:+"\${RUSTFLAGS} "}-Clinker-plugin-lto" ;
+				echo " \${RUSTFLAGS} " | grep -Fq -- ' -Clink-arg=-fuse-ld=lld ' ||
+					RUSTFLAGS="\${RUSTFLAGS:+"\${RUSTFLAGS} "}-Clink-arg=-fuse-ld=lld" ;
+				export RUSTFLAGS ;
+			fi ;
 		fi ;
 		localversion='' ;
 		if echo '${package_version}' | grep -Fq -- '_'; then
@@ -2107,6 +2192,9 @@ esac
 			make ${kernel_make_opts[@]} O=../build \${localversion} dtbs_install ;
 		fi ;
 		unset localversion ;
+		if command -v kernel-hardening-checker >/dev/null 2>&1; then
+			kernel-hardening-checker -m show_fail -c ../build/.config ;
+		fi ;
 		if [ -f ../build/vmlinux ]; then
 			mkdir -pv '/lib/modules/${package_version}${distro:-}' &&
 				cp -v ../build/vmlinux '/lib/modules/${package_version}${distro:-}/vmlinux-${package_version}${distro:-}' ;
@@ -2165,10 +2253,17 @@ esac
 		fi ;
 	EOF
 	)"
-		#echo 'Detected packages:'
-		#ls -1d /var/db/pkg/*/* | cut -d '/' -f 5-
-		#[ -e /etc/python-exec/emerge.conf ] && rm /etc/python-exec/emerge.conf ;
-		#KBUILD_OUTPUT='/usr/src/build' CC="${container_CC}" CXX="${container_CXX}" LD="${container_LD}" emerge --with-bdeps=n --buildpkg=y -kv '>=net-firewall/xtables-addons-3.18' ;
+		#echo 'Detected packages:' ;
+		#ls -1d /var/db/pkg/*/* | cut -d '/' -f 5- ;
+		#[ -e /etc/python-exec/emerge.conf ] &&
+		#	rm /etc/python-exec/emerge.conf ;
+		#
+		#	KBUILD_OUTPUT='/usr/src/build' \
+		#	CC="${container_CC}" \
+		#	CXX="${container_CXX}" \
+		#	LD="${container_LD}" \
+		#emerge --with-bdeps=n --buildpkg=y -kv \
+		#	'>=net-firewall/xtables-addons-3.18' ;
 
 	nl="$( printf '\n' )"
 	DOCKER_SCRIPT="$( echo "${DOCKER_SCRIPT}" | tr "${nl}" ' ' )"
