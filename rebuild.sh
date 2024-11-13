@@ -661,16 +661,26 @@ if [ "${update:-"0"}" = '1' ]; then
 	#stdbuf -i0 -o0 awk 'BEGIN { RS = null ; ORS = "\n\n" } 1' |
 	#tee log/buildpkg.hostpkgs.update.log
 
-	# Look for "build" gcc USE-flags in package.use only (or use defaults above) ...
+	# Look for "build" gcc USE-flags in package.use only (or use defaults
+	# above) ...
+	#
 	if ! [ -s /etc/portage/package.use/00_package.use ]; then
 		if [ -z "${use_essential_gcc:-}" ]; then
 			# shellcheck disable=SC1091
 			. ./common/vars.sh
 		fi
-		gcc_use="$(
-			echo " ${use_essential_gcc} " |
-				sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
-		)"
+		if ! echo "${CFLAGS:-} ${CXXFLAGS:-}" |
+				grep -Fqw \
+					-e '-fgraphite' \
+					-e '-fgraphite-identity' \
+					-e '-floop-nest-optimize' \
+					-e '-floop-parallelize-all'
+		then
+			gcc_use="$(
+				echo " ${use_essential_gcc} " |
+					sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
+			)"
+		fi
 	else
 		gcc_use="$(
 			sed 's/#.*$//' /etc/portage/package.use/00_package.use |
@@ -740,8 +750,10 @@ if [ "${update:-"0"}" = '1' ]; then
 
 	if [ $(( rc )) -eq 0 ]; then
 		gcc_use='-* lib-only nptl openmp'
-		# ... and look for "host" gcc USE-flags in host.use only (or use defaults)
-		# FIXME: What about package.use.local?
+
+		# ... and look for 'deployment' gcc USE-flags in 05_host.use only (or
+		# use the defaults above)
+		#
 		if [ -s /etc/portage/package.use/05_host.use ]; then
 			gcc_use="$(
 				sed 's/#.*$//' /etc/portage/package.use/05_host.use |
