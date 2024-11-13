@@ -115,16 +115,28 @@ info() {
 }  # info
 
 print() {
-	if [[ -n "${debug:-}" ]]; then
+	local -i min=1
+
+	if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
+		(( min = ${1} ))
+		if [[ -n "${2:-}" ]]; then
+			shift
+		else
+			set --
+		fi
+	fi
+	if [[ -n "${debug:-}" ]] && (( debug >= min )); then
 		if [[ -z "${*:-}" ]]; then
 			output >&2
 		else
 			if [[ -n "${BASH_SOURCE[-1]:-}" ]]; then
 				output >&2 "DEBUG: $( # <- Syntax
 					basename "${BASH_SOURCE[-1]}"
-				)->${BASH_SOURCE[0]}: ${*}"
+				)->${BASH_SOURCE[0]}:${FUNCNAME[1]}(${BASH_LINENO[0]}): ${*}"
 			else
-				output >&2 "DEBUG: $( basename "${0}" ): ${*}"
+				output >&2 "DEBUG: $( # <- Syntax
+					basename "${0}"
+				):${FUNCNAME[1]}${BASH_LINENO[0]}: ${*}"
 			fi
 		fi
 		return 0
@@ -149,50 +161,53 @@ replace_flags() {
 	for arg in "${@:-}"; do
 		case "${arg:-}" in
 			--)
-				#print "Switching state from 'list' ('${list[*]:-}') to" \
-				#	"'flags' ('${flags[*]:-}') ..."
+				print 2 "Switching state from 'flags' ('${flags[*]:-}') to" \
+					"'list' ('${list[*]:-}') ..."
 				state=1
 				continue
 				;;
 			''|' ')
-				#print "Dropping arg '${arg:-}' ..."
+				print 2 "Dropping arg '${arg:-}' ..."
 				:
 				;;
 			*' '*)
 				arg="$( sed 's/^ \+// ; s/ \+$//' <<<"${arg}" )"
 				if (( state )); then
-					#print "Adding multi arg '${arg:-}' to list" \
-					#	"'${list[*]:-}' ..."
+					print 2 "Adding multi arg list '${arg:-}' to list" \
+						"'${list[*]:-}' ..."
 					readarray -O "${#list[@]}" -t list < <( # <- Syntax
 						xargs -rn 1 <<<"${arg}"
 					)
-					#print "... list is '${list[*]:-}'"
+					print 2 "... updated list is '${list[*]:-}'"
 				else
-					#print "Adding multi arg '${arg:-}' to flags" \
-					#	"'${flags[*]:-}' ..."
+					print 2 "Adding multi arg flags '${arg:-}' to flags" \
+						"'${flags[*]:-}' ..."
 					readarray -O "${#flags[@]}" -t flags < <( # <- Syntax
 						xargs -rn 1 <<<"${arg}"
 					)
-					#print "... flags is '${flags[*]:-}'"
+					print 2 "... updated flags is '${flags[*]:-}'"
 				fi
 				;;
 			*)
 				if (( state )); then
-					#print "Adding arg '${arg:-}' to list '${list[*]:-}' ..."
+					print 2 "Adding list item '${arg:-}' to list" \
+						"'${list[*]:-}' ..."
 					list+=( "${arg}" )
-					#print "... list is '${list[*]:-}'"
+					print 2 "... updated list is '${list[*]:-}'"
 				else
-					#print "Adding arg '${arg:-}' to flags '${flags[*]:-}' ..."
+					print 2 "Adding flag '${arg:-}' to flags" \
+						"'${flags[*]:-}' ..."
 					flags+=( "${arg}" )
-					#print "... flags is '${flags[*]:-}'"
+					print 2 "... updated flags is '${flags[*]:-}'"
 				fi
 				;;
 		esac
 	done
-	#print "Adding flags '${flags[*]:-}' to list '${list[*]:-}'"
+	print 2 "Finished processing args - will add flags '${flags[*]:-}' to" \
+		"list '${list[*]:-}'"
 
 	if (( 0 == ${#flags[@]} )); then
-		print "WARN: No flags supplied to ${FUNCNAME[0]} - received '${*:-}'"
+		warn "No flags supplied to ${FUNCNAME[0]} - received '${*:-}'"
 		return 1
 	fi
 
@@ -202,47 +217,54 @@ replace_flags() {
 		for arg in "${list[@]}"; do
 			case "${arg}" in
 				"-${flag#"-"}"|"${flag#"-"}"|'')
+					print 2 "Will add flag '${arg}' to list later ..."
 					# Do nothing, as we add the flag below...
 					:
 					# N.B. This means that if we have '-flag flag' then the
 					#      second occurence is dropped...
-					seen["${arg#"-"}"]=1
+					#seen["${arg#"-"}"]=1  # <- This loses the flag!
 					;;
 				*)
 					if ! (( seen["${arg}"] )); then
+						print 2 "Adding flag '${arg}' to list"
 						output+=( "${arg}" )
 						seen["${arg}"]=1
+					else
+						print 2 "Dropping duplicate flag '${arg}' from list"
 					fi
 					continue
 					;;
 			esac
 		done
 
-		# ... and then add '(-)flag' to the start of end of the list
+		# ... and then add '(-)flag' to the start or end of the list
 		#
 		case "${flag}" in
 			'')
 				:
 				;;
 			-*)
+				print 2 "Adding flag '${flag}' to start of list ..."
 				if [[ -z "${output[*]:-}" ]]; then
 					output=( "${flag}" )
 				else
 					output=( "${flag}" "${output[@]}" )
 				fi
-				#print "Adding flag '${flag}' to start of list ..."
 				;;
 			*)
 				if ! (( seen["${flag}"] )); then
+					print 2 "Adding flag '${flag}' to end of list ..."
 					output+=( "${flag}" )
 					seen["${flag}"]=1
+				else
+					print 2 "Dropping duplicate flag '${flag}' from end of" \
+						"list"
 				fi
-				#print "Adding flag '${flag}' to end of list ..."
 				;;
 		esac
 	done
 
-	#print "replace_flags result: '${output[*]:-}'"
+	print 2 "replace_flags result: '${output[*]:-}'"
 	echo "${output[*]:-}"
 }  # replace_flags
 
@@ -656,14 +678,29 @@ _docker_resolve() {
 					fi
 				fi
 
-				if (( name )); then
-					xargs -rn 1 <<<"${@:-}" |
-						sed 's/-[0-9].*$//' |
-						sort
+				if type -pf qatom >/dev/null 2>&1; then
+					if (( name )); then
+						qatom -CF '%{CATEGORY}/%{PN}' $( # <- Syntax
+									xargs -rn 1 <<<"${@:-}"
+								) |
+							sort
+					else
+						qatom -CF '%{PV} %[PR]' $( # <- Syntax
+									xargs -rn 1 <<<"${@:-}" |
+										sed 's/ $// ; s/ /-/'
+								) |
+							sort -V
+					fi
 				else
-					xargs -rn 1 <<<"${@:-}" |
-						sed 's/^.*[a-z]-\([0-9].*\)$/\1/' |
-						sort -V
+					if (( name )); then
+						xargs -rn 1 <<<"${@:-}" |
+							sed 's/-[0-9].*$//' |
+							sort
+					else
+						xargs -rn 1 <<<"${@:-}" |
+							sed 's/^.*[a-z]-\([0-9].*\)$/\1/' |
+							sort -V
+					fi
 				fi
 			}  # versionsort
 			export -f versionsort
