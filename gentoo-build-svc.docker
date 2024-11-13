@@ -40,6 +40,17 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 	exit 1
 }
 
+# shellcheck disable=SC2154
+declare IMAGE="${build_name}:latest"
+
+# shellcheck disable=SC1091
+[[ -s common/run.sh ]] && . common/run.sh >/dev/null
+if [[ "$( type -t 'die' )" != 'function' ]]; then
+	echo >&2 "FATAL: Unable to source shared functions from" \
+		"'common/run.sh': ${?}"
+	exit 127
+fi
+
 declare -a services=() args=()
 services=(
 	bitlbee
@@ -102,6 +113,7 @@ services=(
 	unifi82
 	unifi83
 	unifi84
+	unifi85
 	vim
 	watchdog
 	xmrig
@@ -115,6 +127,26 @@ declare force=''
 declare build_debug=''
 declare alt_log=''
 declare arg=''
+
+declare cflags='' cxxflags=''
+
+if type -pf emerge >/dev/null 2>&1; then
+	cflags="$( # <- Syntax
+			emerge --info 2>&1 |
+				grep -- '^CFLAGS=' |
+				awk -F'"' '{print $2}' || :
+		)"
+	cxxflags="$( # <- Syntax
+			emerge --info 2>&1 |
+				grep -- '^CXXFLAGS=' |
+				awk -F'"' '{print $2}' || :
+		)"
+else
+	eval ". /etc/portage/make.conf ; set | grep -F -- 'FLAGS=' | sed 's|^[A-Z]\+=|\L&|'"
+fi
+[[ -n "${cflags:-}" ]] || cflags='-O2 -pipe'
+[[ -n "${cxxflags:-}" ]] || cxxflags="${cflags}"
+print "Found CFLAGS '${cflags}', CXXFLAGS '${cxxflags}'"
 
 # Temporarily throw away all other arguments to try to get a set of parameters
 # we can use to perform a manual service build (... which is largely deprecated
@@ -154,11 +186,6 @@ set -- "${args[@]:-}"
 declare zxtm_service_version=''
 declare -i rc=0
 declare -a container_caps=()
-
-# shellcheck disable=SC2154
-declare IMAGE="${build_name}:latest"
-# shellcheck disable=SC1091
-[[ -s common/run.sh ]] && . common/run.sh >/dev/null
 
 usage() {
 	#output >&2 "Usage: $( basename "${0}" ) <service" \
@@ -547,6 +574,8 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-8.3*' ;;
 	unifi84|unifi-controller84|unifi-controller-84|unifi-controller-bin84|unifi-controller-bin-84)
 		service='=net-misc/unifi-controller-bin-8.4*' ;;
+	unifi85|unifi-controller85|unifi-controller-85|unifi-controller-bin85|unifi-controller-bin-85)
+		service='=net-misc/unifi-controller-bin-8.5*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
@@ -630,18 +659,15 @@ else
 	warn "Forcing creation of new 'service.${package_name}:${package_version}' image ..."
 fi
 
-#  Remove ssp/default-stack-clash-protection as these are causing postinst
-#  failures with at least app-editors/vim :(
-#
-# from common/vars.sh:
-#use_essential="asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
-#use_essential_gcc='-default-stack-clash-protection -default-znow graphite -jit nptl openmp pch -sanitize ssp -vtv zstd'
+# ... from common/vars.sh:
+#use_essential="asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions split-usr ssp threads$ ${use_cpu_flags:-}
+#use_essential_gcc='default-stack-clash-protection default-znow graphite -jit nptl openmp pch pie -sanitize ssp -vtv zstd'
 
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
 with_use='' extra_pkgs=''
 post_pkgs='' post_use='' post_remove=''
-gcc_extra_flags='pch'  # N.B. Not longer supported...
+gcc_extra_use_flags='pch'  # N.B. 'pch' now masked due to fragility...
 python_target='' etcdir=''
 
 # There's probably a better way of doing this, but for now let's assume that
@@ -683,7 +709,7 @@ case "${package_name}" in
 		extra_pkgs='app-alternatives/bc dev-lang/perl sys-apps/coreutils sys-apps/file sys-apps/gentoo-functions'
 		extra_pkgs+=' app-shells/bash sys-devel/bc'
 
-		ports='53/tcp 53/udp 953/tcp 8053/tcp'
+		ports='53/tcp 53/udp 853/tcp 953/tcp 8053/tcp'
 		container_cmd='/usr/sbin/named'
 		etcdir='bind'
 		;;
@@ -944,6 +970,8 @@ case "${package_name}" in
 		pre_pkgs+=' sys-libs/glibc'
 		with_use+=' ncurses unicode zlib'
 		extra_pkgs+=' dev-lang/python dev-libs/libpcre2 sys-libs/glibc'
+		# nodejs links to libatomic, and so has an RDEPEND on sys-devel/gcc
+		extra_pkgs+=' sys-devel/gcc'
 
 		ports='19999/tcp'
 		user='netdata'
@@ -1312,14 +1340,14 @@ case "${package_name}" in
 				fi
 
 				masked_packages='dev-python/setuptools::unifi sys-apps/sandbox::unifi sys-apps/util-linux::unifi' # sys-apps/file sys-apps/portage
-				export CFLAGS="${CFLAGS:+"${CFLAGS} "}-w"  # mongodb is *really* noisy...
-				pre_use="$( replace_flags '-graphite' 'headless-awt' -- "${gcc_use}" )"
+				export CFLAGS="${CFLAGS:+"${CFLAGS} "}${cflags:+"${cflags} "}-w"  # mongodb is *really* noisy...
+				pre_use="$( replace_flags 'headless-awt' -- "${gcc_use}" )"
 				force_python='python2_7'
 				pre_pkgs="${masked_packages} <sys-devel/gcc-11 acct-group/mongodb acct-group/unifi acct-user/mongodb acct-user/unifi"
 				extra_pkgs="${extra_pkgs} <dev-db/mongodb-4.2 dev-lang/python:2.7" # app-admin/eselect app-eselect/eselect-python'
 				extra_pkgs="${extra_pkgs} app-misc/ca-certificates${ECLASS_OVERRIDE:+"::${ECLASS_OVERRIDE}"}"
 				extra_pkgs="${extra_pkgs} ${masked_packages} <sys-devel/gcc-11"
-				with_use="-graphite lib-only openmp zstd python_single_target_${force_python} python_targets_${force_python}"
+				with_use="lib-only openmp zstd python_single_target_${force_python} python_targets_${force_python}"
 				;;
 			*)
 				pre_pkgs="${pre_pkgs} acct-group/mongodb acct-group/unifi acct-user/mongodb acct-user/unifi"
@@ -1376,6 +1404,28 @@ esac
 pre_use="${use_cpu_flags}${pre_use:+" ${pre_use}"}"
 with_use="${use_cpu_flags}${with_use:+" ${with_use}"}"
 
+# If OpenMP is enabled, then utilities such as /bin/login require libgomp.
+# FIXME: At this point, this logic should be removed and sys-devel/gcc force-
+#        enabled at all times...
+#
+#        ... although the only affected packages seem to be sys-apps/shadow
+#        (/bin/login) and sys-libs/libxcrypt (/lib64/libcrypt.so.1.1.0)
+#
+if ! echo " ${pre_pkgs:-} " | grep -q -- ' sys-devel/gcc '; then
+	if
+			echo " ${use_essential:-} ${use_essential_gcc:-}" \
+						"${pre_use:-} ${with_use:-} ${post_use:-}" \
+						"${gcc_extra_use_flags:-} " |
+					grep -q -- ' openmp ' ||
+				echo " ${cflags} ${cxxflags} " |
+					grep -q -- ' -fopenmp '
+	then
+		print "Adding pre-installation package 'sys-devel/gcc' due to" \
+			"presence of 'openmp' USE flag or C(XX)FLAG"
+		pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}sys-devel/gcc"
+	fi
+fi
+
 for arg in pre_remove pre_use pre_pkgs with_use extra_pkgs post_use post_pkgs \
 	post_remove
 do
@@ -1389,7 +1439,8 @@ declare -i warning=0
 for pkg in ${post_pkgs:-}; do
 	if ! grep -Fq " ${pkg} " <<<" ${package:-} ${extra_pkgs:-} "
 	then
-		warn "post_pkg entry '${pkg}' will be rebuilt without dependencies, but does not appear in 'extra_pkgs'"
+		warn "post_pkg entry '${pkg}' will be rebuilt without dependencies," \
+			"but does not appear in 'extra_pkgs'"
 		warn
 		warning=1
 	fi
@@ -1413,48 +1464,62 @@ case " ${pre_pkgs} " in
 esac
 case " ${pre_pkgs} " in
 	*' sys-devel/gcc '*)
+		print "Considering sys-devel/gcc additional flags ..."
 		if
 				echo " ${use_essential:-} ${use_essential_gcc:-}" \
 						"${pre_use:-} ${with_use:-} ${post_use:-}" \
-						"${gcc_extra_flags:-} " |
+						"${gcc_extra_use_flags:-} " |
 					grep -q -- ' openmp '
 		then
-			gcc_extra_flags="$( # <- Syntax
-				replace_flags 'openmp' -- "${gcc_extra_flags:-}"
+			print "Force-enabling 'openmp' initial USE flag"
+			gcc_extra_use_flags="$( # <- Syntax
+				replace_flags 'openmp' -- "${gcc_extra_use_flags:-}"
 			)"
 		fi
-		pre_use="$( replace_flags "${use_essential_gcc:-}" "${gcc_extra_flags:-}" -- "${pre_use:-}" )" || :
-		if ! [[ "${extra_pkgs:-}" == *' sys-devel/gcc '* ]]; then
+		if echo "${cflags} ${cxxflags}" |
+				grep -Fqw -e '-fgraphite' -e '-fgraphite-identity' \
+					-e '-floop-nest-optimize' -e '-floop-parallelize-all'
+		then
+			print "Force-enabling 'graphite' initial USE flag"
+			gcc_extra_use_flags="$( # <- Syntax
+				replace_flags 'graphite' -- "${gcc_extra_use_flags:-}"
+			)"
+		fi
+		pre_use="$( replace_flags "${use_essential_gcc:-}" "${gcc_extra_use_flags:-}" -- "${pre_use:-}" )" || :
+		if ! [[ " ${extra_pkgs:-} " == *' sys-devel/gcc '* ]]; then
+			print "Applying settings for containers which don't require a" \
+				"functional toolchain ..."
 			with_use="$( replace_flags '-lib-only' -- "${with_use}" )"
-			if [[ " ${gcc_extra_flags:-} " == *' openmp '* ]]; then
-				pre_use="$( replace_flags 'graphite' '-lib-only' 'openmp' 'zstd' -- "${pre_use:-}" )"
-				post_use="$( replace_flags '-graphite' 'lib-only' 'openmp' 'zstd' -- "${post_use:-}" )"
-			else
-				pre_use="$( replace_flags '-openmp' -- "${pre_use:-}" )"
-				post_use="$( replace_flags '-openmp' -- "${post_use:-}" )"
+			pre_use="$( replace_flags 'graphite' '-lib-only' '-openmp' 'zstd' -- "${pre_use:-}" )"
+			post_use="$( replace_flags '-graphite' 'lib-only' '-openmp' '-zstd' -- "${post_use:-}" )"
+			if [[ " ${gcc_extra_use_flags:-} " == *' openmp '* ]]; then
+				pre_use="$( replace_flags 'openmp' -- "${pre_use:-}" )"
+				post_use="$( replace_flags 'openmp' -- "${post_use:-}" )"
 			fi
 		else
 			# spamassassin updates require perl and a functioning compiler
 			# in the container...
 			#if [ "${original_service}" != 'spamassassin-update' ] && [ "${original_service}" != 'sa-update' ] && [ "${original_service}" != 'hpl' ]; then
+			print "Applying settings for containers which require a" \
+				"functional toolchain ..."
 			post_use="$( replace_flags 'lib-only' -- "${post_use}" )"
 			if [ -n "${post_pkgs:-}" ]; then
-				warn "sys-devel/gcc needs to be rebuilt (without dependencies) but 'post_pkgs' is non-empty... suggest moving 'post_pkgs' to 'extra_pkgs'"
+				warn "sys-devel/gcc needs to be rebuilt (without" \
+					"dependencies) but 'post_pkgs' is non-empty... suggest" \
+					"moving 'post_pkgs' to 'extra_pkgs'"
 				warn "post_pkgs contains '${post_pkgs}'"
 				warn
 				warning=1
 			fi
 			post_pkgs="${post_pkgs:+"${post_pkgs} "}sys-devel/gcc sys-libs/zlib virtual/libiconv --nodeps"
 			#fi
-			if [[ " ${gcc_extra_flags} " == *' openmp '* ]]; then
-				pre_use="$( replace_flags 'graphite' '-lib-only' 'openmp' 'zstd' -- "${pre_use:-}" )"
-				post_use="$( replace_flags '-graphite' '-lib-only' 'openmp' 'zstd' -- "${post_use:-}" )"
-			else
-				pre_use="$( replace_flags '-openmp' -- "${pre_use:-}" )"
-				post_use="$( replace_flags '-openmp' -- "${post_use:-}" )"
+			pre_use="$( replace_flags 'graphite' '-lib-only' '-openmp' -- "${pre_use:-}" )"
+			post_use="$( replace_flags '-graphite' '-lib-only' '-openmp' -- "${post_use:-}" )"
+			if [[ " ${gcc_extra_use_flags} " == *' openmp '* ]]; then
+				pre_use="$( replace_flags 'openmp' -- "${pre_use:-}" )"
+				post_use="$( replace_flags 'openmp' -- "${post_use:-}" )"
 			fi
-			if [[ " ${gcc_extra_flags} " == *' graphite '* ]]; then
-				pre_use="$( replace_flags 'graphite' -- "${pre_use:-}" )"
+			if [[ " ${gcc_extra_use_flags} " == *' graphite '* ]]; then
 				post_use="$( replace_flags 'graphite' -- "${post_use:-}" )"
 			fi
 		fi
@@ -1464,18 +1529,25 @@ case " ${pre_pkgs} " in
 		#
 		pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}app-alternatives/yacc app-crypt/libb2 app-portage/portage-utils"
 		post_pkgs="${post_pkgs:+"${post_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
+
 		# *If* we really need app-portage/portage-utils, USE='qmanifest' pulls
 		# in app-crypt/gpgme, which we're not handling with the --nodeps final
 		# sys-devel/gcc build :(
+		#
 		pre_use="$( replace_flags '-qmanifest' -- "${pre_use}" )"
 		post_use="$( replace_flags '-qmanifest' -- "${post_use}" )"
 
+		#if
+		#		echo " ${use_essential:-} ${use_essential_gcc:-}" \
+		#				"${pre_use:-} ${with_use:-} ${post_use:-}" \
+		#				"${gcc_extra_use_flags:-} " |
+		#			grep -q -- ' zstd '
 		if
-				echo " ${use_essential:-} ${use_essential_gcc:-}" \
-						"${pre_use:-} ${with_use:-} ${post_use:-}" \
-						"${gcc_extra_flags:-} " |
+				echo " ${post_use:-}" |
 					grep -q -- ' zstd '
 		then
+			print "Adding post-installation package 'app-arch/zstd' due to" \
+				"presence of 'zstd' USE flag"
 			post_pkgs="${post_pkgs:+"${post_pkgs} "}app-arch/zstd"
 		fi
 		;;
@@ -1484,6 +1556,7 @@ esac
 
 if ! grep -Fq ' sys-devel/gcc ' <<<" ${post_pkgs} "; then
 	post_pkgs="${post_pkgs:+"${post_pkgs} "}sys-libs/zlib --nodeps --with-bdeps=n"
+	# FIXME: What packages require these updated flags?
 	post_use="$( replace_flags '-minizip' 'xml' -- "${post_use}" )"
 fi
 
@@ -1534,7 +1607,7 @@ fi
 #extra_pkgs="${extra_pkgs:+"${extra_pkgs} "}sys-devel/prelink"
 with_use="$( replace_flags 'make-symlinks' -- "${with_use}" )"
 
-case " ${gcc_extra_flags:-} " in
+case " ${gcc_extra_use_flags:-} " in
 	*' openmp '*)
 		post_pkgs="dev-libs/gmp dev-libs/mpfr dev-libs/mpc${post_pkgs:+" ${post_pkgs}"}"
 		;;
@@ -1547,7 +1620,7 @@ fi
 if
 		echo " ${use_essential:-} ${use_essential_gcc:-}" \
 				"${pre_use:-} ${with_use:-} ${post_use:-}" \
-				"${gcc_extra_flags:-} " |
+				"${gcc_extra_use_flags:-} " |
 			grep -Fqe ' compile-locales ' -e ' minimal '
 then
 	pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}sys-libs/glibc"
