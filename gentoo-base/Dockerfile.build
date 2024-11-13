@@ -48,7 +48,10 @@ ARG ROOT
 ARG SYSROOT
 ARG PORTAGE_CONFIGROOT
 
-ENV SKIP_KERNEL_CHECK=1
+# Don't set this, as it causes KV_FULL to never be set and so breaks the build
+# of all external modules :(
+#
+#ENV SKIP_KERNEL_CHECK=1
 
 
 # Copy the portage tree into the current stage

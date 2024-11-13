@@ -1,7 +1,7 @@
 
 # stage3:
-#    This is the *only way* to persist variables across docker stages, without
-#    having to write files within containers :(
+#    This is the *only way* to persist variables across multi-stage builds
+#    without the need to write files within the images :(
 #
 #    We're embedding the image IDs of parent containers into their dependents,
 #    but in this case the only thing that can change through this image is the

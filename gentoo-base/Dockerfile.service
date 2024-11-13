@@ -200,13 +200,26 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
     done ; \
     if ! [ -L /usr/bin/gcc ]; then \
         for d in \
-                usr/lib64/pkgconfig usr/include ; \
+                usr/lib64/pkgconfig usr/include usr/share/gcc-data \
+                    usr/libexec/gcc etc/env.d/gcc; \
         do \
-            [ -e "${d}" ] && rm -rf "/${d:?}" ; \
+            if [ -d "/${d:?}" ]; then \
+                rm -f "/${d}/*" ; \
+                rmdir --ignore-fail-on-non-empty -p "/${d}" ; \
+            fi ; \
         done ; \
-        if [ -d usr/share/gcc-data ]; then \
-            rm -rf /usr/share/gcc-data/*/*/man /usr/share/gcc-data/*/*/info ; \
-        fi ; \
+        for d in $( \
+            find /usr/ -mindepth 2 -maxdepth 2 -name gcc-bin -print 2>/dev/null ; \
+            find /usr/lib/gcc -mindepth 3 -maxdepth 3 -name plugin -print 2>/dev/null ; \
+            find /etc/env.d/ -mindepth 1 -maxdepth 1 -name '04gcc-*' -print 2>/dev/null ; \
+        ) ; do \
+            if [ -e "${d:?}" ]; then \
+                rm -rf "${d}" ; \
+                d="$( dirname "${d}" )" ; \
+                [ ! -d "${d}" ] || \
+                    rmdir --ignore-fail-on-non-empty -p "${d}" ; \
+            fi ; \
+        done ; \
     fi
 
 # Setup entrypoint script to perform a one-time copy of binary system packages
@@ -234,7 +247,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
 # linter ignore=ER0001
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
     if ! [ "${service_cmd}" = '__wait__' ]; then \
-        echo "${service_cmd}" ; \
+        : echo "${service_cmd}" ; \
         test -x "${service_cmd}" && \
             if ! [ "$( \
                 head -n 1 "${service_cmd}" | \
