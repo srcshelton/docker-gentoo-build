@@ -263,7 +263,7 @@ docker_run() {
 
 		/etc/locale.gen  # FIXME: Commented in common/run.sh?
 
-		#/usr/src  # FIXME: Breaks gentoo-kernel-build package, somehow?
+		/usr/src  # Used to affect kernel-builds, now seems fine?
 	)
 	mirrormountpoints=(
 		#/var/cache/portage/dist
