@@ -108,7 +108,7 @@
 #~app-containers/podman-5.1.0_rc1			 **
 #~app-containers/podman-5.1.0				 **
 #~app-containers/podman-5.1.1				 **
-~app-containers/podman-5.1.2				 **
+#~app-containers/podman-5.1.2				 **
 #~app-containers/podman-5.2.0_rc1			 **
 #~app-containers/podman-5.2.0_rc2			 **
 #~app-containers/podman-5.2.0_rc3			 **
@@ -119,6 +119,9 @@
 #~app-containers/podman-5.2.4				 **
 ~app-containers/podman-5.2.5				 **
 #~app-containers/podman-5.3.0_rc1			 **
+#~app-containers/podman-5.3.0_rc2			 **
+#~app-containers/podman-5.3.0_rc3			 **
+~app-containers/podman-5.3.0				 **
 
 #~app-containers/podman-tui-0.14.0			 **
 #~app-containers/podman-tui-0.17.0			 **
@@ -226,13 +229,14 @@
 #~app-containers/buildah-1.35.1				 **
 #~app-containers/buildah-1.35.2				 **
 #~app-containers/buildah-1.35.3				 **
-~app-containers/buildah-1.36.0				 **
+#~app-containers/buildah-1.36.0				 **
 #~app-containers/buildah-1.37.0				 **
 #~app-containers/buildah-1.37.1				 **
 #~app-containers/buildah-1.37.2				 **
 #~app-containers/buildah-1.37.3				 **
 #~app-containers/buildah-1.37.4				 **
 ~app-containers/buildah-1.37.5				 **
+~app-containers/buildah-1.38.0				 **
 
 # originally required by app-emulation/buildah-1.15.0
 # move app-emulation/skopeo app-containers/skopeo
@@ -330,7 +334,9 @@
 #~app-containers/crun-1.16				 **
 #~app-containers/crun-1.16.1				 **
 ~app-containers/crun-1.17				 **
-~app-containers/crun-1.18				 **
+#~app-containers/crun-1.18				 **
+#~app-containers/crun-1.18.1				 **
+~app-containers/crun-1.18.2				 **
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -361,7 +367,8 @@
 #~app-containers/runc-1.2.0_rc1				 **
 #~app-containers/runc-1.2.0_rc2				 **
 #~app-containers/runc-1.2.0_rc3				 **
-~app-containers/runc-1.2.0				 **
+#~app-containers/runc-1.2.0				 **
+~app-containers/runc-1.2.1				 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
@@ -440,6 +447,7 @@
 #~app-containers/aardvark-dns-1.12.1			 **
 ~app-containers/aardvark-dns-1.12.2			 **
 ~app-containers/aardvark-dns-1.13.0			 **
+# crate missing: https://crates.io/crates/aardvark-dns/1.13.1
 
 # required for <=app-containers/podman-3.4.7
 # optional for <=podman/podman-4.5.0_rc2:4
@@ -504,12 +512,13 @@
 #~app-containers/containers-common-0.58.5		 **
 #~app-containers/containers-common-0.59.0		 **
 #~app-containers/containers-common-0.59.1		 **
-~app-containers/containers-common-0.59.2		 **
+#~app-containers/containers-common-0.59.2		 **
 #~app-containers/containers-common-0.60.0		 **
 #~app-containers/containers-common-0.60.1		 **
 #~app-containers/containers-common-0.60.2		 **
 #~app-containers/containers-common-0.60.3		 **
 ~app-containers/containers-common-0.60.4		 **
+~app-containers/containers-common-0.61.0		 **
 
 ~app-containers/containers-image-5.30.0			 **
 ~app-containers/containers-image-5.32.2			 **
@@ -592,9 +601,10 @@
 #~app-containers/containers-storage-1.51.2		 **
 #~app-containers/containers-storage-1.52.0		 **
 #~app-containers/containers-storage-1.53.0		 **
-~app-containers/containers-storage-1.54.0		 **
+#~app-containers/containers-storage-1.54.0		 **
 #~app-containers/containers-storage-1.55.0		 **
 ~app-containers/containers-storage-1.55.1		 **
+~app-containers/containers-storage-1.56.0		 **
 
 # rust build dependencies for netavark/aardvark-dns
 #=dev-util/cargo-ebuild-0.5.1				~amd64

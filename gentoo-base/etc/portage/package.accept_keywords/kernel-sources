@@ -1,21 +1,26 @@
 
 # Current stable package is gentoo-sources-5.10.226
-~sys-kernel/gentoo-sources-5.10.227			~amd64             ~x86
+# Current stable package is gentoo-sources-5.10.228
+#~sys-kernel/gentoo-sources-5.10.228			~amd64             ~x86
 
 # Current stable package is gentoo-sources-5.15.167
-~sys-kernel/gentoo-sources-5.15.168			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-5.15.169
+#~sys-kernel/gentoo-sources-5.15.169			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.1.111
-~sys-kernel/gentoo-sources-6.1.113			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-6.1.114
+#~sys-kernel/gentoo-sources-6.1.114			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.6.52
-~sys-kernel/gentoo-sources-6.6.57			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-6.6.58-r1
+#~sys-kernel/gentoo-sources-6.6.58			~amd64 ~arm ~arm64 ~x86
 
-# Clear Linux is up to date with linux-6.11.3
-~sys-kernel/gentoo-sources-6.11.3			~amd64 ~arm ~arm64 ~x86
+# Clear Linux is up to date with linux-6.11.5
+#~sys-kernel/gentoo-sources-6.11.5			~amd64 ~arm ~arm64 ~x86
 
-~sys-kernel/gentoo-sources-6.11.4			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/vanilla-sources-6.11.4			~amd64 ~arm ~arm64 ~x86
+# Latest is gentoo-sources-6.11.5-r1
+~sys-kernel/gentoo-sources-6.11.5			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-6.11.5			~amd64 ~arm ~arm64 ~x86
 
 # Required for rust modules...
 #
@@ -46,11 +51,17 @@
 ~dev-lang/rust-1.76.0					~amd64
 ~dev-lang/rust-bin-1.76.0				~amd64
 # 6.10.x/6.11.x
-~virtual/rust-1.78.0					~amd64
-~dev-lang/rust-1.78.0					~amd64
-~dev-lang/rust-bin-1.78.0				~amd64
+#~virtual/rust-1.78.0					~amd64
+#~dev-lang/rust-1.78.0					~amd64
+#~dev-lang/rust-bin-1.78.0				~amd64
+# Gentoo skipped 1.78.0, and went straight from 1.77.1 to 1.79.0...
+~virtual/rust-1.79.0					~amd64
+~dev-lang/rust-1.79.0					~amd64
+~dev-lang/rust-bin-1.79.0				~amd64
 
 # Additional kernel-modules...
-#~net-firewall/xtables-addons-3.18			~amd64 ~arm ~arm64 ~x86
+~net-firewall/xtables-addons-3.24			       ~arm ~arm64
+
+~app-admin/kernel-hardening-checker-0.6.10		~amd64 ~arm ~arm64 ~x86
 
 # vi: set colorcolumn=56 syntax=gentoo-package-keywords:
