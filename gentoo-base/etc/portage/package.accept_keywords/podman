@@ -278,9 +278,10 @@
 #~app-containers/skopeo-1.14.5				 **
 #~app-containers/skopeo-1.15.0				 **
 #~app-containers/skopeo-1.15.1				 **
-~app-containers/skopeo-1.15.2				 **
+#~app-containers/skopeo-1.15.2				 **
 #~app-containers/skopeo-1.16.0				 **
 ~app-containers/skopeo-1.16.1				 **
+~app-containers/skopeo-1.17.0				 **
 
 # move app-emulation/crun app-containers/crun
 #~app-containers/crun-0.14.1				 **
@@ -368,7 +369,8 @@
 #~app-containers/runc-1.2.0_rc2				 **
 #~app-containers/runc-1.2.0_rc3				 **
 #~app-containers/runc-1.2.0				 **
-~app-containers/runc-1.2.1				 **
+#~app-containers/runc-1.2.1				 **
+~app-containers/runc-1.2.2				 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
