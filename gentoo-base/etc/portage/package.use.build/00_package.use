@@ -202,7 +202,7 @@ net-mail/fetchmail			 hesiod
 net-misc/bfgminer			-adl -opencl
 >=net-misc/bfgminer-3.1.0		-lm-sensors cpumining
 #net-misc/cgminer			-adl -lm-sensors -opencl  # CPU mining removed before 2015 :o
-net-misc/curl				-adns -ares -curl_quic_openssl -http2 -http3 -psl -quic libssh2 test  # http2 required by dev-lang/rust
+net-misc/curl				-adns -ares -curl_quic_openssl -http2 -http3 -psl -quic -test -websockets libssh2 # http2 required by dev-lang/rust
 net-misc/dhcpcd				-compat privsep
 net-misc/ntp				-snmp openntpd
 <net-misc/openntpd-6.8_p1-r1		 libressl
@@ -299,7 +299,6 @@ www-servers/lighttpd			-memcached fastcgi libev memcache uploadprogress webdav
 >=www-servers/lighttpd-1.4.58		 dbi  # webdav requires sqlite, which now requires dbi
 x11-libs/cairo				-X cleartype lcdfilter
 virtual/mta				 ssmtp
-virtual/rust				 rustfmt  # required by dev-util/bindgen
 
 app-shells/stdlib			 colour
 mail-client/roundcube::srcshelton	 plugins zxcvbn
