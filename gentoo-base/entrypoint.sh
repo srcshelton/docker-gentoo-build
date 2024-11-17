@@ -1772,7 +1772,7 @@ features_eudev=1
 # with the same PYTHON_*TARGET* flags as are currently active...
 #
 pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
-pkg_initial_use='-nls -pam -perl -python -su minimal'
+pkg_initial_use='-compress-xz -lzma -nls -pam -perl -python -su minimal'
 pkg_exclude=''
 if [ $(( features_eudev )) -eq 1 ]; then
 	pkg_initial="${pkg_initial:+"${pkg_initial} "}sys-fs/eudev virtual/libudev"
@@ -1902,10 +1902,26 @@ if [ -n "${pkg_initial:-}" ]; then
 						xargs -rn 1 |
 						sort -u |
 						xargs -r
-			); do
+				)
+			do
 				export ROOT
 				export SYSROOT="${ROOT}"
 				export PORTAGE_CONFIGROOT="${SYSROOT}"
+
+				# There's no way to set per-package mutually-exclusive USE
+				# flags without the use of external files with current versions
+				# of portage :(
+				#
+				if [ -f "${SYSROOT}"/etc/portage/package.use ]; then
+					printf >>"${SYSROOT}"/etc/portage/package.use \
+						'\n%s hostname\n%s -hostname' \
+							'sys-apps/net-tools' 'sys-apps/coreutils'
+				else
+					mkdir -p "${SYSROOT}"/etc/portage/package.use
+					printf >"${SYSROOT}"/etc/portage/package.use/hostname \
+						'\n%s hostname\n%s -hostname' \
+							'sys-apps/net-tools' 'sys-apps/coreutils'
+				fi
 
 				# First package in '${pkg_initial}' to have python deps...
 				#
@@ -2265,6 +2281,14 @@ if [ -n "${pkg_initial:-}" ]; then
 
 				if echo " ${pkg} " | grep -q -- ' app-shells/bash '; then
 					fix_sh_symlink "${ROOT}" 'pre-deploy'
+				fi
+
+				if [ -f "${SYSROOT}"/etc/portage/package.use ]; then
+					sed -e '/hostname$/ d' \
+						-i "${SYSROOT}"/etc/portage/package.use
+				else
+					[ -e "${SYSROOT}"/etc/portage/package.use/hostname ] &&
+						rm "${SYSROOT}"/etc/portage/package.use/hostname
 				fi
 			done  # for ROOT in $(...)
 		done  # for pkg in ${pkg_initial:-}
