@@ -310,8 +310,8 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 			# shellcheck disable=SC2030
 			if { ! USE="$( # <- Syntax
 					echo " -* -asm ${alt_use} ${use_cpu_flags:-} compat" \
-							"embedded ftp getentropy gmp ipv6 nls python" \
-							"readline" ${default_use} ' ' |
+							"embedded ftp getentropy gmp ipv6 ninja nls" \
+							"python readline reference " ${default_use} ' ' |
 						sed 's/ asm //g'
 			)" \
 				./gentoo-build-pkg.docker 2>&1 \
@@ -346,7 +346,8 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 					dev-libs/nettle ;
 			} || { ! USE="$( echo "-* ${alt_use} ${use_cpu_flags:-} asm" \
 						"compile-locales cxx ipv6 ktls lib-only minimal" \
-						"openssl pcre pie reference ssl varrun" ${default_use}
+						"openssl pcre pie reference ssl varrun" \
+						${default_use} ${use_essential_gcc}
 					)" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
@@ -486,7 +487,12 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 
 		{
 			# shellcheck disable=SC2030
-			if ! USE="-* ${use} bison nls readline zstd python_single_target_${python_default_target} python_targets_${python_default_target}" \
+			if !
+					USE="$( echo "-* ${use} bison nls readline zstd" \
+							"python_single_target_${python_default_target}" \
+							"python_targets_${python_default_target}" \
+							"${use_essential_gcc} -jit"
+						)" \
 					PYTHON_SINGLE_TARGET="${python_default_target}" \
 					PYTHON_TARGETS="${python_default_target}" \
 				./gentoo-build-pkg.docker 2>&1 \
@@ -506,7 +512,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 				failures="${failures:+"${failures} "}gentoo-build-pkg;1:${err}"
 			fi
 
-			if ! USE="-* ${use} python_targets_${python_default_target:-"python3_12"}" \
+			if ! USE="-* ${use} perl_features_ithreads python_targets_${python_default_target:-"python3_12"}" \
 					PERL_FEATURES='ithreads' \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
