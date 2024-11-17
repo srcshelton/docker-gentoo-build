@@ -179,11 +179,14 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 '       --nconfig                Interactively reconfigure the kernel via nconfig'
 	output >&2 '       --package <package>      Specify kernel package to build'
 	output >&2 "                               (default: '${package_default}')"
+	output >&2 '       --with <package>         Specify additional packages requiring kernel src'
+	output >&2 "                               (e.g. 'net-firewall/xtables-addons', etc.)"
 	output >&2 "       --firmware               Include 'sys-kernel/linux-firmware'"
 	output >&2 "       -O3                      Add 'KCFLAGS=-O3' (and others - see [1])"
 	output >&2 '       --clang                  Compile kernel with llvm'
 	output >&2 '         --llvm-unwind          Install LLVM edition of libunwind'
-	output >&2 "         --rust                 Pull-in 'rust' dependencies"
+	output >&2 "         --rust                 Pull-in rust dependencies"
+	#output >&2 '         --force-rust <version> Force a specified rust slot'
 	output >&2 '         --force-llvm <version> Force a specified LLVM version'
 	output >&2 '         --clean-lto            Remove exisitng *.lto.o objects'
 	output >&2
@@ -227,6 +230,7 @@ declare llvm_sub_slot_override=''
 declare menuconfig=''
 declare nconfig=''
 declare package_override=''
+declare extra_packages=''
 declare patch=''
 declare rust_llvm_use=''
 declare unwind=''
@@ -388,6 +392,36 @@ if echo " ${*:-} " | grep -Fq -- ' --package'; then
 		warn "Invalid package version '$( # <- Syntax
 			echo " ${*:-} " |
 				grep -Eo -- ' --package[^ ]+ ' |
+				sed 's/ $//'
+		)'"
+	fi
+fi
+
+if echo " ${*:-} " | grep -Fq -- ' --with'; then
+	if echo " ${*:-} " | grep -Eq -- ' --with=[^ ]+ '; then
+		extra_packages="$( # <- Syntax
+			echo " ${*} " |
+				grep -Eo -- '--with=[^ ]+' |
+				while read -r pkg; do
+					echo "${pkg}" |
+					cut -d'=' -f 2- |
+					sed 's/ $//'
+				done
+		)"
+	elif echo " ${*:-} " | grep -q -- ' --with [^ -][^ ]* '; then
+		extra_packages="$( # <- Syntax
+			echo " ${*} " |
+				grep -Eo -- '--with [^ ]+' |
+				while read -r pkg; do
+					echo "${pkg}" |
+					cut -d' ' -f 2- |
+					sed 's/ $//'
+				done
+		)"
+	else
+		warn "Invalid package version '$( # <- Syntax
+			echo " ${*:-} " |
+				grep -Eo -- ' --with[^ ]+ ' |
 				sed 's/ $//'
 		)'"
 	fi
@@ -892,7 +926,7 @@ case "${package_version}" in
 esac
 
 if [[ "${compiler}" == 'clang' ]]; then
-	declare rust_ver=''
+	declare rust_slot=''
 	# https://github.com/rust-lang/rust-bindgen/issues/2312
 	declare bindgen_ver='0.56.0'
 	declare -i llvm_min_slot=0
@@ -910,38 +944,38 @@ if [[ "${compiler}" == 'clang' ]]; then
 			fi
 			;;
 		6.[1234].*)
-			rust_ver='1.62.0'
+			#rust_slot='1.62.0'
 			(( llvm_default_slot = 14 ))
 			;;
 		6.5.*)
-			rust_ver='1.68.2'
+			#rust_slot='1.68.2'
 			(( llvm_default_slot = 15 ))
 			;;
 		6.6.*)
-			rust_ver='1.71.1'
+			rust_slot='1.71.1'
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 16 ))
 			;;
 		6.7.*)
-			rust_ver='1.73.0'
+			rust_slot='1.73.0'
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 17 ))
 			;;
 		6.8.*)
-			rust_ver='1.74.1'
+			rust_slot='1.74.1'
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 17 ))
 			;;
 		6.9.*)
-			rust_ver='1.76.0'
+			rust_slot='1.76.0'
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 17 ))
 			;;
 		6.1[0-9].*)
 			# Gentoo skipped rust-1.78.0 and jumped straight from rust-1.77.1
 			# to rust-1.79.0 ...
-			#rust_ver='1.78.0'
-			rust_ver='1.79.0'
+			#rust_slot='1.78.0'
+			rust_slot='1.79.0'
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 17 ))
 			;;
@@ -1571,15 +1605,30 @@ esac
 				sys-process/time
 				${microcode:-}
 				${firmware:-}
-				${rustext:+"${rust_ver:+">="}virtual/rust${rust_ver:+"-${rust_ver}"}"}
+
+				# N.B. virtual/rust is now deprecated
+				#${rustext:+"${rust_ver:+">="}virtual/rust${rust_ver:+"-${rust_ver}"}"}
+
+				# This is crazy - virtual/rust allowed either dev-lang/rust or
+				# dev-lang/rust-bin to be pulled-in, but the now-separate
+				# slotted packages both use this flexibility, and the ability
+				# to specify a minimum version, as it's not possible to specify
+				# '>=cat-pkg:slot' :(
+				#
+				#${rustext:+"${rust_ver:+">="}dev-lang/rust${rust_ver:+":${rust_ver}"}"}
+				${rustext:+"dev-lang/rust${rust_slot:+":${rust_slot}"}"}
+
 				${rustext:+"${bindgen_ver:+">="}dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"}
 				virtual/os-headers
 				virtual/linux-sources
 			)
 			declare -a _docker_run_arguments=( # <- Syntax
 				--with-use="$( replace_flags '-lib-only' -- "${USE:-}" )"
-				${rustext:+"--with-pkg-mask=>virtual/rust${rust_ver:+"-${rust_ver}"}"}
-				${rustext:+"--with-pkg-mask=>dev-lang/rust${rust_ver:+"-${rust_ver}"}"}
+
+				# N.B. virtual/rust is now deprecated
+				#${rustext:+"--with-pkg-mask=>virtual/rust${rust_ver:+"-${rust_ver}"}"}
+				#${rustext:+"--with-pkg-mask=>dev-lang/rust${rust_ver:+"-${rust_ver}"}"}
+
 				${rustext:+"--with-pkg-mask=>dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"}
 				$( # <- Syntax
 					if [[ "${compiler}" == 'clang' ]]; then
@@ -1963,8 +2012,11 @@ esac
 			: Correct as-of LLVM 18.1.8-r1 - see https://clang.llvm.org/docs/CommandGuide/clang.html ;
 			good_flags='' ;
 			bad_flags='' ;
+			gcc_CFLAGS="\${CFLAGS:-}" ;
+			gcc_CXXFLAGS="\${CXXFLAGS:-}" ;
 			for flag in \${CFLAGS:-}; do
 				case "\${flag}" in
+					-fallow-store-data-races)				bad_flags="\${bad_flags} \${flag}" ;;
 					-fdevirtualize-at-ltrans)				bad_flags="\${bad_flags} \${flag}" ;;
 					-fdevirtualize-speculatively)			bad_flags="\${bad_flags} \${flag}" ;;
 					-fgcse-las)								bad_flags="\${bad_flags} \${flag}" ;;
@@ -2012,7 +2064,7 @@ esac
 					;;
 			esac ;
 			export CFLAGS ;
-			unset CXXFLAGS FFLAGS FCFLAGS FLFLAGS ;
+			unset CXXFLAGS ;
 			echo "NOTE:  ${compiler} CFLAGS are '\${CFLAGS}'" ;
 		fi ;
 		kernel='bzImage' ;
@@ -2250,6 +2302,17 @@ esac
 			fi ;
 		elif [ '${bundle}' = '0' ]; then
 			echo >&2 "WARN:  Linux kernel-${package_version}${distro:-} successfully built (but not installed due to '--no-install' argument)" ;
+		fi ;
+		if [ -n '${extra_packages:-}' ]; then
+			export CFLAGS="\${gcc_CFLAGS:-}" ;
+			export CXXFLAGS="\${gcc_CXXFLAGS:-}" ;
+			export USE='modules modules-compress${EXTRA_USE:+" ${EXTRA_USE}"}' ;
+			export XTABLES_ADDONS='${XTABLES_ADDONS:-"asn geoip"}' ;
+			: The build includes a placeholder Makefile pointing back to the \
+			: source directory, so must must exclude that... ;
+			tar -C /usr/src/build/ -cpf - --exclude Makefile . |
+					tar -C /usr/src/linux/ -xvpf - &&
+				emerge -kv --buildpkg=y ${extra_packages} ;
 		fi ;
 	EOF
 	)"
