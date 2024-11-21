@@ -170,6 +170,8 @@
 =dev-util/ltrace-0.7.91_p195				~arm64
 ~net-analyzer/arpwatch-3.5				 **
 ~net-analyzer/darkstat-3.0.721				 **
+~net-dns/bind-9.18.29					~arm64
+~net-dns/bind-tools-9.18.0				~arm64
 ~net-misc/linuxptp-4.2					~arm64
 ~net-misc/usbip-6.4					 **
 =sci-libs/blis-1.0					~arm64
@@ -185,6 +187,7 @@
 # required by net-misc/kea-2.4.0-r1
 ~dev-libs/log4cplus-2.0.7				~arm64
 
+~container/bind-9.18.29					~arm ~arm64
 ~container/bitlbee-3.6					~arm ~arm64
 ~container/dovecot-2.3.21.1				~arm ~arm64
 ~container/imapproxy-1.2.8_p14637			 **
