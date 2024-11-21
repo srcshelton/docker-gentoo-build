@@ -100,12 +100,18 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
 
 # Restore separate /lib* and /usr/lib* directories...
 #
-# (Update: It's worse - /usr/sbin is a symlink to /usr/bin, and packages such
-#          as autotools are now hard-coding /usr/sbin/perl despite this not
-#          existing with split=usr!)
+# Update: It's worse - /usr/sbin is a symlink to /usr/bin, and packages such
+#         as autotools are now hard-coding /usr/sbin/perl despite this not
+#         existing with split-usr!
 #
 # ... despite the root-directory symlinks, /var/db/pkg/**/CONTENTS still record
 # files' intended filesystem locations.
+#
+# Update: It's worse agian - for arm64 at least, the CONTENTS entries for
+#         sys-apps/coreutils places binaries in /usr/bin/{cp,mv,etc.}, but
+#         portage is still hard-coded to look for /bin/{cp,mv,etc.} meaning
+#         stage3 builds are fundamentally broken as soon as any /bin to
+#         /usr/bin symlink is rolled-back :(
 #
 RUN { set -o pipefail 2>/dev/null || true ; } ; \
     test -n "${new_root_name:-}" || exit 0 ; \
@@ -172,6 +178,38 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
         while read -r l t; do \
             ln -s "${t}" "/${new_root_name}${l}" ; \
         done ; \
+    : ; \
+    : Fix up sys-apps/coreutils on at least ARM64... ; \
+    : (/bin/mv is the first thing to obviously break, when portage attempts \
+    :  to perform package-moves} ; \
+    : ; \
+    set -x ; \
+    if [ ! -f "/${new_root_name}/bin/mv" ] || [ -L "/${new_root_name}/bin/mv" ]; then \
+        if [ -f "/${new_root_name}/usr/bin/mv" ] && [ ! -L "/${new_root_name}/usr/bin/mv" ]; then \
+            mkdir -p "/${new_root_name}/bin" ; \
+            : Keep this list in sync with latest ebuild... ; \
+            for fhs in basename cat chgrp chmod chown chroot cp cut date dd \
+                df dir dirname du echo env expr false head hostname kill ln \
+                ls md5sum mkdir mkfifo mknod mktemp mv pwd readlink rm rmdir \
+                seq sleep sort stty sync tail touch tr true tty uname uname \
+                uniq vdir wc yes ; \
+            do \
+                if grep -q -- "^obj /usr/bin/${fhs} " \
+                    "/${new_root_name}"/var/db/pkg/sys-apps/coreutils-*/CONTENTS ; \
+                then \
+                    cp -a "/${new_root_name}/usr/bin/${fhs}" \
+                            "/${new_root_name}"/bin/ && \
+                        rm -f "/${new_root_name}/usr/bin/${fhs}" && \
+                        sed -e "/^obj \/usr\/bin\/${fhs} /s|/bin/|/|" \
+                            -i "/${new_root_name}"/var/db/pkg/sys-apps/coreutils-*/CONTENTS ; \
+                    if [ "${fhs}" = 'uname' ] || [ "${fhs}" = 'env' ]; then \
+                        ln -s "../../bin/${fhs}" "/${new_root_name}/usr/bin/${fhs}" ; \
+                    fi ; \
+                fi ; \
+            done ; \
+        fi ; \
+    fi ; \
+    set +x ; \
     : ; \
     if [ -f "/${new_root_name}/usr/sbin/zgrep" ]; then \
         sed -e '/GREP/s|/usr/bin/grep|/bin/grep|' \
