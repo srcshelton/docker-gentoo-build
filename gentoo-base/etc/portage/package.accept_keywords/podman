@@ -122,6 +122,7 @@
 #~app-containers/podman-5.3.0_rc2			 **
 #~app-containers/podman-5.3.0_rc3			 **
 ~app-containers/podman-5.3.0				 **
+~app-containers/podman-5.3.1				~amd64 ~x86 # Broken on ARM(64)?
 
 #~app-containers/podman-tui-0.14.0			 **
 #~app-containers/podman-tui-0.17.0			 **
