@@ -236,7 +236,7 @@ if [ "${rebuildimgs:-"0"}" = '1' ]; then
 
 		# Don't impose memory limits on hosts with <8GB RAM, linux
 		# won't build (with clang) on 4GB hosts :(
-		ram=$(( $(
+		ram=$(( $( # <- Syntax
 			grep -m 1 'MemTotal:' /proc/meminfo |
 				awk '{ print $2 }'
 		) / 1024 / 1024 ))
@@ -419,7 +419,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 
 		for image in 'localhost/gentoo-stage3' 'localhost/gentoo-init'; do
 			if [ "$( $_command image ls -n "${image}" | wc -l )" = '0' ]; then
-				eval "$(
+				eval "$( # <- Syntax
 					$_command container run \
 							--rm \
 							--entrypoint /bin/sh \
@@ -655,7 +655,7 @@ if [ "${update:-"0"}" = '1' ]; then
 	#		--emptytree \
 	#		--usepkg=y \
 	#		--with-bdeps=y \
-	#	$(
+	#	$( # <- Syntax
 	#		for pkg in /var/db/pkg/*/*; do
 	#			pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
 	#			if echo "${pkg}" | grep -Eq '^container/|/pkgconfig-'; then
@@ -682,13 +682,13 @@ if [ "${update:-"0"}" = '1' ]; then
 					-e '-floop-nest-optimize' \
 					-e '-floop-parallelize-all'
 		then
-			gcc_use="$(
+			gcc_use="$( # <- Syntax
 				echo " ${use_essential_gcc} " |
 					sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
 			)"
 		fi
 	else
-		gcc_use="$(
+		gcc_use="$( # <- Syntax
 			sed 's/#.*$//' /etc/portage/package.use/00_package.use |
 			tr -s '[:space:]' |
 			grep -E '^\s?([<>=~]=?)?sys-devel/gcc' |
@@ -715,7 +715,7 @@ if [ "${update:-"0"}" = '1' ]; then
 						--usepkg=y \
 						--with-bdeps=y \
 						${exclude:+"--exclude=${exclude}"} \
-					$(
+					$( # <- Syntax
 						for pkg in /var/db/pkg/*/*; do
 							pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
 							# fam & gamin block each other, tend to have broken
@@ -761,7 +761,7 @@ if [ "${update:-"0"}" = '1' ]; then
 		# use the defaults above)
 		#
 		if [ -s /etc/portage/package.use/05_host.use ]; then
-			gcc_use="$(
+			gcc_use="$( # <- Syntax
 				sed 's/#.*$//' /etc/portage/package.use/05_host.use |
 				tr -s '[:space:]' |
 				grep -E '^\s?([<>=~]=?)?sys-devel/gcc' |
@@ -810,12 +810,11 @@ if [ "${system:-"0"}" = '1' ]; then
 		pretend=''
 	fi
 
-	if output="$(
+	if output="$( # <- Syntax
 		emerge \
 					--binpkg-changed-deps=y \
 					--binpkg-respect-use=y \
 					--color=n \
-					--deep \
 					${exclude:+"--exclude=${exclude}"} \
 					--newuse \
 					--pretend \
@@ -826,6 +825,10 @@ if [ "${system:-"0"}" = '1' ]; then
 					--verbose=y \
 					--with-bdeps=n \
 				@world
+					# --usepkgonly and --deep are horribly
+					# broken :(
+					#
+					#--deep \
 	)"; then
 		echo "${output}" |
 			grep -E '^\[binary\s+U[[:space:]~]+\]\s+' |
