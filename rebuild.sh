@@ -825,8 +825,7 @@ if [ "${system:-"0"}" = '1' ]; then
 					--verbose=y \
 					--with-bdeps=n \
 				@world
-					# --usepkgonly and --deep are horribly
-					# broken :(
+					# --usepkgonly and --deep are horribly broken :(
 					#
 					#--deep \
 	)"; then
@@ -860,4 +859,4 @@ fi
 
 exit "${rc}"
 
-# vi: set colorcolumn=80:
+# vi: set colorcolumn=80 noet sw=4 ts=4:
