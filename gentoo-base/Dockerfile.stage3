@@ -179,11 +179,11 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             ln -s "${t}" "/${new_root_name}${l}" ; \
         done ; \
     : ; \
-    : Fix up sys-apps/coreutils on at least ARM64... ; \
-    : (/bin/mv is the first thing to obviously break, when portage attempts \
-    :  to perform package-moves} ; \
+    : Fix up sys-apps/coreutils on at least ARM64... \
+    : \
+    : /bin/mv is the first thing to obviously break, when portage attempts \
+    : to perform package-moves ; \
     : ; \
-    set -x ; \
     if [ ! -f "/${new_root_name}/bin/mv" ] || [ -L "/${new_root_name}/bin/mv" ]; then \
         if [ -f "/${new_root_name}/usr/bin/mv" ] && [ ! -L "/${new_root_name}/usr/bin/mv" ]; then \
             mkdir -p "/${new_root_name}/bin" ; \
@@ -209,7 +209,6 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             done ; \
         fi ; \
     fi ; \
-    set +x ; \
     : ; \
     if [ -f "/${new_root_name}/usr/sbin/zgrep" ]; then \
         sed -e '/GREP/s|/usr/bin/grep|/bin/grep|' \
