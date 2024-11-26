@@ -391,7 +391,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			# memtotal is rounded-down, so 4GB systems have a memtotal of 3...
 			if [ $(( memtotal )) -ge 4 ]; then
 				# Enable pypy support for Portage accleration of ~35%!
-				pkg_pypy="dev-python/pypy3"
+				pkg_pypy="dev-lang/pypy"
 				pkg_pypy_use="bzip2 jit"
 				pkg_pypy_post_remove="dev-lang/python:2.7"
 				# Update: dev-python/pypy3_10-exe-7.3.12_p2 now requires 10GB
