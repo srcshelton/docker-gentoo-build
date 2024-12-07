@@ -1,0 +1,12 @@
+
+# Michael Orlitzky <mjo@gentoo.org> (2024-11-13)
+# PHP 8.1.x no longer receives bug fixes unless they address security
+# issues. That means no build fixes, no updates for modern compilers,
+# and no tweaks for newer versions of dependencies. We can't really
+# afford to maintain our own little fork of this, so it's time to
+# upgrade (sorry). With it goes any unmaintained PECL packages
+# that don't support 8.2 or newer.
+#dev-php/pecl-memcache
+>=dev-php/pecl-memcache-8.2
+
+# vi: set syntax=gentoo-package-mask:

@@ -80,10 +80,11 @@ services=(
 	php
 	php73
 	php74
-	php80
-	php81
+	# Gentoo no longer supports <php-8.2 ...
+	#php80
+	#php81
 	php82
-	php83
+	#php83
 	pinfo
 	postfix
 	postgrey
@@ -114,6 +115,7 @@ services=(
 	unifi83
 	unifi84
 	unifi85
+	unifi86
 	vim
 	watchdog
 	xmrig
@@ -506,14 +508,15 @@ case "${service:-}" in
 		service='=dev-lang/php-7.3*' ;;
 	php74)
 		service='=dev-lang/php-7.4*' ;;
-	php80)
-		service='=dev-lang/php-8.0*' ;;
-	php81)
-		service='=dev-lang/php-8.1*' ;;
+	# Gentoo no longer supports <php-8.2 ...
+	#php80)
+	#	service='=dev-lang/php-8.0*' ;;
+	#php81)
+	#	service='=dev-lang/php-8.1*' ;;
 	php82)
 		service='=dev-lang/php-8.2*' ;;
-	php83)
-		service='=dev-lang/php-8.3*' ;;
+	#php83)
+	#	service='=dev-lang/php-8.3*' ;;
 	pinfo|info)
 		# Launcher loads running services' /usr/share/info volumes
 		service='app-text/pinfo' ;;
@@ -576,6 +579,8 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-8.4*' ;;
 	unifi85|unifi-controller85|unifi-controller-85|unifi-controller-bin85|unifi-controller-bin-85)
 		service='=net-misc/unifi-controller-bin-8.5*' ;;
+	unifi86|unifi-controller86|unifi-controller-86|unifi-controller-bin86|unifi-controller-bin-86)
+		service='=net-misc/unifi-controller-bin-8.6*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
@@ -859,7 +864,9 @@ case "${package_name}" in
 		;;
 	*.lighttpd)
 		output "Setting build variables for package 'lighttpd' ..."
-		pre_pkgs='>=dev-lang/php-8.1 media-gfx/imagemagick sys-apps/help2man sys-devel/gcc'
+		# Gentoo no longer supports <php-8.2 ...
+		#pre_pkgs='>=dev-lang/php-8.1 media-gfx/imagemagick sys-apps/help2man sys-devel/gcc'
+		pre_pkgs='>=dev-lang/php-8.2 media-gfx/imagemagick sys-apps/help2man sys-devel/gcc'
 		pre_pkgs+=' acct-group/lighttpd acct-user/lighttpd'
 		extra_pkgs='
 			dev-lang/perl
@@ -1062,8 +1069,11 @@ case "${package_name}" in
 		# eselect-php-0.9.6+ required for ROOT support
 		pre_pkgs='media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6'
 		pre_pkgs+=' acct-group/lighttpd acct-user/lighttpd acct-group/nobody acct-group/mail'
+		# Gentoo no longer supports <php-8.2
+		# (and therefore <dev-php/pecl-memcache-8.2) ...
+		#	>=dev-php/pecl-memcache-4
 		extra_pkgs='
-			>=dev-php/pecl-memcache-4
+			>=dev-php/pecl-memcache-8.2
 			dev-db/mysql-connector-c
 			dev-php/pecl-imagick
 			dev-php/pecl-redis
@@ -1718,12 +1728,23 @@ then
 	note "No 'package.license' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/'"
 fi
 
+declare package_mask_svc_name=''
+package_mask_svc_name="${package_name#*"."}"
+case "${package_mask_svc_name}-${package_version}" in
+	#php-7.3.*) package_mask_svc_name='php73' ;;
+	#php-7.4.*) package_mask_svc_name='php74' ;;
+	#php-8.0.*) package_mask_svc_name='php80' ;;
+	#php-8.1.*) package_mask_svc_name='php81' ;;
+	php-8.2.*) package_mask_svc_name='php82' ;;
+	#php-8.3.*) package_mask_svc_name='php83' ;;
+esac
+
 # package.unmask*
 #
 if \
 		! docker_extra_mounts+=( $( add_mount --print \
-				"%base%/etc/portage/package.unmask.svc/${package_name#*"."}" \
-				"/etc/portage/package.unmask/${package_name#*"."}"
+				"%base%/etc/portage/package.unmask.svc/${package_mask_svc_name}" \
+				"/etc/portage/package.unmask/${package_mask_svc_name}"
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
 				'%base%/etc/portage/package.unmask.svc/package.unmask' \
@@ -1751,16 +1772,6 @@ docker_extra_mounts+=( $( add_mount --print \
 
 # package.mask.svc
 #
-declare package_mask_svc_name=''
-package_mask_svc_name="${package_name#*"."}"
-case "${package_mask_svc_name}-${package_version}" in
-	php-7.3.*) package_mask_svc_name='php73' ;;
-	php-7.4.*) package_mask_svc_name='php74' ;;
-	php-8.0.*) package_mask_svc_name='php80' ;;
-	php-8.1.*) package_mask_svc_name='php81' ;;
-	php-8.2.*) package_mask_svc_name='php82' ;;
-	php-8.3.*) package_mask_svc_name='php83' ;;
-esac
 if \
 		! docker_extra_mounts+=( $( add_mount --print \
 				"%base%/etc/portage/package.mask.svc/${package_mask_svc_name}" \
@@ -1833,12 +1844,14 @@ case "${package_use_svc_name}" in
 		;;
 	php)
 		case "${package_use_svc_name}-${package_version}" in
-			php-7.3.*) package_use_svc_name_extras+=( 'php73' ) ;;
-			php-7.4.*) package_use_svc_name_extras+=( 'php74' ) ;;
-			php-8.0.*) package_use_svc_name_extras+=( 'php80' ) ;;
-			php-8.1.*) package_use_svc_name_extras+=( 'php81' ) ;;
+			#php-7.3.*) package_use_svc_name_extras+=( 'php73' ) ;;
+			#php-7.4.*) package_use_svc_name_extras+=( 'php74' ) ;;
+			#php-8.0.*) package_use_svc_name_extras+=( 'php80' ) ;;
+			#php-8.1.*) package_use_svc_name_extras+=( 'php81' ) ;;
 			php-8.2.*) package_use_svc_name_extras+=( 'php82' ) ;;
-			php-8.3.*) package_use_svc_name_extras+=( 'php83' ) ;;
+			#php-8.3.*) package_use_svc_name_extras+=( 'php83' ) ;;
+			*)
+				die "Unsupported PHP version '${package_version}'" ;;
 		esac
 		;;
 esac
