@@ -1945,7 +1945,7 @@ esac
 	#esac
 
 	# Confirm line-endings, highlight:
-	#   ^.*\()\|\s\(;\|;;\|then\|else\|do\|in\|&&\||\|||\|{\|\\\|\$(\|\\\$(\)\)$
+	#   ^.*\()\|\s\(;\|;;\|\$( # <- Syntax\|then\|else\|do\|in\|&&\||\|||\|{\|\\\|\$(\|\\\$(\)\)$
 	#
 	DOCKER_SCRIPT="$( cat <<-EOF
 		set -eu ;
@@ -2198,6 +2198,11 @@ esac
 				fi ;
 			fi ;
 		fi ;
+		modules_dir='${package_version}${distro:-}' ;
+		if echo '${package_version}' | grep -q -- '-r[0-9]\+$'; then
+			modules_dir="$( echo '${package_version}' | grep -o -- '-r[0-9]\+$' ) ;
+			modules_dir="${package_version}${distro:-}\${modules_dir}" ;
+		fi ;
 		if [ -e .config ]; then
 			echo "INFO:  Configuration changes from '.config':" ;
 			make ${kernel_make_opts[@]} O=../build \${localversion} listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
@@ -2212,7 +2217,7 @@ esac
 				modules \
 				\${dtb:+"dtbs"} \
 				\${kernel} &&
-			rm -rf '/lib/modules/${package_version}${distro:-}' &&
+			rm -rf "/lib/modules/\${modules_dir}" &&
 				make ${kernel_make_opts[@]} O=../build \${localversion} INSTALL_MOD_STRIP=1 modules_install &&
 					success=1 ;
 		set +x ;
@@ -2248,60 +2253,61 @@ esac
 			kernel-hardening-checker -m show_fail -c ../build/.config ;
 		fi ;
 		if [ -f ../build/vmlinux ]; then
-			mkdir -pv '/lib/modules/${package_version}${distro:-}' &&
-				cp -v ../build/vmlinux '/lib/modules/${package_version}${distro:-}/vmlinux-${package_version}${distro:-}' ;
+			mkdir -pv "/lib/modules/\${modules_dir}" &&
+				cp -v ../build/vmlinux "/lib/modules/\${modules_dir}/vmlinux-\${modules_dir}" ;
 		fi ;
 		if ! [ '${bundle}' = '1' ]; then
-			cp -v ../build/.config '/boot/config-${package_version}${distro:-}' ;
-			cp -v ../build/System.map '/boot/System.map-${package_version}${distro:-}' ;
-			cp -v ../build/arch/\${dir}/boot/\${kernel} '/boot/kernel-${package_version}${distro:-}' ;
+			cp -v ../build/.config "/boot/config-\${modules_dir}" ;
+			cp -v ../build/System.map "/boot/System.map-\${modules_dir}" ;
+			cp -v ../build/arch/\${dir}/boot/\${kernel} "/boot/kernel-\${modules_dir}" ;
 		else
-			mkdir -pv '/boot/${package_version}${distro:-}' ;
-			cp -v ../build/.config '/boot/${package_version}${distro:-}/config' ;
-			cp -v ../build/System.map '/boot/${package_version}${distro:-}/System.map' ;
-			cp -v ../build/arch/\${dir}/boot/\${kernel} '/boot/${package_version}${distro:-}/kernel8.img' ;
-			if [ -d '/boot/dtbs/${package_version}${distro:-}/broadcom' ]; then
-				mv -v '/boot/dtbs/${package_version}${distro:-}/broadcom'/*.dtb '/boot/${package_version}${distro:-}/' ;
-				if ! rmdir -v '/boot/dtbs/${package_version}${distro:-}/broadcom' ; then
-					echo >&2 "ERROR: Failed to remove '/boot/dtbs/${package_version}${distro:-}/broadcom': \${?}" ;
+			mkdir -pv "/boot/\${modules_dir}" ;
+			cp -v ../build/.config "/boot/\${modules_dir}/config" ;
+			cp -v ../build/System.map "/boot/\${modules_dir}/System.map" ;
+			cp -v ../build/arch/\${dir}/boot/\${kernel} "/boot/\${modules_dir}/kernel8.img" ;
+			if [ -d "/boot/dtbs/\${modules_dir}/broadcom" ]; then
+				mv -v "/boot/dtbs/\${modules_dir}/broadcom"/*.dtb "/boot/\${modules_dir}/" ;
+				if ! rmdir -v "/boot/dtbs/\${modules_dir}/broadcom" ; then
+					echo >&2 "ERROR: Failed to remove "/boot/dtbs/\${modules_dir}/broadcom": \${?}" ;
 					: echo >&2 "       Directory content:" ;
-					: ls -1AR '/boot/dtbs/${package_version}${distro:-}/broadcom' ;
+					: ls -1AR "/boot/dtbs/\${modules_dir}/broadcom" ;
 					echo >&2 "       Is CONFIG_LOCALVERSION correctly set?" ;
 					exit 1 ;
 				fi ;
 			fi ;
-			if [ -d '/boot/dtbs/${package_version}${distro:-}/overlays' ]; then
-				mv -v '/boot/dtbs/${package_version}${distro:-}/overlays' '/boot/${package_version}${distro:-}/' ;
-				touch '/boot/${package_version}${distro:-}/overlays/README' ;
+			if [ -d "/boot/dtbs/\${modules_dir}/overlays" ]; then
+				mv -v "/boot/dtbs/\${modules_dir}/overlays" "/boot/\${modules_dir}/" ;
+				touch "/boot/\${modules_dir}/overlays/README" ;
 			fi ;
 			if [ -d /boot/dtbs ]; then
-				if ! rmdir -v '/boot/dtbs/${package_version}${distro:-}' /boot/dtbs ; then
-					echo >&2 "ERROR: Failed to remove '/boot/dtbs/${package_version}${distro:-}' or '/boot/dtbs': \${?}" ;
+				if ! rmdir -v "/boot/dtbs/\${modules_dir}" /boot/dtbs ; then
+					echo >&2 "ERROR: Failed to remove "/boot/dtbs/\${modules_dir}" or "/boot/dtbs": \${?}" ;
 					: echo >&2 "       Directory content:" ;
-					: ls -1AR '/boot/dtbs/' ;
+					: ls -1AR "/boot/dtbs/" ;
 					echo >&2 "       Is CONFIG_LOCALVERSION correctly set?" ;
 					exit 1 ;
 				fi ;
 			fi ;
-			echo >&2 "NOTE:  Remember to set 'os_prefix = ${package_version}${distro:-}' in config.txt" ;
+			echo >&2 "NOTE:  Remember to set 'os_prefix = \${modules_dir}' in config.txt" ;
 			if ! [ -d /host/bundle ]; then
-				echo >&2 "ERROR: Directory '${bundle_dir}' does not exist - cannot save bundle 'linux-${package_version}${distro:-}.tar.xz'" ;
+				echo >&2 "ERROR: Directory '${bundle_dir}' does not exist - cannot save bundle 'linux-\${modules_dir}.tar.xz'" ;
 			else
-				if ! tar -C / -cJpf '/host/bundle/linux-${package_version}${distro:-}.tar.xz' boot/ lib/modules/ ; then
-					echo >&2 "ERROR: Failed creating bundle '${bundle_dir}/linux-${package_version}${distro:-}.tar.xz': ${?}" ;
+				if ! tar -C / -cJpf "/host/bundle/linux-\${modules_dir}.tar.xz" boot/ lib/modules/ ; then
+					echo >&2 "ERROR: Failed creating bundle '${bundle_dir}/linux-\${modules_dir}.tar.xz': ${?}" ;
 				else
-					echo "INFO:  Bundle 'linux-${package_version}${distro:-}.tar.xz' successfully deployed to '${bundle_dir}'" ;
+					echo "INFO:  Bundle 'linux-\${modules_dir}.tar.xz' successfully deployed to '${bundle_dir}'" ;
 				fi ;
 			fi ;
 		fi ;
 		if [ '${install}' = '1' ]; then
 			if ! tar -C / -cpf - /boot/ /lib/modules/ | tar -C /host/ -xpf - ; then
 				echo >&2 "ERROR: Build artefact extraction failed: \${?}" ;
+				exit 1 ;
 			else
-				echo 'INFO:  Linux kernel-${package_version}${distro:-} successfully installed - please update your bootloader' ;
+				echo 'INFO:  Linux kernel-\${modules_dir} successfully installed - please update your bootloader' ;
 			fi ;
 		elif [ '${bundle}' = '0' ]; then
-			echo >&2 "WARN:  Linux kernel-${package_version}${distro:-} successfully built (but not installed due to '--no-install' argument)" ;
+			echo >&2 "WARN:  Linux kernel-\${modules_dir} successfully built (but not installed due to '--no-install' argument)" ;
 		fi ;
 		if [ -n '${extra_packages:-}' ]; then
 			export CFLAGS="\${gcc_CFLAGS:-}" ;
