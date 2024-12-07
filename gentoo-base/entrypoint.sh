@@ -567,24 +567,16 @@ resolve_python_flags() {
 	#extern USE PYTHON_SINGLE_TARGET PYTHON_TARGETS python_targets
 
 	resolve_target=''
-	#resolve_info='' resolve_target=''
-	#resolve_info="$( # <- Syntax
-	#	LC_ALL='C' SYSROOT="${ROOT:-"/"}" PORTAGE_CONFIGROOT="${ROOT:-"/"}" \
-	#		emerge --info --verbose=y 2>&1
-	#)"
 
 	# We seem to have a weird situation where USE and PYTHON_*
 	# variables are not in sync with each other...?
 	resolve_use="${USE:+"${USE} "}${resolve_use:+"${resolve_use} "}$( # <- Syntax
-		#echo "${resolve_info}" | grep -- "^USE=" | cut -d'"' -f 2
 		get_portage_flags 'USE'
 	)" # ' # <- Syntax
 	resolve_python_single_target="${PYTHON_SINGLE_TARGET:-} ${resolve_python_single_target:-} $( # <- Syntax
-		#echo "${resolve_info}" | grep -- "^PYTHON_SINGLE_TARGET=" | cut -d'"' -f 2
 		get_portage_flags 'PYTHON_SINGLE_TARGET'
 	)${python_targets:+" ${python_targets%%" "*}"}" # ' # <- Syntax
 	resolve_python_targets="${PYTHON_TARGETS:-} ${resolve_python_targets:-} $( # <- Syntax
-		#echo "${resolve_info}" | grep -- "^PYTHON_TARGETS=" | cut -d'"' -f 2
 		get_portage_flags 'PYTHON_TARGETS'
 	) ${python_targets:-}" # ' # <- Syntax
 
@@ -633,8 +625,6 @@ resolve_python_flags() {
 		echo "${resolve_python_targets}" | xargs -rn 1 | sort | uniq | xargs -r
 	)"
 
-	#unset resolve_target resolve_info resolve_python_targets \
-	#	resolve_python_single_target resolve_use
 	unset resolve_target resolve_python_targets resolve_python_single_target \
 		resolve_use
 
@@ -707,16 +697,16 @@ do_emerge() {
 
 	[ "${#}" -gt 0 ] || return 1
 
+	# '--root-deps' also appears to be broken similarly to '--deep' and
+	# '--usepkgonly', but is supposed only to affect packages with EAPI 6 and
+	# earlier.  In actuality, it seems to prevent root dependencies from being
+	# considered at all for EAPI 7 and 8 packages - which is broadly the
+	# opposite of its stated function :o
+	#
 	#if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
-		# N.B.: --root-deps only affects ebuilds with EAPI=6 and prior...
-		#
 	#	emerge_opts='--root-deps'
 	#fi
 
-	# Actually, scratch this to abort earlier if we're not going to complete...
-	## --keep-going is universal
-	#set -- "${@}" \
-	#	--keep-going=y
 
 	for emerge_arg in "${@}"; do
 		shift
@@ -942,6 +932,9 @@ if [ -n "${DEV_MODE:-}" ]; then
 EOF
 fi
 
+# Pre-load keys...
+get_portage_flags
+
 print "Initial environment CFLAGS are \"${CFLAGS:-}\""
 print "Initial portage CFLAGS are \"$( get_portage_flags 'CFLAGS' )\""
 
@@ -949,7 +942,6 @@ print "Initial portage CFLAGS are \"$( get_portage_flags 'CFLAGS' )\""
 
 if set | grep -q -- '=__[A-Z]\+__$'; then
 	die "Unexpanded variable(s) in environment: $( # <- Syntax
-		#set | grep -- '=__[A-Z]\+__$' | cut -d'=' -f 1 | xargs -r
 		echo
 		set | grep -- '=__[A-Z]\+__$' | sed 's/^/  /'
 	)"
@@ -1243,9 +1235,7 @@ LC_ALL='C' emaint --fix binhost
 # Update: Let's show all news in one go, at the end of the process...
 #         ... but still run 'news read' now, to prevent annoying notices from
 #         'emerge' saying that news is pending!
-#LC_ALL='C' emerge --check-news
 LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
-#printf '\n---\n\n'
 
 #set -o xtrace
 
@@ -1258,7 +1248,6 @@ _o_LDFLAGS='' _o_FLFLAGS=''
 if [ -n "${CFLAGS:-}${CXXFLAGS:-}" ]; then
 	if echo "${CFLAGS:-} ${CXXFLAGS:-}" | grep -Eq -- '(-fgraphite|-floop-)'
 	then
-		#cc_flags='' cxx_flags='' cc_opt=''
 		_o_CFLAGS="${CFLAGS:-}"
 		_o_CXXFLAGS="${CFLAGS:-}"
 		_o_FFLAGS="${FFLAGS:-}"
@@ -1285,15 +1274,6 @@ if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 	(
 		USE="-* $( get_stage3 --values-only USE )"
 		export USE
-		#FEATURES="$( # <- Syntax
-		#	get_portage_flags 'FEATURES' |
-		#		xargs -rn 1 |
-		#		grep -v \
-		#			-e '^-\?clean$' \
-		#			-e '^-\?fail-clean$' \
-		#			-e '^-\?fakeroot$' |
-		#		xargs -r
-		#) -clean -fail-clean -fakeroot"
 		FEATURES="$( # <- Syntax
 				filter_features_flags clean fail-clean fakeroot
 			) -clean -fail-clean -fakeroot"
@@ -1311,15 +1291,6 @@ fi
 
 	USE="-* $( get_stage3 --values-only USE ) -udev"
 	export USE
-	#FEATURES="$( # <- Syntax
-	#	get_portage_flags 'FEATURES' |
-	#		xargs -rn 1 |
-	#		grep -v \
-	#			-e '^-\?clean$' \
-	#			-e '^-\?fail-clean$' \
-	#			-e '^-\?fakeroot$' |
-	#		xargs -r
-	#) -clean -fail-clean -fakeroot"
 	FEATURES="$( # <- Syntax
 			filter_features_flags clean fail-clean fakeroot
 		) -clean -fail-clean -fakeroot"
@@ -1336,15 +1307,6 @@ fi
 	# ... and /usr/lib64/libmd.so is being preserved :(
 	#
 	(
-		#FEATURES="$( # <- Syntax
-		#	get_portage_flags 'FEATURES' |
-		#		xargs -rn 1 |
-		#		grep -v \
-		#			-e '^-\?clean$' \
-		#			-e '^-\?fail-clean$' \
-		#			-e '^-\?preserve-libs$' |
-		#		xargs -r
-		#) -clean -fail-clean -preserve-libs"
 		FEATURES="$( # <- Syntax
 				filter_features_flags clean fail-clean preserve-libs
 			) -clean -fail-clean -preserve-libs"
@@ -1364,7 +1326,7 @@ fi
 	# shellcheck disable=SC2086
 	do_emerge --unmerge-defaults ${list} || :
 
-	#virtual/udev-217-r3 pulled in by:
+	# virtual/udev-217-r3 pulled in by:
 	#    sys-apps/hwids-20210613-r1 requires virtual/udev
 	#    sys-fs/udev-init-scripts-34 requires >=virtual/udev-217
 	#    virtual/dev-manager-0-r2 requires virtual/udev
@@ -1411,15 +1373,6 @@ then
 		# First, let's try to get a working 'qatom' from
 		# app-portage/portage-utils...
 		export QA_XLINK_ALLOWED='*'
-		#FEATURES="$( # <- Syntax
-		#	get_portage_flags 'FEATURES' |
-		#		xargs -rn 1 |
-		#		grep -v \
-		#			-e '^-\?clean$' \
-		#			-e '^-\?fail-clean$' \
-		#			-e '^-\?preserve-libs$' |
-		#		xargs -r
-		#) -clean -fail-clean -preserve-libs"
 		FEATURES="$( # <- Syntax
 				filter_features_flags clean fail-clean preserve-libs
 			) -clean -fail-clean -preserve-libs"
@@ -1434,15 +1387,6 @@ then
 	)
 	(
 		export QA_XLINK_ALLOWED='*'
-		#FEATURES="$( # <- Syntax
-		#	get_portage_flags 'FEATURES' |
-		#		xargs -rn 1 |
-		#		grep -v \
-		#			-e '^-\?clean$' \
-		#			-e '^-\?fail-clean$' \
-		#			-e '^-\?preserve-libs$' |
-		#		xargs -r
-		#) -clean -fail-clean -preserve-libs"
 		FEATURES="$( # <- Syntax
 				filter_features_flags clean fail-clean preserve-libs
 			) -clean -fail-clean -preserve-libs"
@@ -1600,15 +1544,6 @@ echo
 ( # <- Syntax
 	USE="-* $( get_stage3 --values-only USE )"
 	export USE
-	#FEATURES="$( # <- Syntax
-	#	get_portage_flags 'FEATURES' |
-	#		xargs -rn 1 |
-	#		grep -v \
-	#			-e '^-\?clean$' \
-	#			-e '^-\?fail-clean$' \
-	#			-e '^-\?fakeroot$' |
-	#		xargs -r
-	#) -clean -fail-clean -fakeroot"
 	FEATURES="$( # <- Syntax
 			filter_features_flags clean fail-clean fakeroot
 		) -clean -fail-clean -fakeroot"
@@ -1618,16 +1553,6 @@ echo
 	unset pkgdir
 	do_emerge --single-defaults sys-apps/fakeroot
 )
-#FEATURES="$( # <- Syntax
-#	get_portage_flags 'FEATURES' |
-#		xargs -rn 1 |
-#		grep -v \
-#			-e '^-\?clean$' \
-#			-e '^-\?fail-clean$' \
-#			-e '^-\?fakeroot$' \
-#			-e '^-\?preserve-libs$' |
-#		xargs -r
-#) -clean -fail-clean fakeroot -preserve-libs"
 FEATURES="$( # <- Syntax
 		filter_features_flags clean fail-clean fakeroot preserve-libs
 	) -clean -fail-clean fakeroot -preserve-libs"
@@ -2054,6 +1979,8 @@ do
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 done  # for pkg in ...
 unset pkg
+
+# Replaced by app-alternatives/awk ...
 #LC_ALL='C' eselect awk set gawk || :
 
 # Since we've rebuilt sys-devel/gcc, restore user-specified *FLAGS
@@ -2084,6 +2011,9 @@ unset -v arch
 export ROOT="${service_root}"
 export SYSROOT="${ROOT}"
 export PORTAGE_CONFIGROOT="${SYSROOT}"
+
+# Pre-load keys for new ROOT ...
+get_portage_flags
 
 # Relocate /usr/src/linux* to ${ROOT}/usr/src/ and symlink back to original
 # location...
@@ -2177,9 +2107,6 @@ features_eudev=1
 # indirectly depends on app-portage/elt-patches, so let's try to build the
 # latter first in order to break this circular dependency.
 #
-#pkg_initial='sys-devel/bison dev-libs/expat app-arch/xz-utils sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
-#pkg_initial='dev-libs/expat app-arch/xz-utils sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
-#pkg_initial='dev-lang/python dev-libs/expat app-arch/xz-utils sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
 pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
 # See above for 'xml'...
 pkg_initial_use='-compress-xz -lzma -nls -pam -perl -python -su -unicode minimal no-xz-utils xml'
@@ -2486,8 +2413,6 @@ if [ -n "${pkg_initial:-}" ]; then
 						# by the time it's needed again, this problem has been
 						# resolved :(
 						#
-						#eval "$( filter_toolchain_flags -fopenmp )" || :
-						#do_emerge --build-defaults --exclude app-crypt/libb2 \
 						do_emerge --build-defaults --emptytree \
 							app-crypt/libb2 \
 							app-crypt/libmd \
@@ -2528,68 +2453,12 @@ if [ -n "${pkg_initial:-}" ]; then
 							echo " ${USE} " |
 								sed 's/ perl_features_ithreads / /g' |
 								sed 's/^ // ; s/ $//'
-								#sed 's/ openmp / /g' |
 						)"
 						if [ "${ARCH}" = 'arm64' ]; then
 							USE="gold ${USE:-}"
 						fi
 						export USE PERL_FEATURES PYTHON_SINGLE_TARGET \
 							PYTHON_TARGETS
-
-						# graphite sanity check...
-						#
-						#if get_portage_flags CFLAGS CXXFLAGS FFLAGS FCFLAGS |
-						#		grep -Fqw -e '-fgraphite' \
-						#			-e '-fgraphite-identity' \
-						#			-e '-floop-nest-optimize' \
-						#			-e '-floop-parallelize-all'
-						#then
-							# USE flags could be set on a per-package basis,
-							# from files or in the environment - I'm not sure
-							# there's any better/lower-impact way to determine
-							# what is actually active?
-							#
-							#if ! echo "${USE:-}" | grep -Fqw 'graphite'; then
-						#	if get_package_flag sys-devel/gcc -graphite; then
-						#		warn "graphite CFLAGS active but required" \
-						#			"USE flag not set - adding 'graphite'" \
-						#			"to USE ..."
-						#		export USE="graphite${USE:+" ${USE}"}"
-						#	else
-						#		print "ROOT '${ROOT:-"/"}' correctly has" \
-						#			"'graphite' USE flag to match active" \
-						#			"CFLAGS"
-						#	fi
-						#else
-						#	print "ROOT '${ROOT:-"/"}' does not need" \
-						#		"'graphite' USE flag"
-						#fi
-
-						# openmp sanity check...
-						#if get_portage_flags CFLAGS CXXFLAGS |
-						#		grep -Fqw -- '-fopenmp'
-						#then
-							# USE flags could be set on a per-package basis,
-							# from files or in the environment - I'm not sure
-							# there's any better/lower-impact way to determine
-							# what is actually active?
-							#
-							#if ! echo "${USE:-}" | grep -Fqw 'openmp'; then
-						#	if get_package_flag sys-devel/gcc -openmp; then
-						#		warn "OpenMP CFLAGS active but required" \
-						#			"USE flag not set - adding 'openmp'" \
-						#			"to USE ..."
-						#		export USE="openmp${USE:+" ${USE}"}"
-						#	else
-						#		print "ROOT '${ROOT:-"/"}' correctly has" \
-						#			"'openmp' USE flag to match active" \
-						#			"CFLAGS"
-						#	fi
-						#else
-						#	print "ROOT '${ROOT:-"/"}' does not need" \
-						#		"'openmp' USE flag"
-						#fi
-						# TODO: ... generalise this ^^^
 
 						# ROOT == '/build'
 						echo
@@ -2610,26 +2479,6 @@ if [ -n "${pkg_initial:-}" ]; then
 						# flags, which then breaks later builds with graphite
 						# CFLAGS :(
 						#
-						#(
-						#	print "Original CFLAGS: \"${CFLAGS}\""
-						#	eval "$( # <- Syntax
-						#			filter_toolchain_flags \
-						#				-fgraphite \
-						#				-fgraphite-identity \
-						#				-floop-nest-optimize \
-						#				-floop-parallelize-all \
-						#				-fopenmp
-						#		)" || :
-						#	USE="$( # <- Syntax
-						#			echo "${USE} -openmp" |
-						#				xargs -rn 1 |
-						#				grep -v -- '^openmp$' |
-						#				xargs -r
-						#		)"
-						#	do_emerge --build-defaults \
-						#		app-crypt/libb2 \
-						#)
-						#do_emerge --build-defaults --exclude app-crypt/libb2 \
 						(
 							eval "$( filter_toolchain_flags \
 								-fgraphite \
@@ -2725,43 +2574,8 @@ if [ -n "${pkg_initial:-}" ]; then
 							;;
 					esac
 
-					#case "${pkg}" in
-					#	'sys-apps/fakeroot')
-					#		warn "Temporarily adding 'openmp' USE flag for" \
-					#			"sys-apps/fakeroot ..."
-					#		(
-					#			export USE="openmp${USE:+" ${USE}"}"
-
-					#			do_emerge --initial-defaults \
-					#				sys-devel/gcc
-
-					#			do_emerge --initial-defaults \
-					#				app-crypt/libb2 \
-					#				sys-devel/gcc
-					#		)
-					#		# shellcheck disable=SC2086
-					#		do_emerge --initial-defaults \
-					#			${pkg} ${pkg_exclude:-} # || :
-					#		;;
-					#	*)
-					#		# shellcheck disable=SC2086
-					#		do_emerge --initial-defaults \
-					#			${pkg} ${pkg_exclude:-} # || :
-					#		;;
-					#esac
-
-					#(
-					#	eval "$( # <- Syntax
-					#			filter_toolchain_flags \
-					#				-fgraphite \
-					#				-fgraphite-identity \
-					#				-floop-nest-optimize \
-					#				-floop-parallelize-all
-					#		)" || :
-
-						# shellcheck disable=SC2086
-						do_emerge --initial-defaults ${pkg} ${pkg_exclude:-} # || :
-					#)
+					# shellcheck disable=SC2086
+					do_emerge --initial-defaults ${pkg} ${pkg_exclude:-} # || :
 				fi  # [ "${pkg}" = 'sys-apps/help2man' ]
 
 				# For some reason, after dealing with /usr/sbin being a symlink
@@ -2904,9 +2718,6 @@ echo
 		echo
 		echo " * Ensuring we have sys-devel/gcc ..."
 		echo
-		#if get_package_flag sys-devel/gcc graphite; then
-		#	do_emerge --system-defaults dev-libs/isl
-		#fi
 		#	debug=1 \
 			USE="openmp${USE:+" ${USE} "}" \
 		do_emerge --system-defaults sys-devel/gcc
@@ -3140,15 +2951,6 @@ unset path
 unset format_fn_code
 
 unset QA_XLINK_ALLOWED
-#FEATURES="$( # <- Syntax
-#	get_portage_flags 'FEATURES' |
-#		xargs -rn 1 |
-#		grep -v \
-#			-e '^-\?clean$' \
-#			-e '^-\?fail-clean$' \
-#			-e '^-\?preserve-libs$' |
-#		xargs -r
-#) -clean -fail-clean"
 FEATURES="$( # <- Syntax
 		filter_features_flags clean fail-clean
 	) -clean -fail-clean"
@@ -3568,27 +3370,6 @@ case "${1:-}" in
 								sed 's|^.*/var/db/pkg/|>=| ; s|/$||'
 						)"
 
-						# The step below is now failing as
-						# sys-devel/clang-runtime[openmp] - which is not even
-						# installed - is not present, despite 'openmp' being a
-						# specified USE flag :(
-						#
-						#pkgs="${pkgs:-} sys-devel/clang-runtime"
-						#USE="${USE} -sanitize"
-						#
-						# ... although is this actually because the 'clang' USE
-						# flag is being applied to app-crypt/libb2?
-						#
-						##USE="$( # <- Syntax
-						##	echo " ${USE} " |
-						##		sed -r \
-						##			-e 's/ clang / /g' \
-						##			-e 's/ sanitize / /g' \
-						##			-e 's/ \+/ /g ; s/^ \+// ; s/ \+$//'
-						##) -clang -sanitize"
-						#USE="$( filter_use_flags --env-only clang sanitize ) -clang -sanitize"
-						#pkgs="${pkgs:-} sys-devel/clang-runtime"
-
 						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
 						info="$( # <- Syntax
@@ -3619,29 +3400,6 @@ case "${1:-}" in
 						echo "${info}" | format 'PYTHON_TARGETS'
 						print "pkgs: '${pkgs}'"
 
-						# At this point, there seems to be no means by which to
-						# coax the portage dependency-resolving into doing the
-						# right thing :(
-						#
-						# Let's try hand-holding individual packages to see if
-						# we can get it over the line...
-						#
-						#	USE="openmp" \
-						#do_emerge --rebuild-defaults sys-devel/clang-runtime
-						#	USE="-clang openmp" \
-						#do_emerge --rebuild-defaults app-crypt/libb2
-
-						# I give up - even with sys-devel/clang-runtime[openmp]
-						# and app-crypt/libb2[openmp,-clang] installed, the
-						# invocation below fails because - apparently - it
-						# can't resolve sys-devel/clang-runtime[openmp]. And
-						# this is after updating the USE flag for
-						# app-crypt/libb2 to '-clang'. It's all very
-						# frustrating...
-						#
-						# Don't force USE='python' until sys-process/audit
-						# supports python:3.12...
-						#
 						# shellcheck disable=SC2015,SC2086
 							USE="$( # <- Syntax
 								echo " ${USE} " |
@@ -3649,13 +3407,10 @@ case "${1:-}" in
 										-e 's/ python_targets_[^ ]+ / /g' \
 										-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
 										-e 's/ \+/ /g ; s/^ \+// ; s/ \+$//'
-										#-e 's/ python / /g' \
 							) openmp" \
 							PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
 						do_emerge --rebuild-defaults ${pkgs} ||
 							rc=${?}
-						# --usepkgonly and --deep are horribly broken :(
-						# 	# --deep
 						if [ $(( rc )) -ne 0 ]; then
 							echo "ERROR: Stage 1b cleanup for root" \
 								"'${ROOT}': ${rc}"
