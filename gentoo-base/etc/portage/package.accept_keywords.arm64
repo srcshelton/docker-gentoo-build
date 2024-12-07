@@ -37,6 +37,7 @@
 #=sys-apps/raspberrypi-utilities-armv6-1.20241001	~arm
 #=sys-apps/raspberrypi-utilities-armv6-1.20241008	~arm
 #=sys-apps/raspberrypi-utilities-armv6-1.20241125	~arm
+#=sys-apps/raspberrypi-utilities-armv6-1.20241126	~arm
 
 =sys-apps/raspberrypi-tools-1.20230424			~arm64
 =sys-apps/raspberrypi-tools-1.20240201			~arm64
@@ -79,6 +80,7 @@
 =sys-boot/raspberrypi-firmware-1.20241001		~arm64
 =sys-boot/raspberrypi-firmware-1.20241008		~arm64
 =sys-boot/raspberrypi-firmware-1.20241125		~arm64
+=sys-boot/raspberrypi-firmware-1.20241126		~arm64
 
 #=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p9	~arm64
 #=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p10	~arm64
@@ -117,6 +119,7 @@
 =sys-kernel/raspberrypi-image-6.6.51_p20241001-r1	~arm64
 =sys-kernel/raspberrypi-image-6.6.56_p20241008-r1	~arm64
 =sys-kernel/raspberrypi-image-6.6.62_p20241125-r1	~arm64
+=sys-kernel/raspberrypi-image-6.6.62_p20241126-r1	~arm64
 
 =sys-kernel/raspberrypi-sources-5.10.17_p20210303-r1	~arm64
 =sys-kernel/raspberrypi-sources-5.10.17_p20210430-r1	~arm64
@@ -153,6 +156,7 @@
 =sys-kernel/raspberrypi-sources-6.6.51_p20241001	~arm64
 =sys-kernel/raspberrypi-sources-6.6.56_p20241008	~arm64
 =sys-kernel/raspberrypi-sources-6.6.62_p20241125	~arm64
+=sys-kernel/raspberrypi-sources-6.6.62_p20241126	~arm64
 
 # arm64 is currently not well-keyworded, so match specific 'arm' stable
 # packages in order to build an equivalent base-system, with the intent that
