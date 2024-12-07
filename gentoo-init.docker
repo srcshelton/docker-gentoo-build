@@ -669,6 +669,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 	# USED_BY: stage3 build
 
 	declare -a build_args=()
+	# shellcheck disable=SC2207
 	build_args+=( # <- Syntax
 		--platform "linux/${docker_arch}"
 
@@ -704,6 +705,10 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		--file 'Dockerfile.env'
 		--network none
 		--no-cache
+		$( # <- Syntax
+				docker image build --squash-all --help >/dev/null 2>&1 &&
+					echo '--squash-all'
+			)
 		--tag "${env_name}:latest"
 		--rm
 	)
@@ -737,7 +742,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 			)"
 		fflags="$( # <- Syntax
 				emerge --info 2>&1 |
-					grep -- '^LFLAGS=' |
+					grep -- '^FFLAGS=' |
 					awk -F'"' '{print $2}' || :
 			)"
 		fcflags="$( # <- Syntax
@@ -985,6 +990,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	else
 		build_args+=( --build-arg new_root_name="" )
 	fi
+	# shellcheck disable=SC2207
 	build_args+=( # <- Syntax
 		--platform "linux/${docker_arch}"
 
@@ -1005,6 +1011,10 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 		--network none
 		--no-cache
 		--pull=false
+		$( # <- Syntax
+				docker image build --squash --help >/dev/null 2>&1 &&
+					echo '--squash'
+			)
 		--tag "${stage3_name}:latest"
 	)
 	[[ -z "${stage3_flags_file:-}" ]] || build_args+=( # <- Syntax
@@ -1117,7 +1127,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 	# USED_BY: base
 
 	declare -a build_args=()
-	# shellcheck disable=SC2154
+	# shellcheck disable=SC2154,SC2207
 	build_args+=( # <- Syntax
 		--platform "linux/${docker_arch}"
 
@@ -1139,6 +1149,10 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 		--network none
 		--no-cache
 		--pull=false
+		$( # <- Syntax
+				docker image build --squash --help >/dev/null 2>&1 &&
+					echo '--squash'
+			)
 		--tag "${init_name}:latest"
 	)
 	[[ -z "${stage3_flags_file:-}" ]] || build_args+=( # <- Syntax
@@ -1320,17 +1334,17 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 
 	# shellcheck disable=SC2086
 	trap '' INT
-	#if ! type -pf buildah >/dev/null 2>&1; then
+	if docker container commit --squash --help >/dev/null 2>&1; then
 		docker container commit \
 					--squash \
 				"${base_name#*"/"}" "${base_name}:latest" 2>&1 |
 			tee -a ../log/"docker.${base_name#*"/"}.log"
-	#else
-	#	buildah commit \
-	#				--squash \
-	#			"${base_name#*"/"}" "${base_name}:latest" 2>&1 |
-	#		tee -a ../log/"docker.${base_name#*"/"}.log"
-	#fi
+	else
+		buildah commit \
+					--squash \
+				"${base_name#*"/"}" "${base_name}:latest" 2>&1 |
+			tee -a ../log/"docker.${base_name#*"/"}.log"
+	fi
 	docker container rm --volumes "${base_name#*"/"}" 2>&1 |
 		tee -a ../log/"docker.${base_name#*"/"}.log"
 	trap - INT
@@ -1396,6 +1410,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	# 'Dockerfile.*service' to produce the service-container image.
 	#
 	declare -a build_args=()
+	# shellcheck disable=SC2207
 	build_args+=( # <- Syntax
 		--build-arg env_id="${env_id}"
 		--build-arg environment_filter="${environment_filter}"
@@ -1408,7 +1423,10 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		--network none
 		--no-cache
 		--platform "linux/${docker_arch}"
-		--squash-all
+		$( # <- Syntax
+				docker image build --squash-all --help >/dev/null 2>&1 &&
+					echo '--squash-all'
+			)
 		--tag "${build_name}-root:latest"
 	)
 	[[ -z "${environment_file:-}" ]] || build_args+=( # <- Syntax
@@ -1516,17 +1534,17 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	output
 	trap '' INT
 	# shellcheck disable=SC2031,SC2086,SC2140
-	#if ! type -pf buildah >/dev/null 2>&1; then
+	if docker container commit --squash --help >/dev/null 2>&1; then
 		docker "${container_args[@]}" container commit \
 					--squash \
 				"${build_name#*"/"}" "${build_name}-finalise:latest" |
 			tee -a ../log/"docker.${build_name#*"/"}.log"
-	#else
-	#	buildah "${container_args[@]}" commit \
-	#				--squash \
-	#			"${build_name#*"/"}" "${build_name}:latest" |
-	#		tee -a ../log/"docker.${build_name#*"/"}.log"
-	#fi
+	else
+		buildah "${container_args[@]}" commit \
+					--squash \
+				"${build_name#*"/"}" "${build_name}:latest" |
+			tee -a ../log/"docker.${build_name#*"/"}.log"
+	fi
 	# shellcheck disable=SC2031,SC2086,SC2140
 	docker "${container_args[@]}" container rm --volumes "${build_name#*"/"}" |
 		tee -a ../log/"docker.${build_name#*"/"}.log"
@@ -1560,17 +1578,17 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	output
 	trap '' INT
 	# shellcheck disable=SC2031,SC2086,SC2140
-	#if ! type -pf buildah >/dev/null 2>&1; then
+	if docker container commit --squash --help >/dev/null 2>&1; then
 		docker "${container_args[@]}" container commit \
 					--squash \
 				"${build_name#*"/"}-finalise" "${build_name}:latest" |
 			tee -a ../log/"docker.${build_name#*"/"}.log"
-	#else
-	#	buildah "${container_args[@]}" commit \
-	#				--squash \
-	#			"${build_name#*"/"}" "${build_name}:latest" |
-	#		tee -a ../log/"docker.${build_name#*"/"}.log"
-	#fi
+	else
+		buildah "${container_args[@]}" commit \
+					--squash \
+				"${build_name#*"/"}" "${build_name}:latest" |
+			tee -a ../log/"docker.${build_name#*"/"}.log"
+	fi
 	# shellcheck disable=SC2031,SC2086,SC2140
 	docker "${container_args[@]}" container rm --volumes \
 			"${build_name#*"/"}-finalise" |
