@@ -2,8 +2,12 @@
 */*					 caps filecaps http2 ipv6 ssl zlib
 */*					 PERL_FEATURES: ithreads
 
+# If postfix is included here then netdata tries to run a postfix server, which
+# then misinteracts with the system's *actual* postfix instance (presumably
+# because postfix service sockets exist in both containers via bind-mounts?)
+#
 #net-analyzer/netdata			 aclk ap apcups bind bpf cloud +compression cpu_flags_x86_sse2 cups +dbengine dhcp dovecot +go ipmi +jsonc lxc mongodb mysql nfacct nginx nodejs nvme podman postfix postgres prometheus +python qos sensors smart systemd tor xen
-net-analyzer/netdata			 aclk apcups bind cloud compression dbengine dhcp dovecot filecaps go ipmi jsonc lto mysql named nfacct nodejs nvme podman postfix python qos sensors smart
+net-analyzer/netdata			-postfix  aclk apcups bind cloud compression dbengine dhcp dovecot filecaps go ipmi jsonc lto mysql named nfacct nodejs nvme podman python qos sensors smart
 
 net-analyzer/tcpdump			 suid
 #net-libs/libwebsockets			 access-log caps cgi client dbus extensions generic-sessions http-proxy http2 (+ipv6) +lejp libev libevent libuv mbedtls peer-limits server-status smtp socks5 sqlite3 (+ssl) (+threads) zip
@@ -19,7 +23,7 @@ dev-libs/libpcre2			 unicode
 dev-libs/nettle				 gmp
 dev-libs/protobuf			 protobuf protoc
 dev-scheme/guile			 regex
-mail-mta/postfix			 cdb lmdb
+#mail-mta/postfix			 cdb lmdb
 net-firewall/firehol			 ipset
 net-firewall/iptables			 nftables
 net-libs/ngtcp2				 gnutls  # openssl is currently masked due to lack of stable QUIC support

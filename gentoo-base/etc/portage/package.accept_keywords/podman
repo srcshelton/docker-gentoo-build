@@ -335,10 +335,11 @@
 #~app-containers/crun-1.15				 **
 #~app-containers/crun-1.16				 **
 #~app-containers/crun-1.16.1				 **
-~app-containers/crun-1.17				 **
+#~app-containers/crun-1.17				 **
 #~app-containers/crun-1.18				 **
 #~app-containers/crun-1.18.1				 **
 ~app-containers/crun-1.18.2				 **
+~app-containers/crun-1.19				 **
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -430,7 +431,8 @@
 # release failed: https://crates.io/crates/netavark/1.12.0
 #~app-containers/netavark-1.12.1			 **
 ~app-containers/netavark-1.12.2				 **
-~app-containers/netavark-1.13.0				 **
+#~app-containers/netavark-1.13.0			 **
+~app-containers/netavark-1.13.1				 **
 
 #~app-containers/aardvark-dns-1.0.2			 **
 #~app-containers/aardvark-dns-1.0.3			 **
@@ -468,7 +470,8 @@
 #~net-misc/cni-plugins-1.4.1				 **
 #~net-misc/cni-plugins-1.5.0				 **
 ~net-misc/cni-plugins-1.5.1				 **
-~net-misc/cni-plugins-1.6.0				 **
+#~net-misc/cni-plugins-1.6.0				 **
+~net-misc/cni-plugins-1.6.1				 **
 
 # optional for >=app-containers/podman-4.4.0_rc3[rootless]
 # required for >=app-containers/podman-5.0.0_rc7[rootless]
@@ -606,7 +609,8 @@
 #~app-containers/containers-storage-1.53.0		 **
 #~app-containers/containers-storage-1.54.0		 **
 #~app-containers/containers-storage-1.55.0		 **
-~app-containers/containers-storage-1.55.1		 **
+#~app-containers/containers-storage-1.55.1		 **
+~app-containers/containers-storage-1.55.2		 **
 ~app-containers/containers-storage-1.56.0		 **
 
 # rust build dependencies for netavark/aardvark-dns
