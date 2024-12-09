@@ -1275,7 +1275,7 @@ if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 		USE="-* $( get_stage3 --values-only USE )"
 		export USE
 		FEATURES="$( # <- Syntax
-				filter_features_flags clean fail-clean fakeroot
+				filter_features_flags 'clean' 'fail-clean' 'fakeroot'
 			) -clean -fail-clean -fakeroot"
 		export FEATURES
 		pkgdir="$( LC_ALL='C' portageq pkgdir )"
@@ -1285,37 +1285,47 @@ if portageq get_repos / | grep -Fq -- 'srcshelton'; then
 	)
 fi
 
-( # <- Syntax
+(
 	mkdir -p /var/lib/portage
 	echo 'virtual/libc' > /var/lib/portage/world
 
+	# We're only removing packages here, but different USE flag combinations
+	# may affect dependencies...
+	#
 	USE="-* $( get_stage3 --values-only USE ) -udev"
 	export USE
 	FEATURES="$( # <- Syntax
-			filter_features_flags clean fail-clean fakeroot
+			filter_features_flags 'clean' 'fail-clean' 'fakeroot'
 		) -clean -fail-clean -fakeroot"
 	export FEATURES
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
 	export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 	unset pkgdir
-	list='virtual/dev-manager virtual/tmpfiles'
-	if LC_ALL='C' portageq get_repos / | grep -Fq -- 'srcshelton'; then
-		list="${list:-} sys-apps/systemd-utils"
-	fi
+
 	# 'dhcpcd' is now built with USE='udev', and libmd needs 'split-usr'...
 	#
 	# ... and /usr/lib64/libmd.so is being preserved :(
 	#
 	(
 		FEATURES="$( # <- Syntax
-				filter_features_flags clean fail-clean preserve-libs
-			) -clean -fail-clean -preserve-libs"
+				filter_features_flags --env-only 'preserve-libs'
+			) -preserve-libs"
 		export FEATURES
 		do_emerge --once-defaults app-crypt/libmd net-misc/dhcpcd
 	)
 
+	list='virtual/dev-manager virtual/tmpfiles'
+	if LC_ALL='C' portageq get_repos / | grep -Fq -- 'srcshelton'; then
+		list="${list:-} sys-apps/systemd-utils"
+	fi
+	if echo " ${use_essential} " | grep -q -- ' rpi[0-9]'; then
+		# Give virtual/os-headers a chance to pull-in
+		# sys-kernel/raspberrypi-headers...
+		list="${list:-} virtual/os-headers sys-kernel/linux-headers"
+	fi
+
 	# To make the following output potentially clearer, attempt to remove any
-	# masked packages which exist in the image we're building from...
+	# masked packages which might exist in the image we're building from...
 	#
 	echo
 	echo
@@ -1374,7 +1384,7 @@ then
 		# app-portage/portage-utils...
 		export QA_XLINK_ALLOWED='*'
 		FEATURES="$( # <- Syntax
-				filter_features_flags clean fail-clean preserve-libs
+				filter_features_flags 'clean' 'fail-clean' 'preserve-libs'
 			) -clean -fail-clean -preserve-libs"
 		export FEATURES
 		pkgdir="$( LC_ALL='C' portageq pkgdir )"
@@ -1388,7 +1398,7 @@ then
 	(
 		export QA_XLINK_ALLOWED='*'
 		FEATURES="$( # <- Syntax
-				filter_features_flags clean fail-clean preserve-libs
+				filter_features_flags 'clean' 'fail-clean' 'preserve-libs'
 			) -clean -fail-clean -preserve-libs"
 		export FEATURES
 		pkgdir="$( LC_ALL='C' portageq pkgdir )"
@@ -1541,11 +1551,11 @@ fi
 echo
 echo " * Building 'sys-apps/fakeroot' package for stage3 ..."
 echo
-( # <- Syntax
+(
 	USE="-* $( get_stage3 --values-only USE )"
 	export USE
 	FEATURES="$( # <- Syntax
-			filter_features_flags clean fail-clean fakeroot
+			filter_features_flags 'clean' 'fail-clean' 'fakeroot'
 		) -clean -fail-clean -fakeroot"
 	export FEATURES
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
@@ -1554,7 +1564,7 @@ echo
 	do_emerge --single-defaults sys-apps/fakeroot
 )
 FEATURES="$( # <- Syntax
-		filter_features_flags clean fail-clean fakeroot preserve-libs
+		filter_features_flags 'clean' 'fail-clean' 'fakeroot' 'preserve-libs'
 	) -clean -fail-clean fakeroot -preserve-libs"
 export FEATURES
 
@@ -1588,7 +1598,7 @@ for ithreads in 'ithreads' ''; do
 	echo " * Building 'dev-lang/perl' package (with$(usex ithreads '' 'out')" \
 		"ithreads) for stage3 ..."
 	echo
-	( # <- Syntax
+	(
 		USE="-* $( get_stage3 --values-only USE )"
 		USE="$( # <- Syntax
 			echo " berkdb gdbm $(usex ithreads 'perl_features_ithreads ' '')${USE}$(usex ithreads '' ' -perl_features_ithreads') " |
@@ -1786,7 +1796,7 @@ echo " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 	"setups ..."
 echo
 
-( # <- Syntax
+(
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
 	export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 	unset pkgdir
@@ -1861,7 +1871,7 @@ echo
 
 # Some packages require prepared kernel sources...
 #
-( # <- Syntax
+(
 	USE="-* symlink $( get_stage3 --values-only USE )"
 	export USE
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
@@ -2606,7 +2616,7 @@ echo
 echo ' * Building @system packages ...'
 echo
 
-( # <- Syntax
+(
 	#set -x
 
 	# sys-apps/shadow is needed for /sbin/nologin;
@@ -2952,7 +2962,7 @@ unset format_fn_code
 
 unset QA_XLINK_ALLOWED
 FEATURES="$( # <- Syntax
-		filter_features_flags clean fail-clean
+		filter_features_flags 'clean' 'fail-clean'
 	) -clean -fail-clean"
 export FEATURES
 
