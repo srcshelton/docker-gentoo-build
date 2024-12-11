@@ -1318,9 +1318,9 @@ fi
 	if LC_ALL='C' portageq get_repos / | grep -Fq -- 'srcshelton'; then
 		list="${list:-} sys-apps/systemd-utils"
 	fi
-	if echo " ${use_essential} " | grep -q -- ' rpi[0-9]'; then
+	if echo " ${use_essential}" | grep -q -- ' rpi[0-9-]'; then
 		# Give virtual/os-headers a chance to pull-in
-		# sys-kernel/raspberrypi-headers...
+		# sys-kernel/raspberrypi-headers by removing all headers packages...
 		list="${list:-} virtual/os-headers sys-kernel/linux-headers"
 	fi
 
@@ -1561,12 +1561,14 @@ echo
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
 	export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 	unset pkgdir
-	if echo " ${use_essential} " | grep -q -- ' rpi[0-9]'; then
+
+	if echo " ${use_essential}" | grep -q -- ' rpi[0-9-]'; then
 			USE="${USE} ${use_essential}" \
 		do_emerge --single-defaults sys-kernel/raspberrypi-headers
 	fi
 		USE="${USE} ${use_essential}" \
 	do_emerge --single-defaults virtual/os-headers
+
 	do_emerge --single-defaults sys-apps/fakeroot
 )
 FEATURES="$( # <- Syntax
@@ -1883,6 +1885,14 @@ echo
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
 	export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 	unset pkgdir
+
+	if echo " ${use_essential}" | grep -q -- ' rpi[0-9-]'; then
+			USE="${USE} ${use_essential}" \
+		do_emerge --single-defaults sys-kernel/raspberrypi-headers
+	fi
+		USE="${USE} ${use_essential}" \
+	do_emerge --single-defaults virtual/os-headers
+
 	do_emerge --single-defaults sys-kernel/gentoo-sources
 )
 
