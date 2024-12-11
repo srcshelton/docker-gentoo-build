@@ -83,6 +83,8 @@ if type -pf portageq >/dev/null 2>&1; then
 	ARCH="$( portageq envvar ARCH )"
 else
 	echo >&2 "WARN:  Cannot locate 'portageq' utility"
+fi
+if [[ -z "${ARCH:-}" ]]; then
 	case "$( uname -m )" in
 		aarch64)
 			ARCH='arm64' ;;
