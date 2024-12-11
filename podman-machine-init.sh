@@ -2,8 +2,11 @@
 
 set -eu  # x
 
-declare -i debug=${DEBUG:-}
+#declare -i debug=${DEBUG:-}
 declare -i trace=${TRACE:-}
+
+declare -r REPO='https://github.com/srcshelton/docker-gentoo-build.git'
+declare -r INIT='gentoo-init.docker'
 
 (( trace )) && set -o xtrace
 
@@ -13,33 +16,137 @@ export LC_ALL=C
 declare MACHINE='podman'
 declare REMOTE_HOME='/var/home'
 declare REMOTE_USER='core'
-# FIXME: Improve this logic to find a generic REMOTE_USER
-case "$( id -un )" in
-	'mixtile')
-		REMOTE_USER='mixtile'
-		;;
-	*)	echo >&2 "WARN:  Unknown user '$( id -un )', using current" \
-			"home '$( eval "readlink -e ~$( id -un )" )' ..."
-		REMOTE_USER="$( id -un )"
-		;;
-esac
+declare ARCH=''
+
 declare -i init=0 xfer=0 cores=4 local_install=0
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
+	# Darwin/BSD lacks GNU readlink - either realpath or perl's Cwd module
+	# will do at a pinch, although both lack the additional options of GNU
+	# binaries...
+	#
 	readlink() {
-		perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
+		if command -v realpath >/dev/null 2>&1; then
+			realpath "${2}"
+		else
+			perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
+		fi
 	}
+	export -f readlink
+fi
+
+case "$( id -un )" in
+	"${REMOTE_USER}")
+		: ;;
+	'mixtile')
+		REMOTE_USER='mixtile' ;;
+	*)
+		REMOTE_USER="$( id -un )"
+		if ! REMOTE_HOME="$( dirname "$( # <- Syntax
+				eval "readlink -e ~${REMOTE_USER}"
+			)" )" || ! [ -d "${REMOTE_HOME}/${REMOTE_USER}" ]
+		then
+			echo >&2 "FATAL: Unable to determine home directory" \
+				"for user '${REMOTE_USER:-}': ${?}"
+			exit 1
+		else
+			echo >&2 "INFO:  Using home '${REMOTE_HOME}' for" \
+				"user '${REMOTE_USER}' ..."
+		fi
+		;;
+esac
+
+if type -pf portageq >/dev/null 2>&1; then
+	ARCH="$( portageq envvar ARCH )"
+else
+	echo >&2 "WARN:  Cannot locate 'portageq' utility"
+fi
+if [[ -z "${ARCH:-}" ]]; then
+	case "$( uname -m )" in
+		aarch64)
+			ARCH='arm64' ;;
+		arm*)
+			ARCH='arm' ;;
+		x86_64)
+			ARCH='amd64' ;;
+		*)
+			echo >&2 "FATAL: Unknown architecture '$( uname -m )'"
+			exit 1
+			;;
+	esac
+fi
+readonly ARCH
+
+if [[ "$( uname -s )" == 'Darwin' ]]; then
+	declare -i total=${cores}
+	total=$(( $( sysctl -n machdep.cpu.core_total ) ))
 
 	case "$( sysctl -n machdep.cpu.brand_string )" in
-		'Apple M1 Ultra')
-			cores="$(( $( sysctl -n machdep.cpu.core_count ) - 4 ))" ;;
+		'Apple M1'|'Apple M2'|'Apple M3')
+			# M1: 'Tonga' - 4 Firestorm and 4 Icestorm cores, first
+			#     seen in the A14 Bionic ('Sicily')
+			# M2: 'Staten' - 4 Avalance and 4 Blizzard cores, first
+			#     seen in the A15 Bionic ('Ellis')
+			# M3: 'Ibiza' - 4 Everest and 4 Sawtooth cores, first
+			#     seen in the A17 Pro ('Coll')
+			cores=$(( total - 4 ))
+			;;
+		'Apple M4')
+			# 'Donan' - either 3 or 4 Everest and 6 Sawtooth cores,
+			# first seen in the A18 Pro ('Tahiti')
+			cores=$(( total - 6 ))
+			;;
+
 		'Apple M1 Pro'|'Apple M1 Max')
-			cores="$(( $( sysctl -n machdep.cpu.core_count ) - 2 ))" ;;
-		'Apple M1')
-			cores="$(( $( sysctl -n machdep.cpu.core_count ) / 2 ))" ;;
+			# 'Jade' - either 8 Firestorm and 2 Icestorm or 6
+			# Firestorm and 8 Icestorm cores
+			case "${total}" in
+				14)
+					cores=$(( total - 2 )) ;;
+				*)
+					cores=$(( total - 8 )) ;;
+			esac
+			;;
+		'Apple M2 Pro'|'Apple M2 Max')
+			# 'Rhodes' - either 8 Avalanche and 4 Blizzard or 6
+			# Avalanche and 4 Blizzard cores
+			cores=$(( total - 4 ))
+			;;
+		'Apple M3 Pro')
+			# 'Lobos' - either 5 or 6 Everest and 6 Sawtooth cores
+			cores=$(( total - 6 ))
+			;;
+		'Apple M4 Pro')
+			# Either 8 or 10 Everest and 4 Sawtooth cores
+			cores=$(( total - 4 ))
+			;;
+
+		'Apple M3 Max')
+			# 'Palma' - either 10 or 12 Everest and 4 Sawtooth
+			# cores
+			cores=$(( total - 4 ))
+			;;
+		'Apple M4 Max')
+			# Either 10 or 12 Everest and 4 Sawtooth cores
+			cores=$(( total - 4 ))
+			;;
+
+		'Apple M1 Ultra')
+			# Two M1 Max joined via UltraFusion Interconnect
+			# resulting in 16 Firestorm and 4 Icestorm cores
+			cores=$(( total - 4 ))
+			;;
+		'Apple M2 Ultra')
+			# Two M2 Max joined via UltraFusion Interconnect
+			# resulting in 16 Avalanche and 8 Blizzard cores
+			cores=$(( total - 8 ))
+			;;
+
 		'Intel'*)
-			cores="$( sysctl -n machdep.cpu.core_count )" ;;
+			# Adjust for SMT/HT
+			cores=$(( total / 2 ))
 	esac
+	unset total
 else
 	cores="$( nproc || grep 'cpu cores' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' )"
 fi
@@ -77,12 +184,16 @@ unset arg
 
 if (( local_install )); then
 	sudo mkdir -p /var/cache &&
-		test -s ${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar &&
-		sudo tar -xpf ${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar -C /var/cache/
+		test -s "${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar" &&
+		sudo tar -xpf "${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar" -C /var/cache/
 
 	sudo mkdir -p /var/cache/portage &&
-		sudo chown ${REMOTE_USER}:root /var/cache/portage &&
+		sudo chown "${REMOTE_USER}:root" /var/cache/portage &&
 		sudo chmod ug+rwX /var/cache/portage
+
+	sudo mkdir -p "/var/cache/portage/pkg/${ARCH}/docker" &&
+		sudo chown "${REMOTE_USER}:root" "/var/cache/portage/pkg/${ARCH}/docker" &&
+		sudo chmod ug+rwX "/var/cache/portage/pkg/${ARCH}/docker"
 
 	if ! [[ -x sync-portage.sh ]]; then
 		echo >&2 "WARN:  Cannot locate 'sync-portage.sh' script - please run" \
@@ -128,20 +239,20 @@ else
 	podman machine ssh "${MACHINE}" 'cat - > ~/.ssh/id_ed25519.pub && chmod 0600 ~/.ssh/id_ed25519.pub' < ~/.ssh/"${MACHINE}.pub"
 
 	podman machine ssh "${MACHINE}" <<-EOF
-		test -d src/docker-gentoo-build || {
+		test -d src/podman-gentoo-build || {
 			mkdir -p src &&
 			cd src &&
-			git clone https://github.com/srcshelton/docker-gentoo-build.git ;
+			git clone "${REPO}" podman-gentoo-build ;
 		} ;
 		git config --system --replace-all safe.directory '*' ;
-		cd ~/src/docker-gentoo-build && git pull --all
+		cd ~/src/podman-gentoo-build && git pull --all
 	EOF
 
 	for f in 'local.sh' 'portage-cache.tar'; do
 		if [[ -f "${f}" && -s "${f}" ]]; then
 			case "${f}" in
 				*.sh)
-					dest="${REMOTE_HOME}/${REMOTE_USER}/src/docker-gentoo-build/common/" ;;
+					dest="${REMOTE_HOME}/${REMOTE_USER}/src/podman-gentoo-build/common/" ;;
 				*.tar)
 					dest="${REMOTE_HOME}/${REMOTE_USER}/" ;;
 			esac
@@ -155,7 +266,7 @@ else
 		podman machine ssh "${MACHINE}"
 	else
 		if (( init )); then
-			time podman machine ssh "${MACHINE}" "${REMOTE_HOME}/${REMOTE_USER}/src/docker-gentoo-build/gentoo-init.docker"
+			time podman machine ssh "${MACHINE}" "${REMOTE_HOME}/${REMOTE_USER}/src/podman-gentoo-build/${INIT}"
 		fi
 		if (( xfer )); then
 			podman machine ssh "${MACHINE}" 'cd /var/cache && tar -cvpf - portage' > portage-cache.tar
