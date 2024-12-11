@@ -730,8 +730,11 @@ fi
 if (( intel_patch )); then
 	declare clear_commit='' clear_patch=''
 	clear_commit="$( # <- Syntax
-		curl -fLSs 'https://api.github.com/repos/clearlinux-pkgs/linux/commits' |
-			jq -r "map_values(select(.commit.message == \"Stable update to ${package_version%-r*}\"))[].sha"
+		#curl -fLSs 'https://api.github.com/repos/clearlinux-pkgs/linux/commits' |
+		#	jq -r "map_values(select(.commit.message == \"Stable update to ${package_version%-r*}\"))[].sha"
+		curl -fLSs 'https://api.github.com/repos/clearlinux-pkgs/linux/tags' |
+			jq -r "map_values(select(.name | startswith(\"${package_version%-r*}\")))[].commit.sha" |
+			head -n 1
 	)"
 	if [[ -z "${clear_commit:-}" ]]; then
 		error "Intel Clear Linux has no patches for kernel" \
