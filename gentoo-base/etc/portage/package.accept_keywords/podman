@@ -372,7 +372,8 @@
 #~app-containers/runc-1.2.0_rc3				 **
 #~app-containers/runc-1.2.0				 **
 #~app-containers/runc-1.2.1				 **
-~app-containers/runc-1.2.2				 **
+#~app-containers/runc-1.2.2				 **
+~app-containers/runc-1.2.3				 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
