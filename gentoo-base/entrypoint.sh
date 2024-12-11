@@ -1561,6 +1561,12 @@ echo
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
 	export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 	unset pkgdir
+	if echo " ${use_essential} " | grep -q -- ' rpi[0-9]'; then
+			USE="${USE} ${use_essential}" \
+		do_emerge --single-defaults sys-kernel/raspberrypi-headers
+	fi
+		USE="${USE} ${use_essential}" \
+	do_emerge --single-defaults virtual/os-headers
 	do_emerge --single-defaults sys-apps/fakeroot
 )
 FEATURES="$( # <- Syntax
@@ -2120,6 +2126,13 @@ features_eudev=1
 pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
 # See above for 'xml'...
 pkg_initial_use='-compress-xz -lzma -nls -pam -perl -python -su -unicode minimal no-xz-utils xml'
+if get_portage_flags USE | grep -Eq -- '(^|[^-])graphite'; then
+	pkg_initial_use="${pkg_initial_use} graphite"
+fi
+if get_portage_flags USE | grep -Eq -- '(^|[^-])openmp'; then
+	pkg_initial_use="${pkg_initial_use} openmp"
+fi
+
 pkg_exclude=''
 if [ $(( features_eudev )) -eq 1 ]; then
 	pkg_initial="${pkg_initial:+"${pkg_initial} "}sys-fs/eudev virtual/libudev"
@@ -2488,6 +2501,11 @@ if [ -n "${pkg_initial:-}" ]; then
 						# flags, but first to re-merge it into '/' with empty
 						# flags, which then breaks later builds with graphite
 						# CFLAGS :(
+						#
+						# N.B. Even if sys-devel/gcc is built with
+						#      USE='graphite' in a ROOT other than '/', the
+						#      compiler used to build further packages will
+						#      still be the ROOT='/' one!
 						#
 						(
 							eval "$( filter_toolchain_flags \
