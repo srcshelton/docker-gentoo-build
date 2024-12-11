@@ -2,7 +2,7 @@
 */*					 ipv6
 
 #app-admin/syslog-ng			 amqp caps dbi geoip http (+ipv6) json kafka mongodb pacct python redis smtp snmp test spoof-source systemd tcpd
-app-admin/syslog-ng			 caps smtp spoof-source tcpd
+app-admin/syslog-ng			 caps smtp spoof-source
 
 dev-lang/python				 xml
 dev-libs/libpcre2			 unicode

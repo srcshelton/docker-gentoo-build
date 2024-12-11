@@ -2,7 +2,7 @@
 */*					 ipv6 zlib
 
 #net-mail/dovecot			 argon2 bzip2 caps doc (+ipv6) kerberos ldap lua lucene lz4 lzma managesieve mysql pam postgres selinux sieve solr sqlite static-libs suid tcpd textcat unwind vpopmail (+zlib)
-net-mail/dovecot			 bzip2 caps lzma managesieve pam sieve solr sqlite tcpd textcat unwind
+net-mail/dovecot			 bzip2 caps lzma managesieve pam sieve solr sqlite textcat unwind
 net-mail/mailbase			 pam
 
 app-alternatives/sh			-busybox bash
