@@ -67,14 +67,34 @@ if [ -z "${image:-}" ]; then
 	exit 1
 fi
 
-if [ $(( $( id -u ) )) -ne 0 ]; then
-        echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
-        exit 1
-fi
-
+_command='docker'
 if command -v podman >/dev/null 2>&1; then
 	_command='podman'
 fi
+
+_output=''
+if ! [ -x "$( command -v "${_command}" )" ]; then
+	echo >&2 "FATAL: Cannot locate binary '${_command}'"
+	exit 1
+elif ! _output="$( "${_command}" info 2>&1 )"; then
+	if [ "${_command}" = 'podman' ]; then
+		echo >&2 "FATAL: Unable to successfully execute" \
+			"'${_command}' - do you need to run '${_command}" \
+			"machine start' or re-run '$( basename "${0}" )' as" \
+			"'root'?"
+	else
+		echo >&2 "FATAL: Unable to successfully execute" \
+			"'${_command}' - do you need to re-run" \
+			"'$( basename "${0}" )' as 'root'?"
+	fi
+	exit 1
+elif [ $(( $( id -u ) )) -ne 0 ] &&
+		echo "${_output}" | grep -Fq -- 'rootless: false'
+then
+	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
+	exit 1
+fi
+unset _output
 
 tab="$( printf '\t' )"
 

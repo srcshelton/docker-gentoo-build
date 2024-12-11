@@ -11,7 +11,7 @@ set -o pipefail
 # are able to inspect a container with no masked repos without further hacking!
 export NO_REPO_MASKS
 
-[ -n "${trace:-}" ] && set -o xtrace
+[[ -n "${trace:-}" ]] && set -o xtrace
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
@@ -20,7 +20,7 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 #declare build_name=''
 
 # shellcheck disable=SC1091
-[ ! -s common/vars.sh ] || . common/vars.sh
+[[ ! -s common/vars.sh ]] || . common/vars.sh
 # shellcheck disable=SC2034 # Set from common/vars.sh
 [[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
 	echo >&2 'FATAL: Inclusion of common defaults failed'
@@ -30,7 +30,7 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 # shellcheck disable=SC2154
 declare IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
-[ -s common/run.sh ] && . common/run.sh >/dev/null
+[[ -s common/run.sh ]] && . common/run.sh >/dev/null
 
 
 # Provide a '--name' to prevent the container being removed on exit.
@@ -47,8 +47,8 @@ declare IMAGE="${build_name}:latest"
 #		'ls -d /var/db/pkg/*/*systemd* /var/db/pkg/*/*udev*'
 #done
 
-if [ -n "${*:-}" ]; then
-	if echo " ${*} " | grep -Eq -- ' -(h|-help) '; then
+if [[ -n "${*:-}" ]]; then
+	if grep -Eq -- ' -(h|-help) ' <<<" ${*:-} "; then
 		output >&2 "Usage: $( basename "${0}" ) [--image=<image>]" \
 			'[--name=<name>] [--remove] [--mount=<...>]' \
 			'[--memory-reservation=<size>] [--memory-limit=<size>]' \
@@ -57,24 +57,28 @@ if [ -n "${*:-}" ]; then
 	fi
 fi
 
-if [ "${_command}" = 'podman' ]; then
-	if [ "$( uname -s )" != 'Darwin' ]; then
-		# Update: Support 'core' user for podman+machine Fedora default
-		# user...
-		if [ $(( $( id -u ) )) -ne 0 ] && [ "$( id -un )" != 'core' ]
-		then
-			# This could be an expensive check, so leave it until
-			# last...
-			if "${_command}" info | grep -q -- 'rootless: false'
-			then
-				echo >&2 "FATAL: Please re-run '$(
-						basename "${0}"
-					)' as user 'root'"
-				exit 1
-			fi
-		fi
+declare _output=''
+# shellcheck disable=SC2154
+if ! [[ -x "$( type -pf "${_command}" )" ]]; then
+	echo >&2 "FATAL: Cannot locate binary '${_command}'"
+	exit 1
+elif ! _output="$( "${_command}" info 2>&1 )"; then
+	if [[ "${_command}" == 'podman' ]]; then
+		echo >&2 "FATAL: Unable to successfully execute" \
+			"'${_command}' - do you need to run '${_command}" \
+			"machine start' or re-run '$( basename "${0}" )' as" \
+			"'root'?"
+	else
+		echo >&2 "FATAL: Unable to successfully execute" \
+			"'${_command}' - do you need to re-run" \
+			"'$( basename "${0}" )' as 'root'?"
 	fi
+	exit 1
+elif (( ! $( id -u ) )) && grep -Fq -- 'rootless: false' <<<"${_output}"; then
+	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
+	exit 1
 fi
+unset _output
 
 declare -a args=() container_args=() mount=() device=()
 
@@ -265,6 +269,7 @@ docker_run() {
 
 		/usr/src  # Used to affect kernel-builds, now seems fine?
 	)
+	# shellcheck disable=SC2206
 	mirrormountpoints=(
 		#/var/cache/portage/dist
 		"${default_distdir_path:-"$( portageq distdir )"}"

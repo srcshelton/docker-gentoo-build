@@ -14,6 +14,7 @@ trace=${TRACE:-}
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
 basedir='.'
+# FIXME: Don't hard-code directory name...
 if [ -d ../docker-gentoo-build ]; then
 	basedir='..'
 fi
@@ -36,7 +37,7 @@ if command -v podman >/dev/null 2>&1; then
 fi
 
 # Allow a separate image directory for persistent images...
-#tmp="$( $_command system info | grep 'imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
+#tmp="$( ${_command} system info | grep 'imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
 #if [ -n "${tmp}" ]; then
 #	export IMAGE_ROOT="${tmp}"
 #fi
@@ -48,6 +49,7 @@ alt_use='bison flex gnu http2'  # http2 targeting curl for rust packages...
 arg=''
 exclude=''
 force=0
+failures=''
 haveargs=0
 pkgcache=0
 pretend=0
@@ -72,10 +74,27 @@ case " ${*:-} " in
 		;;
 esac
 
-if [ $(( $( id -u ) )) -ne 0 ]; then
-	echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
+_output=''
+if ! [ -x "$( command -v "${_command}" )" ]; then
+	echo >&2 "FATAL: Cannot locate binary '${_command}'"
+	exit 1
+elif ! _output="$( "${_command}" info 2>&1 )"; then
+	if [ "${_command}" = 'podman' ]; then
+		echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
+			"you need to run '${_command} machine start' or re-run" \
+			"'$( basename "${0}" )' as 'root'?"
+	else
+		echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
+			"you need to re-run '$( basename "${0}" )' as 'root'?"
+	fi
+	exit 1
+elif [ $(( $( id -u ) )) -ne 0 ] &&
+		echo "${_output}" | grep -Fq -- 'rootless: false'
+then
+	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
 	exit 1
 fi
+unset _output
 
 for arg in ${@+"${@}"}; do
 	case "${arg:-}" in
@@ -147,7 +166,7 @@ if [ $(( rebuildimgs )) -ne 1 ]; then
 	fi
 else  # if [ $(( rebuildimgs )) -eq 1 ]; then
 	if [ $(( skip )) -eq 1 ]; then
-		if [ "$( $_command image ls -n 'localhost/gentoo-build' | wc -l )" = '0' ]; then
+		if [ "$( "${_command}" image ls -n 'localhost/gentoo-build' | wc -l )" = '0' ]; then
 			echo >&2 "WARN:  Option '--skip-build' is only valid with a pre-existing 'build' image"
 			echo >&2 "WARN:  Ignoring '--skip-build' and generating new image(s)"
 			skip=0
@@ -176,14 +195,14 @@ if [ "${rebuildutils:-"0"}" = '1' ]; then
 	else
 		mkdir -p log
 
-		if [ "$( $_command image ls -n 'localhost/dell-dsu' | wc -l )" = '0' ]; then
+		if [ "$( "${_command}" image ls -n 'localhost/dell-dsu' | wc -l )" = '0' ]; then
 			"${basedir}"/docker-dell/dell.docker --dsu \
 					${IMAGE_ROOT:+"--root"} ${IMAGE_ROOT:+"${IMAGE_ROOT}"} \
 				>> log/dell.docker.dsu.log 2>&1 &
 			# shellcheck disable=SC3044
 			disown 2>/dev/null || :  # doesn't exist in POSIX sh :(
 		fi
-		if [ "$( $_command image ls -n 'localhost/dell-ism' | wc -l )" = '0' ]; then
+		if [ "$( "${_command}" image ls -n 'localhost/dell-ism' | wc -l )" = '0' ]; then
 			"${basedir}"/docker-dell/dell.docker --ism \
 					${IMAGE_ROOT:+"--root"} ${IMAGE_ROOT:+"${IMAGE_ROOT}"} \
 				>> log/dell.docker.ism.log 2>&1 &
@@ -194,8 +213,6 @@ if [ "${rebuildutils:-"0"}" = '1' ]; then
 fi
 
 if [ "${rebuildimgs:-"0"}" = '1' ]; then
-	failures=''
-
 	if ! mkdir -p log; then
 		echo >&2 "FATAL: Could not create directory $( pwd )/log: ${?}"
 		exit 1
@@ -304,10 +321,10 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 		# shellcheck disable=SC2030
 		ARCH="${ARCH:-"$( portageq envvar ARCH )"}"
 
-		# Cache packages with minimal USE-flags, as used during the  base-image
+		# Cache packages with minimal USE-flags, as used during the base-image
 		# build...
 		{
-			# shellcheck disable=SC2030
+			# shellcheck disable=SC2030,SC2086
 			if { ! USE="$( # <- Syntax
 					echo " -* -asm ${alt_use} ${use_cpu_flags:-} compat" \
 							"embedded ftp getentropy gmp ipv6 ninja nls" \
@@ -418,9 +435,10 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 		} | tee log/buildpkg.init.log
 
 		for image in 'localhost/gentoo-stage3' 'localhost/gentoo-init'; do
-			if [ "$( $_command image ls -n "${image}" | wc -l )" = '0' ]; then
+			if [ "$( "${_command}" image ls -n "${image}" | wc -l )" = '0' ]; then
+				# shellcheck disable=SC2154
 				eval "$( # <- Syntax
-					$_command container run \
+					"${_command}" container run \
 							--rm \
 							--entrypoint /bin/sh \
 							--name 'buildpkg.stage3_flags.read' \
@@ -487,7 +505,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 
 		{
 			# shellcheck disable=SC2030
-			if !
+			if ! \
 					USE="$( echo "-* ${use} bison nls readline zstd" \
 							"python_single_target_${python_default_target}" \
 							"python_targets_${python_default_target}" \
@@ -508,7 +526,9 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 					sys-libs/libxcrypt
 			then
 				: $(( err = ${?} ))
+				# shellcheck disable=SC2031
 				: $(( rc = rc + err ))
+				# shellcheck disable=SC2031
 				failures="${failures:+"${failures} "}gentoo-build-pkg;1:${err}"
 			fi
 
@@ -623,6 +643,9 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 		if [ $(( err )) -ne 0 ]; then
 			echo >&2 "ERROR: ${failures}"
 		fi
+
+		unset USE ARCH failures  # rc
+
 		# shellcheck disable=SC2031
 		exit ${rc}
 	)
@@ -749,9 +772,9 @@ if [ "${update:-"0"}" = '1' ]; then
 	failures="${failures:+"${failures} "}gentoo-build-pkg;hostpkgs:${err}"
 
 	trap '' INT
-	$_command container ps -a |
+	"${_command}" container ps -a |
 			grep -qw -- 'buildpkg.hostpkgs.update$' &&
-		$_command container rm --volumes 'buildpkg.hostpkgs.update'
+		"${_command}" container rm --volumes 'buildpkg.hostpkgs.update'
 	trap - INT
 
 	if [ $(( rc )) -eq 0 ]; then
@@ -794,9 +817,9 @@ if [ "${update:-"0"}" = '1' ]; then
 		failures="${failures:+"${failures} "}gentoo-build-pkg;gcc:${err}"
 
 		trap '' INT
-		$_command container ps -a |
+		"${_command}" container ps -a |
 				grep -qw -- 'buildpkg.hostpkgs.gcc.update$' &&
-			$_command container rm --volumes 'buildpkg.hostpkgs.gcc.update'
+			"${_command}" container rm --volumes 'buildpkg.hostpkgs.gcc.update'
 		trap - INT
 	fi
 fi

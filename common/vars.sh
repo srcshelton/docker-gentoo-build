@@ -26,24 +26,27 @@ fi
 # directory, we need to be root solely to setup the environment
 # appropriately :(
 #
-if [ "${_command}" = 'podman' ]; then
-	if [ "$( uname -s )" != 'Darwin' ]; then
-		# Update: Support 'core' user for podman+machine Fedora default
-		# user...
-		if [ $(( $( id -u ) )) -ne 0 ] && [ "$( id -un )" != 'core' ]
-		then
-			# This could be an expensive check, so leave it until
-			# last...
-			if "${_command}" info | grep -q -- 'rootless: false'
-			then
-				echo >&2 "FATAL: Please re-run '$(
-						basename "${0}"
-					)' as user 'root'"
-				exit 1
-			fi
-		fi
+_output=''
+if ! [ -x "$( command -v "${_command}" )" ]; then
+	echo >&2 "FATAL: Cannot locate binary '${_command}'"
+	exit 1
+elif ! _output="$( "${_command}" info 2>&1 )"; then
+	if [ "${_command}" = 'podman' ]; then
+		echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
+			"you need to run '${_command} machine start' or re-run" \
+			"'$( basename "${0}" )' as 'root'?"
+	else
+		echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
+			"you need to re-run '$( basename "${0}" )' as 'root'?"
 	fi
+	exit 1
+elif [ $(( $( id -u ) )) -ne 0 ] &&
+		echo "${_output}" | grep -Fq -- 'rootless: false'
+then
+	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
+	exit 1
 fi
+unset _output
 
 # Guard to ensure that we don't accidentally reset the values below through
 # multiple inclusion - 'unset __COMMON_VARS_INCLUDED' is this is explcitly
@@ -94,8 +97,8 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 
 	use_cpu_arch='' use_cpu_flags='' use_cpu_flags_raw=''
 	gcc_target_opts='-march=native' description='' vendor='' sub_cpu_arch=''
-	# rpi-cm rpi-cm2 rpi-cm3 rpi-cm4s rpi-cm5
-	# rpi0 rpi02 rpi2 rpi3 rpi4 rpi400 rpi-cm4 rpi5
+	# rpi-cm rpi-cm2 rpi-cm3 rpi-cm4s
+	# rpi0 rpi02 rpi2 rpi3 rpi4 rpi400 rpi-cm4 rpi5 rpi-cm5 rpi500
 	rpi_model=''
 
 	use_cpu_arch="$( uname -m | cut -c 1-3 | sed 's/aar/arm/' )"
@@ -227,6 +230,12 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				gcc_target_opts='-mcpu=cortex-a72+aes+crc+crypto'
 				rust_target_opts='-C target-cpu=cortex-a72'
 				rpi_model='rpi5' ;;
+			*': Raspberry Pi 500 '*)
+				use_cpu_arch='arm'
+				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
+				gcc_target_opts='-mcpu=cortex-a72+aes+crc+crypto'
+				rust_target_opts='-C target-cpu=cortex-a72'
+				rpi_model='rpi500' ;;
 
 			*': Mixtile Blade 3 '*)
 				# ARMv8, big.LITTLE
@@ -275,7 +284,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 					grep -- '^vendor_id' /proc/cpuinfo |
 						tail -n 1 |
 						awk -F': ' '{ print $2 }'
-				)"
+				)" || :
 				if [ -z "${vendor:-}" ]; then
 					vendor="$( # <- Syntax
 						grep -- '^CPU implementer' /proc/cpuinfo |
