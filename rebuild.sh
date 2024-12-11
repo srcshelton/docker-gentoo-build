@@ -727,6 +727,21 @@ if [ "${update:-"0"}" = '1' ]; then
 	if echo "${ARCH}" | grep -q 'arm'; then
 		alt_use="${alt_use:+"${alt_use} "}gold"
 	fi
+
+	# FIXME: sys-devel/gcc can be rebuilt in the midst of other packages, but
+	#        if this enables 'lib-only' (which it shouldn't due to
+	#        work-arounds) or if graphite/openmp *FLAGS are in effect but gcc
+	#        it rebuilt without the apropriate USE flags to support these, then
+	#        subsequent builds will break.  Therefore, let's exclude this
+	#        package by default, as the host system version will be rebuilt if
+	#        necessary by the post-pkgs step in any case...
+	if [ -z "${exclude:-}" ] ||
+			! echo " ${exclude} " |
+				grep -Eq -- ' (sys-devel/)?gcc([-:][0-9][^ ]+)? '
+	then
+		exclude="${exclude:+"${exclude} "}sys-devel/gcc"
+	fi
+
 	# shellcheck disable=SC2046
 	(
 		# shellcheck disable=SC2030,SC2031
@@ -833,6 +848,10 @@ if [ "${system:-"0"}" = '1' ]; then
 		pretend=''
 	fi
 
+	# With a trimmed-down world file which only contains leaf-packages and not
+	# dependencies, running 'emerge @world' is not sufficient - we need to look
+	# at what we already have installed as well...
+	#
 	if output="$( # <- Syntax
 		emerge \
 					--binpkg-changed-deps=y \
@@ -847,7 +866,11 @@ if [ "${system:-"0"}" = '1' ]; then
 					--verbose-conflicts \
 					--verbose=y \
 					--with-bdeps=n \
-				@world
+				@world $(
+						find /var/db/pkg/ -mindepth 2 -maxdepth 2 -type d |
+							cut -d'/' -f 5-6 |
+							sed 's/^/>=/'
+					)
 					# --usepkgonly and --deep are horribly broken :(
 					#
 					#--deep \
