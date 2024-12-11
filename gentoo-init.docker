@@ -23,8 +23,13 @@ fi
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
 	readlink() {
-		perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
+		if type -pf realpath >/dev/null 2>&1; then
+			realpath "${2}"
+		else
+			perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
+		fi
 	}  # readlink
+	export -f readlink
 fi
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
@@ -73,26 +78,31 @@ declare -i NOTIFY_MKDIR=0
 
 # shellcheck disable=SC1091
 [[ ! -s common/vars.sh ]] || . common/vars.sh
-# shellcheck disable=SC2034 # Set from common/vars.sh
+# shellcheck disable=SC2034  # Set from common/vars.sh
 [[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
 	echo >&2 "FATAL: Inclusion of common defaults from '${PWD}/common/vars.sh' failed"
 	exit 1
 }
 
-if [ "${_command}" = 'podman' ]; then
-	if [ "$( uname -s )" != 'Darwin' ]; then
-		# Update: Support 'core' user for podman+machine Fedora default user...
-		if [ $(( $( id -u ) )) -ne 0 ] && [ "$( id -un )" != 'core' ]; then
-			# This could be an expensive check, so leave it until last...
-			if "${_command}" info | grep -q -- 'rootless: false'
-			then
-				echo >&2 "FATAL: Please re-run '$( basename "${0}")' as" \
-					"user 'root'"
-				exit 1
-			fi
-		fi
+declare _output=''
+if ! [[ -x "$( type -pf "${_command}" )" ]]; then
+	echo >&2 "FATAL: Cannot locate binary '${_command}'"
+	exit 1
+elif ! _output="$( "${_command}" info 2>&1 )"; then
+	if [[ "${_command}" == 'podman' ]]; then
+		echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
+			"you need to run '${_command} machine start' or re-run" \
+			"'$( basename "${0}" )' as 'root'?"
+	else
+		echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
+			"you need to re-run '$( basename "${0}" )' as 'root'?"
 	fi
+	exit 1
+elif (( ! $( id -u ) )) && grep -Fq -- 'rootless: false' <<<"${_output}"; then
+	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
+	exit 1
 fi
+unset _output
 
 [[ -n "${base_dir:-}" ]]
 [[ -d "${base_dir}" ]]

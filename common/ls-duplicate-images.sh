@@ -7,10 +7,34 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	exit 0
 fi
 
-if [ $(( $( id -u ) )) -ne 0 ]; then
-        echo >&2 "FATAL: Please re-run '$( basename "${0}" )' as user 'root'"
-        exit 1
+_command='docker'
+if command -v podman >/dev/null 2>&1; then
+	_command='podman'
 fi
+
+_output=''
+if ! [ -x "$( command -v "${_command}" )" ]; then
+	echo >&2 "FATAL: Cannot locate binary '${_command}'"
+	exit 1
+elif ! _output="$( "${_command}" info 2>&1 )"; then
+	if [ "${_command}" = 'podman' ]; then
+		echo >&2 "FATAL: Unable to successfully execute" \
+			"'${_command}' - do you need to run '${_command}" \
+			"machine start' or re-run '$( basename "${0}" )' as" \
+			"'root'?"
+	else
+		echo >&2 "FATAL: Unable to successfully execute" \
+			"'${_command}' - do you need to re-run" \
+			"'$( basename "${0}" )' as 'root'?"
+	fi
+	exit 1
+elif [ $(( $( id -u ) )) -ne 0 ] &&
+		echo "${_output}" | grep -Fq -- 'rootless: false'
+then
+	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
+	exit 1
+fi
+unset _output
 
 all='--filter reference=localhost/*'
 latest='latest'
@@ -27,7 +51,7 @@ php_pattern_2='^(localhost/service.dev-lang.php)([0-9]{2})(.*)$'
 php_replacement_2='\1\3'
 
 images="$(
-	eval "podman image list --noheading ${all:+" ${all}"}"			|
+	eval "${_command} image list --noheading ${all:+" ${all}"}"		|
 		sed -r "s|${php_pattern_1}|${php_replacement_1}|"		|
 		awk '{ print $1 }'						|
 		grep -v '<none>'						|
@@ -36,10 +60,11 @@ images="$(
 		awk '( $1 > 1 ) { print $2 }'					|
 		while read -r name; do
 			if [ -z "${latest:-}" ]; then
-				podman image list "${name}"
+				"${_command}" image list "${name}"
 			else
-				result="$( podman image list "${name}" )"
-				if ! echo "${result:-}" | grep -qw "${latest}"; then
+				result="$( "${_command}" image list "${name}" )"
+				if ! echo "${result:-}" | grep -qw "${latest}"
+				then
 					echo "${result}"
 				fi
 			fi
