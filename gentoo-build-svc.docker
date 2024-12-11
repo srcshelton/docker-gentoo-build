@@ -2,12 +2,14 @@
 
 declare trace="${TRACE:-}"
 # shellcheck disable=SC2034
-declare debug="${DEBUG:-}"
+#declare debug="${DEBUG:-}"
 
 set -eu
 set -o pipefail
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+
+#(( trace )) && set -o xtrace
 
 # Set in vars.sh
 #
@@ -144,7 +146,26 @@ if type -pf emerge >/dev/null 2>&1; then
 				awk -F'"' '{print $2}' || :
 		)"
 else
-	eval ". /etc/portage/make.conf ; set | grep -F -- 'FLAGS=' | sed 's|^[A-Z]\+=|\L&|'"
+	# If we don't have 'emerge', then we likely lack the profile default
+	# value for LDFLAGS, which isn't overridden.  We'll also lack any
+	# -march/-mcpu flags, as these are added by the build system in
+	# containers only.
+	#
+	# N.B. On (at least?) x86, amd64, ppc64 this approach loses the
+	#      addition of '-Wl,-z,pack-relative-relocs'
+	#
+	# *However* this should be fine, as these flags are only used in
+	# addition to any defaults when building old UniFi Controller packages
+	# and for checking what flags we have present.
+	#
+	eval "$(
+		[[ -n "${LDFLAGS:-}" ]] || LDFLAGS='-Wl,-O1 -Wl,--as-needed'
+		. /etc/portage/make.conf 2>&1
+		set |
+			grep -F -- 'FLAGS=' |
+			sed 's|^[A-Z]\+=|\L&| ; s|$|;|' |
+			grep -E -- '^c(xx)?flags='
+	)"
 fi
 [[ -n "${cflags:-}" ]] || cflags='-O2 -pipe'
 [[ -n "${cxxflags:-}" ]] || cxxflags="${cflags}"
@@ -292,7 +313,7 @@ if (( installed )); then
 		# Build list based on installed packages... (useful if the local image
 		# cache has been cleared!)
 		#
-		find /var/db/pkg/container/ \
+		[[ -d /var/db/pkg/container ]] && find /var/db/pkg/container/ \
 				-mindepth 2 -maxdepth 2 -type f -name CONTENTS -print |
 			awk -F '/' 'NF-1 { print $(NF-1) }' |
 			sed \
@@ -1677,13 +1698,13 @@ fi
 declare -a docker_extra_mounts=()
 if [ -n "${etcdir:-}" ]; then
 	for dir in ${etcdir}; do
-		mkdir -p "/etc/${dir}"
+		sudo mkdir -p "/etc/${dir}"
 		docker_extra_mounts+=( $( add_mount --print --no-ro \
 				"/etc/${dir}/" \
 				'/service/...'
 			) )
 		if [ "${dir}" = 'mail/spamassassin' ]; then
-			mkdir -p /var/lib/spamassassin /usr/share/spamassassin
+			sudo mkdir -p /var/lib/spamassassin /usr/share/spamassassin
 			docker_extra_mounts+=( # <- Syntax
 				$( add_mount --print --no-ro \
 						'/var/lib/spamassassin/' \
@@ -1699,7 +1720,7 @@ if [ -n "${etcdir:-}" ]; then
 	unset dir
 fi
 for dir in default logrotate.d ssl; do
-	mkdir -p "/etc/${dir}/"
+	sudo mkdir -p "/etc/${dir}/"
 	docker_extra_mounts+=( $( add_mount --print --no-ro \
 		"/etc/${dir}/"
 	) )

@@ -1292,7 +1292,7 @@ _docker_run() {
 		if ! type -pf portageq >/dev/null 2>&1; then
 			default_repo_path='/var/db/repos/gentoo /var/db/repos/srcshelton'
 			default_distdir_path='/var/cache/portage/dist'
-			default_pkgdir_path='/var/cache/portage/pkg'
+			default_pkgdir_path="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
 			if [[ ! -d /var/db/repos/gentoo ]] && [[ -d /var/db/repo/gentoo ]]
 			then
 				default_repo_path='/var/db/repo/gentoo /var/db/repo/srcshelton'

@@ -214,6 +214,7 @@ for arg in "${@:-}"; do
 	case "${arg:-}" in
 		*helper)
 			build_helper=1
+			args+=( "${arg}" )
 			;;
 		--force)
 			force=1

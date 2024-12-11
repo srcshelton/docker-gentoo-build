@@ -318,8 +318,27 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 		rc=0
 		use=''
 		image=''
-		# shellcheck disable=SC2030
-		ARCH="${ARCH:-"$( portageq envvar ARCH )"}"
+		if command -v portageq >/dev/null 2>&1; then
+			# shellcheck disable=SC2030
+			ARCH="${ARCH:-"$( portageq envvar ARCH )"}"
+		else
+			echo >&2 "WARN:  Cannot locate 'portageq' utility"
+		fi
+		if [ -z "${ARCH:-}" ]; then
+			case "$( uname -m )" in
+				aarch64)
+					ARCH='arm64' ;;
+				arm*)
+					ARCH='arm' ;;
+				x86_64)
+					ARCH='amd64' ;;
+				*)
+					echo >&2 "FATAL: Unknown architecture '$( uname -m )'"
+					exit 1
+					;;
+			esac
+		fi
+		readonly ARCH
 
 		# Cache packages with minimal USE-flags, as used during the base-image
 		# build...
@@ -721,10 +740,33 @@ if [ "${update:-"0"}" = '1' ]; then
 			uniq
 		)"
 	fi
+
 	# FIXME: Remove once golang on ARM no longer requires gold linker...
+	#
 	# shellcheck disable=SC2031
-	ARCH="${ARCH:-"$( portageq envvar ARCH )"}"
-	if echo "${ARCH}" | grep -q 'arm'; then
+	if [ -z "${ARCH:-}" ]; then
+		if command -v portageq >/dev/null 2>&1; then
+			ARCH="${ARCH:-"$( portageq envvar ARCH )"}"
+		else
+			echo >&2 "WARN:  Cannot locate 'portageq' utility"
+		fi
+		if [ -z "${ARCH:-}" ]; then
+			case "$( uname -m )" in
+				aarch64)
+					ARCH='arm64' ;;
+				arm*)
+					ARCH='arm' ;;
+				x86_64)
+					ARCH='amd64' ;;
+				*)
+					echo >&2 "FATAL: Unknown architecture '$( uname -m )'"
+					exit 1
+					;;
+			esac
+		fi
+		readonly ARCH
+	fi
+	if echo "${ARCH}" | grep -q -- 'arm'; then
 		alt_use="${alt_use:+"${alt_use} "}gold"
 	fi
 
@@ -754,7 +796,7 @@ if [ "${update:-"0"}" = '1' ]; then
 						--with-bdeps=y \
 						${exclude:+"--exclude=${exclude}"} \
 					$( # <- Syntax
-						for pkg in /var/db/pkg/*/*; do
+						[ -d /var/db/pkg ] && for pkg in /var/db/pkg/*/*; do
 							pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
 							# fam & gamin block each other, tend to have broken
 							# downstream dependencies, and will be pulled-in as
@@ -853,6 +895,7 @@ if [ "${system:-"0"}" = '1' ]; then
 	# at what we already have installed as well...
 	#
 	if output="$( # <- Syntax
+		# shellcheck disable=SC2046
 		emerge \
 					--binpkg-changed-deps=y \
 					--binpkg-respect-use=y \
@@ -867,9 +910,10 @@ if [ "${system:-"0"}" = '1' ]; then
 					--verbose=y \
 					--with-bdeps=n \
 				@world $(
-						find /var/db/pkg/ -mindepth 2 -maxdepth 2 -type d |
-							cut -d'/' -f 5-6 |
-							sed 's/^/>=/'
+						 [ -d /var/db/pkg ] &&
+							find /var/db/pkg/ -mindepth 2 -maxdepth 2 -type d |
+								cut -d'/' -f 5-6 |
+								sed 's/^/>=/'
 					)
 					# --usepkgonly and --deep are horribly broken :(
 					#
