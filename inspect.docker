@@ -74,7 +74,7 @@ elif ! _output="$( "${_command}" info 2>&1 )"; then
 			"'$( basename "${0}" )' as 'root'?"
 	fi
 	exit 1
-elif (( ! $( id -u ) )) && grep -Fq -- 'rootless: false' <<<"${_output}"; then
+elif (( $( id -u ) )) && grep -Fq -- 'rootless: false' <<<"${_output}"; then
 	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
 	exit 1
 fi

@@ -151,15 +151,17 @@ else
 	# -march/-mcpu flags, as these are added by the build system in
 	# containers only.
 	#
-	# N.B. On (at least?) x86, amd64, ppc64 this approach loses the
-	#      addition of '-Wl,-z,pack-relative-relocs'
-	#
-	# *However* this should be fine, as these flags are only used in
-	# addition to any defaults when building old UniFi Controller packages
-	# and for checking what flags we have present.
-	#
 	eval "$(
-		[[ -n "${LDFLAGS:-}" ]] || LDFLAGS='-Wl,-O1 -Wl,--as-needed'
+		# shellcheck disable=SC2034
+		[[ -n "${LDFLAGS:-}" ]] || case "${arch}" in
+			amd64|ppc64|x86)
+				LDFLAGS='-Wl,-O1 -Wl,--as-needed -Wl,-z,pack-relative-relocs'
+				;;
+			*)
+				LDFLAGS='-Wl,-O1 -Wl,--as-needed'
+				;;
+		esac
+		[[ -n "${ARCH:-}" ]] || ARCH="${arch}"
 		. /etc/portage/make.conf 2>&1
 		set |
 			grep -F -- 'FLAGS=' |
@@ -813,6 +815,7 @@ case "${package_name}" in
 	*.fetchmail)
 		output "Setting build variables for packages 'fetchmail', 'procmail', and 'postfix' ..."
 		pre_pkgs='sys-apps/help2man sys-devel/gcc'
+		pre_pkgs+=' acct-group/mail acct-user/mail acct-user/postmaster'
 		extra_pkgs='mail-filter/procmail net-mail/dovecot dev-lang/perl'
 		extra_pkgs+=' app-shells/bash'
 

@@ -98,7 +98,7 @@ elif ! _output="$( "${_command}" info 2>&1 )"; then
 			"you need to re-run '$( basename "${0}" )' as 'root'?"
 	fi
 	exit 1
-elif (( ! $( id -u ) )) && grep -Fq -- 'rootless: false' <<<"${_output}"; then
+elif (( $( id -u ) )) && grep -Fq -- 'rootless: false' <<<"${_output}"; then
 	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
 	exit 1
 fi
@@ -777,16 +777,23 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 					awk -F'"' '{print $2}' || :
 			)"
 	else
-		# shellcheck disable=SC2034
-		[[ -z "${LDFLAGS:-}" ]] && case "${arch}" in
-			amd64|ppc64|x86)
-				LDFLAGS='-Wl,-O1 -Wl,--as-needed -Wl,-z,pack-relative-relocs'
-				;;
-			*)
-				LDFLAGS='-Wl,-O1 -Wl,--as-needed'
-				;;
-		esac
-		eval ". /etc/portage/make.conf ; set | grep -F -- 'FLAGS=' | sed 's|^[A-Z]\+=|\L&|'"
+		eval "$(
+			# shellcheck disable=SC2034
+			[[ -n "${LDFLAGS:-}" ]] || case "${arch}" in
+				amd64|ppc64|x86)
+					LDFLAGS='-Wl,-O1 -Wl,--as-needed -Wl,-z,pack-relative-relocs'
+					;;
+				*)
+					LDFLAGS='-Wl,-O1 -Wl,--as-needed'
+					;;
+			esac
+			[[ -n "${ARCH:-}" ]] || ARCH="${arch}"
+			. /etc/portage/make.conf 2>&1
+			set |
+				grep -F -- 'FLAGS=' |
+				sed 's|^[A-Z]\+=|\L&| ; s|$|;|' |
+				grep -E -- '^c(xx)?flags='
+		)"
 	fi
 	[[ -n "${cflags:-}" ]] || cflags='-O2 -pipe'
 	[[ -n "${cxxflags:-}" ]] || cxxflags="${cflags}"
