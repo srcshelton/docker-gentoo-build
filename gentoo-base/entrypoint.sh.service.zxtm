@@ -335,7 +335,9 @@ rm "${zeushome}"/zxtm/conf && ln -s conf_A "${zeushome}"/zxtm/conf
 # shellcheck disable=SC2012
 rm "${zeushome}"/zxtm/global.cfg && ln -s "conf/zxtms/$( ls -1rt "${zeushome}"/zxtm/conf/zxtms/ | tail -n 1 )" "${zeushome}"/zxtm/global.cfg
 
-if type -pf eselect  >/dev/null 2>&1 && [[ -s /usr/share/eselect/modules/iptables.eselect ]]; then
+if [ -x /bin/bash ] && type -pf eselect >/dev/null 2>&1 &&
+		[[ -s /usr/share/eselect/modules/iptables.eselect ]]
+then
 	plog INFO "Setting iptables implementation ..."
 	if ! eselect iptables set xtables-nft-multi; then
 		plog WARN "Failed to switch to NFT iptables back-end"

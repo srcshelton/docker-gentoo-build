@@ -106,7 +106,7 @@ if [ $(( EUID )) -eq 0 ]; then
 fi
 
 # Run eselect for dependent components...
-if [ -x /usr/bin/eselect ]; then
+if [ -x /bin/bash ] && [ -x /usr/bin/eselect ]; then
 	if [ -s /usr/share/eselect/modules/python.eselect ]; then
 		if [ $(( EUID )) -eq 0 ]; then
 			print "Setting python implementation ..."
