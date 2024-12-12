@@ -200,9 +200,9 @@ if (( local_install )); then
 		sudo chown "${REMOTE_USER}:root" /var/cache/portage &&
 		sudo chmod ug+rwX /var/cache/portage
 
-	sudo mkdir -p "/var/cache/portage/pkg/${ARCH}/docker" &&
-		sudo chown "${REMOTE_USER}:root" "/var/cache/portage/pkg/${ARCH}/docker" &&
-		sudo chmod ug+rwX "/var/cache/portage/pkg/${ARCH}/docker"
+	sudo mkdir -p "/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}" &&
+		sudo chown "${REMOTE_USER}:root" "/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}" &&
+		sudo chmod ug+rwX "/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
 
 	if ! [[ -x sync-portage.sh ]]; then
 		echo >&2 "WARN:  Cannot locate 'sync-portage.sh' script - please run" \

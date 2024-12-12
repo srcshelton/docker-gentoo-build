@@ -242,7 +242,7 @@ docker_run() {
 		default_repo_path='/var/db/repos/gentoo'
 		rw_repo_path='/var/db/repos/srcshelton'
 		default_distdir_path='/var/cache/portage/dist'
-		default_pkgdir_path='/var/cache/portage/pkg'
+		default_pkgdir_path="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
 		if [ ! -d /var/db/repos/gentoo ] && [ -d /var/db/repo/gentoo ]; then
 			default_repo_path='/var/db/repo/gentoo'
 			rw_repo_path='/var/db/repo/srcshelton'
