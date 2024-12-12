@@ -494,6 +494,7 @@ if ! type -pf portageq >/dev/null 2>&1; then
 				"in local Gentoo Portage repo mirror - mirror out of date?"
 		fi
 		unset head
+		# Return from ${repo_path_gentoo}
 		popd >/dev/null 2>&1
 	fi
 	unset ref
@@ -508,6 +509,7 @@ if ! type -pf portageq >/dev/null 2>&1; then
 
 	unset private_gentoo_clone repo_path_gentoo
 
+	# Return from ${base_dir}
 	popd >/dev/null 2>&1
 
 	# Flags may have changed...
@@ -601,6 +603,7 @@ else # type -pf portageq >/dev/null 2>&1; then
 					"of date?"
 			fi
 			unset head
+			# Return from ${repo_path_gentoo}
 			popd >/dev/null 2>&1
 		else
 			warn "No upstream commit marker found in" \
@@ -1628,8 +1631,7 @@ else
 	checkids "${base_name}"
 fi
 
-if
-	[[ -z "${*:-}" ]] ||
+if [[ -z "${*:-}" ]] ||
 		(( build_helper )) ||
 		grep -Fq -- ' --force-helper ' <<<" ${*} "
 then
@@ -1650,6 +1652,7 @@ then
 	fi
 
 	if (( build_helper )); then
+		# Return from ${base_dir}
 		popd >/dev/null 2>&1 || exit 1
 		if ! [[ -x gentoo-build-svc.docker ]]; then
 			warn "Cannot execute 'gentoo-build-svc.docker' script (in" \
@@ -1679,7 +1682,8 @@ fi
 
 [[ -z "${trace:-}" ]] || set +o xtrace
 
-popd >/dev/null
+# Return from ${base_dir} or error if (( build_helper ))...
+popd >/dev/null 2>&1 || :
 
 exit 0
 
