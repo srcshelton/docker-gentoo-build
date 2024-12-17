@@ -109,6 +109,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	if command -v cpuid2cpuflags >/dev/null 2>&1; then
 		use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- )"
 	else
+		# N.B. 'uname -s' returns 'Linux' in Darwin podman-machine...
 		if [ "$( uname -s )" = 'Darwin' ]; then
 			description="$( sysctl -n machdep.cpu.brand_string )"
 		elif [ -s /sys/firmware/devicetree/base/model ]; then
@@ -134,6 +135,20 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				grep -F 'CPU part' /proc/cpuinfo |
 					sort |
 					tail -n 1
+			)" || :
+		fi
+		if [ -z "${description:-}" ] || echo "${description}" | grep -q '0x0\+'
+		then
+			description="$( # <- Syntax
+				grep -F \
+							-e 'CPU implementer' \
+							-e 'CPU architecture' \
+						/proc/cpuinfo |
+					sort -r |
+					uniq |
+					cut -d':' -f 2 |
+					awk '{print $1}' |
+					xargs -r
 			)" || :
 		fi
 
@@ -248,7 +263,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				# of the big cores...
 				rust_target_opts='-C target-cpu=cortex-a55' ;;
 
-			*': 0xd07'|'Apple M1'*)
+			*': 0xd07'|'0x61 8'|'Apple M1'*)
 				use_cpu_arch='arm'
 				use_cpu_flags='aes crc32 sha1 sha2'
 				#gcc_target_opts='-march=armv8-a'

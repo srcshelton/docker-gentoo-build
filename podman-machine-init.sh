@@ -13,7 +13,7 @@ declare -r INIT='gentoo-init.docker'
 export LANG=C
 export LC_ALL=C
 
-declare MACHINE='podman'
+declare MACHINE='podman-machine-default'
 declare REMOTE_HOME='/var/home'
 declare REMOTE_USER='core'
 declare ARCH=''
@@ -33,28 +33,28 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 		fi
 	}
 	export -f readlink
+else
+	case "$( id -un )" in
+		"${REMOTE_USER}")
+			: ;;
+		'mixtile')
+			REMOTE_USER='mixtile' ;;
+		*)
+			REMOTE_USER="$( id -un )"
+			if ! REMOTE_HOME="$( dirname "$( # <- Syntax
+					eval "readlink -e ~${REMOTE_USER}"
+				)" )" || ! [ -d "${REMOTE_HOME}/${REMOTE_USER}" ]
+			then
+				echo >&2 "FATAL: Unable to determine home directory" \
+					"for user '${REMOTE_USER:-}': ${?}"
+				exit 1
+			else
+				echo >&2 "INFO:  Using home '${REMOTE_HOME}' for" \
+					"user '${REMOTE_USER}' ..."
+			fi
+			;;
+	esac
 fi
-
-case "$( id -un )" in
-	"${REMOTE_USER}")
-		: ;;
-	'mixtile')
-		REMOTE_USER='mixtile' ;;
-	*)
-		REMOTE_USER="$( id -un )"
-		if ! REMOTE_HOME="$( dirname "$( # <- Syntax
-				eval "readlink -e ~${REMOTE_USER}"
-			)" )" || ! [ -d "${REMOTE_HOME}/${REMOTE_USER}" ]
-		then
-			echo >&2 "FATAL: Unable to determine home directory" \
-				"for user '${REMOTE_USER:-}': ${?}"
-			exit 1
-		else
-			echo >&2 "INFO:  Using home '${REMOTE_HOME}' for" \
-				"user '${REMOTE_USER}' ..."
-		fi
-		;;
-esac
 
 if type -pf portageq >/dev/null 2>&1; then
 	ARCH="$( portageq envvar ARCH )"
@@ -79,7 +79,7 @@ readonly ARCH
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
 	declare -i total=${cores}
-	total=$(( $( sysctl -n machdep.cpu.core_total ) ))
+	total=$(( $( sysctl -n machdep.cpu.core_count || sysctl -n machdep.cpu.core_total ) ))
 
 	case "$( sysctl -n machdep.cpu.brand_string )" in
 		'Apple M1'|'Apple M2'|'Apple M3')
@@ -226,6 +226,10 @@ else
 		echo
 	fi
 
+	if ! [[ -s ~/.ssh/"${MACHINE}.pub" ]]; then
+		ssh-keygen -t ed25519 -P '' -f ~/.ssh/"${MACHINE}"
+	fi
+
 	if [[ -s ~/.ssh/authorized_keys ]] && grep -Fq -- "$( < ~/.ssh/"${MACHINE}.pub" )" ~/.ssh/authorized_keys; then
 		:
 	else
@@ -234,6 +238,8 @@ else
 		cat ~/.ssh/"${MACHINE}.pub" >> ~/.ssh/authorized_keys
 		chmod 0600 ~/.ssh/authorized_keys
 	fi
+
+	podman-remote system connection add "$( id -un )" --identity ~/.ssh/id_ed25519 "$( podman machine inspect | grep .sock | cut -d'"' -f 4 )"
 
 	podman machine ssh "${MACHINE}" 'cat - > ~/.ssh/id_ed25519 && chmod 0600 ~/.ssh/id_ed25519' < ~/.ssh/"${MACHINE}"
 	podman machine ssh "${MACHINE}" 'cat - > ~/.ssh/id_ed25519.pub && chmod 0600 ~/.ssh/id_ed25519.pub' < ~/.ssh/"${MACHINE}.pub"
@@ -256,7 +262,7 @@ else
 				*.tar)
 					dest="${REMOTE_HOME}/${REMOTE_USER}/" ;;
 			esac
-			podman machine ssh "${MACHINE}" "scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no -v '$( id -nu )@$( hostname -s ).seventytwo.miltonroad.net:$( pwd )/${f}' '${dest}'"
+			podman machine ssh "${MACHINE}" "mkdir -p '${dest}' && scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no -v '$( id -nu )@host.containers.internal:$( pwd )/${f}' '${dest}'"
 		fi
 	done
 
