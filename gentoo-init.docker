@@ -498,7 +498,9 @@ if ! type -pf portageq >/dev/null 2>&1; then
 	fi
 	unset ref
 
-	for dir in /var/cache/portage/dist /var/log/portage /var/cache/portage/pkg
+	for dir in /var/cache/portage/dist \
+			/var/log/portage \
+			/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}
 	do
 		[[ -d "${dir}" ]] || makedir "${dir}"
 	done
