@@ -339,7 +339,8 @@
 #~app-containers/crun-1.18				 **
 #~app-containers/crun-1.18.1				 **
 ~app-containers/crun-1.18.2				 **
-~app-containers/crun-1.19				 **
+#~app-containers/crun-1.19				 **
+~app-containers/crun-1.19.1				 **
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -409,7 +410,8 @@
 #~app-containers/catatonit-0.1.5			 **
 #~app-containers/catatonit-0.1.6			 **
 ~app-containers/catatonit-0.1.7				 **
-~app-containers/catatonit-0.2.0				 **
+#~app-containers/catatonit-0.2.0			 **
+~app-containers/catatonit-0.2.1				 **
 
 #~app-containers/netavark-1.0.2				 **
 #~app-containers/netavark-1.0.3				 **
