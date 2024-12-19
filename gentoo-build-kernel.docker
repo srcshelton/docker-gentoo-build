@@ -730,8 +730,6 @@ fi
 if (( intel_patch )); then
 	declare clear_commit='' clear_patch=''
 	clear_commit="$( # <- Syntax
-		#curl -fLSs 'https://api.github.com/repos/clearlinux-pkgs/linux/commits' |
-		#	jq -r "map_values(select(.commit.message == \"Stable update to ${package_version%-r*}\"))[].sha"
 		curl -fLSs 'https://api.github.com/repos/clearlinux-pkgs/linux/tags' |
 			jq -r "map_values(select(.name | startswith(\"${package_version%-r*}\")))[].commit.sha" |
 			head -n 1
@@ -1899,6 +1897,7 @@ esac
 	: ${LINES:="24"}
 
 	declare -a kernel_make_opts=()
+	declare modargs=''
 	# shellcheck disable=SC2206
 	kernel_make_opts+=(
 		${container_CC:+"CC=${container_CC}"}
@@ -1910,6 +1909,7 @@ esac
 		# Set as-needed below...
 		#O=../build
 	)
+	modargs="${container_LLVM:+"LLVM=1 LLVM_IAS=1"}"
 	RUST_VERBOSE=''
 	RUSTFLAGS="$( # <- Syntax
 		emerge --info 2>&1 | grep -- '^RUSTFLAGS=' | cut -d'"' -f 2
@@ -2012,11 +2012,12 @@ esac
 			export LDFLAGS_MODULE HOSTLDFLAGS ;
 		fi ;
 		if [ '${compiler}' = 'clang' ]; then
-			: Correct as-of LLVM 18.1.8-r1 - see https://clang.llvm.org/docs/CommandGuide/clang.html ;
+			: Correct as-of GCC 13/LLVM 18.1.8-r1 - see https://clang.llvm.org/docs/CommandGuide/clang.html ;
 			good_flags='' ;
 			bad_flags='' ;
 			gcc_CFLAGS="\${CFLAGS:-}" ;
 			gcc_CXXFLAGS="\${CXXFLAGS:-}" ;
+			gcc_LDFLAGS="\${LDFLAGS:-}" ;
 			for flag in \${CFLAGS:-}; do
 				case "\${flag}" in
 					-fallow-store-data-races)				bad_flags="\${bad_flags} \${flag}" ;;
@@ -2030,7 +2031,7 @@ esac
 					-fivopts)								bad_flags="\${bad_flags} \${flag}" ;;
 					-flive-range-shrinkage)					bad_flags="\${bad_flags} \${flag}" ;;
 					-floop-nest-optimize)					bad_flags="\${bad_flags} \${flag}" ;;
-					-flto)									good_flags="\${good_flags} -flto=thin" ;;
+					-flto)									good_flags="\${good_flags} ${_LLVM_LTO:-"-flto=thin"}" ;;
 					-fmodulo-sched)							bad_flags="\${bad_flags} \${flag}" ;;
 					-fmodulo-sched-allow-regmoves)			bad_flags="\${bad_flags} \${flag}" ;;
 					-fsched-pressure)						bad_flags="\${bad_flags} \${flag}" ;;
@@ -2053,22 +2054,55 @@ esac
 				echo "NOTE:  Filtering GNU CFLAGS ('\${CFLAGS}') for ${compiler}: Removing '\${bad_flags}'" ;
 			fi ;
 			good_flags="\$( echo "\${good_flags:-} ${_LLVM_W:-}" | xargs -rn 1 | sort | uniq | xargs -r )" ;
-			CFLAGS="\${good_flags}" ;
+			: LLVM 20+? ;
+			: echo " \${good_flags:-} " | grep -Fq ' -ffp-contract=fast ' &&
+				: echo " \${good_flags} " | grep -Fq ' -ffast-math ' &&
+				: good_flags="\$( echo "\${good_flags}" | sed 's/-ffp-contract=fast/-ffp-contract=aggressive/g' )" ;
 			case '${arch:-"${ARCH:-}"}' in
 				'arm'*)
-					mcpu="\$( echo "\${CFLAGS}" | xargs -rn 1 | grep '^-mcpu=' || : )" ;
-					CFLAGS="\$( { echo "\${CFLAGS}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${mcpu:-"-mcpu=native"}" ; } | sort -V | xargs -r )" ;
+					LDFLAGS="\$( echo "\${_LLVM_LD:-"\${LDFLAGS:-}"} \${_LD_LTO:-} \${_LD_EXTRA:-}" | xargs -rn 1 | sed '/-Wl,-O1/s/-O1/-O2/' | sort | uniq | xargs -r )" ;
+					mcpu="\$( echo "\${good_flags:-}" | xargs -rn 1 | grep '^-mcpu=' || : )" ;
+					good_flags="\$( { echo "\${good_flags:-}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${mcpu:-"-mcpu=native"}" ; } | sort -V | xargs -r )" ;
 					unset mcpu ;
 					;;
 				*)
-					: march="\$( echo "\${CFLAGS}" | xargs -rn 1 | grep '^-march=' || : )" ;
-					CFLAGS="\$( { echo "\${CFLAGS}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${march:-"-march=native"}" ; } | sort -V | xargs -r )" ;
+					case '${arch:-"${ARCH:-}"}' in
+						x86|arm64|ppc64)
+							LDFLAGS="\$( echo "\${_LLVM_LD:-"\${LDFLAGS:-}"} \${_LD_X86PPC:-} \${_LD_LTO:-} \${_LD_EXTRA:-}" | xargs -rn 1 | sed '/-Wl,-O1/s/-O1/-O2/' | sort | uniq | xargs -r )" ;
+							;;
+						*)
+							LDFLAGS="\$( echo "\${_LLVM_LD:-"\${LDFLAGS:-}"} \${_LD_LTO:-} \${_LD_EXTRA:-}" | xargs -rn 1 | sed '/-Wl,-O1/s/-O1/-O2/' | sort | uniq | xargs -r )" ;
+							;;
+					esac ;
+					: march="\$( echo "\${good_flags:-}" | xargs -rn 1 | grep '^-march=' || : )" ;
+					good_flags="\$( { echo "\${good_flags:-}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${march:-"-march=native"}" ; } | sort -V | xargs -r )" ;
 					unset march ;
 					;;
 			esac ;
-			export CFLAGS ;
-			unset CXXFLAGS ;
+			CFLAGS="\${good_flags:-}" ;
+			CXXFLAGS="\${CFLAGS}" ;
+			export CFLAGS CXXFLAGS LDFLAGS ;
+			CPP='clang-cpp' ;
+			AS='clang -c' ;
+			CC='clang' ;
+			CXX='clang++' ;
+			LD='ld.lld' ;
+			AR='llvm-ar' ;
+			NM='llvm-nm' ;
+			OBJCOPY="llvm-objcopy" ;
+			OBJDUMP="llvm-objdump" ;
+			READELF="llvm-readelf" ;
+			STRIP="llvm-strip" ;
+			RANLIB='llvm-ranlib' ;
+			cc_var='' ;
+			for cc_var in CPP AS CC CXX LD AR NM OBJCOPY OBJDUMP READELF STRIP RANLIB; do
+				export \${cc_var} ;
+				export KERNEL_\${cc_var}="\$( eval "echo \\$\${cc_var}" )" ;
+				export UTILS_\${cc_var}="\$( eval "echo \\$\${cc_var}" )" ;
+			done ;
+			unset cc_var ;
 			echo "NOTE:  ${compiler} CFLAGS are '\${CFLAGS}'" ;
+			echo "NOTE:  ${compiler} LDFLAGS are '\${LDFLAGS}'" ;
 		fi ;
 		kernel='bzImage' ;
 		dir='x86' ;
@@ -2203,7 +2237,7 @@ esac
 		fi ;
 		modules_dir='${package_version}${distro:-}' ;
 		if echo '${package_version}' | grep -q -- '-r[0-9]\+$'; then
-			modules_dir="$( echo '${package_version}' | grep -o -- '-r[0-9]\+$' ) ;
+			modules_dir="$( echo '${package_version}' | grep -o -- '-r[0-9]\+$' )" ;
 			modules_dir="${package_version}${distro:-}\${modules_dir}" ;
 		fi ;
 		if [ -e .config ]; then
@@ -2307,18 +2341,23 @@ esac
 				echo >&2 "ERROR: Build artefact extraction failed: \${?}" ;
 				exit 1 ;
 			else
-				echo 'INFO:  Linux kernel-\${modules_dir} successfully installed - please update your bootloader' ;
+				echo "INFO:  Linux kernel-\${modules_dir} successfully installed - please update your bootloader" ;
 			fi ;
 		elif [ '${bundle}' = '0' ]; then
 			echo >&2 "WARN:  Linux kernel-\${modules_dir} successfully built (but not installed due to '--no-install' argument)" ;
 		fi ;
 		if [ -n '${extra_packages:-}' ]; then
-			export CFLAGS="\${gcc_CFLAGS:-}" ;
-			export CXXFLAGS="\${gcc_CXXFLAGS:-}" ;
+			if ! [[ '${compiler}' == 'clang' ]]; then
+				export CFLAGS="\${gcc_CFLAGS:-}" ;
+				export CXXFLAGS="\${gcc_CXXFLAGS:-}" ;
+				export LDFLAGS="\${gcc_LDFLAGS:-}" ;
+			fi ;
 			export USE='modules modules-compress${EXTRA_USE:+" ${EXTRA_USE}"}' ;
 			export XTABLES_ADDONS='${XTABLES_ADDONS:-"asn geoip"}' ;
 			: The build includes a placeholder Makefile pointing back to the \
 			: source directory, so must must exclude that... ;
+			[ -n '${modargs:-}' ] &&
+				export modargs='${modargs}' BUILD_FIXES='${modargs}' ;
 			tar -C /usr/src/build/ -cpf - --exclude Makefile . |
 					tar -C /usr/src/linux/ -xvpf - &&
 				emerge -kv --buildpkg=y ${extra_packages} ;
