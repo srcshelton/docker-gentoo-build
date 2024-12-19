@@ -44,7 +44,8 @@ In an environment which requires a Linux VM to host containers (e.g. macOS,
 etc):
 
 ```
-cp common/local.sh . && eval "${EDITOR} local.sh"
+cp common/local.sh . && cp gentoo-base/etc/portage/make.conf .
+eval "${EDITOR} local.sh make.conf"
 ./podman-machine-init.sh --init
 ```
 

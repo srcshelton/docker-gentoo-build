@@ -11,6 +11,7 @@
 **/.*.sw[a-p]
 
 /local.sh
+/make.conf
 /portage-cache.tar
 
 # Make host-specific changes to these files as necessary...

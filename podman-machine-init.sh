@@ -14,11 +14,19 @@ export LANG=C
 export LC_ALL=C
 
 declare MACHINE='podman-machine-default'
+declare MACHINE_SOCKET='/var/run/podman/podman.sock'
+declare MACHINE_KEY="${HOME}/.ssh/id_rsa"
+declare MACHINE_KEY_TYPE='ed25519'
 declare REMOTE_HOME='/var/home'
 declare REMOTE_USER='core'
 declare ARCH=''
 
 declare -i init=0 xfer=0 cores=4 local_install=0
+
+type -pf jq || {
+	echo >&2 "FATAL: 'jq' binary is required on Darwin"
+	exit 1
+}
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
 	# Darwin/BSD lacks GNU readlink - either realpath or perl's Cwd module
@@ -150,6 +158,7 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 else
 	cores="$( nproc || grep 'cpu cores' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' )"
 fi
+
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
 declare arg=''
@@ -211,38 +220,54 @@ else
 	fi
 
 	if ! podman machine list | grep -q -- "^${MACHINE}"; then
-		podman machine init --cpus "${cores}" --disk-size 25 -m $(( 12 * 1024 )) "${MACHINE}"
+		#podman machine init --cpus "${cores}" --disk-size 25 -m $(( 12 * 1024 )) "${MACHINE}"
+		echo >&2 "FATAL: No 'podman machine' named '${MACHINE}' defined - please create this first"
+		exit 1
 	fi
 	if ! podman machine list | grep -q -- "^${MACHINE}.*Currently running"; then
-		podman machine start "${MACHINE}"
-		until [[ "$( podman machine list --noheading --format '{{.Name}} {{.LastUp}}' | grep "^${MACHINE}[* ]" )" =~ ^${MACHINE}\*?\ Currently\ running$ ]]; do
-			printf '.'
-			sleep 0.1
-		done
-		until podman machine ssh "${MACHINE}" 'true'; do
-			printf '.'
-			sleep 0.1
-		done
-		echo
+		echo >&2 "FATAL: No 'podman machine' named '${MACHINE}' running - please start this first"
+		exit 1
 	fi
 
-	if ! [[ -s ~/.ssh/"${MACHINE}.pub" ]]; then
-		ssh-keygen -t ed25519 -P '' -f ~/.ssh/"${MACHINE}"
-	fi
+	# Check that our `podman machine` is actually usable...
+	echo -n "Waiting for running 'podman machine' named '${MACHINE}' ..."
+	until [[ "$( # <- Syntax
+			podman machine list --noheading --format '{{.Name}} {{.LastUp}}' |
+				grep "^${MACHINE}[* ]"
+		)" =~ ^${MACHINE}\*?\ Currently\ running$ ]]
+	do
+		printf '.'
+		sleep 0.1
+	done
+	echo
+	echo -n "Waiting for accessible 'podman machine' named '${MACHINE}' ..."
+	until podman machine ssh "${MACHINE}" 'true'; do
+		printf '.'
+		sleep 0.1
+	done
+	echo ; echo
 
-	if [[ -s ~/.ssh/authorized_keys ]] && grep -Fq -- "$( < ~/.ssh/"${MACHINE}.pub" )" ~/.ssh/authorized_keys; then
+	MACHINE_SOCKET="$( podman machine inspect | jq -Mr '.[].ConnectionInfo.PodmanSocket.Path' )"
+	MACHINE_KEY="$( podman machine inspect | jq -Mr '.[].SSHConfig.IdentityPath' )"
+
+	if [[ -s ~/.ssh/authorized_keys ]] &&
+			grep -Fq -- "$( < "${MACHINE_KEY}.pub" )" ~/.ssh/authorized_keys
+	then
 		:
 	else
 		mkdir -p ~/.ssh
 		chmod 0700 ~/.ssh
-		cat ~/.ssh/"${MACHINE}.pub" >> ~/.ssh/authorized_keys
+		cat "${MACHINE_KEY}.pub" >> ~/.ssh/authorized_keys
 		chmod 0600 ~/.ssh/authorized_keys
 	fi
 
-	podman-remote system connection add "$( id -un )" --identity ~/.ssh/id_ed25519 "$( podman machine inspect | grep .sock | cut -d'"' -f 4 )"
+	podman-remote system connection add "$( id -un )" --identity ~/.ssh/id_ed25519 "${MACHINE_SOCKET}" || {
+		echo >&2 "FATAL: Could not update system connection ($?): is there a podman machine running?"
+		exit 1
+	}
 
-	podman machine ssh "${MACHINE}" 'cat - > ~/.ssh/id_ed25519 && chmod 0600 ~/.ssh/id_ed25519' < ~/.ssh/"${MACHINE}"
-	podman machine ssh "${MACHINE}" 'cat - > ~/.ssh/id_ed25519.pub && chmod 0600 ~/.ssh/id_ed25519.pub' < ~/.ssh/"${MACHINE}.pub"
+	podman machine ssh "${MACHINE}" "cat - > ~/.ssh/id_${MACHINE_KEY_TYPE} && chmod 0600 ~/.ssh/id_${MACHINE_KEY_TYPE}" < "${MACHINE_KEY}"
+	podman machine ssh "${MACHINE}" "cat - > ~/.ssh/id_${MACHINE_KEY_TYPE}.pub && chmod 0600 ~/.ssh/id_${MACHINE_KEY_TYPE}.pub" < "${MACHINE_KEY}.pub"
 
 	podman machine ssh "${MACHINE}" <<-EOF
 		test -d src/podman-gentoo-build || {
@@ -254,15 +279,17 @@ else
 		cd ~/src/podman-gentoo-build && git pull --all
 	EOF
 
-	for f in 'local.sh' 'portage-cache.tar'; do
+	for f in 'make.conf' 'local.sh' 'portage-cache.tar'; do
 		if [[ -f "${f}" && -s "${f}" ]]; then
 			case "${f}" in
+				*.conf)
+					dest="/etc/portage/" ;;
 				*.sh)
 					dest="${REMOTE_HOME}/${REMOTE_USER}/src/podman-gentoo-build/common/" ;;
 				*.tar)
 					dest="${REMOTE_HOME}/${REMOTE_USER}/" ;;
 			esac
-			podman machine ssh "${MACHINE}" "mkdir -p '${dest}' && scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no -v '$( id -nu )@host.containers.internal:$( pwd )/${f}' '${dest}'"
+			podman machine ssh "${MACHINE}" "sudo mkdir -p '${dest}' && sudo scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no '$( id -nu )@host.containers.internal:$( pwd )/${f}' '${dest}'"
 		fi
 	done
 
