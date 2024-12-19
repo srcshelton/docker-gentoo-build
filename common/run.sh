@@ -615,9 +615,8 @@ _docker_resolve() {
 		# 'equery' into a container, and then call that to acquire "proper"
 		# package-version handling facilities.
 		# shellcheck disable=SC2086
-		if
-			docker ${DOCKER_VARS:-} image ls localhost/gentoo-helper:latest |
-			grep -Eq -- '^(localhost/)?([^.]+\.)?gentoo-helper'
+		if docker ${DOCKER_VARS:-} image ls localhost/gentoo-helper:latest |
+				grep -Eq -- '^(localhost/)?([^.]+\.)?gentoo-helper'
 		then
 			# shellcheck disable=SC2032  # Huh?
 			versionsort() {

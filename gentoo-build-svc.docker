@@ -803,10 +803,8 @@ case "${package_name}" in
 		;;
 	*.eix)
 		output 'Setting build variables for non-native tools ...'
-		force_python="${python_target}"
-		#pre_use="-* build minimal python_single_target_${python_target} python_targets_${python_target} symlink xml"
-		pre_pkgs='dev-lang/python dev-lang/python-exec sys-devel/gcc virtual/linux-sources'
-		#with_use="${pre_use}"
+		pre_pkgs='app-arch/bzip2 app-alternatives/bzip2 dev-lang/python dev-lang/python-exec sys-devel/gcc'  # virtual/linux-sources
+		with_use='reference'
 		extra_pkgs='app-eselect/eselect-python app-portage/gentoolkit'
 
 		# This container must be able to be invoked as 'versionsort' or 'equery'...

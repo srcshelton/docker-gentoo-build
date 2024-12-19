@@ -1,5 +1,30 @@
 #! /bin/sh
 
+debug="${DEBUG:-}"
+trace="${TRACE:-}"
+
+print() {
+    if [ -n "${debug:-}" ]; then
+        if [ -z "${*:-}" ]; then
+            echo >&2
+        else
+            printf >&2 'DEBUG: %s\n' "${*}"
+        fi
+    fi
+}  # print
+
+_eselect() {
+	if ! [ -x /bin/bash ]; then
+		echo >&2 "ERROR: '/bin/bash' not available, not running 'eselect${*:+" ${*}"}'"
+	else
+		if command -v eselect >/dev/null 2>&1; then
+			eselect ${@+"${@}"}
+		else
+			echo >&2 "ERROR: Command 'eselect' not available, not running 'eselect${*:+" ${*}"}'"
+		fi
+	fi
+}  # _eselect
+
 case "${1:-}" in
 	eix|eix-[a-z]*|masked-packages|versionsort)
 		export service_cmd="${1}"
@@ -31,10 +56,10 @@ case "${1:-}" in
 		fi
 
 		# eselect always complains about the symlink...
-		eselect profile set 1 >/dev/null 2>&1
+		_eselect profile set 1 >/dev/null 2>&1
 
 		# This should already have been run by entrypoint.sh...
-		#eselect python update --if-unset >/dev/null
+		#_eselect python update --if-unset >/dev/null
 
 		FEATURES="-ipc-sandbox -mount-sandbox -network-sandbox"
 		export FEATURES
@@ -43,10 +68,10 @@ case "${1:-}" in
 			#ls -l /etc/portage/
 			#echo
 
-			eselect profile list
-			eselect profile show
+			_eselect profile list
+			_eselect profile show
 			echo "Current active python interpreter:"
-			eselect python show
+			_eselect python show
 
 			exit 0
 		fi
