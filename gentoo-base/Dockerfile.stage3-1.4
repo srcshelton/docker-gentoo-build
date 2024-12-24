@@ -1,0 +1,299 @@
+# syntax=docker/dockerfile:1.4
+
+# stage3:
+#    This is the *only way* to persist variables across multi-stage builds
+#    without the need to write files within the images :(
+#
+#    We're embedding the image IDs of parent containers into their dependents,
+#    but in this case the only thing that can change through this image is the
+#    upstream 'env' or 'stage3' contents - so we'll store their IDs rather than
+#    the ID of this container.
+
+# hadolint global ignore=DL4006,SC3040
+#
+ARG ARCH
+
+ARG env_name="localhost/gentoo-env"
+ARG env_id=""
+
+# gentoo/stage3 supports 386, amd64, arm-v5, arm-v6, arm-v7, arm64, ppc64le, s390x
+ARG gentoo_stage3_image="docker.io/gentoo/stage3"
+# ... however, it's not currently being updated, whereas this image is!
+#ARG gentoo_stage3_image="docker.io/ksmanis/stage3"
+ARG gentoo_stage3_tag="latest"
+ARG gentoo_stage3_id=""
+
+# 'podman image build --platform' overwrites the tagged image, so provide a
+# work-around until this is fixed...
+ARG gentoo_stage3_image_ref="docker.io/gentoo/stage3:latest"
+
+ARG stage3_flags_file="/usr/libexec/stage3_flags.sh"
+
+# amd64 images are now merged-usr :(
+#ARG new_root_name="split-usr-root"
+# ... but it looks as if other architectures are still split-usr :o
+ARG new_root_name=""
+
+
+# -----------------------------------------------------------------------------
+
+# linter ignore=EF0003
+#FROM "${gentoo_stage3_image}:${gentoo_stage3_tag}" AS stage3
+FROM "${gentoo_stage3_image_ref}" AS stage3
+
+ARG ARCH
+ARG stage3_flags_file
+
+ARG new_root_name
+
+
+# Save initial environment...
+#
+# linter ignore=ER0001,SC2028,SC2046
+RUN <<-'EOT' /bin/sh
+	set -eu
+
+	set -o pipefail 2>/dev/null || :
+
+	command -v grep >/dev/null 2>&1 || {
+		echo >&2 "FATAL: Unable to locate 'grep' binary"
+		exit 1
+	}
+
+	pe="$(
+		find /var/db/pkg/dev-lang/ \
+			-mindepth 1 \
+			-maxdepth 1 \
+			-type d \
+			-name 'python-exec-*' \
+			-print \
+	)"
+	if [ -n "${pe:-}" ] && [ -e "${pe}/USE" ]; then
+		mv "${pe}/USE" "${pe}/USE-ignore" || :
+	fi
+
+	echo "STAGE3_USE=\"$(
+		cat /var/db/pkg/*/*/USE |
+			xargs -rn 1 echo |
+			sort |
+			uniq |
+			grep -v \
+				-e '^abi_' -e "^${ARCH:-"__ignore__"}$" -e 'elibc_glibc' \
+				-e 'kernel_linux' -e 'userland_GNU' -e '^python_' -e 'udev' \
+				-e '^static' |
+			xargs -r echo -n
+	)\"" >"${stage3_flags_file}" 2>/dev/null
+
+	echo "STAGE3_PYTHON_SINGLE_TARGET=\"$(
+		cat /var/db/pkg/*/*/USE |
+			xargs -rn 1 echo |
+			sort |
+			uniq |
+			grep '^python_single_target_' |
+			sed 's/^python_single_target_//' |
+			xargs -r echo -n
+	)\"" >>"${stage3_flags_file}" 2>/dev/null
+
+	echo "STAGE3_PYTHON_TARGETS=\"$(
+		cat /var/db/pkg/*/*/USE |
+			xargs -rn 1 echo |
+			sort |
+			uniq |
+			grep '^python_targets_' |
+			sed 's/^python_targets_//' |
+			xargs -r echo -n
+	)\"" >>"${stage3_flags_file}" 2>/dev/null
+
+	if [ -n "${pe:-}" ] && [ -e "${pe}/USE-ignore" ]; then
+		mv "${pe}/USE-ignore" "${pe}/USE" || :
+	fi
+EOT
+
+# Restore separate /lib* and /usr/lib* directories...
+#
+# Update: It's worse - /usr/sbin is a symlink to /usr/bin, and packages such
+#         as autotools are now hard-coding /usr/sbin/perl despite this not
+#         existing with split-usr!
+#
+# ... despite the root-directory symlinks, /var/db/pkg/**/CONTENTS still record
+# files' intended filesystem locations.
+#
+# Update: It's worse agian - for arm64 at least, the CONTENTS entries for
+#         sys-apps/coreutils places binaries in /usr/bin/{cp,mv,etc.}, but
+#         portage is still hard-coded to look for /bin/{cp,mv,etc.} meaning
+#         stage3 builds are fundamentally broken as soon as any /bin to
+#         /usr/bin symlink is rolled-back :(
+#
+RUN <<-'EOT' /bin/sh
+	set -eu
+
+	set -o pipefail 2>/dev/null || true
+
+	test -n "${new_root_name:-}" || exit 0
+
+	mkdir "/${new_root_name}"
+
+	tar -C / --sparse --one-file-system -cpf - $(
+		find / -xdev -mindepth 1 -maxdepth 1 -type f -printf '%P\n'
+		find / -xdev -mindepth 1 -maxdepth 1 -type d -not \( \
+			-name dev -or -name proc -or -name run -or -name sys -or \
+			-name "${new_root_name}" \
+		\) -printf '%P\n'
+	) | tar -C "/${new_root_name}" --sparse -xpf -
+	for d in bin sbin usr/sbin; do
+		if test -L "/${d}"; then
+			test -L "/${new_root_name}/${d}" &&
+				rm "/${new_root_name}/${d}"
+			mkdir -p "/${new_root_name}/${d}"
+		fi
+	done
+	for ext in '' 32 x32 64; do
+		if test -L "/lib${ext}"; then
+			test -L "/${new_root_name}/lib${ext}" &&
+				rm "/${new_root_name}/lib${ext}"
+			mkdir -p "/${new_root_name}/lib${ext}"
+		fi
+	done
+
+	grep -E 'obj /(s?bin/|lib)' /var/db/pkg/*/*/CONTENTS |
+		awk '{ print $2 }' |
+		while read -r f; do
+			if [ -f "/${new_root_name}/usr${f}" ]; then
+				mkdir -p "/${new_root_name}$( dirname "${f}" )"
+				mv "/${new_root_name}/usr${f}" "/${new_root_name}${f}"
+			elif [ -f "/usr${f}" ]; then
+				mkdir -p "/${new_root_name}$( dirname "${f}" )"
+				cp -a "/usr${f}" "/${new_root_name}${f}"
+			else
+				echo >&2 "WARN:  File '${f}' from CONTENTS does not exist"
+			fi
+		done
+	grep -E 'obj /usr/sbin/' /var/db/pkg/*/*/CONTENTS |
+		awk '{ print $2 }' |
+		while read -r f; do
+			r="$( echo "${f}" | sed 's|/sbin/|/bin/|' )"
+			if [ -f "/${new_root_name}${r}" ]; then
+				mkdir -p "/${new_root_name}$( dirname "${f}" )"
+				mv "/${new_root_name}${r}" "/${new_root_name}${f}"
+			elif [ -f "${r}" ]; then
+				mkdir -p "/${new_root_name}$( dirname "${f}" )"
+				cp -a "${r}" "/${new_root_name}${f}"
+			else
+				echo >&2 "WARN:  File '${f}' from CONTENTS does not exist" \
+					"as file '${r}'"
+			fi
+		done
+	grep -E 'sym /(s?bin/|lib)' /var/db/pkg/*/*/CONTENTS |
+		awk '{ print $2, $4 }' |
+		while read -r l t; do
+			ln -s "${t}" "/${new_root_name}${l}"
+		done
+	grep -E 'sym /usr/sbin/' /var/db/pkg/*/*/CONTENTS |
+		awk '{ print $2, $4 }' |
+		while read -r l t; do
+			ln -s "${t}" "/${new_root_name}${l}"
+		done
+
+	# Fix up sys-apps/coreutils on at least ARM64...
+	#
+	# '/bin/mv' is the first thing to obviously break, when portage attempts
+	# to perform package-moves
+	#
+	if [ ! -f "/${new_root_name}/bin/mv" ] ||
+			[ -L "/${new_root_name}/bin/mv" ]
+	then
+		if [ -f "/${new_root_name}/usr/bin/mv" ] &&
+				[ ! -L "/${new_root_name}/usr/bin/mv" ]
+		then
+			mkdir -p "/${new_root_name}/bin"
+
+			# Keep this list in sync with latest ebuild...
+			for fhs in basename cat chgrp chmod chown chroot cp cut date dd \
+				df dir dirname du echo env expr false head hostname kill ln \
+				ls md5sum mkdir mkfifo mknod mktemp mv pwd readlink rm rmdir \
+				seq sleep sort stty sync tail touch tr true tty uname uname \
+				uniq vdir wc yes
+			do
+				if grep -q -- "^obj /usr/bin/${fhs} " \
+					"/${new_root_name}"/var/db/pkg/sys-apps/coreutils-*/CONTENTS
+				then
+					cp -a "/${new_root_name}/usr/bin/${fhs}" \
+							"/${new_root_name}"/bin/
+					rm -f "/${new_root_name}/usr/bin/${fhs}"
+					sed -e "/^obj \/usr\/bin\/${fhs} /s|/bin/|/|" \
+						-i "/${new_root_name}"/var/db/pkg/sys-apps/coreutils-*/CONTENTS
+
+					if [ "${fhs}" = 'uname' ] || [ "${fhs}" = 'env' ]; then
+						ln -s "../../bin/${fhs}" \
+							"/${new_root_name}/usr/bin/${fhs}"
+					fi
+				fi
+			done
+		fi
+	fi
+
+	if [ -f "/${new_root_name}/usr/sbin/zgrep" ]; then
+		sed -e '/GREP/s|/usr/bin/grep|/bin/grep|' \
+			-i "/${new_root_name}/usr/sbin/zgrep"
+	elif [ -f "/${new_root_name}/usr/bin/zgrep" ]; then
+		sed -e '/GREP/s|/usr/bin/grep|/bin/grep|' \
+			-i "/${new_root_name}/usr/bin/zgrep"
+	fi
+
+	touch "/${new_root_name}/etc/ld.so.conf.${new_root_name}"
+	for ext in 64 x32 32 ''; do
+		if test -d "/${new_root_name}/lib${ext}"; then
+			echo "/lib${ext}" >> \
+				"/${new_root_name}/etc/ld.so.conf.${new_root_name}"
+			echo "/usr/lib${ext}" >> \
+				"/${new_root_name}/etc/ld.so.conf.${new_root_name}"
+			echo "/usr/local/lib${ext}" >> \
+				"/${new_root_name}/etc/ld.so.conf.${new_root_name}"
+		fi
+	done
+	echo 'include ld.so.conf.d/*.conf' >> \
+		"/${new_root_name}/etc/ld.so.conf.${new_root_name}"
+	mv "/${new_root_name}/etc/ld.so.conf.${new_root_name}" \
+		"/${new_root_name}/etc/ld.so.conf"
+
+	rm "/${new_root_name}/var/lock" "/${new_root_name}/var/run"
+	mkdir -p "/${new_root_name}/dev" "/${new_root_name}/proc" \
+		"/${new_root_name}/sys" \
+		"/${new_root_name}/var/lock" "/${new_root_name}/var/run"
+
+	find /etc/ -xdev -depth -mindepth 1 -not \( \
+		-path /etc/hosts -or -path /etc/hostname -or -path /etc/resolv.conf \
+	\) -exec rm -rf {} +
+	find / -xdev -mindepth 1 -maxdepth 1 -type d -not \( \
+		-name "${new_root_name}" -or -name dev -or -name proc -or -name run \
+		-or -name sys -or -name etc \
+	\) -exec rm -rf {} +
+EOT
+
+
+# -----------------------------------------------------------------------------
+
+# linter ignore=EF0003
+FROM "${env_name}:latest"
+
+ARG env_name
+ARG env_id
+
+ARG gentoo_stage3_image
+ARG gentoo_stage3_id
+
+ARG new_root_name
+
+
+LABEL environment-from="${env_name}:${env_id}"
+LABEL stage3-from="${gentoo_stage3_image}:${gentoo_stage3_id}"
+
+COPY --from=stage3 "/${new_root_name}" /
+
+# We can't use 'RUN [ -d ... ]' because this is interpreted as being
+# exec-form...
+# Double-negative so that 'set -e' doesn't trip over a false result
+RUN test ! -e /var/db/repos || rm -r /var/db/repos
+
+# linter ignore=ED0004
+# vi: set colorcolumn=80 noexpandtab shiftwidth=4 syntax=dockerfile tabstop=4 nowrap:

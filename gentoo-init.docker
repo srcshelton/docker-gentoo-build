@@ -33,6 +33,27 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 fi
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
+# From buildah-1.33.0/podman-4.8.0, Docker syntax 1.3-labs/1.4 HEREDOC support
+# is available...
+#
+select_file() {
+	local file="${1:-}"
+
+	[[ -n "${file:-}" ]] || return 1
+	[[ -n "${docker_version:-}" ]] || return 1
+
+	if [[ "${_command:-}" == 'podman' ]] && [[ "$( # <- Syntax
+			printf '%s\n' '4.8.0' "${docker_version}" | sort -V | head -n 1
+		)" == '4.8.0' ]]
+	then
+		[[ ! -e "${base_dir:-"${PWD}"}/${file}" ]] || file+='-1.4'
+	fi
+
+	printf '%s' "${file}"
+
+	return 0
+}  # select_file
+
 declare -i NOTIFY_MKDIR=0
 
 # Set by common/vars.sh
@@ -107,6 +128,7 @@ unset _output
 [[ -n "${base_dir:-}" ]]
 [[ -d "${base_dir}" ]]
 [[ -e "${base_dir}"/Dockerfile.env ]]
+[[ -e "${base_dir}"/Dockerfile.stage3 ]]
 [[ -e "${base_dir}"/Dockerfile.init ]]
 [[ -e "${base_dir}"/Dockerfile.build ]]
 
@@ -125,8 +147,9 @@ elif ! docker image build --help | grep -Fq -- '--platform'; then
 		"podman-3.x or later)"
 fi
 
-if
-	[[ -z "${env_name:-}" ]] ||
+# N.B. Image names, not file names...
+#
+if [[ -z "${env_name:-}" ]] ||
 		[[ -z "${stage3_name:-}" ]] ||
 		[[ -z "${init_name:-}" ]] ||
 		[[ -z "${base_name:-}" ]] ||
@@ -158,6 +181,11 @@ if [[ -n "${*:-}" ]]; then
 		fi
 	fi
 fi
+
+declare docker_version=''
+docker_version="$( docker version --format '{{.Client.Version}}' )" ||
+	die "Cannot determine ${_command} version: ${?}"
+readonly docker_version
 
 declare python_single_target="${python_targets_override:+"${python_targets_override%%" "*}"}"
 declare python_targets="${python_targets_override:-}"
@@ -703,7 +731,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		--build-arg PROFILE_PATH="${profile:-}"
 		--build-arg CHOST="${chost:-}"
 
-		# Optionally set below:
+		# Optionally set below:
 		#--build-arg CPU_FLAGS_ARM
 		#--build-arg CPU_FLAGS_PPC
 		#--build-arg CPU_FLAGS_X86
@@ -782,6 +810,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 					awk -F'"' '{print $2}' || :
 			)"
 	else
+		# shellcheck disable=SC1091,SC2030
 		eval "$(
 			# shellcheck disable=SC2034
 			[[ -n "${LDFLAGS:-}" ]] || case "${arch}" in
@@ -850,7 +879,7 @@ fi
 
 gentoo_stage3_image="$( # <- Syntax highlight failure
 	grep -- '^ARG gentoo_stage3_image=' Dockerfile.stage3 |
-	cut -d'"' -f 2
+		cut -d'"' -f 2
 )"
 
 declare ref=''
@@ -1013,6 +1042,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	else
 		build_args+=( --build-arg new_root_name="" )
 	fi
+	declare container_file=''
+	container_file="$( select_file 'Dockerfile.stage3' )"
 	# shellcheck disable=SC2207
 	build_args+=( # <- Syntax
 		--platform "linux/${docker_arch}"
@@ -1026,11 +1057,11 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 		--build-arg gentoo_stage3_id="${gentoo_stage3_id}"
 		--build-arg gentoo_stage3_image_ref="${gentoo_stage3_image}@${ref}"
 
-		# Optionally set below:
+		# Optionally set below:
 		#--build-arg stage3_flags_file
 
 		--compress
-		--file 'Dockerfile.stage3'
+		--file "${container_file}"
 		--network none
 		--no-cache
 		--pull=false
@@ -1051,7 +1082,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	docker image build "${build_args[@]}" . 2>&1 |
 		tee ../log/"docker.${stage3_name#*"/"}.log"
 	output " -> ${?}"
-	unset build_args
+	unset container_file build_args
 
 	[[ "${*:-}" == '--stage3' ]] && exit 0
 
@@ -1150,6 +1181,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 	# USED_BY: base
 
 	declare -a build_args=()
+	declare container_file=''
+	container_file="$( select_file 'Dockerfile.stage3' )"
 	# shellcheck disable=SC2154,SC2207
 	build_args+=( # <- Syntax
 		--platform "linux/${docker_arch}"
@@ -1163,12 +1196,12 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 		--build-arg entrypoint_sum="${sum}"
 		--build-arg environment_filter="${environment_filter}"
 
-		# Optionally set below:
+		# Optionally set below:
 		#--build-arg stage3_flags_file
 		#--build-arg environment_file
 
 		--compress
-		--file 'Dockerfile.init'
+		--file "${container_file}"
 		--network none
 		--no-cache
 		--pull=false
@@ -1192,7 +1225,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 	docker image build "${build_args[@]}" . 2>&1 |
 		tee ../log/"docker.${init_name#*"/"}.log"
 	output " -> ${?}"
-	unset build_args
+	unset container_file build_args
 
 	output
 	output " ${blue}*${reset} Stage 'init' complete, next is 'base' ..."
@@ -1334,6 +1367,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		export name="${base_name#*"/"}"
 		# shellcheck disable=SC2030
 		export image="${init_name}:latest"
+		# shellcheck disable=SC2031
 		export DOCKER_CMD_VARS="--env ARCH=${arch:-"${ARCH}"}"
 		declare -a docker_run_args=()
 		docker_run_args+=( # <- Syntax
@@ -1433,16 +1467,20 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	# 'Dockerfile.*service' to produce the service-container image.
 	#
 	declare -a build_args=()
+	declare container_file=''
+	container_file="$( select_file 'Dockerfile.stage3' )"
 	# shellcheck disable=SC2207
 	build_args+=( # <- Syntax
 		--build-arg env_id="${env_id}"
 		--build-arg environment_filter="${environment_filter}"
 
-		# Optionally set below:
+		--build-arg ARCH="${arch}"
+
+		# Optionally set below:
 		#--build-arg environment_file
 
 		--compress
-		--file 'Dockerfile.build'
+		--file "${container_file}"
 		--network none
 		--no-cache
 		--platform "linux/${docker_arch}"
@@ -1462,7 +1500,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	)
 	docker "${container_args[@]}" image build "${build_args[@]}" . 2>&1 |
 		tee ../log/"docker.${build_name#*"/"}.log"
-	unset build_args
+	unset container_file build_args
 
 	(
 		# dev-libs/icu is needed for circular dependencies on
