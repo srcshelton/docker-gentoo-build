@@ -19,10 +19,13 @@ _eselect() {
 	else
 		if command -v eselect >/dev/null 2>&1; then
 			eselect ${@+"${@}"}
+			return
 		else
 			echo >&2 "ERROR: Command 'eselect' not available, not running 'eselect${*:+" ${*}"}'"
 		fi
 	fi
+
+	return 1
 }  # _eselect
 
 case "${1:-}" in
@@ -56,7 +59,7 @@ case "${1:-}" in
 		fi
 
 		# eselect always complains about the symlink...
-		_eselect profile set 1 >/dev/null 2>&1
+		_eselect profile set 1 >/dev/null 2>&1 || :
 
 		# This should already have been run by entrypoint.sh...
 		#_eselect python update --if-unset >/dev/null
@@ -68,10 +71,10 @@ case "${1:-}" in
 			#ls -l /etc/portage/
 			#echo
 
-			_eselect profile list
-			_eselect profile show
+			_eselect profile list || :
+			_eselect profile show || :
 			echo "Current active python interpreter:"
-			_eselect python show
+			_eselect python show || :
 
 			exit 0
 		fi
