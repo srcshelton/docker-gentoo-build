@@ -129,14 +129,14 @@ print() {
 		if [[ -z "${*:-}" ]]; then
 			output >&2
 		else
-			if [[ -n "${BASH_SOURCE[-1]:-}" ]]; then
+			if [[ -n "${BASH_SOURCE[-1]:-}" ]] && [[ "${BASH_SOURCE[-1]:-}" != "${BASH_SOURCE[0]}" ]]; then
 				output >&2 "DEBUG: $( # <- Syntax
 					basename "${BASH_SOURCE[-1]}"
 				)->${BASH_SOURCE[0]}:${FUNCNAME[1]}(${BASH_LINENO[0]}): ${*}"
 			else
 				output >&2 "DEBUG: $( # <- Syntax
 					basename "${0}"
-				):${FUNCNAME[1]}${BASH_LINENO[0]}: ${*}"
+				):${FUNCNAME[1]}(${BASH_LINENO[0]}): ${*}"
 			fi
 		fi
 		return 0
