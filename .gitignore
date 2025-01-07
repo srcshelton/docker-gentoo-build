@@ -5,6 +5,7 @@
 /log/*
 /.backup/
 /common.run.sh.debug.log
+/gentoo-base/common.run.sh.debug.log
 /inspect.docker.debug.log
 
 # Exclude vim swapfiles
