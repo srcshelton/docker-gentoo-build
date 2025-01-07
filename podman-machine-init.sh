@@ -29,12 +29,12 @@ declare -i init=0 xfer=0 cores=4 local_install=0
 declare -i run_on_vm=-1 need_explicit_mount=0
 declare -i create_vm=0
 
-type -pf jq || {
-	echo >&2 "FATAL: 'jq' binary is required on Darwin"
-	exit 1
-}
-
 if [[ "$( uname -s )" == 'Darwin' ]]; then
+	type -pf jq || {
+		echo >&2 "FATAL: 'jq' binary is required on Darwin"
+		exit 1
+	}
+
 	# Darwin/BSD lacks GNU readlink - either realpath or perl's Cwd module
 	# will do at a pinch, although both lack the additional options of GNU
 	# binaries...
