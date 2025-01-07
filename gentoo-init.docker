@@ -271,6 +271,49 @@ _docker_setup
 pushd "${base_dir}" >/dev/null 2>&1 ||
 	die "chdir() to '${base_dir}' failed; ${?}"
 
+checklabel() {
+	local image="${1:-}"
+	local label="${2:-}"
+	local value="${3:-}"
+	local label_value=''
+
+	if [[ -z "${image:-}" ]]; then
+		error "Image name not set"
+		return 1
+	fi
+	if [[ -z "${label:-}" ]]; then
+		error "Label name not set"
+		return 1
+	fi
+	if [[ -z "${value:-}" ]]; then
+		warn "Value not set"
+	fi
+
+	if ! [[ "${image}" =~ / ]]; then
+		image="localhost/${image}"
+	fi
+	if [[ "${image}" =~ ^localhost/localhost/ ]]; then
+		warn "${FUNCNAME[0]}: Correcting over-specified image '${image}'" \
+			"from ${FUNCNAME[1]}"
+		image="${image#"localhost/"}"
+	fi
+	if ! [[ "${image}" =~ : ]]; then
+		image="${image}:latest"
+	fi
+
+	label_value="$( # <- Syntax
+		docker image inspect \
+				--format="{{index .Config.Labels \"${label}\"}}" \
+			"${image}" 2>/dev/null
+	)"
+	if ! [[ "${label_value:-}" == "${value}" ]]; then
+		echo "${label_value:-}"
+		return 1
+	else
+		return 0
+	fi
+}  # checklabel
+
 checkids() {
 	local name="${1:-}"
 	local tag="${2:-"latest"}"
@@ -660,9 +703,11 @@ fi
 # (... which we aren't any longer - but pipefail does seem to cause some
 # unexpected behaviour)
 #
+command -v sha1sum >/dev/null 2>&1 || die "required binary 'sha1sum' missing"
 declare sum=''
 sum="$( sha1sum entrypoint.sh )"
 sum="$( echo "${sum}" | cut -d' ' -f 1 )"
+[[ -n "${sum}" ]] || die "Could not calculate 'entrypoint.sh' checksum"
 
 gentoo_stage3_tag='latest'
 # https://hub.docker.com/r/gentoo/stage3 tag-naming is a mess - not only does
@@ -1094,6 +1139,29 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	output " -> ${?}"
 	unset container_file build_args
 
+	# LABEL environment-from="${env_name}:${env_id}"
+	# LABEL stage3-from="${gentoo_stage3_image}:${gentoo_stage3_id}"
+	declare label=''
+	if ! label="$( checklabel "${stage3_name}:latest" \
+				'environment-from' \
+				"${env_name}:${env_id}"
+		)"
+	then
+		die "'environment-from' label '${label:-}' does not match intended" \
+			"label '${env_name}:${env_id}' for image ${stage3_name}:latest"
+	fi
+	label=''
+	if ! label="$( checklabel "${stage3_name}:latest" \
+				'stage3-from' \
+				"${gentoo_stage3_image}:${gentoo_stage3_id}"
+		)"
+	then
+		die "'stage3-from' label '${label:-}' does not match intended label" \
+			"'${gentoo_stage3_image}:${gentoo_stage3_id}' for image" \
+			"${stage3_name}:latest"
+	fi
+	unset label
+
 	[[ "${*:-}" == '--stage3' ]] && exit 0
 
 	local_stage3_id="$( docker image ls --noheading \
@@ -1192,14 +1260,15 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 
 	declare -a build_args=()
 	declare container_file=''
-	container_file="$( select_file 'Dockerfile.stage3' )"
+	container_file="$( select_file 'Dockerfile.init' )"
 	# shellcheck disable=SC2154,SC2207
 	build_args+=( # <- Syntax
 		--platform "linux/${docker_arch}"
 
 		--build-arg ARCH="${arch}"
 
-		--build-arg gentoo_stage3_image="${gentoo_stage3_image}:${gentoo_stage3_tag}"
+		--build-arg gentoo_stage3_image="${gentoo_stage3_image}"
+		--build-arg gentoo_stage3_tag="${gentoo_stage3_tag}"
 		--build-arg gentoo_stage3_id="${gentoo_stage3_id}"
 		--build-arg stage3_name="${stage3_name}"
 
@@ -1236,6 +1305,29 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 		tee ../log/"docker.${init_name#*"/"}.log"
 	output " -> ${?}"
 	unset container_file build_args
+
+	# LABEL stage3-from="${gentoo_stage3_image}:${gentoo_stage3_id}"
+	# LABEL entrypoint-sum="${entrypoint_sum}"
+	declare label=''
+	if ! label="$( checklabel "${init_name}:latest" \
+				'stage3-from' \
+				"${gentoo_stage3_image}:${gentoo_stage3_id}"
+		)"
+	then
+		die "'stage3-from' label '${label:-}' does not match intended label" \
+			"'${gentoo_stage3_image}:${gentoo_stage3_id}' for image" \
+			"${init_name}:latest"
+	fi
+	label=''
+	if ! label="$( checklabel "${init_name}:latest" \
+				'entrypoint-sum' \
+				"${sum}"
+		)"
+	then
+		die "'entrypoint-sum' label '${label:-}' does not match intended" \
+			"label '${sum}' for image ${init_name}:latest"
+	fi
+	unset label
 
 	output
 	output " ${blue}*${reset} Stage 'init' complete, next is 'base' ..."
@@ -1478,7 +1570,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	#
 	declare -a build_args=()
 	declare container_file=''
-	container_file="$( select_file 'Dockerfile.stage3' )"
+	container_file="$( select_file 'Dockerfile.build' )"
 	# shellcheck disable=SC2207
 	build_args+=( # <- Syntax
 		--build-arg env_id="${env_id}"
@@ -1671,6 +1763,18 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	trap - INT
 
 	unset container_args
+
+	# LABEL environment-from="${env_name}:${env_id}"
+	declare label=''
+	if ! label="$( checklabel "${build_name}:latest" \
+				'environment-from' \
+				"${env_name}:${env_id}"
+		)"
+	then
+		die "'environment-from' label '${label:-}' does not match intended" \
+			"label '${env_name}:${env_id}' for image ${build_name}:latest"
+	fi
+	unset label
 
 	output
 	output " ${blue}*${reset} Stage 'build' complete - all done"
