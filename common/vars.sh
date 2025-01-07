@@ -40,7 +40,8 @@ elif ! _output="$( "${_command}" info 2>&1 )"; then
 			"you need to re-run '$( basename "${0}" )' as 'root'?"
 	fi
 	exit 1
-elif [ $(( $( id -u ) )) -ne 0 ] &&
+elif [ "$( uname -s )" != 'Darwin' ] &&
+		[ $(( $( id -u ) )) -ne 0 ] &&
 		echo "${_output}" | grep -Fq -- 'rootless: false'
 then
 	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
@@ -476,10 +477,12 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 
 	# Optional override to specify alternative build temporary directory
 	#export TMPDIR=/var/tmp
-	tmp="$( $_command system info | grep -E -- '(graphRoot|Docker Root Dir):' | cut -d':' -f 2- | awk '{ print $1 }' )/tmp"
-	mkdir -p "${tmp:="/var/lib/containers/storage/tmp"}"
-	export TMPDIR="${tmp}"
-	unset tmp
+	if [ "$( uname -s )" != 'Darwin' ]; then
+		tmp="$( $_command system info | grep -E -- '(graphRoot|Docker Root Dir):' | cut -d':' -f 2- | awk '{ print $1 }' )/tmp"
+		mkdir -p "${tmp:="/var/lib/containers/storage/tmp"}"
+		export TMPDIR="${tmp}"
+		unset tmp
+	fi
 
 	python_default_target='python3_12'
 	export python_default_target

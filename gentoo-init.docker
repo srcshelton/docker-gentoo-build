@@ -22,10 +22,17 @@ if [[ -n "${BASH_VERSINFO[0]:-}" ]] && (( BASH_VERSINFO[0] < 4 )); then
 fi
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
+	# Darwin/BSD lacks GNU readlink - either realpath or perl's Cwd module
+	# will do at a pinch, although both lack the additional options of GNU
+	# binaries...
+	#
 	readlink() {
 		if type -pf realpath >/dev/null 2>&1; then
 			realpath "${2}"
 		else
+			# The perl statement below returns $PWD if the supplied
+			# path doesn't exist :(
+			[[ -e "${2}" ]] || return 1
 			perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
 		fi
 	}  # readlink
@@ -119,7 +126,10 @@ elif ! _output="$( "${_command}" info 2>&1 )"; then
 			"you need to re-run '$( basename "${0}" )' as 'root'?"
 	fi
 	exit 1
-elif (( $( id -u ) )) && grep -Fq -- 'rootless: false' <<<"${_output}"; then
+elif [[ "$( uname -s )" != 'Darwin' ]] &&
+		(( $( id -u ) )) &&
+		grep -Fq -- 'rootless: false' <<<"${_output}"
+then
 	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
 	exit 1
 fi

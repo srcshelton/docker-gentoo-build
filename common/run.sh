@@ -422,9 +422,21 @@ export -f replace_flags add_arg add_mount
 #[[ -n "${trace:-}" ]] && set -o xtrace
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
+	# Darwin/BSD lacks GNU readlink - either realpath or perl's Cwd module
+	# will do at a pinch, although both lack the additional options of GNU
+	# binaries...
+	#
 	readlink() {
-		perl -MCwd=abs_path -le 'print abs_path readlink(shift);' "${2}"
+		if type -pf realpath >/dev/null 2>&1; then
+			realpath "${2}" 2>/dev/null
+		else
+			# The perl statement below returns $PWD if the supplied
+			# path doesn't exist :(
+			[[ -e "${2}" ]] || return 1
+			perl -MCwd=abs_path -le 'print abs_path readlink(shift);' "${2}"
+		fi
 	}  # readlink
+	export -f readlink
 fi
 
 # Mostly no longer needed, with Dockerfile.env...
@@ -608,26 +620,71 @@ _docker_resolve() {
 	local dr_prefix="${2:-"buildpkg"}"
 	local dr_name='' dr_pattern=''
 
-	if [[ ! -x "$( command -v versionsort )" ]] ||
-			[[ ! -x "$( command -v equery )" ]]
+	if [[ ! -x "$( type -pf versionsort )" ]] ||
+			[[ ! -x "$( type -pf equery )" ]]
 	then
 		# On non-Gentoo systems we need to build 'eix' (for 'versionsort') and
 		# 'equery' into a container, and then call that to acquire "proper"
 		# package-version handling facilities.
+		#
+		# For systems such as Darwin where the host system may not have
+		# /var/db/repo(s)/gentoo (et al.), we can also fetch the pertinent
+		# content from docker.io/gentoo/portage - although there's no guarantee
+		# that an appropriate image will exist, and even then the container has
+		# to have run in order to use '--volumes-from', and that means
+		# executing at least a placeholder binary ('/bin/sh -c /bin/true') from
+		# a 'linux/amd64' image.
+		#
+		# Without a linkage between this repo and the custom overlay repo, we
+		# can only find the appropriate tag for this image from the latest
+		# overlay commit, rather than the most appropriate one.  There's no
+		# obvious better solution here...
+		#
 		# shellcheck disable=SC2086
 		if docker ${DOCKER_VARS:-} image ls localhost/gentoo-helper:latest |
 				grep -Eq -- '^(localhost/)?([^.]+\.)?gentoo-helper'
 		then
 			# shellcheck disable=SC2032  # Huh?
 			versionsort() {
-				local result=''
+				local image_tag='' result=''
 				local -i rc=0
+
+				local -r url='https://raw.githubusercontent.com'
+				local -r path='refs/heads/master'
+				local -r owner='srcshelton'
+				local -r repo='gentoo-ebuilds'
+				local -r file='.portage_commit'
+				local -r platform='linux/amd64'
+				image_tag="$( # <- Syntax
+					curl -fsSL "${url}/${owner}/${repo}/${path}/${file}" |
+						head -n 1 |
+						awk '{print $2}' |
+						sed 's/-.*$//'
+				)"
+				if [[ -n "${image_tag:-}" ]]; then
+					warn "Synthesising portage tree for 'versionsort' - this" \
+						"may be slow ..."
+					docker image pull --quiet --platform "${platform}" \
+						"docker.io/gentoo/portage:${image_tag}"
+					docker container stop \
+						portage-helper-repo >/dev/null 2>&1 || :
+					docker container rm -v \
+						portage-helper-repo >/dev/null 2>&1 || :
+					docker container run \
+							--name 'portage-helper-repo' \
+							--network none \
+							--platform 'linux/amd64' \
+						"docker.io/gentoo/portage:${image_tag}" &&
+					docker container stop \
+						portage-helper-repo
+				fi
 
 				result="$( # <- Syntax
 					docker container run \
 							--rm \
 							--name='portage-helper' \
 							--network=none \
+							--volumes-from portage-helper-repo:ro \
 						gentoo-helper versionsort "${@:-}"
 				)" || rc="${?}"
 
@@ -639,14 +696,45 @@ _docker_resolve() {
 			export -f versionsort
 
 			equery() {
-				local result=''
+				local image_tag='' result=''
 				local -i rc=0
+
+				local -r url='https://raw.githubusercontent.com'
+				local -r path='refs/heads/master'
+				local -r owner='srcshelton'
+				local -r repo='gentoo-ebuilds'
+				local -r file='.portage_commit'
+				local -r platform='linux/amd64'
+				image_tag="$( # <- Syntax
+					curl -fsSL "${url}/${owner}/${repo}/${path}/${file}" |
+						head -n 1 |
+						awk '{print $2}' |
+						sed 's/-.*$//'
+				)"
+				if [[ -n "${image_tag:-}" ]]; then
+					warn "Synthesising portage tree for 'equery' - this may" \
+						"be slow ..."
+					docker image pull --quiet --platform "${platform}" \
+						"docker.io/gentoo/portage:${image_tag}"
+					docker container stop \
+						portage-helper-repo >/dev/null 2>&1 || :
+					docker container rm -v \
+						portage-helper-repo >/dev/null 2>&1 || :
+					docker container run \
+							--name 'portage-helper-repo' \
+							--network none \
+							--platform 'linux/amd64' \
+						"docker.io/gentoo/portage:${image_tag}" &&
+					docker container stop \
+						portage-helper-repo
+				fi
 
 				# We'll execute this container via _docker_run rather than
 				# by direct invocation, so that we get all of the necessary
 				# repo directories mounted...
 				result="$( # <- Syntax
 					BUILD_CONTAINER=0 \
+					DOCKER_VOLUMES='--volumes-from portage-helper-repo:ro' \
 					NO_MEMORY_LIMITS=1 \
 					image='' \
 					IMAGE='localhost/gentoo-helper:latest' \
@@ -679,11 +767,13 @@ _docker_resolve() {
 
 				if type -pf qatom >/dev/null 2>&1; then
 					if (( name )); then
+						# shellcheck disable=SC2046
 						qatom -CF '%{CATEGORY}/%{PN}' $( # <- Syntax
 									xargs -rn 1 <<<"${@:-}"
 								) |
 							sort
 					else
+						# shellcheck disable=SC2046
 						qatom -CF '%{PV} %[PR]' $( # <- Syntax
 									xargs -rn 1 <<<"${@:-}" |
 										sed 's/ $// ; s/ /-/'
@@ -705,7 +795,7 @@ _docker_resolve() {
 			export -f versionsort
 			equery() {
 				local -a args=()
-				local arg='' repopath='' cat='' pkg='' pv='' eb=''
+				local arg='' repopath='' cat='' pkg='' eb=''  # pv=''
 				local slot='' masked='' keyworded=''
 
 				if [[ -z "${arch:-}" ]]; then
@@ -723,12 +813,12 @@ _docker_resolve() {
 				done
 
 				if type -pf portageq; then
-					repopath="$( portageq get_repo_path "${EROOT:-"/"}" $(
+					repopath="$( portageq get_repo_path "${EROOT:-"/"}" "$( #
 						portageq get_repos "${EROOT:-"/"}" |
 							xargs -rn 1 2>/dev/null |
 							grep -iw gentoo |
 							tail -n 1
-					))"
+					)" )"
 				elif [[ -d /var/db/repos ]]; then
 					repopath='/var/db/repos/gentoo'
 				elif [[ -d /var/db/repo ]]; then
@@ -739,14 +829,18 @@ _docker_resolve() {
 
 				for arg in "${@:-}"; do
 					if [[ "${arg}" == */* ]]; then
-						local stripped_arg="$( # <- Syntax
+						local stripped_arg=''
+						stripped_arg="$( # <- Syntax
+							# shellcheck disable=SC2001
 							sed 's/^[^a-zA-Z]\+//' <<<"${arg}"
 						)"
 						cat="${stripped_arg%"/"*}"
 						pkg="${arg#*"/"}"
 						unset stripped_arg
 					else
-						local stripped_arg="$( # <- Syntax
+						local stripped_arg=''
+						stripped_arg="$( # <- Syntax
+							# shellcheck disable=SC2001
 							sed 's/^[^a-zA-Z]\+//' <<<"${arg}"
 						)"
 						pkg="${stripped_arg}"
@@ -762,7 +856,7 @@ _docker_resolve() {
 					fi
 
 					if [[ "${pkg}" == *-[0-9]* ]]; then
-						pv="${pkg}"
+						#pv="${pkg}"
 						pkg="${pkg%"-"[0-9]*}"
 					fi
 
@@ -803,6 +897,7 @@ _docker_resolve() {
 	print "Resolving name '${dr_package}' ..."
 
 	[[ -n "${trace:-}" ]] && set -o xtrace
+
 	# Bah - 'sort -V' *doesn't* version-sort correctly when faced with
 	# Portage versions including revisions (and presumably patch-levels) :(
 	#
@@ -810,46 +905,52 @@ _docker_resolve() {
 	# can't add one universally since "pkg-1.2-0" has a name of 'pkg-1.2'
 	# (rather than 'pkg')...
 	dr_name="$( # <- Syntax
-		versionsort -n "${dr_package##*[<>=]}" 2>/dev/null
+		versionsort -n "${dr_package##*[<>=]}"
 	)" || dr_name="$( # <- Syntax
-		versionsort -n "${dr_package##*[<>=]}-0" 2>/dev/null
+		versionsort -n "${dr_package##*[<>=]}-0"
 	)" || :
 	dr_pattern='-~'
 	if [[ "${FORCE_KEYWORDS:-}" == '1' ]]; then
 		dr_pattern='-'
 	fi
-	# Ensure that ebuilds keyworded for building are checked when confirming
-	# the package to build...
-	sudo mkdir -p /etc/portage/package.accept_keywords 2>/dev/null || :
-	if ! [[ -d /etc/portage/package.accept_keywords ]]; then
-		die "'/etc/portage/package.accept_keywords' must be a directory"
-	else
-		if [[ -e "${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords" ]]
-		then
-			TMP_KEYWORDS="$( # <- Syntax
-				sudo mktemp -p /etc/portage/package.accept_keywords/ "$( # <- Syntax
-					basename -- "${0#"-"}"
-				).XXXXXXXX"
-			)"
-			if ! [[ -e "${TMP_KEYWORDS:-}" ]]; then
-				unset TMP_KEYWORDS
-			else
-				# shellcheck disable=SC2064
-				trap "test -e '${TMP_KEYWORDS:-}' && sudo rm -f '${TMP_KEYWORDS:-}'" \
-					SIGHUP SIGINT SIGQUIT
-				sudo chmod 0666 "${TMP_KEYWORDS}"
-				if [[ -d "${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords" ]]
-				then
-					cat "${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords"/* \
-						> "${TMP_KEYWORDS}"
-				elif [[ -s "${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords" ]]
-				then
-					cat "${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords" \
-						> "${TMP_KEYWORDS}"
+
+	if [[ -d /etc/portage ]]; then
+		# Ensure that ebuilds keyworded for building are checked when confirming
+		# the package to build...
+		sudo mkdir -p /etc/portage/package.accept_keywords 2>/dev/null || :
+		if ! [[ -d /etc/portage/package.accept_keywords ]]; then
+			die "'/etc/portage/package.accept_keywords' must be a directory"
+		else
+			if [[ -e "${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords" ]]
+			then
+				TMP_KEYWORDS="$( # <- Syntax
+					sudo mktemp -p /etc/portage/package.accept_keywords/ "$( # <- Syntax
+						basename -- "${0#"-"}"
+					).XXXXXXXX"
+				)"
+				if ! [[ -e "${TMP_KEYWORDS:-}" ]]; then
+					unset TMP_KEYWORDS
+				else
+					# shellcheck disable=SC2064
+					trap "test -e '${TMP_KEYWORDS:-}' && sudo rm -f '${TMP_KEYWORDS:-}'" \
+						SIGHUP SIGINT SIGQUIT
+					sudo chmod 0666 "${TMP_KEYWORDS}"
+					if [[ -d "${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords" ]]
+					then
+						cat "${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords"/* \
+							> "${TMP_KEYWORDS}"
+					elif [[ -s "${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords" ]]
+					then
+						cat "${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords" \
+							> "${TMP_KEYWORDS}"
+					fi
 				fi
 			fi
 		fi
 	fi
+
+	# FIXME: For hosts running with a podman machine, run equery within the VM
+	#
 	# shellcheck disable=SC2016
 	dr_package="$( # <- Syntax
 		equery --no-pipe --no-color list --portage-tree --overlay-tree \
@@ -1369,9 +1470,12 @@ _docker_run() {
 		for mps in ${mirrormountpointsro[@]+"${mirrormountpointsro[@]}"}; do
 			[[ -n "${mps:-}" ]] || continue
 			for mp in ${mps}; do
-				src="$( readlink -e "${mp}" )" ||
-					die "readlink() on mirrored read-only mountpoint '${mp}'" \
+				if ! src="$( readlink -e "${mp}" )"; then
+					warn "readlink() on mirrored read-only mountpoint '${mp}'" \
 						"failed: ${?}"
+					: $(( skipped = skipped + 1 ))
+					continue
+				fi
 				if [[ -z "${src:-}" ]]; then
 					warn "Skipping mountpoint '${mp}'"
 					: $(( skipped = skipped + 1 ))
@@ -1383,9 +1487,12 @@ _docker_run() {
 		for mps in ${mirrormountpoints[@]+"${mirrormountpoints[@]}"}; do
 			[[ -n "${mps:-}" ]] || continue
 			for mp in ${mps}; do
-				src="$( readlink -e "${mp}" )" ||
-					die "readlink() on mirrored mountpoint '${mp}'" \
+				if ! src="$( readlink -e "${mp}" )"; then
+					warn "readlink() on mirrored mountpoint '${mp}'" \
 						"failed: ${?}"
+					: $(( skipped = skipped + 1 ))
+					continue
+				fi
 				if [[ -z "${src:-}" ]]; then
 					warn "Skipping mountpoint '${mp}'"
 					: $(( skipped = skipped + 1 ))
@@ -1397,9 +1504,12 @@ _docker_run() {
 		for mps in ${mountpointsro[@]+"${!mountpointsro[@]}"}; do
 			[[ -n "${mps:-}" ]] || continue
 			for mp in ${mps}; do
-				src="$( readlink -e "${mp}" )" ||
-					die "readlink() on read-only mountpoint '${mp}'" \
+				if ! src="$( readlink -e "${mp}" )"; then
+					warn "readlink() on read-only mountpoint '${mp}'" \
 						"failed: ${?}"
+					: $(( skipped = skipped + 1 ))
+					continue
+				fi
 				if [[ -z "${src:-}" ]]; then
 					warn "Skipping mountpoint '${mp}' ->" \
 						"'${mountpointsro[${mp}]}'"
@@ -1412,9 +1522,12 @@ _docker_run() {
 		for mps in ${mountpoints[@]+"${!mountpoints[@]}"}; do
 			[[ -n "${mps:-}" ]] || continue
 			for mp in ${mps}; do
-				src="$( readlink -e "${mp}" )" ||
-					die "readlink() on mountpoint '${mp}' failed (do you" \
+				if ! src="$( readlink -e "${mp}" )"; then
+					warn "readlink() on mountpoint '${mp}' failed (do you" \
 						"need to set 'PKGDIR'?): ${?}"
+					: $(( skipped = skipped + 1 ))
+					continue
+				fi
 				if [[ -z "${src:-}" ]]; then
 					warn "Skipping mountpoint '${mp}' ->" \
 						"'${mountpoints[${mp}]}'"

@@ -40,9 +40,20 @@ cd "${base_dir}"/etc/portage/ || {
 }
 
 if [[ " ${*:-} " =~ \ -(h|-help)\  ]]; then
-	echo "Usage: $( basename "${0}" ) [--dispatch-conf]"
+	echo "Usage: $( basename "${0}" ) [--dispatch-conf]$(
+		[[ "$( uname -s )" == 'Darwin' ]] && echo ' [--force]'
+	)"
 	exit 0
 else
+	if [[ "$( uname -s )" == 'Darwin' ]]; then
+		if ! [[ " ${*:-} " =~ \ -(f|-force)\  ]]; then
+			echo >&2 "FATAL: Will not run '$( basename "${0}" )' on Darwin without '--force'"
+			exit 1
+		else
+			echo >&2 "WARN:  Forcing run of '$( basename "${0}" )' on Darwin ..."
+		fi
+	fi
+
 	(( EUID )) && {
 		echo >&2 "Please re-run '$( basename "${0}" )' as user 'root'"
 		exit 1

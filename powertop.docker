@@ -17,6 +17,10 @@ declare IMAGE="none"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh >/dev/null
 
+if [[ "$( uname -s )" == 'Darwin' ]]; then
+	die "'$( basename "${0}" )' is not intended to be run on Darwin"
+fi
+
 if (( EUID )); then
 	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi

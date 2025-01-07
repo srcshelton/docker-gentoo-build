@@ -151,9 +151,9 @@ else
 	# -march/-mcpu flags, as these are added by the build system in
 	# containers only.
 	#
-	eval "$(
+	eval "$( # <- Syntax
 		# shellcheck disable=SC2034
-		[[ -n "${LDFLAGS:-}" ]] || case "${arch}" in
+		[[ -n "${LDFLAGS:-}" ]] || case "${arch:-"$( uname -m )"}" in
 			amd64|ppc64|x86)
 				LDFLAGS='-Wl,-O1 -Wl,--as-needed -Wl,-z,pack-relative-relocs'
 				;;
@@ -161,7 +161,9 @@ else
 				LDFLAGS='-Wl,-O1 -Wl,--as-needed'
 				;;
 		esac
-		[[ -n "${ARCH:-}" ]] || ARCH="${arch}"
+		[[ -n "${ARCH:-}" ]] || ARCH="${arch:-"$( uname -m )"}"
+
+		# shellcheck disable=SC1091
 		. /etc/portage/make.conf 2>&1
 		set |
 			grep -F -- 'FLAGS=' |
@@ -1433,6 +1435,11 @@ case "${package_name}" in
 esac
 
 # Somehow, we're losing CPU_FLAGS_${ARCH} during builds...
+#
+# We want to abort here if we've somehow not inherited ${use_cpu_flags} from
+# common/vars.sh
+#
+# shellcheck disable=SC2154
 pre_use="${use_cpu_flags}${pre_use:+" ${pre_use}"}"
 with_use="${use_cpu_flags}${with_use:+" ${with_use}"}"
 

@@ -32,6 +32,24 @@ declare IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
 [[ -s common/run.sh ]] && . common/run.sh >/dev/null
 
+if [[ "$( uname -s )" == 'Darwin' ]]; then
+	# Darwin/BSD lacks GNU readlink - either realpath or perl's Cwd module
+	# will do at a pinch, although both lack the additional options of GNU
+	# binaries...
+	#
+	readlink() {
+		if type -pf realpath >/dev/null 2>&1; then
+			realpath "${2}" 2>/dev/null
+		else
+			# The perl statement below returns $PWD if the supplied
+			# path doesn't exist :(
+			[[ -e "${2}" ]] || return 1
+			perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
+		fi
+	}  # readlink
+	export -f readlink
+fi
+
 
 # Provide a '--name' to prevent the container being removed on exit.
 
@@ -74,7 +92,10 @@ elif ! _output="$( "${_command}" info 2>&1 )"; then
 			"'$( basename "${0}" )' as 'root'?"
 	fi
 	exit 1
-elif (( $( id -u ) )) && grep -Fq -- 'rootless: false' <<<"${_output}"; then
+elif [[ "$( uname -s )" != 'Darwin' ]] &&
+		(( EUID )) &&
+		grep -Fq -- 'rootless: false' <<<"${_output}"
+then
 	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
 	exit 1
 fi
@@ -325,7 +346,7 @@ docker_run() {
 		[ -n "${mps:-}" ] || continue
 		for mp in ${mps}; do
 			src="$( readlink -e "${mp}" )" || print "readlink() for mirrored read-only mountpoint '${mp}' failed: ${?}"
-			if [ -z "${src:-}" ]; then
+			if [ -z "${src:-}" ] || ! [ -e "${src}" ]; then
 				warn "$( basename "${0}" ) skipping mountpoint '${mp}'"
 				: $(( skipped = skipped + 1 ))
 				continue
@@ -337,7 +358,7 @@ docker_run() {
 		[ -n "${mps:-}" ] || continue
 		for mp in ${mps}; do
 			src="$( readlink -e "${mp}" )" || print "readlink() for mirrored mountpoint '${mp}' failed: ${?}"
-			if [ -z "${src:-}" ]; then
+			if [ -z "${src:-}" ] || ! [ -e "${src}" ]; then
 				warn "$( basename "${0}" ) skipping mountpoint '${mp}'"
 				: $(( skipped = skipped + 1 ))
 				continue
@@ -349,7 +370,7 @@ docker_run() {
 		[ -n "${mps:-}" ] || continue
 		for mp in ${mps}; do
 			src="$( readlink -e "${mp}" )" || print "readlink() for read-only mountpoint '${mp}' failed: ${?}"
-			if [ -z "${src:-}" ]; then
+			if [ -z "${src:-}" ] || ! [ -e "${src}" ]; then
 				warn "$( basename "${0}" ) skipping mountpoint '${mp}' -> '${mountpointsro[${mp}]}'"
 				: $(( skipped = skipped + 1 ))
 				continue
@@ -361,7 +382,7 @@ docker_run() {
 		[ -n "${mps:-}" ] || continue
 		for mp in ${mps}; do
 			src="$( readlink -e "${mp}" )" || print "readlink() for mountpoint '${mp}' failed (do you need to set 'PKGDIR'?): ${?}"
-			if [ -z "${src:-}" ]; then
+			if [ -z "${src:-}" ] || ! [ -e "${src}" ]; then
 				warn "$( basename "${0}" ) skipping mountpoint '${mp}' -> '${mountpoints[${mp}]}'"
 				: $(( skipped = skipped + 1 ))
 				continue
@@ -395,14 +416,12 @@ docker_run() {
 		for arg in "${runargs[@]}"; do
 			case "${next}" in
 				mount)
-					arg="$(
-						sed -r \
-								-e 's/^type=/type: /' \
-								-e 's/,(src|source)=/\tsource: /' \
-								-e 's/,(dst|destination)=/\tdestination: /' \
-								-e 's/, ro=true$/\tRO/' \
-							<<<"${arg}"
-					)"
+					arg="$( sed -r \
+						-e 's/^type=/type: /' \
+						-e 's/,(src|source)=/\tsource: /' \
+						-e 's/,(dst|destination)=/\tdestination: /' \
+						-e 's/, ro=true$/\tRO/' \
+							<<<"${arg}")"
 					output "VERBOSE: Mount point '${arg}'"
 					;;
 				volume)
@@ -545,7 +564,7 @@ main() {
 	fi
 	unset main_args arg
 
-	if [[ -z "${NO_MEMORY_LIMITS:-}" ]]; then
+	if [[ -d /proc ]] && [[ -z "${NO_MEMORY_LIMITS:-}" ]]; then
 		# Tiny
 		#: "${PODMAN_MEMORY_RESERVATION:="256m"}"
 		#: "${PODMAN_MEMORY_LIMIT:="512m"}"
