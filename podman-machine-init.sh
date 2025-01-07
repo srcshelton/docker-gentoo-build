@@ -19,9 +19,15 @@ declare MACHINE_KEY="${HOME}/.ssh/id_rsa"
 declare MACHINE_KEY_TYPE='ed25519'
 declare REMOTE_HOME='/var/home'
 declare REMOTE_USER='core'
+declare LOCAL_SSH_KEY='id_ed25519'
 declare ARCH=''
 
+declare -i reserved_memory=12
+declare -i reserved_disk=25
+
 declare -i init=0 xfer=0 cores=4 local_install=0
+declare -i run_on_vm=-1 need_explicit_mount=0
+declare -i create_vm=0
 
 type -pf jq || {
 	echo >&2 "FATAL: 'jq' binary is required on Darwin"
@@ -34,9 +40,12 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 	# binaries...
 	#
 	readlink() {
-		if command -v realpath >/dev/null 2>&1; then
+		if type -pf realpath >/dev/null 2>&1; then
 			realpath "${2}"
 		else
+			# The perl statement below returns $PWD if the supplied
+			# path doesn't exist :(
+			[[ -e "${2}" ]] || return 1
 			perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
 		fi
 	}
@@ -51,14 +60,16 @@ else
 			REMOTE_USER="$( id -un )"
 			if ! REMOTE_HOME="$( dirname "$( # <- Syntax
 					eval "readlink -e ~${REMOTE_USER}"
-				)" )" || ! [ -d "${REMOTE_HOME}/${REMOTE_USER}" ]
+				)" )" ||
+				! [[ -d "${REMOTE_HOME}/${REMOTE_USER}" ]]
 			then
-				echo >&2 "FATAL: Unable to determine home directory" \
-					"for user '${REMOTE_USER:-}': ${?}"
+				echo >&2 "FATAL: Unable to determine home" \
+					"directory for user" \
+					"'${REMOTE_USER:-}': ${?}"
 				exit 1
 			else
-				echo >&2 "INFO:  Using home '${REMOTE_HOME}' for" \
-					"user '${REMOTE_USER}' ..."
+				echo >&2 "INFO:  Using home '${REMOTE_HOME}'" \
+					"for user '${REMOTE_USER}' ..."
 			fi
 			;;
 	esac
@@ -66,8 +77,6 @@ fi
 
 if type -pf portageq >/dev/null 2>&1; then
 	ARCH="$( portageq envvar ARCH )"
-else
-	echo >&2 "WARN:  Cannot locate 'portageq' utility"
 fi
 if [[ -z "${ARCH:-}" ]]; then
 	case "$( uname -m )" in
@@ -87,7 +96,10 @@ readonly ARCH
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
 	declare -i total=${cores}
-	total=$(( $( sysctl -n machdep.cpu.core_count || sysctl -n machdep.cpu.core_total ) ))
+	total=$(( $( # <- Syntax
+		sysctl -n machdep.cpu.core_count ||
+			sysctl -n machdep.cpu.core_total
+	) ))
 
 	case "$( sysctl -n machdep.cpu.brand_string )" in
 		'Apple M1'|'Apple M2'|'Apple M3')
@@ -165,7 +177,15 @@ declare arg=''
 for arg in "${@:-}"; do
 	case "${arg:-}" in
 		-h|--help)
-			echo "Usage: $( basename "${0}" ) <--host>|[--machine=<name>] [--cores=<${cores}>] [--init] [--transfer-cache]"
+			#                                3         4         5         6         7         8
+			#     1234567                    012345678901234567890123456789012345678901234567890
+			echo "Usage: $( basename "${0}" ) [--machine=<name>] [--cores=<${cores}>]"
+			#              1         2         3         4         5         6         7         8
+			#     12345678901234567890123456789012345678901234567890123456789012345678901234567890
+			echo "                              [--memory=<${reserved_memory}>]"
+			echo "                              [--disk=<${reserved_disk}>]"
+			echo "                              [--force-run-on-vm]"
+			echo "                              [--init] [--transfer-cache]"
 			exit 0
 			;;
 		-c|--cores)
@@ -173,7 +193,8 @@ for arg in "${@:-}"; do
 			;;
 		--host)
 			if ! [[ "${*:-}" == '--host' ]]; then
-				echo >&2 "FATAL: '--host' cannot be used with any other options"
+				echo >&2 "FATAL: '--host' cannot be used" \
+					"with any other options"
 				exit 1
 			fi
 			local_install=1
@@ -181,8 +202,17 @@ for arg in "${@:-}"; do
 		-i|--init)
 			init=1
 			;;
-		-m=*|--machine=*)
+		-M=*|--machine=*)
 			MACHINE="${arg#*"="}"
+			;;
+		-m=*|--memory=*)
+			reserved_memory="${arg#*=}"
+			;;
+		-d=*|--disk=*)
+			reserved_disk="${arg#*=}"
+			;;
+		-f|--force-run-on-vm)
+			run_on_vm=0
 			;;
 		-t|--xfer|--transfer|--transfer-cache)
 			xfer=1
@@ -194,45 +224,124 @@ unset arg
 if (( local_install )); then
 	sudo mkdir -p /var/cache &&
 		test -s "${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar" &&
-		sudo tar -xpf "${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar" -C /var/cache/
+		sudo tar -xp \
+			-f "${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar" \
+			-C /var/cache/
 
 	sudo mkdir -p /var/cache/portage &&
 		sudo chown "${REMOTE_USER}:root" /var/cache/portage &&
 		sudo chmod ug+rwX /var/cache/portage
 
 	sudo mkdir -p "/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}" &&
-		sudo chown "${REMOTE_USER}:root" "/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}" &&
-		sudo chmod ug+rwX "/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
+		sudo chown "${REMOTE_USER}:root" \
+			"/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}" &&
+		sudo chmod ug+rwX \
+			"/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
 
 	if ! [[ -x sync-portage.sh ]]; then
-		echo >&2 "WARN:  Cannot locate 'sync-portage.sh' script - please run" \
-			"this manually in order to populate '/etc/portage'"
+		echo >&2 "WARN:  Cannot locate 'sync-portage.sh' script -" \
+			"please run this manually in order to populate" \
+			"'/etc/portage'"
 	else
 		sudo ./sync-portage.sh &&
 			sudo cp gentoo-base/etc/portage/make.conf /etc/portage/
 
-		echo >&2 "INFO:  Please review the settings in '/etc/portage/make.conf'"
+		echo >&2 "INFO:  Please review the settings in" \
+			"'/etc/portage/make.conf'"
 	fi
 else
-	if ! [[ -f ~/.ssh/id_ed25519 && -s ~/.ssh/id_ed25519 ]]; then
-		echo >&2 "FATAL: ssh private key '${HOME}/.ssh/id_ed25519' not accessible"
+	# From podman-4.0.3, if $HOME is mounted to the 'podman machine'
+	# virtual machine then volumes can be mounted from the host to the
+	# container :)
+	#
+	# TODO: Does this only work for volumes beneath $HOME, or does having
+	#       $HOME mounted enable remote-mounts from any part of the
+	#       filesystem?
+	#
+	declare version=''
+	version="$( # <- Syntax
+		podman --version |
+			grep -o 'version.*$' |
+			cut -d' ' -f 2-
+	)"
+	if (( run_on_vm == -1 )); then
+		if [[ "$( # <- Syntax
+			xargs -n 1 printf '4.0.3\n%s\n' <<<"${version}" |
+				sort -V |
+				head -n 1
+		)" == '4.0.3' ]]; then
+			# podman version is prior to 4.0.3
+			run_on_vm=1
+		else
+			# podman version is 4.0.3 or greater
+			run_on_vm=0
+		fi
+	fi
+
+	if (( run_on_vm == 1 )); then
+		if [[ "$( # <- Syntax
+			xargs -n 1 printf '4.1.0\n%s\n' <<<"${version}" |
+				sort -V |
+				head -n 1
+		)" == '4.1.0' ]]; then
+			# podman version is prior to 4.1.0
+			need_explicit_mount=1
+		fi
+	fi
+
+	for LOCAL_SSH_KEY in id_ed25519 id_ecdsa id_rsa; do
+		if [[ -f ~/.ssh/${LOCAL_SSH_KEY} ]] &&
+				[[ -s ~/.ssh/${LOCAL_SSH_KEY} ]]
+		then
+			break
+		fi
+	done
+	if ! [[ -f ~/.ssh/${LOCAL_SSH_KEY} && -s ~/.ssh/${LOCAL_SSH_KEY} ]]
+	then
+		echo >&2 "FATAL: No ssh private key in '${HOME}/.ssh' found"
 		exit 1
 	fi
 
 	if ! podman machine list | grep -q -- "^${MACHINE}"; then
-		#podman machine init --cpus "${cores}" --disk-size 25 -m $(( 12 * 1024 )) "${MACHINE}"
-		echo >&2 "FATAL: No 'podman machine' named '${MACHINE}' defined - please create this first"
-		exit 1
+		if ! (( create_vm )); then
+			echo >&2 "FATAL: No 'podman machine' named" \
+				"'${MACHINE}' defined - please create this" \
+				"first"
+			exit 1
+		else
+			#podman machine init --cpus "${cores}" --disk-size 25 \
+			#	-m $(( 12 * 1024 )) "${MACHINE}"
+			declare -a volume=()
+			if (( need_explicit_mount )); then
+				volume=( --volume "${HOME}:${HOME}" )
+			fi
+			podman machine init \
+					--cpus ${cores} \
+					--disk-size ${reserved_disk} \
+					--memory $((reserved_memory * 1024)) \
+					"${volume[@]:-}" \
+				"${MACHINE}"
+			unset volume
+		fi
 	fi
-	if ! podman machine list | grep -q -- "^${MACHINE}.*Currently running"; then
-		echo >&2 "FATAL: No 'podman machine' named '${MACHINE}' running - please start this first"
-		exit 1
+	if ! podman machine list |
+			grep -q -- "^${MACHINE}.*Currently running"
+	then
+		if ! (( create_vm )); then
+			echo >&2 "FATAL: No 'podman machine' named" \
+				"'${MACHINE}' running - please start this" \
+				"first"
+			exit 1
+		else
+			podman machine start "${MACHINE}"
+		fi
 	fi
 
 	# Check that our `podman machine` is actually usable...
 	echo -n "Waiting for running 'podman machine' named '${MACHINE}' ..."
 	until [[ "$( # <- Syntax
-			podman machine list --noheading --format '{{.Name}} {{.LastUp}}' |
+			podman machine list --noheading \
+					--format '{{.Name}} {{.LastUp}}' |
 				grep "^${MACHINE}[* ]"
 		)" =~ ^${MACHINE}\*?\ Currently\ running$ ]]
 	do
@@ -247,62 +356,115 @@ else
 	done
 	echo ; echo
 
-	MACHINE_SOCKET="$( podman machine inspect | jq -Mr '.[].ConnectionInfo.PodmanSocket.Path' )"
-	MACHINE_KEY="$( podman machine inspect | jq -Mr '.[].SSHConfig.IdentityPath' )"
+	MACHINE_SOCKET="$( # <- Syntax
+		podman machine inspect |
+			jq -Mr '.[].ConnectionInfo.PodmanSocket.Path'
+	)"
+	MACHINE_KEY="$( # <- Syntax
+		podman machine inspect |
+			jq -Mr '.[].SSHConfig.IdentityPath'
+	)"
 
-	if [[ -s ~/.ssh/authorized_keys ]] &&
-			grep -Fq -- "$( < "${MACHINE_KEY}.pub" )" ~/.ssh/authorized_keys
-	then
-		:
-	else
-		mkdir -p ~/.ssh
-		chmod 0700 ~/.ssh
-		cat "${MACHINE_KEY}.pub" >> ~/.ssh/authorized_keys
-		chmod 0600 ~/.ssh/authorized_keys
-	fi
-
-	podman-remote system connection add "$( id -un )" --identity ~/.ssh/id_ed25519 "${MACHINE_SOCKET}" || {
-		echo >&2 "FATAL: Could not update system connection ($?): is there a podman machine running?"
-		exit 1
-	}
-
-	podman machine ssh "${MACHINE}" "cat - > ~/.ssh/id_${MACHINE_KEY_TYPE} && chmod 0600 ~/.ssh/id_${MACHINE_KEY_TYPE}" < "${MACHINE_KEY}"
-	podman machine ssh "${MACHINE}" "cat - > ~/.ssh/id_${MACHINE_KEY_TYPE}.pub && chmod 0600 ~/.ssh/id_${MACHINE_KEY_TYPE}.pub" < "${MACHINE_KEY}.pub"
-
-	podman machine ssh "${MACHINE}" <<-EOF
-		test -d src/podman-gentoo-build || {
-			mkdir -p src &&
-			cd src &&
-			git clone "${REPO}" podman-gentoo-build ;
-		} ;
-		git config --system --replace-all safe.directory '*' ;
-		cd ~/src/podman-gentoo-build && git pull --all
-	EOF
-
-	for f in 'make.conf' 'local.sh' 'portage-cache.tar'; do
-		if [[ -f "${f}" && -s "${f}" ]]; then
-			case "${f}" in
-				*.conf)
-					dest="/etc/portage/" ;;
-				*.sh)
-					dest="${REMOTE_HOME}/${REMOTE_USER}/src/podman-gentoo-build/common/" ;;
-				*.tar)
-					dest="${REMOTE_HOME}/${REMOTE_USER}/" ;;
-			esac
-			podman machine ssh "${MACHINE}" "sudo mkdir -p '${dest}' && sudo scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no '$( id -nu )@host.containers.internal:$( pwd )/${f}' '${dest}'"
+	if ! (( run_on_vm )); then
+		if [[ -s ~/.ssh/authorized_keys ]] &&
+				grep -Fq -- "$( < "${MACHINE_KEY}.pub" )" \
+					~/.ssh/authorized_keys
+		then
+			:
+		else
+			mkdir -p ~/.ssh
+			chmod 0700 ~/.ssh
+			cat "${MACHINE_KEY}.pub" >> ~/.ssh/authorized_keys
+			chmod 0600 ~/.ssh/authorized_keys
 		fi
-	done
 
-	podman machine ssh "${MACHINE}" "sudo mkdir -p /var/cache ; test -s ${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar && sudo tar -xpf ${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar -C /var/cache/ || sudo mkdir -p /var/cache/portage ; sudo chown ${REMOTE_USER}:root /var/cache/portage && sudo chmod ug+rwX /var/cache/portage"
+		podman-remote system connection \
+				add "$( id -un )" \
+				--identity ~/.ssh/${LOCAL_SSH_KEY} \
+				"${MACHINE_SOCKET}" ||
+		{
+			echo >&2 "FATAL: Could not update system connection" \
+				"($?): is there a podman machine running?"
+			exit 1
+		}
 
-	if ! (( init || xfer )); then
-		podman machine ssh "${MACHINE}"
-	else
-		if (( init )); then
-			time podman machine ssh "${MACHINE}" "${REMOTE_HOME}/${REMOTE_USER}/src/podman-gentoo-build/${INIT}"
-		fi
-		if (( xfer )); then
-			podman machine ssh "${MACHINE}" 'cd /var/cache && tar -cvpf - portage' > portage-cache.tar
+		podman machine ssh "${MACHINE}" <<-EOF
+			cat - > ~/.ssh/id_${MACHINE_KEY_TYPE} &&
+			chmod 0600 ~/.ssh/id_${MACHINE_KEY_TYPE}" \
+				< "${MACHINE_KEY}"
+		EOF
+		podman machine ssh "${MACHINE}" <<-EOF
+			cat - > ~/.ssh/id_${MACHINE_KEY_TYPE}.pub &&
+			chmod 0600 ~/.ssh/id_${MACHINE_KEY_TYPE}.pub" \
+				< "${MACHINE_KEY}.pub"
+		EOF
+
+		podman machine ssh "${MACHINE}" <<-EOF
+			test -d src/podman-gentoo-build || {
+				mkdir -p src &&
+				cd src &&
+				git clone "${REPO}" podman-gentoo-build ;
+			} ;
+			git config --system --replace-all safe.directory '*' ;
+			cd ~/src/podman-gentoo-build && git pull --all
+		EOF
+
+		for f in 'make.conf' 'local.sh' 'portage-cache.tar'; do
+			if [[ -f "${f}" && -s "${f}" ]]; then
+				case "${f}" in
+					*.conf)
+						dest="/etc/portage/" ;;
+					*.sh)
+						dest="${REMOTE_HOME}/${REMOTE_USER}/src/podman-gentoo-build/common/" ;;
+					*.tar)
+						dest="${REMOTE_HOME}/${REMOTE_USER}/" ;;
+				esac
+				podman machine ssh "${MACHINE}" <<-EOF
+					sudo mkdir -p '${dest}' &&
+					sudo scp -i ~/.ssh/${LOCAL_SSH_KEY} \
+						-o StrictHostKeyChecking=no \
+						'$( id -nu )@host.containers.internal:$( pwd )/${f}' '${dest}'"
+				EOF
+			fi
+		done
+
+		podman machine ssh "${MACHINE}" <<-EOF
+			sudo mkdir -p /var/cache ;
+			test -s ${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar &&
+			sudo tar -xp \
+				-f ${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar \
+				-C /var/cache/ ||
+				sudo mkdir -p /var/cache/portage ;
+			sudo chown ${REMOTE_USER}:root /var/cache/portage &&
+			sudo chmod ug+rwX /var/cache/portage
+		EOF
+
+		# Allow the host user to see/use 'core'-owned images from the
+		# 'podman machine' VM...
+		podman machine ssh "${MACHINE}" <<-EOF
+			if ! grep -x '"/var/home/core/.local/share/containers/storage"' \
+					/usr/share/containers/storage.conf
+			then
+				sudo mount /usr -o remount,rw,noatime &&
+				sed -i /usr/share/containers/storage.conf \
+					-e '0,/"/usr/lib/containers/storage",/a "/var/home/core/.local/share/containers/storage"'
+			fi
+		EOF
+
+		if ! (( init || xfer )); then
+			podman machine ssh "${MACHINE}"
+		else
+			if (( init )); then
+				time podman machine ssh "${MACHINE}" <<-EOF
+					${REMOTE_HOME}/${REMOTE_USER}/src/podman-gentoo-build/${INIT}
+				EOF
+			fi
+			if (( xfer )); then
+				podman machine ssh "${MACHINE}" <<-EOF
+					cd /var/cache &&
+					tar -cvpf - portage' > portage-cache.tar
+				EOF
+			fi
 		fi
 	fi
 fi
