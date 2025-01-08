@@ -118,6 +118,7 @@ services=(
 	unifi84
 	unifi85
 	unifi86
+	unifi90
 	vim
 	watchdog
 	xmrig
@@ -606,6 +607,8 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-8.5*' ;;
 	unifi86|unifi-controller86|unifi-controller-86|unifi-controller-bin86|unifi-controller-bin-86)
 		service='=net-misc/unifi-controller-bin-8.6*' ;;
+	unifi90|unifi-controller90|unifi-controller-90|unifi-controller-bin90|unifi-controller-bin-90)
+		service='=net-misc/unifi-controller-bin-9.0*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
@@ -1336,10 +1339,13 @@ case "${package_name}" in
 			7.3.*|7.4.*)
 				extra_pkgs='dev-java/openjdk:11'
 				;;
-			#7.5.*)
-			*)
+			7.5.*|8.*)
 				pre_pkgs='dev-java/openjdk-bin:17 dev-java/openjdk:17 sys-devel/gcc'
 				extra_pkgs='dev-java/openjdk:17'
+				;;
+			9.*)
+				pre_pkgs='dev-java/openjdk-bin:21 dev-java/openjdk:21 sys-devel/gcc'
+				extra_pkgs='dev-java/openjdk:21'
 				;;
 		esac
 
