@@ -188,6 +188,8 @@
 #~app-containers/buildah-1.26.4				 **
 #~app-containers/buildah-1.26.5				 **
 #~app-containers/buildah-1.26.6				 **
+#~app-containers/buildah-1.26.7				 **
+#~app-containers/buildah-1.26.8				 **
 #~app-containers/buildah-1.27.0				 **
 #~app-containers/buildah-1.27.1				 **
 #~app-containers/buildah-1.27.2				 **
@@ -201,6 +203,7 @@
 #~app-containers/buildah-1.29.1				 **
 #~app-containers/buildah-1.29.2				 **
 #~app-containers/buildah-1.29.3				 **
+#~app-containers/buildah-1.29.4				 **
 #~app-containers/buildah-1.30.0				 **
 #~app-containers/buildah-1.31.0				 **
 #~app-containers/buildah-1.31.1				 **
@@ -374,7 +377,8 @@
 #~app-containers/runc-1.2.0				 **
 #~app-containers/runc-1.2.1				 **
 #~app-containers/runc-1.2.2				 **
-~app-containers/runc-1.2.3				 **
+#~app-containers/runc-1.2.3				 **
+~app-containers/runc-1.2.4				 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
@@ -474,7 +478,8 @@
 #~net-misc/cni-plugins-1.5.0				 **
 ~net-misc/cni-plugins-1.5.1				 **
 #~net-misc/cni-plugins-1.6.0				 **
-~net-misc/cni-plugins-1.6.1				 **
+#~net-misc/cni-plugins-1.6.1				 **
+~net-misc/cni-plugins-1.6.2				 **
 
 # optional for >=app-containers/podman-4.4.0_rc3[rootless]
 # required for >=app-containers/podman-5.0.0_rc7[rootless]
