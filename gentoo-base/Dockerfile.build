@@ -6,6 +6,14 @@
 
 # hadolint global ignore=SC2015,DL4006
 #
+
+# We're not using these, but defining them here prevents podman from
+# complaining about unconsumed build arguments...
+#
+ARG TARGETARCH
+ARG TARGETOS
+ARG TARGETPLATFORM
+
 ARG base_name="localhost/gentoo-base"
 ARG env_name="localhost/gentoo-env"
 ARG env_id=""

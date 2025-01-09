@@ -8,6 +8,14 @@
 
 # hadolint global ignore=SC2015
 #
+
+# We're not using these, but defining them here prevents podman from
+# complaining about unconsumed build arguments...
+#
+ARG TARGETARCH
+ARG TARGETOS
+ARG TARGETPLATFORM
+
 ARG ARCH
 
 ARG gentoo_stage3_image="docker.io/gentoo/stage3"
