@@ -1233,8 +1233,8 @@ case "${compiler}" in
 		# pkgslot() outputs a '>=' specifier if no slot is requested
 		#
 		# N.B. LLVM package SLOT values are not consistent across
-		#      versions, so for example sys-libs/compiler-rt-14.0.6 has
-		#      slot '14.0.6', whereas sys-libs/compiler-rt-16.0.6 has
+		#      versions, so for example llvm-runtimes/compiler-rt-14.0.6 has
+		#      slot '14.0.6', whereas llvm-runtimes/compiler-rt-16.0.6 has
 		#      slot '16'.
 		#
 		compiler='clang'
@@ -1253,32 +1253,32 @@ case "${compiler}" in
 			$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )
 			sys-devel/binutils-config
 
-			$( pkgslot sys-libs/compiler-rt ":${inconsistent_slot}" ) # SLOT=14.0.6, 16
-			$( pkgslot sys-libs/compiler-rt-sanitizers ":${inconsistent_slot}" ) # SLOT=14.0.6, 16
+			$( pkgslot llvm-runtimes/compiler-rt ":${inconsistent_slot}" ) # SLOT=14.0.6, 16
+			$( pkgslot llvm-runtimes/compiler-rt-sanitizers ":${inconsistent_slot}" ) # SLOT=14.0.6, 16
 
-			$( pkgslot sys-libs/libcxx ${llvm_slot} ${limit:-} ) # SLOT=0
-			$( pkgslot sys-libs/libcxxabi ${llvm_slot} ${limit:-} ) # SLOT=0
+			$( pkgslot llvm-runtimes/libcxx ${llvm_slot} ${limit:-} ) # SLOT=0
+			$( pkgslot llvm-runtimes/libcxxabi ${llvm_slot} ${limit:-} ) # SLOT=0
 
-			$( pkgslot sys-libs/libomp ${llvm_slot} ${limit:-} ) # SLOT=0, 0/16
+			$( pkgslot llvm-runtimes/openmp ${llvm_slot} ${limit:-} ) # SLOT=0, 0/16
 
-			$( pkgslot sys-devel/lld ":${llvm_slot}" ) # SLOT=14/14, 16/16
-			$( pkgslot sys-devel/lld-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
+			$( pkgslot llvm-core/lld ":${llvm_slot}" ) # SLOT=14/14, 16/16
+			$( pkgslot llvm-core/lld-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
 			# As-of 5.10.1: "gold linker 'ld.gold' not supported"...
-			#$( pkgslot sys-devel/llvmgold ${llvm_slot} ) # SLOT=0
+			#$( pkgslot llvm-core/llvmgold ${llvm_slot} ) # SLOT=0
 
-			$( pkgslot sys-devel/llvm-common ${llvm_slot} ${limit:-} ) # SLOT=0
-			$( pkgslot sys-devel/llvm ":${llvm_slot}" ) # SLOT=14, 16/16
-			$( pkgslot sys-devel/llvm-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
+			$( pkgslot llvm-core/llvm-common ${llvm_slot} ${limit:-} ) # SLOT=0
+			$( pkgslot llvm-core/llvm ":${llvm_slot}" ) # SLOT=14, 16/16
+			$( pkgslot llvm-core/llvm-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
 
-			$( pkgslot sys-devel/clang-common ${llvm_slot} ${limit:-} ) # SLOT=0
-			$( pkgslot sys-devel/clang-runtime ":${inconsistent_slot}" ) # SLOT=14.0.6, 16
-			$( pkgslot sys-devel/clang ":${llvm_slot}" ) # SLOT=14, 16/16
-			$( pkgslot sys-devel/clang-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
+			$( pkgslot llvm-core/clang-common ${llvm_slot} ${limit:-} ) # SLOT=0
+			$( pkgslot llvm-core/clang-runtime ":${inconsistent_slot}" ) # SLOT=14.0.6, 16
+			$( pkgslot llvm-core/clang ":${llvm_slot}" ) # SLOT=14, 16/16
+			$( pkgslot llvm-core/clang-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
 		)
 		if [[ "${unwind:-}" == 'llvm' ]]; then
 			# shellcheck disable=SC2086
 			compiler_pkgs=(
-				$( pkgslot sys-libs/llvm-libunwind ${llvm_slot} ${limit:-} ) # SLOT=0
+				$( pkgslot llvm-runtimes/libunwind ${llvm_slot} ${limit:-} ) # SLOT=0
 			)
 		else
 			compiler_pkgs=(
@@ -1305,7 +1305,7 @@ case "${compiler}" in
 				;;
 			*)
 				if [[ "${unwind:-}" == 'llvm' ]]; then
-					# sys-libs/llvm-libunwind-14* also depends on python3_10
+					# llvm-runtimes/libunwind-14* also depends on python3_10
 					#
 					case $(( llvm_slot )) in
 						'14')
@@ -1321,7 +1321,7 @@ case "${compiler}" in
 						"${SYSROOT:-}/etc/portage/profile/use.mask"
 				then
 					die "python3_10 support is required for bindgen-0.56.0," \
-						"sys-devel/llvm:14, and in-kernel dev-lang/rust" \
+						"llvm-core/llvm:14, and in-kernel dev-lang/rust" \
 						"support prior to linx-6.5.0 - but is currently" \
 						"disabled by" \
 						"'${SYSROOT:-}/etc/portage/profile/use.mask'"
@@ -1347,13 +1347,13 @@ esac
 case "${unwind:-}" in
 	llvm)
 		compiler_pkgs+=(
-			$( pkgslot sys-libs/llvm-libunwind "${llvm_slot}" '=' ) # SLOT=0
+			$( pkgslot llvm-runtimes/libunwind "${llvm_slot}" '=' ) # SLOT=0
 		)
 		compiler_USE="$( replace_flags 'llvm-libunwind' -- "${compiler_USE}" )"
 		#pre_remove='sys-libs/libunwind'
 		#pre_use="$( replace_flags '-default-compiler-rt' '-default-libcxx' \
 		#	'-default-lld' '-llvm-libunwind' -- "${pre_use:-}" )"
-		#pre_pkgs="$( pkgslot sys-libs/llvm-libunwind "${llvm_slot}" )"
+		#pre_pkgs="$( pkgslot llvm-runtimes/libunwind "${llvm_slot}" )"
 		;;
 esac
 
@@ -1643,22 +1643,22 @@ esac
 						(( llvm_next_slot = llvm_slot + 1 ))
 
 						cat <<-EOF
-							--with-pkg-mask=>=sys-devel/clang-${llvm_next}
-							--with-pkg-mask=>=sys-devel/clang-common-${llvm_next}
-							--with-pkg-mask=>=sys-devel/clang-runtime-${llvm_next}
-							--with-pkg-mask=>=sys-devel/clang-toolchain-symlinks-${llvm_next_slot}
-							--with-pkg-mask=>=sys-devel/lld-${llvm_next}
-							--with-pkg-mask=>=sys-devel/lld-toolchain-symlinks-${llvm_next_slot}
-							--with-pkg-mask=>=sys-devel/llvm-${llvm_next}
-							--with-pkg-mask=>=sys-devel/llvm-common-${llvm_next}
-							--with-pkg-mask=>=sys-devel/llvmgold-${llvm_next_slot}
-							--with-pkg-mask=>=sys-devel/llvm-toolchain-symlinks-${llvm_next_slot}
-							--with-pkg-mask=>=sys-libs/compiler-rt-${llvm_next}
-							--with-pkg-mask=>=sys-libs/compiler-rt-sanitizers-${llvm_next}
-							--with-pkg-mask=>=sys-libs/libcxx-${llvm_next}
-							--with-pkg-mask=>=sys-libs/libcxxabi-${llvm_next}
-							--with-pkg-mask=>=sys-libs/libomp-${llvm_next}
-							--with-pkg-mask=>=sys-libs/llvm-libunwind-${llvm_next}
+							--with-pkg-mask=>=llvm-core/clang-${llvm_next}
+							--with-pkg-mask=>=llvm-core/clang-common-${llvm_next}
+							--with-pkg-mask=>=llvm-core/clang-runtime-${llvm_next}
+							--with-pkg-mask=>=llvm-core/clang-toolchain-symlinks-${llvm_next_slot}
+							--with-pkg-mask=>=llvm-core/lld-${llvm_next}
+							--with-pkg-mask=>=llvm-core/lld-toolchain-symlinks-${llvm_next_slot}
+							--with-pkg-mask=>=llvm-core/llvm-${llvm_next}
+							--with-pkg-mask=>=llvm-core/llvm-common-${llvm_next}
+							--with-pkg-mask=>=llvm-core/llvmgold-${llvm_next_slot}
+							--with-pkg-mask=>=llvm-core/llvm-toolchain-symlinks-${llvm_next_slot}
+							--with-pkg-mask=>=llvm-runtimes/compiler-rt-${llvm_next}
+							--with-pkg-mask=>=llvm-runtimes/compiler-rt-sanitizers-${llvm_next}
+							--with-pkg-mask=>=llvm-runtimes/libcxx-${llvm_next}
+							--with-pkg-mask=>=llvm-runtimes/libcxxabi-${llvm_next}
+							--with-pkg-mask=>=llvm-runtimes/openmp-${llvm_next}
+							--with-pkg-mask=>=llvm-runtimes/libunwind-${llvm_next}
 						EOF
 						unset llvm_next_slot llvm_next
 					fi
@@ -1991,7 +1991,7 @@ esac
 		env-update ;
 		test -s /etc/profile && . /etc/profile ;
 		ldconfig ;
-		if portageq has_version / sys-libs/llvm-libunwind; then
+		if portageq has_version / llvm-runtimes/libunwind; then
 			LDFLAGS_MODULE='-unwindlib=libunwind' ;
 			HOSTLDFLAGS='-unwindlib=libunwind' ;
 			export LDFLAGS_MODULE HOSTLDFLAGS ;
@@ -2049,6 +2049,7 @@ esac
 					*)										good_flags="\${good_flags} \${flag}" ;;
 				esac ;
 			done ;
+			unset flag ;
 			if [ -n "\${bad_flags:-}" ]; then
 				bad_flags="\$( echo "\${bad_flags}" | xargs -rn 1 | sort | uniq | xargs -r )" ;
 				echo "NOTE:  Filtering GNU CFLAGS ('\${CFLAGS}') for ${compiler}: Removing '\${bad_flags}'" ;
@@ -2162,6 +2163,7 @@ esac
 						;;
 				esac ;
 			done ;
+			unset p ;
 		fi ;
 		mkdir -p ../build ;
 		[ '${clean_lto}' = '1' ] && find ../build/ -name '*.lto.o' -delete ;
@@ -2180,6 +2182,7 @@ esac
 						found=1 ;
 					fi ;
 				done ;
+				unset blob ;
 				if [ \$(( found )) -ne 0 ]; then
 					echo >&2 'FATAL: missing firmware' ;
 					exit 1 ;
@@ -2188,9 +2191,14 @@ esac
 			echo ;
 			[ -f ../build/.config ] && [ -s ../build/.config ] && grep -Fm 1 'CONFIG_EXTRA_FIRMWARE' ../build/.config 2>/dev/null && echo ;
 		fi ;
-		if [ $(( clean )) -eq 0 ]; then
-			make ${kernel_make_opts[@]} O=../build -C tools/objtool clean ;
-		else
+		if [ -f ../build/.gitignore ]; then
+			touch --no-create --no-dereference \
+				--reference=../build/.gitignore ../linux ;
+			find ../linux/ -exec \
+				touch --no-create --no-dereference \
+					--reference=../build/.gitignore {} + ;
+		fi ;
+		if [ $(( clean )) -ne 0 ]; then
 			config="\$( cat ../build/.config )" ;
 			make ${kernel_make_opts[@]} O=../build distclean ;
 			if [ ! -f ../build/.config ] || [ ! -s ../build/.config ]; then
@@ -2235,11 +2243,12 @@ esac
 				fi ;
 			fi ;
 		fi ;
-		modules_dir='${package_version}${distro:-}' ;
-		if echo '${package_version}' | grep -q -- '-r[0-9]\+$'; then
-			modules_dir="$( echo '${package_version}' | grep -o -- '-r[0-9]\+$' )" ;
-			modules_dir="${package_version}${distro:-}\${modules_dir}" ;
+		kernel_version='${package_version}${distro:-}' ;
+		if echo '${package_version}' | grep -Eq -- '-r[0-9]+$'; then
+			kernel_version="$( echo "${package_version}" | grep -Eo -- '-r[0-9]+$' )" ;
+			kernel_version="$( echo "${package_version}" | sed -r 's/-r[0-9]+$//' )${distro:-}\${kernel_version}" ;
 		fi ;
+		echo "INFO:  Kernel version is '\${kernel_version}'" ;
 		if [ -e .config ]; then
 			echo "INFO:  Configuration changes from '.config':" ;
 			make ${kernel_make_opts[@]} O=../build \${localversion} listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
@@ -2254,7 +2263,7 @@ esac
 				modules \
 				\${dtb:+"dtbs"} \
 				\${kernel} &&
-			rm -rf "/lib/modules/\${modules_dir}" &&
+			rm -rf "/lib/modules/\${kernel_version}" &&
 				make ${kernel_make_opts[@]} O=../build \${localversion} INSTALL_MOD_STRIP=1 modules_install &&
 					success=1 ;
 		set +x ;
@@ -2290,49 +2299,60 @@ esac
 			kernel-hardening-checker -m show_fail -c ../build/.config ;
 		fi ;
 		if [ -f ../build/vmlinux ]; then
-			mkdir -pv "/lib/modules/\${modules_dir}" &&
-				cp -v ../build/vmlinux "/lib/modules/\${modules_dir}/vmlinux-\${modules_dir}" ;
+			mkdir -pv "/lib/modules/\${kernel_version}" &&
+				cp -v ../build/vmlinux "/lib/modules/\${kernel_version}/vmlinux-\${kernel_version}" ;
+		fi ;
+		if echo '${package_version}' | grep -Eq -- '-r[0-9]+$'; then
+			if [ -d '/lib/modules/${package_version}${distro:-}' ]; then
+				find /lib/modules/${package_version}${distro:-}/ -type f -print |
+						while read -r file; do
+					echo >&2 "WARN:  '\${file}' is incorrectly installed to '/lib/modules/${package_version}${distro:-}' ..." ;
+					mv "\${file}" "/lib/modules/\${kernel_version}/" ;
+				done ;
+				unset file ;
+				rmdir '/lib/modules/${package_version}${distro:-}' ;
+			fi ;
 		fi ;
 		if ! [ '${bundle}' = '1' ]; then
-			cp -v ../build/.config "/boot/config-\${modules_dir}" ;
-			cp -v ../build/System.map "/boot/System.map-\${modules_dir}" ;
-			cp -v ../build/arch/\${dir}/boot/\${kernel} "/boot/kernel-\${modules_dir}" ;
+			cp -v ../build/.config "/boot/config-\${kernel_version}" ;
+			cp -v ../build/System.map "/boot/System.map-\${kernel_version}" ;
+			cp -v ../build/arch/\${dir}/boot/\${kernel} "/boot/kernel-\${kernel_version}" ;
 		else
-			mkdir -pv "/boot/\${modules_dir}" ;
-			cp -v ../build/.config "/boot/\${modules_dir}/config" ;
-			cp -v ../build/System.map "/boot/\${modules_dir}/System.map" ;
-			cp -v ../build/arch/\${dir}/boot/\${kernel} "/boot/\${modules_dir}/kernel8.img" ;
-			if [ -d "/boot/dtbs/\${modules_dir}/broadcom" ]; then
-				mv -v "/boot/dtbs/\${modules_dir}/broadcom"/*.dtb "/boot/\${modules_dir}/" ;
-				if ! rmdir -v "/boot/dtbs/\${modules_dir}/broadcom" ; then
-					echo >&2 "ERROR: Failed to remove "/boot/dtbs/\${modules_dir}/broadcom": \${?}" ;
+			mkdir -pv "/boot/\${kernel_version}" ;
+			cp -v ../build/.config "/boot/\${kernel_version}/config" ;
+			cp -v ../build/System.map "/boot/\${kernel_version}/System.map" ;
+			cp -v ../build/arch/\${dir}/boot/\${kernel} "/boot/\${kernel_version}/kernel8.img" ;
+			if [ -d "/boot/dtbs/\${kernel_version}/broadcom" ]; then
+				mv -v "/boot/dtbs/\${kernel_version}/broadcom"/*.dtb "/boot/\${kernel_version}/" ;
+				if ! rmdir -v "/boot/dtbs/\${kernel_version}/broadcom" ; then
+					echo >&2 "ERROR: Failed to remove "/boot/dtbs/\${kernel_version}/broadcom": \${?}" ;
 					: echo >&2 "       Directory content:" ;
-					: ls -1AR "/boot/dtbs/\${modules_dir}/broadcom" ;
+					: ls -1AR "/boot/dtbs/\${kernel_version}/broadcom" ;
 					echo >&2 "       Is CONFIG_LOCALVERSION correctly set?" ;
 					exit 1 ;
 				fi ;
 			fi ;
-			if [ -d "/boot/dtbs/\${modules_dir}/overlays" ]; then
-				mv -v "/boot/dtbs/\${modules_dir}/overlays" "/boot/\${modules_dir}/" ;
-				touch "/boot/\${modules_dir}/overlays/README" ;
+			if [ -d "/boot/dtbs/\${kernel_version}/overlays" ]; then
+				mv -v "/boot/dtbs/\${kernel_version}/overlays" "/boot/\${kernel_version}/" ;
+				touch "/boot/\${kernel_version}/overlays/README" ;
 			fi ;
 			if [ -d /boot/dtbs ]; then
-				if ! rmdir -v "/boot/dtbs/\${modules_dir}" /boot/dtbs ; then
-					echo >&2 "ERROR: Failed to remove "/boot/dtbs/\${modules_dir}" or "/boot/dtbs": \${?}" ;
+				if ! rmdir -v "/boot/dtbs/\${kernel_version}" /boot/dtbs ; then
+					echo >&2 "ERROR: Failed to remove "/boot/dtbs/\${kernel_version}" or "/boot/dtbs": \${?}" ;
 					: echo >&2 "       Directory content:" ;
 					: ls -1AR "/boot/dtbs/" ;
 					echo >&2 "       Is CONFIG_LOCALVERSION correctly set?" ;
 					exit 1 ;
 				fi ;
 			fi ;
-			echo >&2 "NOTE:  Remember to set 'os_prefix = \${modules_dir}' in config.txt" ;
+			echo >&2 "NOTE:  Remember to set 'os_prefix = \${kernel_version}' in config.txt" ;
 			if ! [ -d /host/bundle ]; then
-				echo >&2 "ERROR: Directory '${bundle_dir}' does not exist - cannot save bundle 'linux-\${modules_dir}.tar.xz'" ;
+				echo >&2 "ERROR: Directory '${bundle_dir}' does not exist - cannot save bundle 'linux-\${kernel_version}.tar.xz'" ;
 			else
-				if ! tar -C / -cJpf "/host/bundle/linux-\${modules_dir}.tar.xz" boot/ lib/modules/ ; then
-					echo >&2 "ERROR: Failed creating bundle '${bundle_dir}/linux-\${modules_dir}.tar.xz': ${?}" ;
+				if ! tar -C / -cJpf "/host/bundle/linux-\${kernel_version}.tar.xz" boot/ lib/modules/ ; then
+					echo >&2 "ERROR: Failed creating bundle '${bundle_dir}/linux-\${kernel_version}.tar.xz': ${?}" ;
 				else
-					echo "INFO:  Bundle 'linux-\${modules_dir}.tar.xz' successfully deployed to '${bundle_dir}'" ;
+					echo "INFO:  Bundle 'linux-\${kernel_version}.tar.xz' successfully deployed to '${bundle_dir}'" ;
 				fi ;
 			fi ;
 		fi ;
@@ -2341,10 +2361,10 @@ esac
 				echo >&2 "ERROR: Build artefact extraction failed: \${?}" ;
 				exit 1 ;
 			else
-				echo "INFO:  Linux kernel-\${modules_dir} successfully installed - please update your bootloader" ;
+				echo "INFO:  Linux kernel-\${kernel_version} successfully installed - please update your bootloader" ;
 			fi ;
 		elif [ '${bundle}' = '0' ]; then
-			echo >&2 "WARN:  Linux kernel-\${modules_dir} successfully built (but not installed due to '--no-install' argument)" ;
+			echo >&2 "WARN:  Linux kernel-\${kernel_version} successfully built (but not installed due to '--no-install' argument)" ;
 		fi ;
 		if [ -n '${extra_packages:-}' ]; then
 			if ! [[ '${compiler}' == 'clang' ]]; then

@@ -144,6 +144,20 @@ dev-util/pkgconf			 pkg-config
 dev-vcs/git-lfs				 doc
 dev-vcs/subversion			 ctypes-python
 gnome-base/librsvg			-vala
+# move sys-devel/clang llvm-core/clang
+llvm-core/clang				 default-compiler-rt default-libcxx default-lld llvm-libunwind system-cxx-headers
+# move sys-devel/clang-runtime llvm-core/clang-runtime
+llvm-core/clang-runtime			 compiler-rt libcxx
+# move sys-devel/llvm llvm-core/llvm
+llvm-core/llvm				 clang llvm-gcc udis86
+# move sys-libs/compiler-rt llvm-runtimes/compiler-rt
+llvm-runtimes/compiler-rt		 clang
+# move sys-libs/compiler-rt-sanitizers llvm-runtimes/compiler-rt-sanitizers
+llvm-runtimes/compiler-rt-sanitizers	 clang
+# move sys-libs/llvm-libunwind llvm-runtimes/libunwind
+llvm-runtimes/libunwind			 static-libs  # required by llvm-core/clang-common
+# move sys-libs/libomp llvm-runtimes/openmp
+llvm-runtimes/openmp			 hwloc offload ompt
 mail-client/alpine			 passfile smime
 mail-client/mutt			 imap sidebar smime
 mail-client/pine			 largeterminal passfile
@@ -254,8 +268,6 @@ sys-block/parted			 device-mapper
 sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
 sys-cluster/galera			 garbd
 #sys-devel/bc				-libedit
-sys-devel/clang				 default-compiler-rt default-libcxx default-lld llvm-libunwind system-cxx-headers
-sys-devel/clang-runtime			 compiler-rt libcxx
 #sys-devel/gcc				 go mudflap
 # gccgo from gcc-6.4.0 tries to include a deprecated glibc header, ustat.h, and fails.
 #~sys-devel/gcc-6.4.0			-go
@@ -263,7 +275,6 @@ sys-devel/clang-runtime			 compiler-rt libcxx
 #sys-devel/gcc				-graphite -nls -sanitize -vtv default-stack-clash-protection lto pch pgo ssp zstd  # graphite has a runtime dependency on dev-libs/isl
 sys-devel/gcc				-nls -sanitize -vtv default-stack-clash-protection default-znow lto pch pgo ssp zstd
 sys-devel/gettext			 cvs git
-sys-devel/llvm				 clang llvm-gcc udis86
 # move sys-apps/microcode-data sys-firmware/intel-microcode
 sys-firmware/intel-microcode		 hostonly split-ucode
 sys-fs/btrfs-progs			-python
@@ -271,16 +282,12 @@ sys-fs/cryptsetup			-static dynamic
 sys-fs/e2fsprogs			-udev tools
 sys-fs/lvm2				-lvm1 -static -static-libs -thin
 sys-fs/udev				-extras action_modeswitch edd hwdb keymap
-sys-libs/compiler-rt			 clang
-sys-libs/compiler-rt-sanitizers		 clang
 sys-libs/cracklib			-python
 sys-libs/gdbm				 berkdb
 sys-libs/glibc				-gd clone3 compile-locales nscd ssp
 #sys-libs/libcap-ng			-python  # requires dev-lang/swig, but only as a DEPEND
 sys-libs/libnvme			 keyutils
-sys-libs/libomp				 hwloc offload ompt
 sys-libs/libseccomp			-python  # requires static-libs
-sys-libs/llvm-libunwind			 static-libs  # required by sys-devel/clang-common
 sys-libs/ncurses			 trace unicode
 sys-libs/pam				-debug
 sys-libs/timezone-data			 leaps-timezone leaps_timezone right_timezone # zic-slim
@@ -299,6 +306,8 @@ www-servers/lighttpd			-memcached fastcgi libev memcache uploadprogress webdav
 >=www-servers/lighttpd-1.4.58		 dbi  # webdav requires sqlite, which now requires dbi
 x11-libs/cairo				-X cleartype lcdfilter
 virtual/mta				 ssmtp
+
+#virtual/rust				 rustfmt  # required by dev-util/bindgen
 
 app-shells/stdlib			 colour
 mail-client/roundcube::srcshelton	 plugins zxcvbn

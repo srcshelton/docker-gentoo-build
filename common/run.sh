@@ -38,7 +38,7 @@
 #: "${PODMAN_SWAP_LIMIT:="20g"}"
 #
 # We don't want to put the system under undue memory-pressure, but at the same
-# time sys-devel/gcc and sys-devel/llvm no longer compile with 4GB RAM... so
+# time sys-devel/gcc and llvm-core/llvm no longer compile with 4GB RAM... so
 # let's see whether we can get away with 5GB?  Parallel builds may also require
 # more memory than this too, of course :o
 #

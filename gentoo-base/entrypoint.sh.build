@@ -887,7 +887,7 @@ applyworkarounds() {
 		fi
 	fi
 
-	aw_pkgs='sys-libs/llvm-libunwind sys-devel/clang sys-devel/clang-common'
+	aw_pkgs='llvm-runtimes/libunwind llvm-core/clang llvm-core/clang-common'
 	[ $(( aw_mode )) -ne 2 ] &&
 		info >&2 "Checking for ${aw_pkgs} work-arounds ..."  # ! post_use
 	aw_list=''
@@ -903,7 +903,7 @@ applyworkarounds() {
 		)" && [ -n "${aw_pkg:-}" ]
 	then
 		if [ $(( aw_mode )) -eq 0 ]; then  # USE
-			warn >&2 "Activating sys-libs/llvm-libunwind work-arounds ..."
+			warn >&2 "Activating llvm-runtimes/llvm-libunwind work-arounds ..."
 			print >&2 "Before work-around, USE is '${aw_USE}' ..."
 			aw_USE="${aw_USE:+"$( # <- Syntax
 				echo " ${aw_USE} " | sed 's/ default-compiler-rt / / ; s/^ //'
@@ -922,7 +922,7 @@ applyworkarounds() {
 			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
 			if [ $(( aw_mode )) -eq 2 ]; then  # post_use
 				# 'default-compiler-rt' is a USE flag for
-				# sys-devel/clang:14 but for sys-devel/clang-common
+				# llvm-core/clang:14 but for llvm-core/clang-common
 				# thereafter...
 				warn >&2 "Adding post-package USE flags 'default-compiler-rt" \
 					"default-libcxx default-lld llvm-libunwind' due to" \
@@ -943,10 +943,10 @@ applyworkarounds() {
 					unset flag
 				fi
 			elif [ $(( aw_mode )) -eq 1 ]; then  # post_pkgs
-				warn >&2 "Adding post-package entries 'sys-devel/clang' and" \
-					"'sys-devel/clang-common' due to presence of" \
+				warn >&2 "Adding post-package entries 'llvm-core/clang' and" \
+					"'llvm-core/clang-common' due to presence of" \
 					"${aw_pkg} ..."
-				aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}sys-devel/clang sys-devel/clang-common"
+				aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}llvm-core/clang llvm-core/clang-common"
 			fi
 		fi
 	fi
@@ -2133,7 +2133,7 @@ case "${1:-}" in
 		fi
 
 		# '--nodeps' should only ever be set when finalising service-builds,
-		# whereas the flags required for llvm/clang/llvm-libunwind to work
+		# whereas the flags required for llvm/clang/(llvm-)libunwind to work
 		# as intended should only be needed for kernel and individual package
 		# builds...
 		#
