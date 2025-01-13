@@ -34,4 +34,13 @@ sys-apps/util-linux			 logger tty-helpers
 sys-libs/glibc				-timezone-tools
 sys-libs/libnvme			 json
 
+#virtual/mta				 postfix
+virtual/mta				 no-mta
+#mail-mta/nullmailer			-ssl
+# dependency required by dev-lang/php-7.4.16
+# dependency required by virtual/mta-1-r2
+# dependency required by mail-mta/nullmailer-2.2-r1[ssl]
+# dependency required by net-libs/gnutls-3.6.15
+#dev-libs/nettle			 gmp
+
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
