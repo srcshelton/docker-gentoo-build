@@ -878,7 +878,7 @@ _docker_resolve() {
 									"${repopath}/${cat}/${pkg}/${eb}"
 							)"
 							slot="${SLOT:-"${slot}"}"
-							if grep -Fq "~${arch}" \
+							if grep -Eq "~${arch}([^-]|$)" \
 									"${repopath}/${cat}/${pkg}/${eb}"
 							then
 								keyworded='~'
