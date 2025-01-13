@@ -192,6 +192,11 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				use_cpu_flags='aes avx f16c mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3'
 				gcc_target_opts='-march=btver2'
 				rust_target_opts='-C target-cpu=btver2' ;;
+			*': AMD EPYC 7R32')
+				use_cpu_arch='x86'
+				use_cpu_flags='aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3'
+				gcc_target_opts='-march=znver2'
+				rust_target_opts='-C target-cpu=znver2' ;;
 
 			# ARM CPUs: Only sci-libs/blis seems to make use of
 			# v{x} flags, and v9 isn't yet referenced (although
