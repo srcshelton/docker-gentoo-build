@@ -905,9 +905,9 @@ _docker_resolve() {
 	# can't add one universally since "pkg-1.2-0" has a name of 'pkg-1.2'
 	# (rather than 'pkg')...
 	dr_name="$( # <- Syntax
-		versionsort -n "${dr_package##*[<>=]}"
+		versionsort -n "${dr_package##*[<>=]}" 2>/dev/null
 	)" || dr_name="$( # <- Syntax
-		versionsort -n "${dr_package##*[<>=]}-0"
+		versionsort -n "${dr_package##*[<>=]}-0" 2>/dev/null
 	)" || :
 	dr_pattern='-~'
 	if [[ "${FORCE_KEYWORDS:-}" == '1' ]]; then
