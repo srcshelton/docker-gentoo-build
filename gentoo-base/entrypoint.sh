@@ -1131,6 +1131,9 @@ if ! [ -s "${PKGDIR}"/Packages ] || ! [ -d "${PKGDIR}"/virtual ]; then
 fi
 
 env | grep -F -- 'DIR=' | cut -d'=' -f 2- | while read -r d; do
+	# Inherited environment values are appearing quoted, which is non-standard
+	d="${d#'"'}" ; d="${d%'"'}"
+
 	if ! [ -d "${d}" ]; then
 		warn "Creating missing directory '${d}' ..."
 		mkdir -p "${d}" || die "mkdir() on '${d}' failed: ${?}"
