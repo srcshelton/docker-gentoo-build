@@ -619,7 +619,8 @@
 #~app-containers/containers-storage-1.55.0		 **
 #~app-containers/containers-storage-1.55.1		 **
 ~app-containers/containers-storage-1.55.2		 **
-~app-containers/containers-storage-1.56.0		 **
+#~app-containers/containers-storage-1.56.0		 **
+~app-containers/containers-storage-1.56.1		 **
 
 # rust build dependencies for netavark/aardvark-dns
 #=dev-util/cargo-ebuild-0.5.1				~amd64
@@ -640,5 +641,8 @@
 # ...
 ~sys-fs/fuse-overlayfs-1.12				 **
 ~sys-fs/fuse-overlayfs-1.13				 **
+
+# originally required by app-containers/podman-5.3.1[composefs]
+~sys-fs/composefs-1.0.8					 **
 
 # vi: set syntax=gentoo-package-keywords:
