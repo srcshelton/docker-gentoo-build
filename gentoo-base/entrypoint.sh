@@ -734,6 +734,7 @@ do_emerge() {
 				;;
 
 			'--defaults'|--*-defaults)
+				# shellcheck disable=SC2086
 				set -- "${@}" \
 					--backtrack=100 \
 					--binpkg-respect-use=y \
@@ -996,7 +997,12 @@ else
 	fi
 fi
 
-if [ -z "${MAXLOAD:-}" ] || [ "${MAXLOAD:-}" != '0' ]; then
+if echo "${MAXLOAD:-}" | grep -q -- '^0'; then
+	# Assume NO_LOAD_LIMITS has been specified...
+	parallel='--jobs'
+else
+	# MAXLOAD is either non-zero, or unset (in which case we'll default to
+	# DEFAULT_MAXLOAD)
 	parallel="${parallel:+"${parallel} "}--load-average=${MAXLOAD:-"${DEFAULT_MAXLOAD}"}"
 fi
 

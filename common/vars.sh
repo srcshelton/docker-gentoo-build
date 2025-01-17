@@ -463,12 +463,13 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	: $(( jobs = $( nproc ) ))
 	: $(( load = jobs ))
 	if [ $(( jobs )) -ge 2 ]; then
+		: $(( load = load - 1 ))
+
 		if command -v dc >/dev/null 2>&1; then
 			jobs="$( echo "${jobs} 0.75 * p" | dc | cut -d'.' -f 1 )"
 		else
 			: $(( jobs = jobs - 1 ))
 		fi
-		: $(( load = load - 1 ))
 	fi
 	export JOBS="${EMERGE_JOBS:-"${jobs}"}"
 	export MAXLOAD="${EMERGE_MAXLOAD:-"${load}.00"}"

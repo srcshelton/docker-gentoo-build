@@ -1041,15 +1041,16 @@ _docker_image_exists() {
 # Launches container
 #
 _docker_run() {
-	#inherit name container_name
-	#inherit BUILD_CONTAINER NO_BUILD_MOUNTS NO_MEMORY_LIMITS NO_REPO_MASKS
+	#inherit name container_name BUILD_CONTAINER
+	#inherit NO_BUILD_MOUNTS NO_CPU_LIMITS NO_LOAD_LIMITS NO_MEMORY_LIMITS \
+	#	NO_REPO_MASKS
 	#inherit DOCKER_VARS
 	#inherit PODMAN_MEMORY_RESERVATION PODMAN_MEMORY_LIMIT PODMAN_SWAP_LIMIT
 	#inherit ACCEPT_KEYWORDS ACCEPT_LICENSE DEBUG DEV_MODE DOCKER_CMD_VARS \
-	#	 DOCKER_DEVICES DOCKER_ENTRYPOINT DOCKER_EXTRA_MOUNTS \
-	#	 DOCKER_HOSTNAME DOCKER_INTERACTIVE DOCKER_PRIVILEGED \
-	#	 DOCKER_VOLUMES ECLASS_OVERRIDE EMERGE_OPTS FEATURES \
-	#	 PYTHON_SINGLE_TARGET PYTHON_TARGETS ROOT TERM TRACE USE
+	#	DOCKER_DEVICES DOCKER_ENTRYPOINT DOCKER_EXTRA_MOUNTS \
+	#	DOCKER_HOSTNAME DOCKER_INTERACTIVE DOCKER_PRIVILEGED \
+	#	DOCKER_VOLUMES ECLASS_OVERRIDE EMERGE_OPTS FEATURES \
+	#	PYTHON_SINGLE_TARGET PYTHON_TARGETS ROOT TERM TRACE USE
 	#inherit ARCH PKGDIR_OVERRIDE PKGDIR
 	#inherit DOCKER_VERBOSE DOCKER_CMD
 	#inherit image IMAGE
@@ -1062,6 +1063,8 @@ _docker_run() {
 	local BUILD_CONTAINER="${BUILD_CONTAINER-1}"
 
 	local NO_BUILD_MOUNTS="${NO_BUILD_MOUNTS:-}"
+	local NO_CPU_LIMITS="${NO_CPU_LIMITS:-}"
+	local NO_LOAD_LIMITS="${NO_LOAD_LIMITS:-}"
 	local NO_MEMORY_LIMITS="${NO_MEMORY_LIMITS:-}"
 	local NO_REPO_MASKS="${NO_REPO_MASKS:-}"
 
@@ -1126,13 +1129,15 @@ _docker_run() {
 	runargs=(
 		$( # <- Syntax
 			# shellcheck disable=SC2015
-			if
-				[[ "$( uname -s )" != 'Darwin' ]] &&
-					(( $( nproc ) > 1 )) &&
-					docker info 2>&1 |
-						grep -q -- 'cpuset'
-			then
-				echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))"
+			if [[ -z "${NO_CPU_LIMITS:-}" ]] || ! (( NO_CPU_LIMITS )); then
+				if
+					[[ "$( uname -s )" != 'Darwin' ]] &&
+						(( $( nproc ) > 1 )) &&
+						docker info 2>&1 |
+							grep -q -- 'cpuset'
+				then
+					echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))"
+				fi
 			fi
 		)
 		--init
@@ -1214,10 +1219,19 @@ _docker_run() {
 				"executable"
 		fi
 		print "Running with 'entrypoint.sh${ext}' due to DEV_MODE"
+		# shellcheck disable=SC2154,SC2207
 		runargs+=( # <- Syntax
 			  --env DEV_MODE
 			  --env DEFAULT_JOBS="${JOBS}"
-			  --env DEFAULT_MAXLOAD="${MAXLOAD}"
+			  $( # <- Syntax
+				if [[ -z "${NO_LOAD_LIMITS:-}" ]] || ! (( NO_LOAD_LIMITS ))
+				then
+					echo "--env DEFAULT_MAXLOAD=${MAXLOAD}"
+				else
+					echo "--env DEFAULT_MAXLOAD=0.00"
+					echo "--env MAXLOAD=0.00"
+				fi
+			  )
 			  --env environment_file="${environment_file}"
 			  --volume "${dev_mode_script_dir}/entrypoint.sh${ext}:/usr/libexec/entrypoint.sh:ro"
 		)
@@ -1408,7 +1422,7 @@ _docker_run() {
 			#/etc/portage/repos.conf
 
 			${default_repo_path:-"$( # <- Syntax
-				portageq get_repo_path "${EROOT:-"/"}" $(
+				portageq get_repo_path "${EROOT:-"/"}" $( # <- Syntax
 					portageq get_repos "${EROOT:-"/"}"
 				)
 			)"}
