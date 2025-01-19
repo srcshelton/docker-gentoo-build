@@ -118,10 +118,10 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				printf ': '
 				tr -d '\0' < /sys/firmware/devicetree/base/model
 			)" || :
-		elif [ -s /proc/devicetree/model ]; then
+		elif [ -s /proc/device-tree/model ]; then
 			description="$( # <- Syntax
 				printf ': '
-				tr -d '\0' < /proc/devicetree/model
+				tr -d '\0' < /proc/device-tree/model
 			)" || :
 		else
 			description="$( # <- Syntax
@@ -263,7 +263,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				rust_target_opts='-C target-cpu=cortex-a72'
 				rpi_model='rpi500' ;;
 
-			*': Mixtile Blade 3 '*)
+			*': Mixtile Blade 3'|*': Rockchip RK3588')
 				# ARMv8, big.LITTLE
 				use_cpu_arch='arm'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
