@@ -2474,7 +2474,6 @@ case "${1:-}" in
 			echo "SYSROOT             = $( # <- Syntax
 				echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
 			)"
-			echo "${info}" | format 'FEATURES'
 			echo "${info}" | format 'USE'
 			echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 			echo "${info}" | format 'PYTHON_TARGETS'

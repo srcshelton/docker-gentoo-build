@@ -2368,7 +2368,6 @@ if [ -n "${pkg_initial:-}" ]; then
 								cut -d'=' -f 2-
 						)"
 						echo
-						echo "${info}" | format 'FEATURES'
 						echo "${info}" | format 'ACCEPT_LICENSE'
 						echo "${info}" | format 'ACCEPT_KEYWORDS'
 						echo "${info}" | format 'USE'
@@ -2729,7 +2728,6 @@ echo
 			echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
 		)"
 		echo
-		echo "${info}" | format 'FEATURES'
 		echo "${info}" | format 'ACCEPT_LICENSE'
 		echo "${info}" | format 'ACCEPT_KEYWORDS'
 		echo "${info}" | format 'USE'
@@ -2965,7 +2963,6 @@ echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
 	echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
 )"
 echo
-echo "${info}" | format 'FEATURES'
 echo "${info}" | format 'ACCEPT_LICENSE'
 echo "${info}" | format 'ACCEPT_KEYWORDS'
 echo "${info}" | format 'USE'
