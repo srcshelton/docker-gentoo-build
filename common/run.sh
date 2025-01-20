@@ -620,9 +620,7 @@ _docker_resolve() {
 	local dr_prefix="${2:-"buildpkg"}"
 	local dr_name='' dr_pattern=''
 
-	if [[ ! -x "$( type -pf versionsort )" ]] ||
-			[[ ! -x "$( type -pf equery )" ]]
-	then
+	if [[ ! -x "$( type -pf versionsort )" ]]; then
 		# On non-Gentoo systems we need to build 'eix' (for 'versionsort') and
 		# 'equery' into a container, and then call that to acquire "proper"
 		# package-version handling facilities.
@@ -646,45 +644,14 @@ _docker_resolve() {
 		then
 			# shellcheck disable=SC2032  # Huh?
 			versionsort() {
-				local image_tag='' result=''
+				local result=''
 				local -i rc=0
-
-				local -r url='https://raw.githubusercontent.com'
-				local -r path='refs/heads/master'
-				local -r owner='srcshelton'
-				local -r repo='gentoo-ebuilds'
-				local -r file='.portage_commit'
-				local -r platform='linux/amd64'
-				image_tag="$( # <- Syntax
-					curl -fsSL "${url}/${owner}/${repo}/${path}/${file}" |
-						head -n 1 |
-						awk '{print $2}' |
-						sed 's/-.*$//'
-				)"
-				if [[ -n "${image_tag:-}" ]]; then
-					warn "Synthesising portage tree for 'versionsort' - this" \
-						"may be slow ..."
-					docker image pull --quiet --platform "${platform}" \
-						"docker.io/gentoo/portage:${image_tag}"
-					docker container stop \
-						portage-helper-repo >/dev/null 2>&1 || :
-					docker container rm -v \
-						portage-helper-repo >/dev/null 2>&1 || :
-					docker container run \
-							--name 'portage-helper-repo' \
-							--network none \
-							--platform 'linux/amd64' \
-						"docker.io/gentoo/portage:${image_tag}" &&
-					docker container stop \
-						portage-helper-repo
-				fi
 
 				result="$( # <- Syntax
 					docker container run \
 							--rm \
 							--name='portage-helper' \
 							--network=none \
-							--volumes-from portage-helper-repo:ro \
 						gentoo-helper versionsort "${@:-}"
 				)" || rc="${?}"
 
@@ -693,61 +660,6 @@ _docker_resolve() {
 
 				return "${rc}"
 			}  # versionsort
-			export -f versionsort
-
-			equery() {
-				local image_tag='' result=''
-				local -i rc=0
-
-				local -r url='https://raw.githubusercontent.com'
-				local -r path='refs/heads/master'
-				local -r owner='srcshelton'
-				local -r repo='gentoo-ebuilds'
-				local -r file='.portage_commit'
-				local -r platform='linux/amd64'
-				image_tag="$( # <- Syntax
-					curl -fsSL "${url}/${owner}/${repo}/${path}/${file}" |
-						head -n 1 |
-						awk '{print $2}' |
-						sed 's/-.*$//'
-				)"
-				if [[ -n "${image_tag:-}" ]]; then
-					warn "Synthesising portage tree for 'equery' - this may" \
-						"be slow ..."
-					docker image pull --quiet --platform "${platform}" \
-						"docker.io/gentoo/portage:${image_tag}"
-					docker container stop \
-						portage-helper-repo >/dev/null 2>&1 || :
-					docker container rm -v \
-						portage-helper-repo >/dev/null 2>&1 || :
-					docker container run \
-							--name 'portage-helper-repo' \
-							--network none \
-							--platform 'linux/amd64' \
-						"docker.io/gentoo/portage:${image_tag}" &&
-					docker container stop \
-						portage-helper-repo
-				fi
-
-				# We'll execute this container via _docker_run rather than
-				# by direct invocation, so that we get all of the necessary
-				# repo directories mounted...
-				result="$( # <- Syntax
-					BUILD_CONTAINER=0 \
-					DOCKER_VOLUMES='--volumes-from portage-helper-repo:ro' \
-					NO_MEMORY_LIMITS=1 \
-					image='' \
-					IMAGE='localhost/gentoo-helper:latest' \
-					container_name='gentoo-helper' \
-						_docker_run equery "${@:-}"
-				)" || rc="${?}"
-
-				print "equery returned '${result}': ${?}"
-				echo "${result}"
-
-				return "${rc}"
-			}  # equery
-			export -f equery
 		else
 			# Before we have that (and to make building a container for those
 			# tools easier) let's offer a best-effort, albeit limited,
@@ -792,7 +704,75 @@ _docker_resolve() {
 					fi
 				fi
 			}  # versionsort
-			export -f versionsort
+		fi
+		export -f versionsort
+	fi
+
+	if ! [[ -x "$( type -pf equery )" ]]; then
+		if docker ${DOCKER_VARS:-} image ls localhost/gentoo-helper:latest |
+				grep -Eq -- '^(localhost/)?([^.]+\.)?gentoo-helper'
+		then
+			equery() {
+				local image_tag='' extra_mounts='' result=''
+				local -i rc=0
+
+				local -r url='https://raw.githubusercontent.com'
+				local -r path='refs/heads/master'
+				local -r owner='srcshelton'
+				local -r repo='gentoo-ebuilds'
+				local -r file='.portage_commit'
+				local -r platform='linux/amd64'
+				image_tag="$( # <- Syntax
+					curl -fsSL "${url}/${owner}/${repo}/${path}/${file}" |
+						head -n 1 |
+						awk '{print $2}' |
+						sed 's/-.*$//'
+				)"
+				if [[ -n "${image_tag:-}" ]]; then
+					warn "Synthesising portage tree for containerised" \
+						"'equery' - this may be slow ..."
+					docker image pull --quiet --platform "${platform}" \
+						"docker.io/gentoo/portage:${image_tag}" 2>/dev/null
+					docker container stop \
+						portage-helper-repo >/dev/null 2>&1 || :
+					docker container rm -v \
+						portage-helper-repo >/dev/null 2>&1 || :
+					docker container run \
+							--name 'portage-helper-repo' \
+							--network none \
+							--platform 'linux/amd64' \
+						"docker.io/gentoo/portage:${image_tag}" 2>/dev/null &&
+					docker container stop \
+						portage-helper-repo 2>/dev/null
+				fi
+
+				if [[ -e /etc/portage/package.accept_keywords ]]; then
+					extra_mounts='--mount type=bind,src=/etc/portage/package.accept_keywords,dst=/etc/portage/package.accept_keywords,ro'
+				fi
+
+				# We'll execute this container via _docker_run rather than
+				# by direct invocation, so that we get all of the necessary
+				# repo directories mounted...
+				# ... or, actually, we won't - because we only need keyword
+				# overrides!
+				result="$( # <- Syntax
+					BUILD_CONTAINER=0 \
+					DOCKER_VOLUMES='--volumes-from portage-helper-repo:ro' \
+					NO_BUILD_MOUNTS=1 \
+					NO_MEMORY_LIMITS=1 \
+					DOCKER_EXTRA_MOUNTS="${extra_mounts:-}" \
+					image='' \
+					IMAGE='localhost/gentoo-helper:latest' \
+					container_name='gentoo-helper' \
+						_docker_run equery "${@:-}"
+				)" || rc="${?}"
+
+				print "equery returned '${result}': ${?}"
+				echo "${result}"
+
+				return "${rc}"
+			}  # equery
+		else
 			equery() {
 				local -a args=()
 				local arg='' repopath='' cat='' pkg='' eb=''  # pv=''
@@ -873,10 +853,14 @@ _docker_resolve() {
 						# O - In overlay
 						if [[ -s "${repopath}/${cat}/${pkg}/${eb}" ]]
 						then
+							# Some SLOT definitions reference other variables,
+							# such as LLVM_MAJOR :(
+							export LLVM_MAJOR=0
 							eval "$( # <- Syntax
 								grep 'SLOT=' \
 									"${repopath}/${cat}/${pkg}/${eb}"
 							)"
+							unset LLVM_MAJOR
 							slot="${SLOT:-"${slot}"}"
 							if grep -Eq "~${arch}([^-]|$)" \
 									"${repopath}/${cat}/${pkg}/${eb}"
@@ -890,8 +874,8 @@ _docker_resolve() {
 					done
 				done
 			}  # equery
-			export -f equery
 		fi
+		export -f equery
 	fi
 
 	print "Resolving name '${dr_package}' ..."
@@ -1470,8 +1454,17 @@ _docker_run() {
 		fi
 		mountpointsro['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
 
+		# FIXME: crun errors on rootless ARM64 due to lack of write support in
+		#        /etc/portage...
 		if [[ -s "gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]; then
-			mountpointsro["${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/package.accept_keywords/${ARCH:-"${arch}"}"
+			if [[ -w /etc/portage/package.accept_keywords ]]; then
+				mountpointsro["${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/package.accept_keywords/${ARCH:-"${arch}"}"
+			else
+				warn "Cannot mount" \
+					"'${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
+					"due to lack of write permission for '$( id -nu )' on" \
+					"'/etc/portage/package.accept_keywords'"
+			fi
 		fi
 
 		#cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
@@ -1851,6 +1844,11 @@ if ! type -pf podman >/dev/null 2>&1; then
 else
 	_command='podman'
 	docker() {
+		if [[ -n "${debug:-}" ]] && (( debug > 1 )); then
+			# FIXME: 'trace' isn't available in old (pre-4.x?) releases of
+			#        podman...
+			set -- --log-level trace ${@+"${@}"}
+		fi
 		podman ${@+"${@}"}
 	}  # docker
 	export -f docker
