@@ -617,6 +617,9 @@ case "${service:-}" in
 	xmrig)
 		service='net-misc/xmrig' ;;
 	zxtm)
+		type -pf curl || die "'curl' binary is required to build '${service}'"
+		type -pf jq || die "'jq' binary is required to build '${service}'"
+
 		# The Docker Registry API documenation describes a default page_size of
 		# 10 with a maximum of 1000 results, although a practical limit of 100
 		# has been reported.
