@@ -184,7 +184,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "       --firmware               Include 'sys-kernel/linux-firmware'"
 	output >&2 "       -O3                      Add 'KCFLAGS=-O3' (and others - see [1])"
 	output >&2 '       --clang                  Compile kernel with llvm'
-	output >&2 '         --llvm-unwind          Install LLVM edition of libunwind'
+	output >&2 '         --llvm-unwind          Use LLVM edition of libunwind'
 	output >&2 "         --rust                 Pull-in rust dependencies"
 	#output >&2 '         --force-rust <version> Force a specified rust slot'
 	output >&2 '         --force-llvm <version> Force a specified LLVM version'
@@ -205,9 +205,25 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	exit 0
 fi
 
-if (( EUID )); then
+declare _output=''
+if ! [[ -x "$( type -pf "${_command}" )" ]]; then
+	die "Cannot locate binary '${_command}'"
+elif ! _output="$( "${_command}" info 2>&1 )"; then
+	if [[ "${_command}" == 'podman' ]]; then
+		die "Unable to successfully execute '${_command}' - do you" \
+			"need to run '${_command} machine start' or re-run" \
+			"'$( basename "${0}" )' as 'root'?"
+	else
+		die "Unable to successfully execute '${_command}' - do you" \
+			"need to re-run '$( basename "${0}" )' as 'root'?"
+	fi
+elif [[ "$( uname -s )" != 'Darwin' ]] &&
+		(( EUID )) &&
+		grep -Fq -- 'rootless: false' <<<"${_output}"
+then
 	die "Please re-run '$( basename "${0}" )' as user 'root'"
 fi
+unset _output
 
 declare -i keep_build=1
 declare -i bundle=0
@@ -362,10 +378,11 @@ fi
 # --patch: see below
 
 if echo " ${*:-} " | grep -Fq -- ' --clear-linux '; then
-	if type -pf curl >/dev/null 2>&1; then
+	if type -pf curl >/dev/null 2>&1 && type -pf jq >/dev/null 2>&1; then
 		intel_patch=1
 	else
-		warn "Disabling '--clear-linux' since net-misc/curl is not installed"
+		warn "Disabling '--clear-linux' since app-misc/jq and net-misc/curl" \
+			"are not both installed"
 	fi
 fi
 
@@ -1070,7 +1087,12 @@ fi
 unset build_version
 if [[ "${keep_build:-}" = '1' ]]; then
 	info >&2 "Using build directory '${build_dir}' ..."
-	mkdir -p "${build_dir}" || die "mkdir() on '${build_dir}' failed: ${?}"
+	sudo mkdir -p "${build_dir}" || die "mkdir() on '${build_dir}' failed: ${?}"
+	if ! [[ -w "${build_dir}"/. ]]; then
+		warn >&2 "Adding write permission for '$( id -nu )' to" \
+			"'${build_dir}' ..."
+		sudo chown "$( id -u )" ${build_dir} || die "chown on '${build_dir}' failed: ${?}"
+	fi
 fi
 
 if [[ -n "${config_file:-}" ]]; then
@@ -1280,10 +1302,12 @@ case "${compiler}" in
 			compiler_pkgs=(
 				$( pkgslot llvm-runtimes/libunwind ${llvm_slot} ${limit:-} ) # SLOT=0
 			)
+			compiler_USE="$( replace_flags 'llvm-libunwind' -- "${compiler_USE}" )"
 		else
 			compiler_pkgs=(
 				sys-libs/libunwind
 			)
+			compiler_USE="$( replace_flags '-llvm-libunwind' -- "${compiler_USE}" )"
 		fi
 		unset limit
 		unset inconsistent_slot
@@ -1342,18 +1366,6 @@ case "${compiler}" in
 		;;
 	*)
 		die "Unknown compiler '${compiler}'"
-		;;
-esac
-case "${unwind:-}" in
-	llvm)
-		compiler_pkgs+=(
-			$( pkgslot llvm-runtimes/libunwind "${llvm_slot}" '=' ) # SLOT=0
-		)
-		compiler_USE="$( replace_flags 'llvm-libunwind' -- "${compiler_USE}" )"
-		#pre_remove='sys-libs/libunwind'
-		#pre_use="$( replace_flags '-default-compiler-rt' '-default-libcxx' \
-		#	'-default-lld' '-llvm-libunwind' -- "${pre_use:-}" )"
-		#pre_pkgs="$( pkgslot llvm-runtimes/libunwind "${llvm_slot}" )"
 		;;
 esac
 
@@ -1612,14 +1624,16 @@ esac
 
 				# This is crazy - virtual/rust allowed either dev-lang/rust or
 				# dev-lang/rust-bin to be pulled-in, but the now-separate
-				# slotted packages both use this flexibility, and the ability
+				# slotted packages both lose this flexibility, and the ability
 				# to specify a minimum version, as it's not possible to specify
 				# '>=cat-pkg:slot' :(
 				#
 				#${rustext:+"${rust_ver:+">="}dev-lang/rust${rust_ver:+":${rust_ver}"}"}
-				${rustext:+"dev-lang/rust${rust_slot:+":${rust_slot}"}"}
+				#${rustext:+"dev-lang/rust${rust_slot:+":${rust_slot}"}"}
+				${rustext:+"${rust_slot:+">="}dev-lang/rust${rust_slot:+"-${rust_slot}"}"}
 
 				${rustext:+"${bindgen_ver:+">="}dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"}
+
 				virtual/os-headers
 				virtual/linux-sources
 			)
@@ -1630,7 +1644,8 @@ esac
 				#${rustext:+"--with-pkg-mask=>virtual/rust${rust_ver:+"-${rust_ver}"}"}
 				#${rustext:+"--with-pkg-mask=>dev-lang/rust${rust_ver:+"-${rust_ver}"}"}
 
-				${rustext:+"--with-pkg-mask=>dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"}
+				#${rustext:+"--with-pkg-mask=>dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"}
+
 				$( # <- Syntax
 					if [[ "${compiler}" == 'clang' ]]; then
 						(( llvm_slot )) ||
@@ -1766,7 +1781,7 @@ esac
 		if ! [[ -d "${build_dir}" ]]; then
 			warn "Build cache directory '${build_dir}' doesn't exist -" \
 				'creating ...'
-			mkdir -p "${build_dir}" ||
+			sudo mkdir -p "${build_dir}" ||
 				die "mkdir() on '${build_dir}' failed: ${?}"
 		fi
 		if [[ -e "${build_dir}"/.config ]]; then
@@ -1781,7 +1796,7 @@ esac
 		if ! [[ -d "${bundle_dir}" ]]; then
 			warn "Bundle output directory '${bundle_dir}' doesn't exist -" \
 				'creating ...'
-			mkdir -p "${bundle_dir}" ||
+			sudo mkdir -p "${bundle_dir}" ||
 				die "mkdir() on '${bundle_dir}' failed: ${?}"
 		fi
 	else
@@ -1789,23 +1804,12 @@ esac
 			$( add_mount --dir --no-ro --print '/lib/modules/' '/host/...' )
 			$( add_mount --dir --no-ro --print '/boot' '/host/...' )
 		) || :
-		case "${arch:-"${ARCH:-}"}" in
-			arm64)
-				mkdir -p /boot/overlays
-				docker_extra_mounts+=( $( add_mount --dir --no-ro --print \
-					'/boot/overlays/' \
-					'/host/boot/dtbs'
-				) ) || :
-		esac
 	fi
 
 	declare -i rc=0
-	if [[ -s /etc/containers/storage.conf ]] &&
-			graphroot="$( # <- Syntax
-				sed 's/#.*$//' /etc/containers/storage.conf |
-					grep -m 1 -- '^graphroot' |
-					cut -d'"' -f 2
-			)" && [[ -d "${graphroot:-}" ]]
+	declare graphroot=''
+	if graphroot="$( docker info | grep 'graphRoot:' | sed 's/^.*: //' )" &&
+			[[ -d "${graphroot}" ]]
 	then
 		if (( $( # <- Syntax
 					df -BM --output=avail "${graphroot}" |
@@ -1820,9 +1824,9 @@ esac
 			rc=1
 		fi
 	else
-		error 'Cannot determine graph root directory from' \
-			"'/etc/containers/storage.conf'" || :
+		error 'Cannot determine graph root directory'
 	fi
+	unset graphroot
 	if [[ -n "${TMPDIR:-}" ]]; then
 		if ! [[ -d "${TMPDIR}" ]]; then
 			die "Temporary directory '${TMPDIR}' (from variable 'TMPDIR')" \
@@ -1912,11 +1916,29 @@ esac
 	modargs="${container_LLVM:+"LLVM=1 LLVM_IAS=1"}"
 	RUST_VERBOSE=''
 	RUSTFLAGS="$( # <- Syntax
-		emerge --info 2>&1 | grep -- '^RUSTFLAGS=' | cut -d'"' -f 2
-	)"
+		if type -pf emerge >/dev/null 2>&1; then
+			emerge --info 2>&1 | grep -- '^RUSTFLAGS=' | cut -d'"' -f 2
+		elif type -pf jq >/dev/null 2>&1; then
+			docker inspect localhost/gentoo-env:latest |
+				jq -M '.[].Config.Env[]' |
+				grep '^"RUSTFLAGS=' |
+				sed 's/^[^=]\+=// ; s/"$//'
+		else
+			false
+		fi
+	)" || RUSTFLAGS='-C target-cpu=native -C strip=debuginfo -C opt-level=3 -C link-arg=-Wl,-O1 -C link-arg=-Wl,--as-needed'
 	_LLVM_RUSTC_LTO="$( # <- Syntax
-		emerge --info 2>&1 | grep -- '^_LLVM_RUSTC_LTO=' | cut -d'"' -f 2
-	)"
+		if type -pf emerge >/dev/null 2>&1; then
+			emerge --info 2>&1 | grep -- '^_LLVM_RUSTC_LTO=' | cut -d'"' -f 2
+		elif type -pf jq >/dev/null 2>&1; then
+			docker inspect localhost/gentoo-env:latest |
+				jq -M '.[].Config.Env[]' |
+				grep '^"_LLVM_RUSTC_LTO=' |
+				sed 's/^[^=]\+=// ; s/"$//'
+		else
+			false
+		fi
+	)" || _LLVM_RUSTC_LTO='-Clinker=clang -Clink-arg=-fuse-ld=lld -Clinker-plugin-lto'
 
 	# 'bindgen's output being incorrectly processed was fixed in (at least)
 	# linux-6.1.53 & linux-6.5.4 - but as-of early 2024 the oldest in-tree
