@@ -877,11 +877,11 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 					;;
 			esac
 			[[ -n "${ARCH:-}" ]] || ARCH="${arch}"
-			. /etc/portage/make.conf 2>&1
+			. /etc/portage/make.conf 2>/dev/null
 			set |
 				grep -F -- 'FLAGS=' |
 				sed 's|^[A-Z]\+=|\L&| ; s|$|;|' |
-				grep -E -- '^c(xx)?flags='
+				grep -E -- '^(c(xx|pp)?|f[fcl]|ld|rust)flags='
 		)"
 	fi
 	[[ -n "${cflags:-}" ]] || cflags='-O2 -pipe'
