@@ -46,9 +46,12 @@
 #         increase in memory required between gcc-11 and gcc-12 :(
 #         dev-python/pypy3_10-exe-7.3.12_p2 OOMs with 2GB reservation/8GB limit
 #         but appears to succeed with 10GB limit.
+# Update: 12GB isn't enough for gcc-14 with LTO on some architectures (Nvidia
+#         Grave/GH200 on ARM, for example), which seem to fail up to 28GB
+#         allocation but work with 30GB(!)
 #
 : "${PODMAN_MEMORY_RESERVATION:="2g"}"
-: "${PODMAN_MEMORY_LIMIT:="12g"}"
+: "${PODMAN_MEMORY_LIMIT:="30g"}"
 : "${PODMAN_SWAP_LIMIT:="${PODMAN_MEMORY_LIMIT}"}"
 
 _command='docker'

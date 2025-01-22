@@ -288,18 +288,29 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				use_cpu_arch='arm'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 sm4 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2'
 				# Requires GCC11+, clang14+
-				#gcc_target_opts='-march=armv8.4-a+crypto+rcpc+sha3+sm4+sve+rng+i8mm+bf16+nodotprod -mcpu=neoverse-v1'
 				gcc_target_opts='-march=zeus+crypto+sha3+sm4+nodotprod+noprofile+nossbs -mcpu=zeus'
 				rust_target_opts='-C target-cpu=neoverse-v1' ;;
 			*': 0xd4f'|'AWS Graviton 4'*)
 				use_cpu_arch='arm'
-				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2' # v9
 				# Requires GCC13+, clang16+
-				# GCC-12.2.0 (Debian 12 default):
-				#gcc_target_opts='-march=armv9-a -mcpu=demeter+crypto+rcpc+sve2-aes+sve2-sha3+noprofile+nomemtag+nossbs+nopredres -mtune=demeter'
-				# GCC-13.3.1:
-				gcc_target_opts='-mcpu=neoverse-v2+crc+sve2-aes+sve2-sha3+nossbs'
-				rust_target_opts='-C target-cpu=neoverse-v2' ;;
+				rust_target_opts='-C target-cpu=neoverse-v2'
+
+				# We're at the limit of the data we can get from /proc/cpuinfo,
+				# so let's see whether this is enough of a differentiator
+				# before having to parse the output of 'lscpu'...
+				case "$( grep 'CPU revision' /proc/cpuinfo | sort | uniq | cut -d':' -f 2 | awk '{print $1}' )" in
+					'0')
+						# GH200 (via qemu):
+						gcc_target_opts='-mcpu=neoverse-v2+crypto+sve2-sm4+sve2-aes+sve2-sha3+norng+nomemtag+nopredres'
+						use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 sm4 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2' # v9
+						;;
+					'1')
+						# AWS Graviton 4:
+						gcc_target_opts='-mcpu=neoverse-v2+crc+sve2-aes+sve2-sha3+nossbs'
+						use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2' # v9
+						;;
+				esac
+				;;
 			*)
 				description="$( # <- Syntax
 					echo "${description}" |
