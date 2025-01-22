@@ -1149,11 +1149,20 @@ if set | grep -q -- '=__[A-Z]\+__$'; then
 	)"
 fi
 
+# Loading the environment file only replicates the contents of
+# /etc/portage/make.conf, but in a way which can't then easily be overridden as
+# the values are injected into the environment at this point, replacing any
+# previous environment variable values - and environment variables have the
+# highest level of priority.  Since we are (now?) making make.conf available,
+# there doesn't seem to be an enormous benefit to injecting these values here,
+# especially since build containers aren't persistent.
+#
 # shellcheck disable=SC2015,SC1091,SC1090
-[ -s "${environment_file}" ] &&
+if [ -s "${environment_file}" ] && ! [ -s /etc/portage/make.conf ]; then
 	. "${environment_file}" ||
 		die "gentoo-build:entrypoint.sh Unable to source" \
 			"'${environment_file}': ${?}"
+fi
 
 # shellcheck disable=SC1091
 [ -s /etc/profile ] && . /etc/profile
@@ -1620,6 +1629,7 @@ echo
 echo "${info}" | format 'FEATURES'
 echo "${info}" | format 'ACCEPT_LICENSE'
 echo "${info}" | format 'ACCEPT_KEYWORDS'
+echo "${info}" | format 'INSTALL_MASK'
 echo "${info}" | format 'USE'
 echo "MAKEOPTS            = $( # <- Syntax
 	echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-

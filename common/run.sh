@@ -1036,11 +1036,16 @@ _docker_run() {
 	#inherit ACCEPT_KEYWORDS ACCEPT_LICENSE DEBUG DEV_MODE DOCKER_CMD_VARS \
 	#	DOCKER_DEVICES DOCKER_ENTRYPOINT DOCKER_EXTRA_MOUNTS \
 	#	DOCKER_HOSTNAME DOCKER_INTERACTIVE DOCKER_PRIVILEGED \
-	#	DOCKER_VOLUMES ECLASS_OVERRIDE EMERGE_OPTS FEATURES \
+	#	DOCKER_VOLUMES ECLASS_OVERRIDE EMERGE_OPTS FEATURES INSTALL_MASK \
 	#	PYTHON_SINGLE_TARGET PYTHON_TARGETS ROOT TERM TRACE USE
 	#inherit ARCH PKGDIR_OVERRIDE PKGDIR
 	#inherit DOCKER_VERBOSE DOCKER_CMD
 	#inherit image IMAGE
+
+	print "_docker_run() called from '$( # <- Syntax
+			printf '%s() <- ' "${FUNCNAME[@]}" |
+				sed 's/ <- $//'
+		)'"
 
 	local dr_rm='' dr_id=''
 	local -i rc=0
@@ -1253,6 +1258,7 @@ _docker_run() {
 		  $( add_arg ECLASS_OVERRIDE --env %% )
 		  $( add_arg EMERGE_OPTS --env %% )
 		  $( add_arg FEATURES --env %% )
+		  $( add_arg INSTALL_MASK --env %% )
 		  $( add_arg ROOT --env %% --env SYS%% --env PORTAGE_CONFIG%% )
 		  $( add_arg TERM --env %% )
 		  $( add_arg TRACE --env %% )
