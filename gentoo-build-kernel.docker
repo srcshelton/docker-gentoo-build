@@ -38,7 +38,8 @@ declare -ir temp_space_required=2800
 declare -ir graph_space_required=8500
 
 declare package_default='sys-kernel/gentoo-sources'
-if grep -q -- 'Model.*Raspberry Pi' /proc/cpuinfo; then
+if [ -n "${rpi_model:-}" ] || grep -q -- 'Model.*Raspberry Pi' /proc/cpuinfo
+then
 	package_default='sys-kernel/raspberrypi-sources'
 fi
 readonly package_default
@@ -197,6 +198,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 "       --no-install             Don't install build-products to /boot"
 	output >&2 '       --bundle                 Generate tar output in /usr/src rather than'
 	output >&2 '                                installing the new kernel (implies --no-install)'
+	output >&2 '       --initramfs              Also build kernel ramdisk'
 	output >&2
 	output >&2 "Running on architecture '${arch:-"${ARCH:-}"}'"
 	output >&2
@@ -206,6 +208,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 fi
 
 declare _output=''
+# shellcheck disable=SC2154
 if ! [[ -x "$( type -pf "${_command}" )" ]]; then
 	die "Cannot locate binary '${_command}'"
 elif ! _output="$( "${_command}" info 2>&1 )"; then
@@ -230,6 +233,7 @@ declare -i bundle=0
 declare -i clean=0
 declare -i clean_lto=0
 declare -i force=0
+declare -i initramfs=0
 declare -i install=1
 declare -i llvm_slot=0
 declare -i llvm_slot_override=0
@@ -547,6 +551,10 @@ if echo " ${*:-} " | grep -Eq -- ' --bundle[= ]'; then
 	install=0
 fi
 
+if echo " ${*:-} " | grep -Fq -- ' --initramfs '; then
+	initramfs=1
+fi
+
 if echo " ${*:-} " | grep -Fq -- ' --no-install '; then
 	install=0
 elif echo " ${*:-} " | grep -Fq -- ' --install '; then
@@ -746,9 +754,16 @@ if echo " ${*:-} " | grep -q -- ' --patch'; then
 fi
 if (( intel_patch )); then
 	declare clear_commit='' clear_patch=''
+	# FIXME: Something's changed/broken here, and startswith() is complaining
+	# that it only accepts string inputs... but then with the addition of
+	# 'tostring', it's returning the matching result plus many afterwards!?
+	#
 	clear_commit="$( # <- Syntax
 		curl -fLSs 'https://api.github.com/repos/clearlinux-pkgs/linux/tags' |
-			jq -r "map_values(select(.name | startswith(\"${package_version%-r*}\")))[].commit.sha" |
+			jq -r "map_values(select(.name | startswith(\"${package_version%-r*}\")))[].commit.sha" 2>/dev/null |
+			head -n 1 ||
+		curl -fLSs 'https://api.github.com/repos/clearlinux-pkgs/linux/tags' |
+			jq -r "map_values(select(.name | tostring | startswith(\"${package_version%-r*}\")))[].commit.sha" 2>/dev/null |
 			head -n 1
 	)"
 	if [[ -z "${clear_commit:-}" ]]; then
@@ -1087,11 +1102,15 @@ fi
 unset build_version
 if [[ "${keep_build:-}" = '1' ]]; then
 	info >&2 "Using build directory '${build_dir}' ..."
-	sudo mkdir -p "${build_dir}" || die "mkdir() on '${build_dir}' failed: ${?}"
+	sudo mkdir -p "${build_dir}" ||
+		die "mkdir() on '${build_dir}' failed: ${?}"
 	if ! [[ -w "${build_dir}"/. ]]; then
 		warn >&2 "Adding write permission for '$( id -nu )' to" \
 			"'${build_dir}' ..."
-		sudo chown "$( id -u )" ${build_dir} || die "chown on '${build_dir}' failed: ${?}"
+		sudo chown "$( id -u )" "${build_dir}" ||
+			die "chown on '${build_dir}' failed: ${?}"
+		sudo chmod u+w "${build_dir}" ||
+			die "chmod on '${build_dir}' failed: ${?}"
 	fi
 fi
 
@@ -1241,7 +1260,7 @@ fi
 # even when we are primarily using clang/LLVM...
 #
 # shellcheck disable=SC2154
-compiler_USE+="-fortran -lib-only ${use_essential_gcc}"
+compiler_USE+=" -fortran -lib-only ${use_essential_gcc}"
 case "${compiler}" in
 	gcc)
 		compiler_pkgs=(
@@ -1600,6 +1619,15 @@ esac
 				post_use="${post_use:+"${post_use} "}http2"
 			fi
 
+			if (( initramfs )); then
+				#pre_remove="${pre_remove:+"${pre_remove} "}sys-fs/eudev"
+
+				# Prevent cryptsetup -> tmpfiles -> systemd -> cryptsetup
+				# circular-dependency...
+				pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}sys-apps/kmod sys-apps/systemd sys-fs/cryptsetup virtual/libudev virtual/udev"
+				pre_use="$( replace_flags '-cryptsetup' '-lvm' 'systemd' '-tmpfiles' 'udev' -- "${pre_use:-}" )"
+			fi
+
 			# shellcheck disable=SC2206
 			declare -a pkgs=( # <- Syntax
 				${compiler_pkgs[@]:-}
@@ -1618,6 +1646,23 @@ esac
 				sys-process/time
 				${microcode:-}
 				${firmware:-}
+
+				$( # <- Syntax
+					if (( initramfs )); then
+						cat <<-EOS
+							net-nds/rpcbind
+							net-wireless/bluez
+							sys-fs/lvm2
+							sys-fs/cryptsetup
+							sys-kernel/dracut
+							sys-libs/libcap
+							sys-apps/kmod
+							sys-apps/systemd
+							virtual/libudev
+							virtual/udev
+						EOS
+					fi
+				)
 
 				# N.B. virtual/rust is now deprecated
 				#${rustext:+"${rust_ver:+">="}virtual/rust${rust_ver:+"-${rust_ver}"}"}
@@ -1638,7 +1683,14 @@ esac
 				virtual/linux-sources
 			)
 			declare -a _docker_run_arguments=( # <- Syntax
-				--with-use="$( replace_flags '-lib-only' -- "${USE:-}" )"
+				--with-use="$( # <- Syntax
+					if (( initramfs )); then
+						replace_flags '-lib-only' 'cryptsetup' '-lvm' 'systemd' \
+							'tmpfiles' 'udev' 'warmstarts' -- "${USE:-}"
+					else
+						replace_flags '-lib-only' -- "${USE:-}"
+					fi
+				)"
 
 				# N.B. virtual/rust is now deprecated
 				#${rustext:+"--with-pkg-mask=>virtual/rust${rust_ver:+"-${rust_ver}"}"}
@@ -1704,6 +1756,65 @@ esac
 			export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 			print "Build 'DOCKER_EXTRA_MOUNTS' is '${DOCKER_EXTRA_MOUNTS}'"
 
+			if (( initramfs )); then
+				export DOCKER_PRIVILEGED='--privileged'
+				INSTALL_MASK="$( # <- Syntax
+					if type -pf emerge >/dev/null 2>&1; then
+						emerge --info 2>&1 | grep -- '^INSTALL_MASK=' | cut -d'"' -f 2
+					elif type -pf jq >/dev/null 2>&1; then
+						docker inspect localhost/gentoo-env:latest |
+							jq -M '.[].Config.Env[]' |
+							grep '^"INSTALL_MASK=' |
+							sed 's/^[^=]\+=// ; s/"$//'
+					else
+						false
+					fi
+				)" || INSTALL_MASK=''
+				declare oINSTALL_MASK="${INSTALL_MASK}"
+				INSTALL_MASK="$( # <- Syntax
+					echo "${INSTALL_MASK}" |
+						xargs -rn 1 |
+						grep -v -e 'systemd' -e 'tmpfiles' -e 'sysusers' |
+						xargs -r
+				)"
+				export INSTALL_MASK
+
+				if [[ "${oINSTALL_MASK}" != "${INSTALL_MASK}" ]]; then
+					warn "Updating 'INSTALL_MASK' due to sys-apps/systemd" \
+						"installation"
+					if type -pf git >/dev/null 2>&1; then
+						declare ofile='' file=''
+						ofile="$( mktemp --tmpdir "${0}.XXXXXXXX" )" ||
+							die "mktemp() failed: ${?}"
+						file="$( mktemp --tmpdir "${0}.XXXXXXXX" )" ||
+							die "mktemp() failed: ${?}"
+						[[ -e "${ofile}" && -e "${file}" ]] ||
+							die "Temporary file '${ofile}' or '${file}' has" \
+								"not been created"
+						echo "${oINSTALL_MASK}" > "${ofile}"
+						echo "${INSTALL_MASK}" > "${file}"
+						[[ -s "${ofile}" && -s "${file}" ]] ||
+							die "Temporary file '${ofile}' or '${file}' has" \
+								"not been written"
+						warn "'INSTALL_MASK' now contains:"
+						git diff --no-index --word-diff --color=always \
+								"${ofile}" "${file}" |
+							tail -n +6 |
+							fold -s -w $(( COLUMNS - 6 )) |
+							sed 's/^/       /' >&2 || :
+						rm "${ofile}" "${file}"
+						[[ -e "${ofile}" || -e "${file}" ]] &&
+							die "Temporary file '${ofile}' or '${file}' has" \
+								"not been deleted"
+						unset file ofile oINSTALL_MASK
+					else
+						diff -u \
+							<( echo "${oINSTALL_MASK}" ) \
+							<( echo "${INSTALL_MASK}" )
+					fi
+				fi
+			fi
+
 			# shellcheck disable=SC2086,SC2154
 			time {
 				_docker_run \
@@ -1714,7 +1825,7 @@ esac
 				output " -> ${?}"
 			}
 
-			unset DOCKER_EXTRA_MOUNTS
+			unset INSTALL_MASK DOCKER_PRIVILEGED DOCKER_EXTRA_MOUNTS
 
 			# It would be nice if we could squash the image layers here to
 			# produce a unified image in response to 'commit', but without an
@@ -1734,7 +1845,7 @@ esac
 			rc=0
 			time {
 				trap '' INT
-				{
+				(
 					if ! command -v buildah >/dev/null 2>&1; then
 						# shellcheck disable=SC2046
 						$_command $( # <- Syntax
@@ -1749,7 +1860,7 @@ esac
 								container commit \
 									"${name}" \
 									"${image_name}:${package_version}" 2>&1
-						rc=${?}
+						exit ${?}
 					else
 						# shellcheck disable=SC2046
 						buildah $( # <- Syntax
@@ -1759,9 +1870,10 @@ esac
 										--squash \
 									"${name}" \
 									"${image_name}:${package_version}" 2>&1
-						rc=${?}
+						exit ${?}
 					fi
-				} | tee -a "log/docker.${log_name}.log"
+				) | tee -a "log/docker.${log_name}.log"
+				rc=${?}
 				output " -> ${rc}"
 				$_command container rm --volumes "${name}" 2>&1 |
 					tee -a "log/docker.${log_name}.log"
@@ -1798,6 +1910,14 @@ esac
 				'creating ...'
 			sudo mkdir -p "${bundle_dir}" ||
 				die "mkdir() on '${bundle_dir}' failed: ${?}"
+		fi
+		if ! [[ -w "${bundle_dir}"/. ]]; then
+			warn >&2 "Adding write permission for '$( id -nu )' to" \
+				"'${bundle_dir}' ..."
+			sudo chown "$( id -u )" "${bundle_dir}" ||
+				die "chown on '${bundle_dir}' failed: ${?}"
+			sudo chmod u+w "${bundle_dir}" ||
+				die "chmod on '${bundle_dir}' failed: ${?}"
 		fi
 	else
 		docker_extra_mounts+=( # <- Syntax
@@ -2138,14 +2258,18 @@ esac
 			'arm64')
 				kernel='Image.gz' ;
 				dir='arm64' ;
-				echo "NOTE:  Will build devicetree files for ARM64 platforms ..." ;
-				dtb='1' ;
+				if [ -n '${rpi_model:-}' ]; then
+					echo "NOTE:  Will build devicetree files for Raspberry Pi ARM64 platforms ..." ;
+					dtb='1' ;
+				fi;
 				;;
 			'arm'*)
 				kernel='Image.gz' ;
 				dir='arm' ;
-				echo "NOTE:  Will build devicetree files for ARM platforms ..." ;
-				dtb='1' ;
+				if [ -n '${rpi_model:-}' ]; then
+					echo "NOTE:  Will build devicetree files for Raspberry Pi ARM platforms ..." ;
+					dtb='1' ;
+				fi;
 				;;
 		esac ;
 		${container_CC} --version ;
@@ -2259,7 +2383,7 @@ esac
 			localversion="LOCALVERSION=_\$( echo '${package_version#*_}' | cut -d'_' -f 2- )" ;
 			if [ -f ../build/.config ]; then
 				if ! grep -qm 1 -- '^CONFIG_LOCALVERSION=""$' ../build/.config; then
-					echo "WARN:  \$(
+					echo >&2 "WARN:  \$(
 						grep -qm 1 -- '^CONFIG_LOCALVERSION=' ../build/.config ;
 					) is already set, package version '\${localversion}' will be appended to this text" ;
 				fi ;
@@ -2298,16 +2422,19 @@ esac
 		if [ "\${success}" = '0' ]; then
 			exit 1 ;
 		fi ;
+		if [ '${initramfs}' = '1' ]; then
+			dracut "/boot/initramfs.img-\${kernel_version}" "\${kernel_version}"
+		fi ;
 		if [ -s /host/boot/boot.config ]; then
 			cp /host/boot/boot.config /boot/boot.config ;
 		fi ;
-		if [ -s /boot/boot.config -o -s /proc/bootconfig ] && [ -e /boot/initramfs.img ]; then
+		if [ -s /boot/boot.config -o -s /proc/bootconfig ] && [ -e "/boot/initramfs.img-\${kernel_version}" ]; then
 			if make ${kernel_make_opts[@]} O=../build -C tools/bootconfig; then
 				make ${kernel_make_opts[@]} O=../build bindir='/usr/local/sbin' -C tools/bootconfig install ;
 				if [ -s /boot/boot.config ]; then
-					/usr/local/sbin/bootconfig -a /boot/boot.config /boot/initramfs.img ;
+					/usr/local/sbin/bootconfig -a /boot/boot.config "/boot/initramfs.img-\${kernel_version}" ;
 				else
-					/usr/local/sbin/bootconfig -a /proc/bootconfig /boot/initramfs.img ;
+					/usr/local/sbin/bootconfig -a /proc/bootconfig "/boot/initramfs.img-\${kernel_version}" ;
 				fi ;
 			else
 				echo >&2 "WARN:  'make -C tools/bootconfig' failed: \${?}" ;
@@ -2340,34 +2467,40 @@ esac
 			cp -v ../build/System.map "/boot/System.map-\${kernel_version}" ;
 			cp -v ../build/arch/\${dir}/boot/\${kernel} "/boot/kernel-\${kernel_version}" ;
 		else
-			mkdir -pv "/boot/\${kernel_version}" ;
-			cp -v ../build/.config "/boot/\${kernel_version}/config" ;
-			cp -v ../build/System.map "/boot/\${kernel_version}/System.map" ;
-			cp -v ../build/arch/\${dir}/boot/\${kernel} "/boot/\${kernel_version}/kernel8.img" ;
-			if [ -d "/boot/dtbs/\${kernel_version}/broadcom" ]; then
-				mv -v "/boot/dtbs/\${kernel_version}/broadcom"/*.dtb "/boot/\${kernel_version}/" ;
-				if ! rmdir -v "/boot/dtbs/\${kernel_version}/broadcom" ; then
-					echo >&2 "ERROR: Failed to remove "/boot/dtbs/\${kernel_version}/broadcom": \${?}" ;
-					: echo >&2 "       Directory content:" ;
-					: ls -1AR "/boot/dtbs/\${kernel_version}/broadcom" ;
-					echo >&2 "       Is CONFIG_LOCALVERSION correctly set?" ;
-					exit 1 ;
+			if [ -z '${rpi_model:-}' ]; then
+				cp -v ../build/.config "/boot/config-\${kernel_version}" ;
+				cp -v ../build/System.map "/boot/System.map-\${kernel_version}" ;
+				cp -v ../build/arch/\${dir}/boot/\${kernel} "/boot/kernel-\${kernel_version}" ;
+			else
+				mkdir -pv "/boot/\${kernel_version}" ;
+				cp -v ../build/.config "/boot/\${kernel_version}/config" ;
+				cp -v ../build/System.map "/boot/\${kernel_version}/System.map" ;
+				cp -v ../build/arch/\${dir}/boot/\${kernel} "/boot/\${kernel_version}/kernel8.img" ;
+				if [ -d "/boot/dtbs/\${kernel_version}/broadcom" ]; then
+					mv -v "/boot/dtbs/\${kernel_version}/broadcom"/*.dtb "/boot/\${kernel_version}/" ;
+					if ! rmdir -v "/boot/dtbs/\${kernel_version}/broadcom" ; then
+						echo >&2 "ERROR: Failed to remove "/boot/dtbs/\${kernel_version}/broadcom": \${?}" ;
+						: echo >&2 "       Directory content:" ;
+						: ls -1AR "/boot/dtbs/\${kernel_version}/broadcom" >&2 ;
+						echo >&2 "       Is CONFIG_LOCALVERSION correctly set?" ;
+						exit 1 ;
+					fi ;
 				fi ;
-			fi ;
-			if [ -d "/boot/dtbs/\${kernel_version}/overlays" ]; then
-				mv -v "/boot/dtbs/\${kernel_version}/overlays" "/boot/\${kernel_version}/" ;
-				touch "/boot/\${kernel_version}/overlays/README" ;
-			fi ;
-			if [ -d /boot/dtbs ]; then
-				if ! rmdir -v "/boot/dtbs/\${kernel_version}" /boot/dtbs ; then
-					echo >&2 "ERROR: Failed to remove "/boot/dtbs/\${kernel_version}" or "/boot/dtbs": \${?}" ;
-					: echo >&2 "       Directory content:" ;
-					: ls -1AR "/boot/dtbs/" ;
-					echo >&2 "       Is CONFIG_LOCALVERSION correctly set?" ;
-					exit 1 ;
+				if [ -d "/boot/dtbs/\${kernel_version}/overlays" ]; then
+					mv -v "/boot/dtbs/\${kernel_version}/overlays" "/boot/\${kernel_version}/" ;
+					touch "/boot/\${kernel_version}/overlays/README" ;
 				fi ;
+				if [ -d /boot/dtbs ]; then
+					if ! rmdir -v "/boot/dtbs/\${kernel_version}" /boot/dtbs ; then
+						: echo >&2 "ERROR: Failed to remove "/boot/dtbs/\${kernel_version}" or "/boot/dtbs": \${?}" ;
+						: echo >&2 "       Directory content:" ;
+						ls -1AR "/boot/dtbs/" >&2 ;
+						echo >&2 "       Is CONFIG_LOCALVERSION correctly set?" ;
+						exit 1 ;
+					fi ;
+				fi ;
+				echo >&2 "NOTE:  Remember to set 'os_prefix = \${kernel_version}' in config.txt" ;
 			fi ;
-			echo >&2 "NOTE:  Remember to set 'os_prefix = \${kernel_version}' in config.txt" ;
 			if ! [ -d /host/bundle ]; then
 				echo >&2 "ERROR: Directory '${bundle_dir}' does not exist - cannot save bundle 'linux-\${kernel_version}.tar.xz'" ;
 			else
