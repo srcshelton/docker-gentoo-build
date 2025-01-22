@@ -135,7 +135,7 @@ declare arg=''
 
 declare cflags='' cxxflags=''
 
-if type -pf emerge >/dev/null 2>&1; then
+if type -fp emerge >/dev/null 2>&1; then
 	cflags="$( # <- Syntax
 			emerge --info 2>&1 |
 				grep -- '^CFLAGS=' |
@@ -617,8 +617,8 @@ case "${service:-}" in
 	xmrig)
 		service='net-misc/xmrig' ;;
 	zxtm)
-		type -pf curl || die "'curl' binary is required to build '${service}'"
-		type -pf jq || die "'jq' binary is required to build '${service}'"
+		type -fp curl >/dev/null 2>&1 || die "'curl' binary is required to build '${service}'"
+		type -fp jq >/dev/null 2>&1 || die "'jq' binary is required to build '${service}'"
 
 		# The Docker Registry API documenation describes a default page_size of
 		# 10 with a maximum of 1000 results, although a practical limit of 100
@@ -711,7 +711,7 @@ python_target='' etcdir=''
 # the container build environment is the same (... which is reasonable, unless
 # overridden, as they share a common portage tree and therefore base set of
 # python defaults).
-if type -pf portageq >/dev/null 2>&1; then
+if type -fp portageq >/dev/null 2>&1; then
 	python_target="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
 	case "${original_service:-}" in
 		php[0-9][0-9])
