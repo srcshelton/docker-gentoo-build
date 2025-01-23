@@ -1897,7 +1897,7 @@ esac
 				die "mkdir() on '${build_dir}' failed: ${?}"
 		fi
 		if [[ -e "${build_dir}"/.config ]]; then
-			deforoldconfig='oldconfig'
+			deforoldconfig="${defconfig:-"oldconfig"}"
 		fi
 	fi
 	if (( bundle )); then
@@ -1993,7 +1993,7 @@ esac
 	# directory cache...
 	#
 	if [[ -n "${config_file:-}" ]]; then
-		deforoldconfig='oldconfig'
+		deforoldconfig="${defconfig:-"oldconfig"}"
 		if
 			[[ "${keep_build:-}" != '1' ]] ||
 			[[ "${config_file}" != "${build_dir}/.config" ]]
