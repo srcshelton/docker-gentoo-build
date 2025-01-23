@@ -37,6 +37,7 @@
 #: "${PODMAN_MEMORY_LIMIT:="16g"}"
 #: "${PODMAN_SWAP_LIMIT:="20g"}"
 #
+: "${PODMAN_MEMORY_RESERVATION:="2g"}"
 # We don't want to put the system under undue memory-pressure, but at the same
 # time sys-devel/gcc and llvm-core/llvm no longer compile with 4GB RAM... so
 # let's see whether we can get away with 5GB?  Parallel builds may also require
@@ -49,9 +50,17 @@
 # Update: 12GB isn't enough for gcc-14 with LTO on some architectures (Nvidia
 #         Grave/GH200 on ARM, for example), which seem to fail up to 28GB
 #         allocation but work with 30GB(!)
-#
-: "${PODMAN_MEMORY_RESERVATION:="2g"}"
-: "${PODMAN_MEMORY_LIMIT:="30g"}"
+# Update: PODMAN_MEMORY_LIMIT needs to be a function of the number of cores
+#         available - building clang/llvm with LTO requires >64GB RAM (it
+#         finally worked at 94GB!) on a 64-core GH200(!!)
+#         With up to 8 cores a maximum of 8GB seemed to be enough, or 12GB if
+#         linking Linux with debug enabled...
+if (( nproc < 8 )); then
+	: "${PODMAN_MEMORY_LIMIT:="10g"}"
+else
+	# We can only do integer arithmetic!
+	: "${PODMAN_MEMORY_LIMIT:="$(( ( $( nproc ) * 3 ) / 2 ))"}"
+fi
 : "${PODMAN_SWAP_LIMIT:="${PODMAN_MEMORY_LIMIT}"}"
 
 _command='docker'
@@ -1380,6 +1389,8 @@ _docker_run() {
 				$( add_arg PODMAN_SWAP_LIMIT \
 					--memory-swap "${PODMAN_SWAP_LIMIT}" )
 			)
+			print "Using memory limits:" \
+				"${PODMAN_MEMORY_RESERVATION}/${PODMAN_MEMORY_LIMIT}/${PODMAN_SWAP_LIMIT}"
 		fi
 	fi
 	if [[ -z "${NO_BUILD_MOUNTS:-}" ]]; then
