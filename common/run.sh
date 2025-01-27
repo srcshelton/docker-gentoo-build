@@ -55,11 +55,11 @@
 #         finally worked at 94GB!) on a 64-core GH200(!!)
 #         With up to 8 cores a maximum of 8GB seemed to be enough, or 12GB if
 #         linking Linux with debug enabled...
-if (( nproc < 8 )); then
+if (( $( nproc ) < 8 )); then
 	: "${PODMAN_MEMORY_LIMIT:="10g"}"
 else
 	# We can only do integer arithmetic!
-	: "${PODMAN_MEMORY_LIMIT:="$(( ( $( nproc ) * 3 ) / 2 ))"}"
+	: "${PODMAN_MEMORY_LIMIT:="$(( ( $( nproc ) * 3 ) / 2 ))g"}"
 fi
 : "${PODMAN_SWAP_LIMIT:="${PODMAN_MEMORY_LIMIT}"}"
 
