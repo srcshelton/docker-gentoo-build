@@ -1620,7 +1620,7 @@ esac
 			fi
 
 			if (( initramfs )); then
-				#pre_remove="${pre_remove:+"${pre_remove} "}sys-fs/eudev"
+				pre_remove="${pre_remove:+"${pre_remove} "}sys-fs/eudev"
 
 				# Prevent cryptsetup -> tmpfiles -> systemd -> cryptsetup
 				# circular-dependency...
