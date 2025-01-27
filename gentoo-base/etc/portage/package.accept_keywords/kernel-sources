@@ -12,8 +12,10 @@
 ~sys-kernel/gentoo-sources-6.6.72			~amd64 ~arm ~arm64 ~x86
 
 # Clear Linux is up to date with linux-6.12.9
+# Clear Linux is up to date with linux-6.12.11
 ~sys-kernel/gentoo-sources-6.12.9			~amd64 ~arm ~arm64 ~x86
 ~sys-kernel/gentoo-sources-6.12.10			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.12.11			~amd64 ~arm ~arm64 ~x86
 
 # Latest is gentoo-sources-6.13.0
 ~sys-kernel/gentoo-sources-6.13.0			~amd64 ~arm ~arm64 ~x86
