@@ -1637,7 +1637,7 @@ for ithreads in 'ithreads' ''; do
 					rev |
 					cut -d'/' -f 2-3 |
 					rev |
-					sed 's/^/=/' |
+					sed 's/^/>=/' |
 					xargs -r
 			)
 	)
@@ -1784,7 +1784,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 						printf '%s ' "${object}"
 					fi
 				done
-			)dev-lang/perl "=$( # <- Syntax
+			)dev-lang/perl ">=$( # <- Syntax
 				ls /var/db/pkg/dev-lang/python-3* -1d |
 					cut -d'/' -f 5-6 |
 					sort -V |
@@ -2596,7 +2596,7 @@ if [ -n "${pkg_initial:-}" ]; then
 									rev |
 									cut -d'/' -f 2-3 |
 									rev |
-									sed 's/^/=/' |
+									sed 's/^/>=/' |
 									xargs -r
 							) \
 							${pkg} # || :
@@ -2811,7 +2811,7 @@ echo
 					rev |
 					cut -d'/' -f 2-3 |
 					rev |
-					sed 's/^/=/' |
+					sed 's/^/>=/' |
 					xargs -r
 			)
 
@@ -3499,7 +3499,7 @@ case "${1:-}" in
 											-name 'IUSE' \
 											-print0 |
 										grep -Flw -- "${arg}" |
-										sed 's|^.*/var/db/pkg/|=| ; s|/IUSE$||' |
+										sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||' |
 										xargs -r
 								)"
 								pkgs="$(
@@ -3517,7 +3517,7 @@ case "${1:-}" in
 									-maxdepth 1 \
 									-type d \
 									-print |
-								sed 's|^.*/var/db/pkg/|=| ; s|/$||'
+								sed 's|^.*/var/db/pkg/|>=| ; s|/$||'
 						)"
 						if
 									ROOT='/' \
@@ -3585,7 +3585,7 @@ case "${1:-}" in
 			rev |
 			cut -d'/' -f 1-2 |
 			rev |
-			sed 's/^/=/' |
+			sed 's/^/>=/' |
 			grep -v 'pypy3'
 		)
 		if [ -n "${*:-}" ]; then
