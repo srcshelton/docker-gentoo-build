@@ -157,6 +157,54 @@ elif ! docker image build --help | grep -Fq -- '--platform'; then
 		"podman-3.x or later)"
 fi
 
+if docker info | grep -qw -- 'crun'; then
+	declare crun_version=''
+
+	if type -pf jq >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1
+	then
+		if [[ "$( # <- Syntax
+			# shellcheck disable=SC2116
+			docker info |
+				python3 -c "$( echo 'import sys, yaml, json;' \
+					'print(json.dumps(yaml.safe_load(sys.stdin)))' )" |
+				jq -r '.host.ociRuntime.name'
+			)" == 'crun' ]]
+		then
+			crun_version="$(
+				# shellcheck disable=SC2116
+				docker info |
+					python3 -c "$( echo 'import sys, yaml, json;' \
+						'print(json.dumps(yaml.safe_load(sys.stdin)))' )" |
+					jq -r '.host.ociRuntime.version' |
+					grep '^crun version' |
+					awk '{print $3}'
+			)"
+		fi
+	else
+		crun_version="$(
+			docker info |
+				grep 'crun version' |
+				awk '{print $3}'
+		)"
+	fi
+
+	case "${crun_version:-}" in
+		'')
+			die "Cannot detect ociRuntime version"
+			;;
+		'0.'*)
+			die "crun versions prior to 1.0 are know to cause a variety of" \
+				"container-build failures - please install a binary from" \
+				"https://github.com/containers/crun/releases and try again"
+			;;
+		*)
+			print "crun version '${crun_version}' validates"
+			;;
+	esac
+
+	unset crun_version
+fi
+
 # N.B. Image names, not file names...
 #
 if [[ -z "${env_name:-}" ]] ||
@@ -1705,7 +1753,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	else
 		buildah "${container_args[@]}" commit \
 					--squash \
-				"${build_name#*"/"}" "${build_name}:latest" |
+				"${build_name#*"/"}" "${build_name}-finalise:latest" |
 			tee -a ../log/"docker.${build_name#*"/"}.log"
 	fi
 	# shellcheck disable=SC2031,SC2086,SC2140
@@ -1749,7 +1797,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	else
 		buildah "${container_args[@]}" commit \
 					--squash \
-				"${build_name#*"/"}" "${build_name}:latest" |
+				"${build_name#*"/"}-finalise" "${build_name}:latest" |
 			tee -a ../log/"docker.${build_name#*"/"}.log"
 	fi
 	# shellcheck disable=SC2031,SC2086,SC2140
