@@ -124,6 +124,8 @@
 #~app-containers/podman-5.3.0				 **
 #~app-containers/podman-5.3.1				 **
 ~app-containers/podman-5.3.2				 **
+#~app-containers/podman-5.4.0_rc1			 **
+#~app-containers/podman-5.4.0_rc2			 **
 
 #~app-containers/podman-tui-0.14.0			 **
 #~app-containers/podman-tui-0.17.0			 **
@@ -198,6 +200,7 @@
 #~app-containers/buildah-1.27.3				 **
 #~app-containers/buildah-1.27.4				 **
 #~app-containers/buildah-1.27.5				 **
+#~app-containers/buildah-1.27.6				 **
 #~app-containers/buildah-1.28.0				 **
 #~app-containers/buildah-1.28.1				 **
 #~app-containers/buildah-1.28.2				 **
@@ -626,9 +629,11 @@
 #~app-containers/containers-storage-1.54.0		 **
 #~app-containers/containers-storage-1.55.0		 **
 #~app-containers/containers-storage-1.55.1		 **
-~app-containers/containers-storage-1.55.2		 **
+#~app-containers/containers-storage-1.55.2		 **
 #~app-containers/containers-storage-1.56.0		 **
 ~app-containers/containers-storage-1.56.1		 **
+#~app-containers/containers-storage-1.57.0		 **
+~app-containers/containers-storage-1.57.1		 **
 
 # rust build dependencies for netavark/aardvark-dns
 #=dev-util/cargo-ebuild-0.5.1				~amd64
