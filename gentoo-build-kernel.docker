@@ -753,19 +753,32 @@ if echo " ${*:-} " | grep -q -- ' --patch'; then
 	fi
 fi
 if (( intel_patch )); then
-	declare clear_commit='' clear_patch=''
+	declare clear_commit='' response='' clear_patch=''
+	declare -i page=1 done=0
 	# FIXME: Something's changed/broken here, and startswith() is complaining
 	# that it only accepts string inputs... but then with the addition of
 	# 'tostring', it's returning the matching result plus many afterwards!?
 	#
-	clear_commit="$( # <- Syntax
-		curl -fLSs 'https://api.github.com/repos/clearlinux-pkgs/linux/tags' |
-			jq -r "map_values(select(.name | startswith(\"${package_version%-r*}\")))[].commit.sha" 2>/dev/null |
-			head -n 1 ||
-		curl -fLSs 'https://api.github.com/repos/clearlinux-pkgs/linux/tags' |
-			jq -r "map_values(select(.name | tostring | startswith(\"${package_version%-r*}\")))[].commit.sha" 2>/dev/null |
-			head -n 1
-	)"
+	until (( done )); do
+		print "Checking Clear Linux tags page ${page} ..."
+		response="$( curl -fLSs "https://api.github.com/repos/clearlinux-pkgs/linux/tags?page=${page}" )"
+		if [[ -z "$( jq -r '.[]' <<<"${response:-}" )" ]]; then
+			# We're out of pages to check...
+			done=1
+		else
+			clear_commit="$( # <- Syntax
+				jq -r "map_values(select(.name | startswith(\"${package_version%-r*}\")))[].commit.sha" 2>/dev/null <<<"${response:-}" |
+				head -n 1 ||
+				jq -r "map_values(select(.name | tostring | startswith(\"${package_version%-r*}\")))[].commit.sha" 2>/dev/null <<<"${response:-}"|
+				head -n 1
+			)"
+			if [[ -n "${clear_commit:-}" ]]; then
+				done=1
+			else
+				(( page ++ ))
+			fi
+		fi
+	done
 	if [[ -z "${clear_commit:-}" ]]; then
 		error "Intel Clear Linux has no patches for kernel" \
 			"${package_version%-r*}"
@@ -789,7 +802,7 @@ if (( intel_patch )); then
 				grep -v '0133-novector.patch'
 		)
 	fi
-	unset clear_patch clear_commit
+	unset page clear_patch response clear_commit
 fi
 if [[ -n "${kpatch:-}" ]]; then
 	patch="${kpatch}${patch:+" ${patch}"}"
