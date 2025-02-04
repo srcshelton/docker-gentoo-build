@@ -252,15 +252,15 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				rpi_model='rpi400' ;;
 			*': Raspberry Pi 5 '*)
 				use_cpu_arch='arm'
-				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='-mcpu=cortex-a72+aes+crc+crypto'
-				rust_target_opts='-C target-cpu=cortex-a72'
+				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
+				gcc_target_opts='cortex-a76+crc+crypto'
+				rust_target_opts='-C target-cpu=cortex-a76'
 				rpi_model='rpi5' ;;
 			*': Raspberry Pi 500 '*)
 				use_cpu_arch='arm'
-				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='-mcpu=cortex-a72+aes+crc+crypto'
-				rust_target_opts='-C target-cpu=cortex-a72'
+				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
+				gcc_target_opts='cortex-a76+crc+crypto'
+				rust_target_opts='-C target-cpu=cortex-a76'
 				rpi_model='rpi500' ;;
 
 			*': Mixtile Blade 3'|*': Rockchip RK3588')
