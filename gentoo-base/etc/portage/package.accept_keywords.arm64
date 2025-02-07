@@ -181,6 +181,7 @@
 ~net-analyzer/darkstat-3.0.721				 **
 ~net-dns/bind-9.18.29					~arm64
 ~net-dns/bind-tools-9.18.0				~arm64
+~net-misc/autossh-1.4g					~arm64
 ~net-misc/linuxptp-4.2					~arm64
 ~net-misc/usbip-6.4					 **
 =sci-libs/blis-1.0					~arm64
