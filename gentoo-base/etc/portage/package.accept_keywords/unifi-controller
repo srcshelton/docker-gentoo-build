@@ -1,4 +1,5 @@
 
+#							~amd64 ~arm ~arm64 ~x86
 ~net-misc/unifi-controller-bin-6.0.45			~amd64
 
 # Release 6.x after 6.0 have a less-functional UI divided into 'old' and 'new'

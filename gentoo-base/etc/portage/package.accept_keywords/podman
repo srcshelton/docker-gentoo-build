@@ -1,4 +1,6 @@
 
+#							~amd64 ~arm ~arm64 ~x86
+
 # move app-emulation/podman app-containers/podman
 #~app-containers/podman-2.0.6				 **
 #~app-containers/podman-2.1.0				 **
@@ -126,6 +128,7 @@
 ~app-containers/podman-5.3.2				 **
 #~app-containers/podman-5.4.0_rc1			 **
 #~app-containers/podman-5.4.0_rc2			 **
+#~app-containers/podman-5.4.0_rc3			 **
 
 #~app-containers/podman-tui-0.14.0			 **
 #~app-containers/podman-tui-0.17.0			 **
@@ -209,6 +212,7 @@
 #~app-containers/buildah-1.29.2				 **
 #~app-containers/buildah-1.29.3				 **
 #~app-containers/buildah-1.29.4				 **
+#~app-containers/buildah-1.29.5				 **
 #~app-containers/buildah-1.30.0				 **
 #~app-containers/buildah-1.31.0				 **
 #~app-containers/buildah-1.31.1				 **
@@ -248,9 +252,10 @@
 #~app-containers/buildah-1.37.3				 **
 #~app-containers/buildah-1.37.4				 **
 #~app-containers/buildah-1.37.5				 **
-~app-containers/buildah-1.37.6				 **
+#~app-containers/buildah-1.37.6				 **
 #~app-containers/buildah-1.38.0				 **
 ~app-containers/buildah-1.38.1				 **
+~app-containers/buildah-1.39.0				 **
 
 # originally required by app-emulation/buildah-1.15.0
 # move app-emulation/skopeo app-containers/skopeo
@@ -351,9 +356,10 @@
 #~app-containers/crun-1.17				 **
 #~app-containers/crun-1.18				 **
 #~app-containers/crun-1.18.1				 **
-~app-containers/crun-1.18.2				 **
+#~app-containers/crun-1.18.2				 **
 #~app-containers/crun-1.19				 **
 ~app-containers/crun-1.19.1				 **
+~app-containers/crun-1.20				 **
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -541,9 +547,10 @@
 #~app-containers/containers-common-0.60.1		 **
 #~app-containers/containers-common-0.60.2		 **
 #~app-containers/containers-common-0.60.3		 **
-~app-containers/containers-common-0.60.4		 **
+#~app-containers/containers-common-0.60.4		 **
 #~app-containers/containers-common-0.61.0		 **
 ~app-containers/containers-common-0.61.1		 **
+~app-containers/containers-common-0.62.0		 **
 
 ~app-containers/containers-image-5.30.0			 **
 ~app-containers/containers-image-5.32.2			 **
@@ -636,10 +643,7 @@
 ~app-containers/containers-storage-1.57.1		 **
 
 # rust build dependencies for netavark/aardvark-dns
-#=dev-util/cargo-ebuild-0.5.1				~amd64
-#=dev-util/cargo-ebuild-0.5.2				~amd64
-=dev-util/cargo-ebuild-0.5.4				~amd64
-=dev-util/cargo-ebuild-0.5.4-r1				~amd64
+~dev-util/cargo-ebuild-0.5.4				~amd64
 
 # originally required by app-emulation/podman-1.9.3[fuse]
 #~sys-fs/fuse-overlayfs-1.1.2				 **

@@ -1,10 +1,7 @@
 
-# Nagios
-~net-analyzer/nagios-core-4.4.5				~amd64 ~arm ~arm64 ~x86
-~net-analyzer/nagios-plugins-2.3.1			~amd64 ~arm ~arm64 ~x86
-#net-analyzer/nagios					~amd64 ~arm ~arm64 ~x86
-#net-analyzer/nagios-core				~amd64 ~arm ~arm64 ~x86
-#net-analyzer/nagios-imagepack				~amd64 ~arm ~arm64 ~x86
-#net-analyzer/nagios-plugins				~amd64 ~arm ~arm64 ~x86
+#							~amd64 ~arm ~arm64 ~x86
+~net-analyzer/nagios-4.5.1				       ~arm ~arm64
+~net-analyzer/nagios-core-4.5.1				       ~arm ~arm64
+~net-analyzer/nagios-plugins-2.4.6			       ~arm ~arm64
 
 # vi: set syntax=gentoo-package-keywords:

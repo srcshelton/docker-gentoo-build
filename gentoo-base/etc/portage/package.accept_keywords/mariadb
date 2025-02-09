@@ -6,12 +6,22 @@
 # no issue with, but which is simply incompatible with later releases - even of
 # 10.5.x.  This persists in 10.6.5-r1, so rather than masking it looks as if a
 # backup/restore is needed to upgrade past 10.5.10-r2 :(
+
+# MariaDB upstream stable releases (see https://mariadb.org/download/)
 #
-=dev-db/mariadb-10.6.10					~amd64 ~arm ~arm64 ~x86
-=container/mariadb-10.6.10::container			~amd64 ~arm ~arm64 ~x86
+#							~amd64 ~arm ~arm64 ~x86
+#~dev-db/mariadb-10.5.28				~amd64 ~arm ~arm64 ~x86
+~dev-db/mariadb-10.6.21					~amd64 ~arm ~arm64 ~x86
+~dev-db/mariadb-10.11.11				~amd64 ~arm ~arm64 ~x86
+#~dev-db/mariadb-11.4.5					~amd64 ~arm ~arm64 ~x86
+~container/mariadb-10.6.21::container			~amd64 ~arm ~arm64 ~x86
+~container/mariadb-10.11.11::container			~amd64 ~arm ~arm64 ~x86
+#=container/mariadb-11.4.5::container			~amd64 ~arm ~arm64 ~x86
 
-~sys-cluster/galera-26.4.10-r1				       ~arm
+~sys-cluster/galera-26.4.18				       ~arm
+~sys-cluster/galera-26.4.20				       ~arm        ~x86
+~sys-cluster/galera-26.4.21				       ~arm        ~x86
 
-~dev-db/mysqltuner-1.9.9				       ~arm ~arm64
+~dev-db/mysqltuner-2.6.0				       ~arm ~arm64
 
 # vi: set syntax=gentoo-package-keywords:

@@ -1,4 +1,5 @@
 
+#							~amd64 ~arm ~arm64 ~x86
 net-analyzer/arptools					~amd64
 net-analyzer/ntopng					~amd64
 net-misc/autoupnp					~amd64
@@ -11,12 +12,13 @@ net-misc/miniupnpd					~amd64
 ~net-dialup/openl2tp-1.8				~amd64
 ~net-misc/minissdpd-1.6.0				~amd64
 ~net-misc/usbip-6.4					~amd64
+~net-misc/usbip-6.12					~amd64
 
 # required by net-analyzer/suricata-3.1
-~net-libs/libhtp-0.5.48					~amd64
+~net-libs/libhtp-0.5.49					~amd64
 
 # required by net-analyzer/ntopng-3.8.1, net-analyzer/ntopng-4.0
-~net-libs/nDPI-4.6					~amd64
+~net-libs/nDPI-4.8					~amd64
 
 # No longer/never present in upstream repo ...
 #app-benchmarks/bootchart				~amd64

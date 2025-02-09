@@ -1,27 +1,25 @@
 
+#							~amd64 ~arm ~arm64 ~x86
 ~app-admin/cancd-0.2.2					~amd64 ~arm ~arm64 ~x86
-~app-admin/checksec-2.6.0				~amd64 ~arm ~arm64 ~x86
 ~app-admin/mei-amt-check-20180507			~amd64             ~x86
 # move app-arch/upx-ucl app-arch/upx
-~app-arch/upx-4.0.2					       ~arm ~arm64
-~app-misc/linux-logo-6.0				       ~arm ~arm64
-~app-portage/gemato-20.4				~amd64 ~arm ~arm64 ~x86
-~app-portage/gentoolkit-0.6.5				~amd64 ~arm ~arm64 ~x86
-~app-portage/pycargoebuild-0.6.3			       ~arm ~arm64 ~x86
+~app-arch/upx-4.2.4					       ~arm        ~x86
+~app-misc/linux-logo-6.01				       ~arm ~arm64
+~app-portage/pycargoebuild-0.13.4			       ~arm ~arm64 ~x86
 ~app-vim/vim-nftables-0_pre20200629			~amd64 ~arm ~arm64 ~x86
 ~dev-perl/Net-MAC-Vendor-1.268::srcshelton		~amd64 ~arm ~arm64 ~x86
 ~dev-perl/Net-Subnet-1.30.0				~amd64 ~arm ~arm64 ~x86
-~dev-util/bcc-0.28.0					~amd64
-~dev-util/dropwatch-1.4_p20150706			~amd64 ~arm ~arm64 ~x86
-~dev-util/pkgcruft-0.0.2				~amd64 ~arm ~arm64 ~x86
+~dev-util/bcc-0.31.0					       ~arm ~arm64 ~x86
+~dev-util/dropwatch-1.5.4				~amd64 ~arm ~arm64 ~x86
+~dev-util/pkgcruft-0.0.9				~amd64 ~arm ~arm64 ~x86
 ~net-analyzer/masscan-1.3.2				~amd64 ~arm ~arm64 ~x86
 ~net-im/bitlbee-3.6					       ~arm ~arm64
-~net-misc/kea-2.4.0					~amd64 ~arm ~arm64 ~x86
-~net-nds/phpldapadmin-1.2.6.3				~amd64 ~arm ~arm64 ~x86
-~sys-apps/bpftune-0.1.3_p20241025			~amd64 ~arm ~arm64 ~x86
-~sys-apps/memtest86-bin-10.7				~amd64             ~x86
-~sys-apps/pkgcraft-tools-0.0.15				~amd64 ~arm ~arm64 ~x86
-~sys-apps/sysvinit-3.13					~amd64 ~arm ~arm64 ~x86
+~net-misc/kea-2.4.1					~amd64 ~arm ~arm64 ~x86
+~net-nds/phpldapadmin-1.2.6.7				~amd64 ~arm ~arm64 ~x86
+~sys-apps/bpftune-0.1.3_p20250121			~amd64 ~arm ~arm64 ~x86
+~sys-apps/memtest86-bin-11.1				~amd64
+~sys-apps/pkgcraft-tools-0.0.23				~amd64 ~arm ~arm64 ~x86
+~sys-apps/sysvinit-3.14					~amd64 ~arm ~arm64 ~x86
 ~sys-fs/fatcat-1.1.1					~amd64             ~x86
 ~sys-process/ctop-0.7.7					~amd64 ~arm ~arm64 ~x86
 

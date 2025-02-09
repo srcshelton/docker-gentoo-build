@@ -1,8 +1,5 @@
 
-=app-crypt/tpm2-abrmd-2.4.0					~amd64
-=app-crypt/tpm2-pkcs11-1.6.0					~amd64
-=app-crypt/tpm2-tools-5.2-r1					~amd64
-=app-crypt/tpm2-tss-3.1.0					~amd64
-=app-crypt/tpm2-tss-engine-1.2.0				~amd64
+#							~amd64 ~arm ~arm64 ~x86
+~app-crypt/tpm2-pkcs11-1.9.1				~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

@@ -1,20 +1,16 @@
 
-~container/spamassassin-3.4.4::container		~amd64 ~arm ~arm64 ~x86
-
-~mail-filter/spamassassin-3.4.4				~amd64 ~arm ~arm64 ~x86
-
-#~dev-perl/Crypt-OpenSSL-EC-1.310.0			~amd64 ~arm ~arm64 ~x86
+#							~amd64 ~arm ~arm64 ~x86
 ~dev-perl/Crypt-OpenSSL-EC-1.320.0			~amd64 ~arm ~arm64 ~x86
-~dev-perl/Crypt-OpenSSL-ECDSA-0.80.0			~amd64 ~arm ~arm64 ~x86
+~dev-perl/Crypt-OpenSSL-ECDSA-0.100.0			~amd64 ~arm ~arm64 ~x86
 
-~dev-perl/Clone-PP-1.70.0				~amd64 ~arm ~arm64 ~x86
-~dev-perl/Data-Dumper-Concise-2.23.0			~amd64 ~arm ~arm64 ~x86
-~dev-perl/Data-IEEE754-0.20.0				~amd64 ~arm ~arm64 ~x86
-~dev-perl/Data-Printer-0.400.0				~amd64 ~arm ~arm64 ~x86
-~dev-perl/GeoIP2-2.6.2					~amd64 ~arm ~arm64 ~x86
+~dev-perl/Clone-PP-1.80.0				       ~arm ~arm64
+~dev-perl/Data-Dumper-Concise-2.23.0			       ~arm ~arm64
+~dev-perl/Data-IEEE754-0.20.0				       ~arm ~arm64
+~dev-perl/Data-Printer-1.2.1				       ~arm ~arm64
+~dev-perl/GeoIP2-2.6.2					       ~arm ~arm64
 ~dev-perl/IP-Country-2.280.0				~amd64 ~arm ~arm64 ~x86
-~dev-perl/MaxMind-DB-Common-0.40.1			~amd64 ~arm ~arm64 ~x86
-~dev-perl/MaxMind-DB-Reader-1.0.14			~amd64 ~arm ~arm64 ~x86
-~dev-perl/MooX-StrictConstructor-0.10.0			~amd64 ~arm ~arm64 ~x86
+~dev-perl/MaxMind-DB-Common-0.40.1			       ~arm ~arm64
+~dev-perl/MaxMind-DB-Reader-1.0.14			       ~arm ~arm64
+~dev-perl/MooX-StrictConstructor-0.13.0			       ~arm ~arm64
 
 # vi: set syntax=gentoo-package-keywords:

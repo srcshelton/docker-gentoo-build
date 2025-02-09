@@ -1,9 +1,5 @@
 
-~app-eselect/eselect-iptables-20200508			~amd64 ~arm ~arm64 ~x86
-~net-firewall/arptables-0.0.5				~amd64 ~arm ~arm64 ~x86
-~net-firewall/ebtables-2.0.11				~amd64 ~arm ~arm64 ~x86
-~net-firewall/iptables-1.8.4				~amd64 ~arm ~arm64 ~x86
-~net-firewall/nftables-0.9.4				~amd64 ~arm ~arm64 ~x86
-~net-libs/libnftnl-1.1.6				~amd64 ~arm ~arm64 ~x86
+#							~amd64 ~arm ~arm64 ~x86
+~net-firewall/arptables-0.0.5				       ~arm ~arm64
 
 # vi: set syntax=gentoo-package-keywords:
