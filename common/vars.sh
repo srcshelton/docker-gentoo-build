@@ -350,7 +350,11 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 									if echo "${line}" | grep "^${flag} - " | grep -Fq -- '[' ; then
 										count=2
 										while true; do
-											extra="$( echo "${line}" | awk -F'[' "{ print \$${count} }" | cut -d']' -f 1 )"
+											extra="$( # <- Syntax
+												echo "${line}" |
+													awk -F'[' "{ print \$${count} }" |
+													cut -d']' -f 1
+											)"
 											if [ -n "${extra:-}" ]; then
 												flag="${flag}|${extra}"
 											else
@@ -360,7 +364,13 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 										done
 										unset extra count
 									fi
-									use_cpu_flags="${use_cpu_flags:-}$( grep -E -- '^(Features|flags)' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' | grep -Eq -- "${flag}" && echo " ${flag}" | cut -d'|' -f 1 )"
+									use_cpu_flags="${use_cpu_flags:-}$( # <- Syntax
+										grep -E -- '^(Features|flags)' /proc/cpuinfo |
+												tail -n 1 |
+												awk -F': ' '{ print $2 }' |
+												grep -Eq -- "${flag}" &&
+											echo " ${flag}" | cut -d'|' -f 1
+									)"
 								done < /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc
 
 								use_cpu_flags="${use_cpu_flags#" "}"

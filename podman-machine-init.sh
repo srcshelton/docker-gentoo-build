@@ -168,7 +168,12 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 	esac
 	unset total
 else
-	cores="$( nproc || grep 'cpu cores' /proc/cpuinfo | tail -n 1 | awk -F': ' '{ print $2 }' )"
+	cores="$( # <- Syntax
+			nproc ||
+				grep 'cpu cores' /proc/cpuinfo |
+					tail -n 1 |
+					awk -F': ' '{ print $2 }'
+		)"
 fi
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
@@ -239,11 +244,12 @@ if (( local_install )); then
 			"/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
 
 	if ! [[ -x sync-portage.sh ]]; then
-		echo >&2 "WARN:  Cannot locate 'sync-portage.sh' script -" \
-			"please run this manually in order to populate" \
+		echo >&2 "WARN:  Cannot locate 'sync-portage.sh' - please" \
+			"run this script manually in order to populate" \
 			"'/etc/portage'"
 	else
 		sudo ./sync-portage.sh &&
+			sudo mkdir -p /etc/portage &&
 			sudo cp gentoo-base/etc/portage/make.conf /etc/portage/
 
 		echo >&2 "INFO:  Please review the settings in" \
