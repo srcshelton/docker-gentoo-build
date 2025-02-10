@@ -721,6 +721,7 @@ _docker_resolve() {
 	fi
 
 	if ! [[ -x "$( type -pf equery )" ]]; then
+		# shellcheck disable=SC2086
 		if docker ${DOCKER_VARS:-} image ls localhost/gentoo-helper:latest |
 				grep -Eq -- '^(localhost/)?([^.]+\.)?gentoo-helper'
 		then
@@ -1193,6 +1194,8 @@ _docker_run() {
 			"${init_name#*"/"}:latest"|"${base_name#*"/"}:latest")
 				: ;;
 			"${build_name#*"/"}:latest")
+				ext='.build' ;;
+			"${build_name#*"/"}-root:latest")
 				ext='.build' ;;
 			service*:*)
 				ext='.service' ;;
