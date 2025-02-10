@@ -28,6 +28,8 @@ _eselect() {
 	return 1
 }  # _eselect
 
+[ -n "${trace:-}" ] && set -o xtrace
+
 case "${1:-}" in
 	eix|eix-[a-z]*|masked-packages|versionsort)
 		export service_cmd="${1}"
