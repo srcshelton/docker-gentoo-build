@@ -784,9 +784,13 @@ applyworkarounds() {
 	#print >&2 "Matching ' ${aw_arg} ' against" \
 	#	"' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
 	if aw_pkg="$( # <- Syntax
+			# We want to match 'sys-devel/gcc' but not 'sys-devel/gcc-config'
 			echo " ${aw_arg} " |
 				sed 's/ /  /g' |
-				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? " |
+				xargs -rn 1 |
+				grep -Fv -- 'gcc-config' |
+				xargs -r
 		)" && [ -n "${aw_pkg:-}" ]
 	then
 		if [ $(( aw_mode )) -eq 2 ]; then  # post_use
