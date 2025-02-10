@@ -19,6 +19,12 @@
 # deployments, on top of customisations in 01_package.use.local...
 #
 
+*/*					-dbus -gui
+
+# We need the 'milter' USE flag on postfix acct-* packages so that the
+# permissions in the postfix container (if deployed) are correct...
+acct-user/postfix			 milter opendkim
+
 # Uncomment the following in order to add support for the btrfs driver to
 # app-containers/podman et al.:
 #
@@ -27,17 +33,25 @@
 #app-containers/podman			 btrfs
 #app-containers/skopeo			 btrfs
 
+# "Use dev-libs/libnatspec to correctly decode non-ascii file names archived in
+# Windows" ...
 app-arch/unzip				-natspec
 #					 bzip2 natspec unicode
 
-#virtual/mta::container			-ssmtp postfix
+# portage-3.0.65-r1 correctly merges USE flags from virtual/mta ('ssmtp') and
+# the additions from virtual/mta::container ('postfix'), but ignores the
+# '-ssmtp' exclusion which is also declared for virtual/mta::container...
+#
+virtual/mta::container			-ssmtp postfix
+virtual/mta::srcshelton			-postfix ssmtp
+
 container/dovecot			 managesieve sieve
 container/opendmarc			 milter
 
 # Avoid sys-libs/binutils-libs dependency
 dev-db/mariadb				-* bindist
 container/mariadb			 server
-#					 +backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl
+#					+backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl
 
 # Avoid additional perl dependencies
 dev-lang/perl				 minimal  # -perl-cleaner
@@ -45,20 +59,31 @@ dev-perl/JSON				-xs
 
 dev-lang/python				-ensurepip  # ncurses threads xml
 
-# No longer compiles :(
-#net-firewall/xtables-addons		 XTABLES_ADDONS: -* geoip
+dev-libs/boost				-context -icu -stacktrace
+
+#net-firewall/xtables-addons		 XTABLES_ADDONS: -* asn geoip
+
+# Minimise build-size/dependencies now that net-dns/bind and net-dns/bind-tools
+# come from the same package...
+net-dns/bind				-dnstap -lmdb -server
 
 net-misc/dhcp				-* client ipv6 ssl vim-syntax
-#					 +client ipv6 ldap selinux +server ssl systemd +tmpfiles vim-syntax
-
-sys-apps/portage			-trust-helper  # -rsync-verify native-extensions
-#					 apidoc build doc gentoo-dev +ipc +native-extensions +rsync-verify selinux test +trust-helper xattr
+#					+client ipv6 ldap selinux +server ssl systemd +tmpfiles vim-syntax
 
 # Avoid udev/eudev dependencies when using busybox mdev
 sys-apps/busybox			 mdev
 net-misc/dhcpcd				-udev
 sys-apps/hwids				-udev
 sys-fs/dosfstools			-udev
+
+# Requires dev-perl/Locale-gettext, but then can't find it in many cases :(
+sys-apps/help2man			 nls
+
+sys-apps/portage			-trust-helper  # -rsync-verify native-extensions
+#					 apidoc build doc gentoo-dev +ipc +native-extensions +rsync-verify selinux test +trust-helper xattr
+
+#sys-apps/tuned				-server
+#					 bash-completion dbus gtk ppd server systemd-boot tmpfiles
 
 # Ensure libgcc_s.so.1 is all that is installed, but with appropriate
 # optimisations
@@ -67,6 +92,9 @@ sys-fs/dosfstools			-udev
 #       installation...
 #
 sys-devel/gcc				 lib-only openmp default-stack-clash-protection default-znow lto pgo pie ssp zstd
-#                                        (cxx) -lib-only openmp (split-usr) ada cet (custom-cflags) d debug default-stack-clash-protection default-znow doc (fixed-point) fortran go graphite hardened (ieee-long-double) jit (libssp) lto modula2 (multilib) nls objc objc++ objc-gc (pch) pgo pie sanitize ssp systemtap -test valgrind vanilla vtv zstd
+#                                       (cxx) -lib-only openmp (split-usr) ada cet (custom-cflags) d debug default-stack-clash-protection default-znow doc (fixed-point) fortran go graphite hardened (ieee-long-double) jit (libssp) lto modula2 (multilib) nls objc objc++ objc-gc (pch) pgo pie sanitize ssp systemtap -test valgrind vanilla vtv zstd
+
+# 'webdav' requires sqlite, which now requires dbi...
+>=www-servers/lighttpd-1.4.58		-dbi -mysql -sqlite -webdav
 
 # vi: set colorcolumn=41,80 nowrap syntax=gentoo-package-use sw=8 ts=8:
