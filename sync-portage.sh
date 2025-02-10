@@ -93,7 +93,9 @@ declare ARCH=''
 if type -pf portageq >/dev/null 2>&1; then
 	ARCH="$( portageq envvar ARCH )"
 else
-	echo >&2 "WARN:  Cannot locate 'portageq' utility"
+	if [[ -n "${DEBUG:-}" ]]; then
+		echo >&2 "WARN:  Cannot locate 'portageq' utility"
+	fi
 fi
 if [[ -z "${ARCH:-}" ]]; then
 	case "$( uname -m )" in
