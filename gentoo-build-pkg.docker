@@ -300,6 +300,8 @@ fi
 # Add '--cap-add' entries sync'd with 'fcaps' calls in ebuilds...
 #
 # FIXME: Add a distinct 'DOCKER_CAPS' or similar
+#
+# shellcheck disable=SC2034
 DOCKER_CMD_VARS="
 	--cap-add=DAC_OVERRIDE
 	--cap-add=DAC_READ_SEARCH
