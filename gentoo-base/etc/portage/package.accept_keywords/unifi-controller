@@ -46,6 +46,7 @@
 ~net-misc/unifi-controller-bin-8.5.6			~amd64
 ~net-misc/unifi-controller-bin-8.6.9			~amd64
 ~net-misc/unifi-controller-bin-9.0.108			~amd64
+~net-misc/unifi-controller-bin-9.0.114			~amd64
 
 # Ensure the host package matches the version of the target container
 #
@@ -83,5 +84,6 @@
 ~container/unifi-controller-8.5.6			~amd64
 ~container/unifi-controller-8.6.9			~amd64
 ~container/unifi-controller-9.0.108			~amd64
+~container/unifi-controller-9.0.114			~amd64
 
 # vi: set syntax=gentoo-package-keywords:
