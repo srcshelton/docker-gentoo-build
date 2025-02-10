@@ -2395,9 +2395,11 @@ esac
 		if echo '${package_version}' | grep -Fq -- '_'; then
 			localversion="LOCALVERSION=_\$( echo '${package_version#*_}' | cut -d'_' -f 2- )" ;
 			if [ -f ../build/.config ]; then
-				if ! grep -qm 1 -- '^CONFIG_LOCALVERSION=""$' ../build/.config; then
+				if grep -qm 1 -- '^CONFIG_LOCALVERSION=' ../build/.config &&
+						! grep -qm 1 -- '^CONFIG_LOCALVERSION=""$' ../build/.config
+				then
 					echo >&2 "WARN:  \$(
-						grep -qm 1 -- '^CONFIG_LOCALVERSION=' ../build/.config ;
+						grep -m 1 -- '^CONFIG_LOCALVERSION=' ../build/.config ;
 					) is already set, package version '\${localversion}' will be appended to this text" ;
 				fi ;
 			fi ;
