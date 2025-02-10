@@ -83,6 +83,7 @@ app-containers/crun			-criu bpf man
 # move app-emulation/libpod app-emulation/podman
 # move app-emulation/podman app-containers/podman
 app-containers/podman			-fuse -rootless -wrapper bash-completion seccomp
+app-emulation/virt-what			 dmi
 # move app-admin/eselect-php app-eselect/eselect-php
 app-eselect/eselect-php			 fpm
 app-misc/jq				-oniguruma
@@ -226,7 +227,8 @@ net-misc/rsync				 system-zlib
 net-misc/scponly			-sftp logging passwd quota scp wildcards
 net-misc/whois				 xcrypt
 net-nds/openldap			-cxx -slp overlays pbkdf2 sha2
-net-p2p/bitcoind			 bitcoin_policy_cpfp bitcoin_policy_cltv bitcoin_policy_dcmp bitcoin_policy_rbf bitcoin_policy_spamfilter knots ljr logrotate upnp
+#net-p2p/bitcoind			 bitcoin_policy_cpfp bitcoin_policy_cltv bitcoin_policy_dcmp bitcoin_policy_rbf bitcoin_policy_spamfilter knots ljr logrotate upnp
+net-p2p/bitcoin-core			-qrcode nat-pmp upnp zeromq
 # move net-misc/openvpn net-vpn/openvpn
 net-vpn/openvpn				 down-root eurephia iproute2 passwordsave
 net-vpn/wireguard-tools			-wg-quick
@@ -282,6 +284,7 @@ sys-fs/cryptsetup			-static dynamic
 sys-fs/e2fsprogs			-udev tools
 sys-fs/lvm2				-lvm1 -static -static-libs -thin
 sys-fs/udev				-extras action_modeswitch edd hwdb keymap
+sys-kernel/scx				 openrc
 sys-libs/cracklib			-python
 sys-libs/gdbm				 berkdb
 sys-libs/glibc				-gd clone3 compile-locales nscd ssp
