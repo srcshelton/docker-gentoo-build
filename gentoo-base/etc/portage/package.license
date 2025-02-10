@@ -168,6 +168,7 @@ dev-php/pecl-redis			 PHP-3.01
 
 # required by services dev-lang/php & www-server/lighttpd
 dev-lang/tcl				 tcltk
+dev-php/Masterminds-HTML5		 HTML5-PHP
 dev-php/pecl-imagick			 PHP-3.01
 gnome-base/librsvg			 Apache-2.0-with-LLVM-exceptions MPL-2.0 Unicode-DFS-2016
 mail-filter/libmilter			 Sendmail
@@ -322,4 +323,4 @@ net-analyzer/net-snmp			 HPND
 #
 # cat /var/db/pkg/*/*/LICENSE | xargs -n 1 | grep -Ev '^(\(|\|\||\))$' | sort | uniq -c | sort -rn
 
-# vi: set noet sw=8 ts=8 syntax=gentoo-package-license:
+# vi: set noet nowrap sw=8 ts=8 syntax=gentoo-package-license:
