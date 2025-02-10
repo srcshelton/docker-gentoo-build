@@ -263,7 +263,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				rust_target_opts='-C target-cpu=cortex-a76'
 				rpi_model='rpi500' ;;
 
-			*': Mixtile Blade 3'|*': Rockchip RK3588')
+			*': Mixtile Blade 3'*|*': Rockchip RK3588')
 				# ARMv8, big.LITTLE
 				use_cpu_arch='arm'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
