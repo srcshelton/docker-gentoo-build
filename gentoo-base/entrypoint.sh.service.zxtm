@@ -147,7 +147,7 @@ if (( ! skipsetup )) && [[ ! -f "${zeushome}"/.docker.done ]]; then
 		plog INFO "Downloading licence key from '${ZEUS_LIC_URL}' ..."
 
 		# '--no-verify-host'... could be another ZXTM?
-		if $zhttp --no-verify-host -b "${ZEUS_LIC}" > /tmp/fla.lic; then
+		if $zhttp --no-verify-host -b "${ZEUS_LIC}" >/tmp/fla.lic; then
 			ZEUS_LIC=/tmp/fla.lic
 		else
 			plog FATAL "Failed to download the licence from '${ZEUS_LIC}'"
@@ -171,7 +171,7 @@ if (( ! skipsetup )) && [[ ! -f "${zeushome}"/.docker.done ]]; then
 		if [[ -n "${ZEUS_CLUSTER_FP:-}" ]]; then
 			plog INFO "Checking cluster fingerprint: '${ZEUS_CLUSTER_FP}' ..."
 			if $zhttp --fingerprint="${ZEUS_CLUSTER_FP}" --verify \
-				--no-verify-host "https://${ZEUS_CLUSTER_NAME}:${ZEUS_CLUSTER_PORT}" > /dev/null; then
+				--no-verify-host "https://${ZEUS_CLUSTER_NAME}:${ZEUS_CLUSTER_PORT}" >/dev/null; then
 				join='y'
 			else
 				plog ERROR "Fingerprint does not match - clustering skipped"
@@ -183,7 +183,7 @@ if (( ! skipsetup )) && [[ ! -f "${zeushome}"/.docker.done ]]; then
 		if [[ "${join}" == 'y' ]]; then
 			plog INFO "Configuring cluster join: ${ZEUS_CLUSTER_NAME}:${ZEUS_CLUSTER_PORT} ..."
 
-			while [[ -n "$( $zhttp --no-verify-host "https://${ZEUS_CLUSTER_NAME}:${ZEUS_CLUSTER_PORT}" >/dev/null )" ]]; do
+			while ! $zhttp --no-verify-host "https://${ZEUS_CLUSTER_NAME}:${ZEUS_CLUSTER_PORT}" >/dev/null 2>&1; do
 				# No max-run counter/limit? :o
 				sleep 1
 			done
@@ -215,7 +215,7 @@ if (( ! skipsetup )) && [[ ! -f "${zeushome}"/.docker.done ]]; then
 		if [[ -n "${ZEUS_REGISTER_FP:-}" ]]; then
 			plog INFO "Checking BSD fingerprint: '${ZEUS_REGISTER_FP}' ..."
 			if $zhttp --fingerprint="${ZEUS_REGISTER_FP}" --verify \
-				--no-verify-host "https://${ZEUS_REGISTER_HOST}" > /dev/null; then
+					--no-verify-host "https://${ZEUS_REGISTER_HOST}" >/dev/null; then
 				register='y'
 			else
 				plog ERROR "Fingerprint does not match - Services Director registration skipped"
@@ -255,7 +255,7 @@ if (( ! skipsetup )) && [[ ! -f "${zeushome}"/.docker.done ]]; then
 			# let's try to re-download if provided over HTTP.
 			if [[ "${ZEUS_LIC:-}" =~ https?://.* ]]; then
 				plog WARN "Retrying licence key download ..."
-				if ! $zhttp --no-verify-host -b "${ZEUS_LIC_URL}" > /tmp/fla.lic; then
+				if ! $zhttp --no-verify-host -b "${ZEUS_LIC_URL}" >/tmp/fla.lic; then
 					plog FATAL "Failed to download the licence from '${ZEUS_LIC}': ${?}"
 					exit 1
 				fi
