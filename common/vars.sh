@@ -27,17 +27,19 @@ fi
 # appropriately :(
 #
 _output=''
+rc=0
 if ! [ -x "$( command -v "${_command}" )" ]; then
 	echo >&2 "FATAL: Cannot locate binary '${_command}'"
 	exit 1
 elif ! _output="$( "${_command}" info 2>&1 )"; then
+	"${_command}" info 2>&1 || rc=${?}
 	if [ "${_command}" = 'podman' ]; then
-		echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
-			"you need to run '${_command} machine start' or re-run" \
-			"'$( basename "${0}" )' as 'root'?"
+		echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
+			"(${rc}) - do you need to run '${_command} machine start' or" \
+			"re-run '$( basename "${0}" )' as 'root'?"
 	else
-		echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
-			"you need to re-run '$( basename "${0}" )' as 'root'?"
+		echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
+			"(${rc}) - do you need to re-run '$( basename "${0}" )' as 'root'?"
 	fi
 	exit 1
 elif [ "$( uname -s )" != 'Darwin' ] &&
