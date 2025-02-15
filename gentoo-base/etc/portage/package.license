@@ -79,7 +79,7 @@ dev-python/docutils			 PSF-2.4
 net-misc/iputils			 rdisc
 sys-libs/db				 Sleepycat
 sys-apps/debianutils			 SMAIL
-dev-util/bindgen			 Unicode-DFS-2016
+dev-util/bindgen			 Unicode-3.0 Unicode-DFS-2016
 net-dns/libidn2			 	 unicode
 app-editors/vim				 vim
 app-editors/vim-core			 vim
