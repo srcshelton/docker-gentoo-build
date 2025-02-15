@@ -43,6 +43,9 @@
 #~container/mariadb-10.5.13::container
 
 # Having migrated to mariadb, block mysql
+#
+# (... from virtual/mysql-5.6, dev-db/mariadb is a valid implementation)
+#
 <virtual/mysql-5.6
 dev-db/mysql
 
