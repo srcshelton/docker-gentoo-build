@@ -1156,7 +1156,7 @@ if [[ -n "${config_file:-}" ]]; then
 			note >&2 'Attempting to use current kernel configuration ...'
 			if ! lsmod | grep -qw -- '^configs'; then
 				warn "Attempting to load 'configs' module..."
-				modprobe configs || :
+				sudo modprobe configs || :
 			fi
 			if ! [[ -r /proc/config.gz ]]; then
 				die "Cannot read current kernel configuration '/proc/config.gz'"
