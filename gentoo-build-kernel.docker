@@ -2424,17 +2424,18 @@ esac
 		fi ;
 		success=0 ;
 		set -x ;
-		time make ${kernel_make_opts[@]} O=../build \${localversion} ${deforoldconfig} \
+		make ${kernel_make_opts[@]} O=../build \${localversion} ${deforoldconfig} \
 				prepare \
 				${menuconfig:+"menuconfig"} \
-				${nconfig:+"nconfig"} \
+				${nconfig:+"nconfig"}
+		time make ${kernel_make_opts[@]} O=../build \${localversion} ${deforoldconfig} \
 				vmlinux \
 				modules \
 				\${dtb:+"dtbs"} \
 				\${kernel} &&
 			rm -rf "/lib/modules/\${kernel_version}" &&
-				make ${kernel_make_opts[@]} O=../build \${localversion} INSTALL_MOD_STRIP=1 modules_install &&
-					success=1 ;
+			time make ${kernel_make_opts[@]} O=../build \${localversion} INSTALL_MOD_STRIP=1 modules_install &&
+			success=1 ;
 		set +x ;
 		if [ "\${success}" = '1' ] && [ "\{extract}" = '1' ]; then
 			set -x ;
@@ -2599,7 +2600,7 @@ if (( raise_mem )); then
 #	export PODMAN_SWAP_LIMIT="${PODMAN_MEMORY_LIMIT}"
 fi
 
-time {
+#time {
 	#set -x
 		#DOCKER_DEVICES='--device=/dev/tty --device=/dev/tty0' \
 		TERM="${TERM:-}" \
@@ -2612,7 +2613,7 @@ time {
 	rc=${?}
 	#set +x
 	output " -> ${rc}"
-}
+#}
 
 if [[ -d /boot/dtbs ]] &&
 		[[ "$( find /boot/dtbs -maxdepth 0 -empty )" == '/boot/dtbs' ]]
