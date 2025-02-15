@@ -1,23 +1,27 @@
 #! /bin/sh
 # shellcheck disable=SC2034
 
+# Are we using docker or podman?
+#
+# N.B. This is overridden if/when common/run.sh is included
+#
 if [ -z "${_command:-}" ]; then
-	# Are we using docker or podman?
-	#
-	# N.B. This is overridden if/when common/run.sh is included
-	#
-	if ! command -v podman >/dev/null 2>&1; then
-		_command='docker'
-
-		#extra_build_args=''
-		docker_readonly='readonly'
-	else
+	if command -v podman >/dev/null 2>&1; then
 		_command='podman'
 
 		#extra_build_args='--format docker'
 		# From release 2.0.0, podman should accept docker 'readonly'
 		# attributes
 		docker_readonly='ro=true'
+	elif command -v docker >/dev/null 2>&1; then
+		_command='docker'
+
+		#extra_build_args=''
+		docker_readonly='readonly'
+	else
+		echo >&2 "FATAL: Cannot find 'docker' or 'podman' executable in path" \
+			"in common/vars.sh"
+		exit 1
 	fi
 	export _command docker_readonly
 fi
@@ -52,11 +56,71 @@ fi
 unset _output
 
 # Guard to ensure that we don't accidentally reset the values below through
-# multiple inclusion - 'unset __COMMON_VARS_INCLUDED' is this is explcitly
+# multiple inclusion - 'unset __COMMON_VARS_INCLUDED' if this is explcitly
 # required...
 #
 if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	export __COMMON_VARS_INCLUDED=1
+
+	# Optional override to specify alternative build-only temporary
+	# directory...
+	#
+	# N.B. If 'pam_mktemp.so' is in-use then there will always be a set 'TMP'
+	#      and 'TMPDIR' in the environment.
+	#
+	if [ "$( uname -s )" != 'Darwin' ]; then
+		graphroot=''
+
+		if [ -n "${PODMAN_TMPDIR:-}" ]; then
+			[[ -z "${debug:-}" ]] ||
+				echo >&2 "DEBUG: Setting PODMAN_TMPDIR ('${PODMAN_TMPDIR}')" \
+					"as temporary directory ..."
+		else
+			# Since we're now using '${_command} system info' to determine the
+			# graphRoot directory, we need to be rootless or root solely to setup
+			# the environment appropriately :(
+			#
+			_output=''
+			if ! [ -x "$( command -v "${_command}" )" ]; then
+				echo >&2 "FATAL: Cannot locate binary '${_command}'"
+				exit 1
+			elif ! _output="$( "${_command}" system info 2>&1 )"; then
+				if [ "${_command}" = 'podman' ]; then
+					echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
+						"you need to run '${_command} machine start' or re-run" \
+						"'$( basename "${0}" )' as 'root'?"
+				else
+					echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
+						"you need to re-run '$( basename "${0}" )' as 'root'?"
+				fi
+				exit 1
+			elif [ $(( $( id -u ) )) -ne 0 ] &&
+					echo "${_output}" | grep -Fq -- 'rootless: false'
+			then
+				echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
+				exit 1
+			fi
+
+			graphroot="$( # <- Syntax
+					echo "${_output}" |
+						grep -E -- '(graphRoot|Docker Root Dir):' |
+						cut -d':' -f 2- |
+						awk '{ print $1 }'
+				)" || :
+			if [ -z "${graphroot:-}" ]; then
+				echo >&2 "FATAL: Cannot determine ${_command} root directory"
+				exit 1
+			fi
+
+			unset _output
+		fi
+
+		tmp="${PODMAN_TMPDIR:-"${graphroot}"}/tmp"
+		mkdir -p "${tmp:="/var/lib/containers/storage/tmp"}"
+		export TMPDIR="${tmp}"
+		export TMP="${tmp}"
+		unset tmp graphroot
+	fi
 
 	# Alerting options...
 	#
@@ -255,13 +319,13 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			*': Raspberry Pi 5 '*)
 				use_cpu_arch='arm'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='cortex-a76+crc+crypto'
+				gcc_target_opts='-mcpu=cortex-a76+crc+crypto'
 				rust_target_opts='-C target-cpu=cortex-a76'
 				rpi_model='rpi5' ;;
 			*': Raspberry Pi 500 '*)
 				use_cpu_arch='arm'
 				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='cortex-a76+crc+crypto'
+				gcc_target_opts='-mcpu=cortex-a76+crc+crypto'
 				rust_target_opts='-C target-cpu=cortex-a76'
 				rpi_model='rpi500' ;;
 
@@ -508,15 +572,6 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#	fi
 	#fi
 	#unset store
-
-	# Optional override to specify alternative build temporary directory
-	#export TMPDIR=/var/tmp
-	if [ "$( uname -s )" != 'Darwin' ]; then
-		tmp="$( $_command system info | grep -E -- '(graphRoot|Docker Root Dir):' | cut -d':' -f 2- | awk '{ print $1 }' )/tmp"
-		mkdir -p "${tmp:="/var/lib/containers/storage/tmp"}"
-		export TMPDIR="${tmp}"
-		unset tmp
-	fi
 
 	python_default_target='python3_12'
 	export python_default_target
