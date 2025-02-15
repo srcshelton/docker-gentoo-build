@@ -42,7 +42,13 @@ fi
 #	export IMAGE_ROOT="${tmp}"
 #fi
 
-kbuild_opt="${kbuild_opt:-"--config-from=config.gz --keep-build --no-patch --clang --llvm-unwind"}"
+if [ -s .kbuild_opt ]; then
+	[ $(( debug )) -ne 0 ] && echo >&2 "DEBUG: $( basename "${0}" ): Including build options from '.kbuild_opt' ..."
+	kbuild_opt="${kbuild_opt:-} $( cat .kbuild_opt )"
+fi
+if [ -z "${kbuild_opt:-}" ]; then
+		kbuild_opt="--config-from=config.gz --keep-build --no-patch --clang --llvm-unwind"
+fi
 all=0
 alt_use='bison flex gnu http2'  # http2 targeting curl for rust packages...
 #alt_use='flex gnu http2'  # http2 targeting curl for rust packages...

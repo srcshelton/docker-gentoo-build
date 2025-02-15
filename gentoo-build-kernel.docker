@@ -255,10 +255,18 @@ declare patch=''
 declare rust_llvm_use=''
 declare unwind=''
 
+if [[ -s .kbuild_opt ]]; then
+	info "Including build options from '.kbuild_opt' ..."
+	kbuild_opt="${kbuild_opt:-} $( < .kbuild_opt )"
+fi
 if [[ -n "${kbuild_opt:-}" ]]; then
 	declare arg=''
 	for arg in "${@:-}"; do
-		shift
+		if [[ -n "${2:-}" ]]; then
+			shift
+		else
+			set --
+		fi
 		if [[ -n "${arg:-}" ]] &&
 				! [[ " ${*} ${kbuild_opt} " == *" ${arg} "* ]]
 		then

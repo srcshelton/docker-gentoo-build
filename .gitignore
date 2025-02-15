@@ -15,6 +15,9 @@
 /make.conf
 /portage-cache.tar
 
+# Allow easier saving of defaults
+/.kbuild_opt
+
 # Make host-specific changes to these files as necessary...
 #
 /gentoo-base/etc/portage/package.use.build/package.use.local
