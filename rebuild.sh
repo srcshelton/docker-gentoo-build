@@ -643,9 +643,10 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 				failures="${failures:+"${failures} "}gentoo-build-pkg;6:${err}"
 			fi
 
-			if [ "${ARCH}" = 'arm64' ]; then
-				USE='gold'
-			fi
+			# Requirement patched out for >=sys-devel/binutils-2.41
+			#if [ "${ARCH}" = 'arm64' ]; then
+			#	USE='gold'
+			#fi
 			if ! USE="-* ${alt_use} ${USE} python_targets_${python_default_target:-"python3_12"} pam tools" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
@@ -744,8 +745,6 @@ if [ "${update:-"0"}" = '1' ]; then
 		)"
 	fi
 
-	# FIXME: Remove once golang on ARM no longer requires gold linker...
-	#
 	# shellcheck disable=SC2031
 	if [ -z "${ARCH:-}" ]; then
 		if command -v portageq >/dev/null 2>&1; then
@@ -769,9 +768,10 @@ if [ "${update:-"0"}" = '1' ]; then
 		fi
 		readonly ARCH
 	fi
-	if echo "${ARCH}" | grep -q -- 'arm'; then
-		alt_use="${alt_use:+"${alt_use} "}gold"
-	fi
+	# Requirement patched out for >=sys-devel/binutils-2.41
+	#if echo "${ARCH}" | grep -q -- 'arm'; then
+	#	alt_use="${alt_use:+"${alt_use} "}gold"
+	#fi
 
 	# FIXME: sys-devel/gcc can be rebuilt in the midst of other packages, but
 	#        if this enables 'lib-only' (which it shouldn't due to

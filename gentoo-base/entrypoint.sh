@@ -74,6 +74,8 @@ format() {
 		cat - |
 			grep -- "^${format_variable}=" |
 			cut -d'"' -f 2 |
+			sort |
+			uniq |
 			fmt -w $(( ${COLUMNS:-"80"} - ( format_padding + 3 ) )) |
 			sed "s/^/   ${format_spaces}/ ; 1 s/^\s\+//"
 	)"
@@ -933,12 +935,6 @@ if [ -n "${DEV_MODE:-}" ]; then
 EOF
 fi
 
-# Pre-load keys...
-get_portage_flags
-
-print "Initial environment CFLAGS are \"${CFLAGS:-}\""
-print "Initial portage CFLAGS are \"$( get_portage_flags 'CFLAGS' )\""
-
 [ -n "${trace:-}" ] && set -o xtrace
 
 if set | grep -q -- '=__[A-Z]\+__$'; then
@@ -947,6 +943,99 @@ if set | grep -q -- '=__[A-Z]\+__$'; then
 		set | grep -- '=__[A-Z]\+__$' | sed 's/^/  /'
 	)"
 fi
+
+if [ -e /etc/portage/repos.conf.host ]; then
+	echo
+	info "Mirroring host repos.conf to container ..."
+	if [ -e /etc/portage/repos.conf ]; then
+		if [ -d /etc/portage/repos.conf ]; then
+			for f in /etc/portage/repos.conf/*; do
+				umount -q "${f}" || :
+			done
+		fi
+		umount -q /etc/portage/repos.conf || :
+		rm -rf /etc/portage/repos.conf || :
+
+		[ -e /etc/portage/repos.conf ] &&
+			mv /etc/portage/repos.conf /etc/portage/repos.conf.disabled
+	fi
+	cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf ||
+		die "Can't copy host repos.conf: ${?}"
+fi
+
+# For reasons I can't fathom, even with a verifiably correct
+# /etc/portage/repos.conf structure in place, 'portageq get_repo_path / <repo>'
+# is picking up '/var/db/repo/<repo>' rather than the 'location' from the file.
+#
+# Update: It's because PORTDIR in /etc/portage/make.conf overrides anything in
+#         /etc/portage/repos.conf
+#
+repo_path=''
+if sed 's/#.*$//' /etc/portage/make.conf |
+		grep -Fq -- 'PORTDIR='
+then
+	warn "PORTDIR is set in /etc/portage/make.conf - please remove this" \
+		"override to ensure correct operation"
+	repo_path="$( portageq get_repo_path '/' gentoo )" || :
+	if [ -n "${repo_path:-}" ]; then
+		if ! sed 's/#.*$//' /etc/portage/make.conf |
+				grep -q "PORTDIR=['\"]\?${repo_path%/}/\?['\"]/?\s*$"
+		then
+			die "portageq and /etc/portage/make.conf disagree about the" \
+				"location of the default repo"
+		fi
+	fi
+	repo_path=''
+fi
+
+# Let's symlink the actual location back regardless...
+#
+repo_name=''
+: $(( created = 0 )) || :
+for repo_name in $( portageq get_repos '/' ); do
+	if ! [ -s "/etc/portage/repos.conf/${repo_name}.conf" ]; then
+		warn "repo definition '${repo_name}.conf' is missing"
+	else
+		repo_path="$( # <- Syntax
+				grep -i '^\s*location\s*=\s*' \
+						"/etc/portage/repos.conf/${repo_name}.conf" |
+					cut -d'=' -f 2- |
+					awk '{print $1}' |
+					tail -n 1
+			)" || :
+		if [ -z "${repo_path:-}" ]; then
+			warn "Could not read 'location' from '${repo_name}.conf'"
+		elif ! [ -d "${repo_path}" ]; then
+			warn "location '${repo_path}' from '${repo_name}.conf' doesn't" \
+				"exist"
+		elif ! [ "${repo_path#"/var/db/repo/"}" = "${repo_name}" ]; then
+			if [ -d "/var/db/repo/${repo_name}" ]; then
+				warn "location '${repo_path}' is not in a default location," \
+					"but '/var/db/repo/${repo_name}' already exists"
+			else
+				warn "Creating compatibility symlink from '${repo_path}' to" \
+					"'/var/db/repo/${repo_name}' ..."
+				mkdir -p /var/db/repo
+				ln -s "${repo_path}" "/var/db/repo/${repo_name}"
+				: $(( created = 1 )) || :
+			fi
+		fi
+	fi
+done
+if [ $(( created )) -eq 1 ]; then
+	print "/var/db/repo contents:"
+	# shellcheck disable=SC2010
+	ls -l /var/db/repo/ | grep -v '^total ' | while read -r repo_path; do
+		print "  ${repo_path}"
+	done
+fi
+unset created repo_path repo_name
+
+# Pre-load keys...
+get_portage_flags
+
+print "Initial environment CFLAGS are \"${CFLAGS:-}\""
+print "Initial portage CFLAGS are \"$( get_portage_flags 'CFLAGS' )\""
 
 if [ -f /etc/env.d/50baselayout ] && [ -s /etc/env.d/50baselayout ]; then
 	changed=0
@@ -1078,25 +1167,6 @@ for arg in "${@}"; do
 done
 print "'python_targets' is '${python_targets:-}'"
 
-if [ -e /etc/portage/repos.conf.host ]; then
-	echo
-	info "Mirroring host repos.conf to container ..."
-	if [ -e /etc/portage/repos.conf ]; then
-		if [ -d /etc/portage/repos.conf ]; then
-			for f in /etc/portage/repos.conf/*; do
-				umount -q "${f}" || :
-			done
-		fi
-		umount -q /etc/portage/repos.conf || :
-		rm -rf /etc/portage/repos.conf || :
-
-		[ -e /etc/portage/repos.conf ] &&
-			mv /etc/portage/repos.conf /etc/portage/repos.conf.disabled
-	fi
-	cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf ||
-		die "Can't copy host repos.conf: ${?}"
-fi
-
 #warn >&2 "Inherited USE flags: '${USE:-}'"
 
 # post_use should be based on the original USE flags, without --with-use
@@ -1123,12 +1193,14 @@ fi
 #
 [ -s "${stage3_flags_file}" ] ||
 	die "'${stage3_flags_file}' is missing or empty"
-[ -d /var/db/repo/gentoo/profiles ] ||
-	die "default repo ('gentoo') is missing"
 [ -d /etc/portage ] ||
 	die "'/etc/portage' is missing or not a directory"
 [ -s /etc/portage/package.use ] || [ -d /etc/portage/package.use ] ||
 	die "'/etc/portage/package.use' is missing"
+default_repo_dir="$( portageq get_repo_path '/' gentoo )" || :
+[ -d "${default_repo_dir:-}" ] ||
+	die "default repo ('gentoo') directory '${default_repo_dir:-}' is missing"
+unset default_repo_dir
 [ -s /etc/locale.gen ] ||
 	warn "'/etc/locale.gen' is missing or empty"
 if ! [ -s "${PKGDIR}"/Packages ] || ! [ -d "${PKGDIR}"/virtual ]; then
@@ -1276,7 +1348,7 @@ fi
 # To try to work around this, snapshot the current stage3 version...
 #quickpkg --include-config y --include-unmodified-config y sys-libs/zlib
 
-if portageq get_repos / | grep -Fq -- 'srcshelton'; then
+if portageq get_repos '/' | grep -Fq -- 'srcshelton'; then
 	echo
 	echo " * Building linted 'sys-apps/gentoo-functions' package for stage3 ..."
 	echo
@@ -1324,7 +1396,7 @@ fi
 	)
 
 	list='virtual/dev-manager virtual/tmpfiles'
-	if LC_ALL='C' portageq get_repos / | grep -Fq -- 'srcshelton'; then
+	if LC_ALL='C' portageq get_repos '/' | grep -Fq -- 'srcshelton'; then
 		list="${list:-} sys-apps/systemd-utils"
 	fi
 	if echo " ${use_essential}" | grep -q -- ' rpi[0-9-]'; then
@@ -1845,12 +1917,12 @@ echo
 						rev |
 						cut -d'/' -f 3,4 |
 						rev
-					if LC_ALL='C' portageq get_repos / |
+					if LC_ALL='C' portageq get_repos '/' |
 							grep -Fq -- 'srcshelton'
 					then
 						grep -lm 1 '^inherit[^#]\+usr-ldscript' \
 								"$( # <- Syntax
-										portageq get_repo_path / srcshelton
+										portageq get_repo_path '/' srcshelton
 									)"/*/*/*.ebuild |
 							rev |
 							cut -d'/' -f 2,3 |
@@ -1966,9 +2038,10 @@ do
 		#
 		# shellcheck disable=SC2154
 		USE="xml ${USE} ${use_essential_gcc}"
-		if [ "${arch}" = 'arm64' ]; then
-			USE="gold ${USE}"
-		fi
+		# Requirement patched out for >=sys-devel/binutils-2.41
+		#if [ "${arch}" = 'arm64' ]; then
+		#	USE="gold ${USE}"
+		#fi
 		export USE
 		pkgdir="$( LC_ALL='C' portageq pkgdir )"
 		export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
@@ -2338,9 +2411,10 @@ if [ -n "${pkg_initial:-}" ]; then
 								sed 's/ perl_features_ithreads / /g' |
 								sed 's/^ // ; s/ $//'
 						)"
-						if [ "${ARCH}" = 'arm64' ]; then
-							USE="gold ${USE:-}"
-						fi
+						# Requirement patched out for >=sys-devel/binutils-2.41
+						#if [ "${ARCH}" = 'arm64' ]; then
+						#	USE="gold ${USE:-}"
+						#fi
 						export USE PERL_FEATURES \
 							PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
@@ -2495,9 +2569,10 @@ if [ -n "${pkg_initial:-}" ]; then
 								sed 's/ perl_features_ithreads / /g' |
 								sed 's/^ // ; s/ $//'
 						)"
-						if [ "${ARCH}" = 'arm64' ]; then
-							USE="gold ${USE:-}"
-						fi
+						# Requirement patched out for >=sys-devel/binutils-2.41
+						#if [ "${ARCH}" = 'arm64' ]; then
+						#	USE="gold ${USE:-}"
+						#fi
 						export USE PERL_FEATURES PYTHON_SINGLE_TARGET \
 							PYTHON_TARGETS
 
@@ -3523,7 +3598,7 @@ case "${1:-}" in
 									ROOT='/' \
 									SYSROOT='/' \
 									PORTAGE_CONFIGROOT='/' \
-								portageq get_repos / |
+								portageq get_repos '/' |
 									grep -Fq -- 'srcshelton'
 						then
 							pkgs="${pkgs:-} virtual/tmpfiles::srcshelton"

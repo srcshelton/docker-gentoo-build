@@ -58,6 +58,8 @@ format() {
 		cat - |
 			grep -- "^${format_variable}=" |
 			cut -d'"' -f 2 |
+			sort |
+			uniq |
 			fmt -w $(( ${COLUMNS:-"80"} - ( format_padding + 3 ) )) |
 			sed "s/^/   ${format_spaces}/ ; 1 s/^\s\+//"
 	)"
@@ -1149,9 +1151,101 @@ fi
 
 if set | grep -q -- '=__[A-Z]\+__$'; then
 	die "Unexpanded variable(s) in environment: $( # <- Syntax
-		set | grep -- '=__[A-Z]\+__$' | cut -d'=' -f 1 | xargs -r
+		echo
+		set | grep -- '=__[A-Z]\+__$' | sed 's/^/  /'
 	)"
 fi
+
+if [ -e /etc/portage/repos.conf.host ]; then
+	echo
+	info "Mirroring host repos.conf to container ..."
+	if [ -e /etc/portage/repos.conf ]; then
+		if [ -d /etc/portage/repos.conf ]; then
+			for f in /etc/portage/repos.conf/*; do
+				umount -q "${f}" || :
+			done
+		fi
+		umount -q /etc/portage/repos.conf || :
+		rm -rf /etc/portage/repos.conf || :
+
+		[ -e /etc/portage/repos.conf ] &&
+			mv /etc/portage/repos.conf /etc/portage/repos.conf.disabled
+	fi
+	cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf ||
+		die "Can't copy host repos.conf: ${?}"
+fi
+
+# For reasons I can't fathom, even with a verifiably correct
+# /etc/portage/repos.conf structure in place, 'portageq get_repo_path / <repo>'
+# is picking up '/var/db/repo/<repo>' rather than the 'location' from the file,
+# and eclass overrides are also looking in the wrong place (... which feels
+# like a portage bug, since the packages referring to those overrides are read
+# correctly and the non-overlay eclasses in the default repo aren't being used
+# either!)
+#
+# Update: It's because PORTDIR in /etc/portage/make.conf overrides anything in
+#         /etc/portage/repos.conf
+#
+repo_name=''
+if sed 's/#.*$//' /etc/portage/make.conf |
+		grep -Fq -- 'PORTDIR='
+then
+	warn "PORTDIR is set in /etc/portage/make.conf - please remove this" \
+		"override to ensure correct operation"
+	repo_path="$( portageq get_repo_path '/' gentoo )" || :
+	if [ -n "${repo_path:-}" ]; then
+		if ! sed 's/#.*$//' /etc/portage/make.conf |
+				grep -q "PORTDIR=['\"]\?${repo_path%/}/\?['\"]/?\s*$"
+		then
+			die "portageq and /etc/portage/make.conf disagree about the" \
+				"location of the default repo"
+		fi
+	fi
+	repo_path=''
+fi
+
+# Let's symlink the actual location back regardless...
+#
+repo_path=''
+: $(( created = 0 )) || :
+for repo_name in $( portageq get_repos '/' ); do
+	if ! [ -s "/etc/portage/repos.conf/${repo_name}.conf" ]; then
+		warn "repo definition '${repo_name}.conf' is missing"
+	else
+		repo_path="$( # <- Syntax
+				grep -i '^\s*location\s*=\s*' \
+						"/etc/portage/repos.conf/${repo_name}.conf" |
+					cut -d'=' -f 2- |
+					awk '{print $1}' |
+					tail -n 1
+			)" || :
+		if [ -z "${repo_path:-}" ]; then
+			warn "Could not read 'location' from '${repo_name}.conf'"
+		elif ! [ -d "${repo_path}" ]; then
+			warn "location '${repo_path}' from '${repo_name}.conf' doesn't" \
+				"exist"
+		elif ! [ "${repo_path#"/var/db/repo/"}" = "${repo_name}" ]; then
+			if [ -d "/var/db/repo/${repo_name}" ]; then
+				warn "location '${repo_path}' is not in a default location," \
+					"but '/var/db/repo/${repo_name}' already exists"
+			else
+				warn "Creating compatibility symlink from '${repo_path}' to" \
+					"'/var/db/repo/${repo_name}' ..."
+				mkdir -p /var/db/repo
+				ln -s "${repo_path}" "/var/db/repo/${repo_name}"
+				: $(( created = 1 )) || :
+			fi
+		fi
+	fi
+done
+if [ $(( created )) -eq 1 ]; then
+	print "/var/db/repo contents:"
+	# shellcheck disable=SC2010
+	ls -l /var/db/repo/ | grep -v '^total ' | while read -r repo_path; do
+		print "  ${repo_path}"
+	done
+fi
+unset created repo_path repo_name
 
 # Loading the environment file only replicates the contents of
 # /etc/portage/make.conf, but in a way which can't then easily be overridden as
@@ -1440,25 +1534,6 @@ if [ ! -f /etc/locale.gen ] || [ ! -s /etc/locale.gen ]; then
 		en_US ISO-8859-1
 		en_US.UTF-8 UTF-8
 	EOF
-fi
-
-if [ -e /etc/portage/repos.conf.host ]; then
-	echo
-	info "Mirroring host repos.conf to container ..."
-	if [ -e /etc/portage/repos.conf ]; then
-		if [ -d /etc/portage/repos.conf ]; then
-			for f in /etc/portage/repos.conf/*; do
-				umount -q "${f}" || :
-			done
-		fi
-		umount -q /etc/portage/repos.conf || :
-		rm -rf /etc/portage/repos.conf || :
-
-		[ -e /etc/portage/repos.conf ] &&
-			mv /etc/portage/repos.conf /etc/portage/repos.conf.disabled
-	fi
-	cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf ||
-		die "Can't copy host repos.conf: ${?}"
 fi
 
 if [ $(( pkg_mask )) -ne 0 ]; then
