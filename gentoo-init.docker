@@ -112,11 +112,42 @@ declare -i NOTIFY_MKDIR=0
 	exit 1
 }
 
+[[ -n "${base_dir:-}" ]]
+[[ -d "${base_dir}" ]]
+[[ -e "${base_dir}"/Dockerfile.env ]]
+[[ -e "${base_dir}"/Dockerfile.stage3 ]]
+[[ -e "${base_dir}"/Dockerfile.init ]]
+[[ -e "${base_dir}"/Dockerfile.build ]]
+
+# shellcheck disable=SC2034
+IMAGE="${base_name}:latest"
+# shellcheck disable=SC1091
+[[ -s common/run.sh ]] && . common/run.sh
+
+if [[ -n "${*:-}" ]]; then
+	if grep -Eq -- ' -(h|-help) ' <<<" ${*} "; then
+		output >&2 "Usage: $( basename "${0}" ) [--env] [--stage3] [--init]" \
+			"[[--force] --base] [[--force] --build] [--helper [--force-helper]]"
+		exit 0
+	elif ! grep -Eq <<<" ${*} " -- \
+		'^(\s*--(env|stage3|init|base|build|helper|force|force-helper)\s*){1,7}$'
+	then
+		die "Unknown args '${*}'"
+	fi
+
+	if grep -Fq -- ' --force ' <<<" ${*} "; then
+		if ! grep -Eq -- ' --(base|build|helper) ' <<<" ${*} "; then
+			die "'--force' is only valid with '--base', '--build', or" \
+				"'--helper'"
+		fi
+	fi
+fi
+
+# N.B. Below, 'docker' will be a shell-function if no 'docker' binary exists...
+#
+
 declare _output=''
-if ! [[ -x "$( type -pf "${_command}" )" ]]; then
-	echo >&2 "FATAL: Cannot locate binary '${_command}'"
-	exit 1
-elif ! _output="$( "${_command}" info 2>&1 )"; then
+if ! _output="$( docker system info 2>&1 )"; then
 	if [[ "${_command}" == 'podman' ]]; then
 		echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
 			"you need to run '${_command} machine start' or re-run" \
@@ -135,20 +166,6 @@ then
 fi
 unset _output
 
-[[ -n "${base_dir:-}" ]]
-[[ -d "${base_dir}" ]]
-[[ -e "${base_dir}"/Dockerfile.env ]]
-[[ -e "${base_dir}"/Dockerfile.stage3 ]]
-[[ -e "${base_dir}"/Dockerfile.init ]]
-[[ -e "${base_dir}"/Dockerfile.build ]]
-
-# shellcheck disable=SC2034
-IMAGE="${base_name}:latest"
-# shellcheck disable=SC1091
-[[ -s common/run.sh ]] && . common/run.sh
-
-# N.B. Below, 'docker' is a shell-function if no 'docker' binary exists...
-#
 if ! docker --version >/dev/null 2>&1; then
 	# shellcheck disable=SC2154
 	die "'${_command}' failed to execute: ${?}"
@@ -157,14 +174,14 @@ elif ! docker image build --help | grep -Fq -- '--platform'; then
 		"podman-3.x or later)"
 fi
 
-if docker info | grep -qw -- 'crun'; then
+if docker system info | grep -qw -- 'crun'; then
 	declare crun_version=''
 
 	if type -pf jq >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1
 	then
 		if [[ "$( # <- Syntax
 			# shellcheck disable=SC2116
-			docker info |
+			docker system info |
 				python3 -c "$( echo 'import sys, yaml, json;' \
 					'print(json.dumps(yaml.safe_load(sys.stdin)))' )" |
 				jq -r '.host.ociRuntime.name'
@@ -172,7 +189,7 @@ if docker info | grep -qw -- 'crun'; then
 		then
 			crun_version="$(
 				# shellcheck disable=SC2116
-				docker info |
+				docker system info |
 					python3 -c "$( echo 'import sys, yaml, json;' \
 						'print(json.dumps(yaml.safe_load(sys.stdin)))' )" |
 					jq -r '.host.ociRuntime.version' |
@@ -182,7 +199,7 @@ if docker info | grep -qw -- 'crun'; then
 		fi
 	else
 		crun_version="$(
-			docker info |
+			docker system info |
 				grep 'crun version' |
 				awk '{print $3}'
 		)"
@@ -220,25 +237,6 @@ declare target_opt=''
 declare rust_target_opt=''
 declare -i build_helper=0
 declare -i force=0
-
-if [[ -n "${*:-}" ]]; then
-	if grep -Eq -- ' -(h|-help) ' <<<" ${*} "; then
-		output >&2 "Usage: $( basename "${0}" ) [--env] [--stage3] [--init]" \
-			"[[--force] --base] [[--force] --build] [[--force] --helper]"
-		exit 0
-	elif ! grep -Eq <<<" ${*} " -- \
-		'^(\s*--(env|stage3|init|base|build|helper|force|force-helper)\s*){1,7}$'
-	then
-		die "Unknown args '${*}'"
-	fi
-
-	if grep -Fq -- ' --force ' <<<" ${*} "; then
-		if ! grep -Eq -- ' --(base|build|helper) ' <<<" ${*} "; then
-			die "'--force' is only valid with '--base', '--build', or" \
-				"'--helper'"
-		fi
-	fi
-fi
 
 declare docker_version=''
 docker_version="$( docker version --format '{{.Client.Version}}' )" ||
