@@ -788,7 +788,7 @@ _docker_resolve() {
 		else
 			equery() {
 				local -a args=()
-				local arg='' repopath='' cat='' pkg='' eb=''  # pv=''
+				local arg='' repopaths='' repopath='' cat='' pkg='' eb=''  # pv=''
 				local slot='' masked='' keyworded=''
 
 				if [[ -z "${arch:-}" ]]; then
@@ -806,86 +806,96 @@ _docker_resolve() {
 				done
 
 				if type -pf portageq; then
-					repopath="$( portageq get_repo_path "${EROOT:-"/"}" "$( #
-						portageq get_repos "${EROOT:-"/"}" |
-							xargs -rn 1 2>/dev/null |
-							grep -iw gentoo |
-							tail -n 1
-					)" )"
+					repopaths="$( portageq get_repo_path "${EROOT:-"/"}" "$( #
+							portageq get_repos "${EROOT:-"/"}" |
+								xargs -rn 1 2>/dev/null |
+								grep -iw gentoo |
+								tail -n 1
+						)" )"
+				elif [[ -d /etc/portage/repos.conf ]]; then
+					repopaths="$( # <- Syntax
+							grep '^\s*location\s*=\s*' /etc/portage/repos.conf/*.conf |
+								cut -d'=' -f 2- |
+								awk '{print $NF}'
+						)"
 				elif [[ -d /var/db/repos ]]; then
-					repopath='/var/db/repos/gentoo'
+					repopaths='/var/db/repos/gentoo'
 				elif [[ -d /var/db/repo ]]; then
-					repopath='/var/db/repo/gentoo'
+					repopaths='/var/db/repo/gentoo'
 				else
 					die "Unable to locate 'gentoo' repo directory"
 				fi
 
 				for arg in "${@:-}"; do
-					if [[ "${arg}" == */* ]]; then
-						local stripped_arg=''
-						stripped_arg="$( # <- Syntax
-								# shellcheck disable=SC2001
-								sed 's/^[^a-zA-Z]\+//' <<<"${arg}"
-							)"
-						cat="${stripped_arg%"/"*}"
-						pkg="${arg#*"/"}"
-						unset stripped_arg
-					else
-						local stripped_arg=''
-						stripped_arg="$( # <- Syntax
-								# shellcheck disable=SC2001
-								sed 's/^[^a-zA-Z]\+//' <<<"${arg}"
-							)"
-						pkg="${stripped_arg}"
-						unset stripped_arg
-						cat="$( # <- Syntax
-								eval ls -1d "${repopath}/*/${pkg}" |
-									rev |
-									cut -d'/' -f 2 |
-									rev |
-									sort |
-									uniq
-							)"
-					fi
-
-					if [[ "${pkg}" == *-[0-9]* ]]; then
-						#pv="${pkg}"
-						pkg="${pkg%"-"[0-9]*}"
-					fi
-
-					for eb in $( # <- Syntax
-							eval ls -1 "${repopath}/${cat}/${pkg}/" |
-								grep -- '\.ebuild$' |
-								sort -V
-						)
-					do
-						slot='0.0'
-						masked=' '
-						keyworded=' '
-						# I - Installed
-						# P - In portage tree
-						# O - In overlay
-						if [[ -s "${repopath}/${cat}/${pkg}/${eb}" ]]; then
-							# Some SLOT definitions reference other variables,
-							# such as LLVM_MAJOR :(
-							export LLVM_MAJOR=0
-							eval "$( # <- Syntax
-									grep 'SLOT=' \
-										"${repopath}/${cat}/${pkg}/${eb}"
+					for repopath in ${repopaths}; do
+						if [[ "${arg}" == */* ]]; then
+							local stripped_arg=''
+							stripped_arg="$( # <- Syntax
+									# shellcheck disable=SC2001
+									sed 's/^[^a-zA-Z]\+//' <<<"${arg}"
 								)"
-							unset LLVM_MAJOR
-							slot="${SLOT:-"${slot}"}"
-							if grep -Eq "~${arch}([^-]|$)" \
-									"${repopath}/${cat}/${pkg}/${eb}"
-							then
-								keyworded='~'
-							fi
+							cat="${stripped_arg%"/"*}"
+							pkg="${arg#*"/"}"
+							unset stripped_arg
+						else
+							local stripped_arg=''
+							stripped_arg="$( # <- Syntax
+									# shellcheck disable=SC2001
+									sed 's/^[^a-zA-Z]\+//' <<<"${arg}"
+								)"
+							pkg="${stripped_arg}"
+							unset stripped_arg
+							cat="$( # <- Syntax
+									eval ls -1d "${repopath}/*/${pkg}" \
+											2>/dev/null |
+										rev |
+										cut -d'/' -f 2 |
+										rev |
+										sort |
+										uniq
+								)"
 						fi
-						echo "[-P-]" \
-							"[${masked}${keyworded}]" \
-							"${cat}/${eb%".ebuild"}:${slot}"
-					done
-				done
+
+						if [[ "${pkg}" == *-[0-9]* ]]; then
+							#pv="${pkg}"
+							pkg="${pkg%"-"[0-9]*}"
+						fi
+
+						for eb in $( # <- Syntax
+								eval ls -1 "${repopath}/${cat}/${pkg}/" \
+										2>/dev/null |
+									grep -- '\.ebuild$' |
+									sort -V
+							)
+						do
+							slot='0.0'
+							masked=' '
+							keyworded=' '
+							# I - Installed
+							# P - In portage tree
+							# O - In overlay
+							if [[ -s "${repopath}/${cat}/${pkg}/${eb}" ]]; then
+								# Some SLOT definitions reference other
+								# variables, such as LLVM_MAJOR :(
+								export LLVM_MAJOR=0
+								eval "$( # <- Syntax
+										grep 'SLOT=' \
+											"${repopath}/${cat}/${pkg}/${eb}"
+									)"
+								unset LLVM_MAJOR
+								slot="${SLOT:-"${slot}"}"
+								if grep -Eq -- "~${arch}([^-]|$)" \
+										"${repopath}/${cat}/${pkg}/${eb}"
+								then
+									keyworded='~'
+								fi
+							fi
+							echo "[-P-]" \
+								"[${masked}${keyworded}]" \
+								"${cat}/${eb%".ebuild"}:${slot}"
+						done  # for eb in $( ... )
+					done  # for repopath in ${repopaths}
+				done  # for arg in "${@:-}"
 			}  # equery
 		fi
 		export -f equery
