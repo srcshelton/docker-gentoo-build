@@ -119,7 +119,7 @@
 #~app-containers/podman-5.2.2				 **
 #~app-containers/podman-5.2.3				 **
 #~app-containers/podman-5.2.4				 **
-~app-containers/podman-5.2.5				 **
+#~app-containers/podman-5.2.5				 **
 #~app-containers/podman-5.3.0_rc1			 **
 #~app-containers/podman-5.3.0_rc2			 **
 #~app-containers/podman-5.3.0_rc3			 **
@@ -129,6 +129,7 @@
 #~app-containers/podman-5.4.0_rc1			 **
 #~app-containers/podman-5.4.0_rc2			 **
 #~app-containers/podman-5.4.0_rc3			 **
+~app-containers/podman-5.4.0				 **
 
 #~app-containers/podman-tui-0.14.0			 **
 #~app-containers/podman-tui-0.17.0			 **
@@ -299,8 +300,9 @@
 #~app-containers/skopeo-1.15.1				 **
 #~app-containers/skopeo-1.15.2				 **
 #~app-containers/skopeo-1.16.0				 **
-~app-containers/skopeo-1.16.1				 **
+#~app-containers/skopeo-1.16.1				 **
 ~app-containers/skopeo-1.17.0				 **
+~app-containers/skopeo-1.18.0				 **
 
 # move app-emulation/crun app-containers/crun
 #~app-containers/crun-0.14.1				 **
@@ -394,7 +396,8 @@
 #~app-containers/runc-1.2.1				 **
 #~app-containers/runc-1.2.2				 **
 #~app-containers/runc-1.2.3				 **
-~app-containers/runc-1.2.4				 **
+#~app-containers/runc-1.2.4				 **
+~app-containers/runc-1.2.5				 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
@@ -453,9 +456,10 @@
 #~app-containers/netavark-1.11.0			 **
 # release failed: https://crates.io/crates/netavark/1.12.0
 #~app-containers/netavark-1.12.1			 **
-~app-containers/netavark-1.12.2				 **
+#~app-containers/netavark-1.12.2			 **
 #~app-containers/netavark-1.13.0			 **
 ~app-containers/netavark-1.13.1				 **
+~app-containers/netavark-1.14.0				 **
 
 #~app-containers/aardvark-dns-1.0.2			 **
 #~app-containers/aardvark-dns-1.0.3			 **
@@ -525,7 +529,8 @@
 #~app-containers/slirp4netns-1.2.2			 **
 ~app-containers/slirp4netns-1.2.3			 **
 #~app-containers/slirp4netns-1.3.0			 **
-~app-containers/slirp4netns-1.3.1			 **
+#~app-containers/slirp4netns-1.3.1			 **
+~app-containers/slirp4netns-1.3.2			 **
 
 #~app-containers/containers-common-0.56.0		 **
 #~app-containers/containers-common-0.57.0		 **
