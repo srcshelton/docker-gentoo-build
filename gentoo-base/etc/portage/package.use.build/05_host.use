@@ -61,7 +61,8 @@ dev-lang/python				-ensurepip  # ncurses threads xml
 
 dev-libs/boost				-context -icu -stacktrace
 
-#net-firewall/xtables-addons		 XTABLES_ADDONS: -* asn geoip
+#net-firewall/xtables-addons		 XTABLES_ADDONS: asn geoip
+#net-firewall/xtables-addons		-modules
 
 # Minimise build-size/dependencies now that net-dns/bind and net-dns/bind-tools
 # come from the same package...
