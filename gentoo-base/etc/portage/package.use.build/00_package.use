@@ -317,23 +317,28 @@ mail-client/roundcube::srcshelton	 plugins zxcvbn
 
 sys-kernel/gentoo-sources		 symlink experimental
 sys-kernel/linux-firmware		 compress compress-xz savedconfig
+# N.B. Raspberry Pi upstream kernels support compressed modules, but not
+#      compressed firmware...
+#      See https://github.com/raspberrypi/firmware/issues/1943
+#sys-kernel/linux-firmware		-compress -compress-xz savedconfig
 
 # required by dev-db/mariadb-10.1.22[extraengine,server]
 >=sys-libs/zlib-1.2.11			 minizip
-
-# required by sys-apps/busybox[static]
-#virtual/libcrypt			 static-libs
-#sys-libs/libxcrypt			 static-libs
-
-# required by sys-libs/libunwind-1.2.1-r3[lzma]
-#>=app-arch/xz-utils-5.2.4-r2		 static-libs
 
 # required by sys-libs/libunwind-1.5.0[zlib]
 # required by dev-util/strace-5.8
 #>=sys-libs/zlib-1.2.11-r2		 static-libs
 
-# requires Java AWT/JNI components
->=media-libs/libjpeg-turbo-2.0.3	-java
+# required by net-analyzer/netdata/netdata
+net-libs/libwebsockets			-lejp -smtp
+
+# required by sys-apps/busybox[static]
+#virtual/libcrypt			 static-libs
+#sys-libs/libxcrypt			 static-libs
+
+# required by sys-apps/tuned[dbus,server]
+sys-apps/systemd			 systemd udev
+sys-apps/systemd-utils			 tmpfiles udev
 
 # required by net-misc/curl-7.88.1-r2
 # required by app-crypt/gnupg-2.2.41
@@ -346,5 +351,11 @@ sys-kernel/linux-firmware		 compress compress-xz savedconfig
 # required by dev-lang/python-3.11.2_p2
 # required by sys-apps/kmod-30-r1
 >=net-libs/nghttp2-1.51.0		 utils
+
+# required by sys-libs/libunwind-1.2.1-r3[lzma]
+#>=app-arch/xz-utils-5.2.4-r2		 static-libs
+
+# requires Java AWT/JNI components
+>=media-libs/libjpeg-turbo-2.0.3	-java
 
 # vi: set colorcolumn=41,80 nowrap syntax=gentoo-package-use sw=8 ts=8:
