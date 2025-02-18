@@ -2,14 +2,14 @@
 # Local ebuilds
 #
 #							~amd64 ~arm ~arm64 ~x86
-~dev-perl/Net-Twitter-Lite-0.12008			~amd64 ~arm ~arm64 ~x86
+#~dev-perl/Net-Twitter-Lite-0.12008			~amd64 ~arm ~arm64 ~x86
 ~net-mail/davmail-bin-6.2.2				~amd64 ~arm ~arm64 ~x86
 ~sys-auth/pam_mobile_otp-0.6.2				~amd64 ~arm ~arm64 ~x86
 #=www-apps/opennab-0.09_p248				~amd64 ~arm ~arm64 ~x86
 #~www-apps/siriproxy-0.11.3				~amd64 ~arm ~arm64 ~x86
 
 # For Net-Twitter-Lite
-~dev-perl/Net-OAuth-0.280.0				~amd64 ~arm ~arm64 ~x86
-~dev-perl/Net-OAuth-0.300.0				~amd64 ~arm ~arm64 ~x86
+#~dev-perl/Net-OAuth-0.300.0				~amd64 ~arm ~arm64 ~x86
+#~dev-perl/Crypt-URandom-0.530.0			~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:

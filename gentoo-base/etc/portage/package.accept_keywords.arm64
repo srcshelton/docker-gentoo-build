@@ -163,7 +163,7 @@
 # the specified overrides will quickly be superseded and no longer applicable,
 # while providing an initial base-line.
 #
-# $ ACCEPT_KEYWORDS='~arm64' emerge --ignore-default-opts -p --nodeps app-misc/colordiff app-misc/splitvt app-text/lesspipe app-text/pinfo app-vim/help-extra-syntax app-vim/info app-vim/json app-vim/vim-spell-en dev-perl/Net-OAuth dev-perl/Net-Twitter-Lite dev-python/pypy3 dev-util/ltrace net-analyzer/arpwatch net-analyzer/darkstat net-misc/linuxptp net-misc/usbip sys-apps/haveged sys-apps/kexec-tools sys-apps/memtester sys-apps/watchdog sys-auth/pam_mobile_otp sys-power/powertop sys-process/incron dev-libs/log4cplus
+# $ ACCEPT_KEYWORDS='~arm64' emerge --ignore-default-opts -p --nodeps app-misc/colordiff app-misc/splitvt app-text/lesspipe app-text/pinfo app-vim/help-extra-syntax app-vim/info app-vim/json app-vim/vim-spell-en dev-perl/Net-OAuth dev-python/pypy3 dev-util/ltrace net-analyzer/arpwatch net-analyzer/darkstat net-misc/linuxptp net-misc/usbip sys-apps/haveged sys-apps/kexec-tools sys-apps/memtester sys-apps/watchdog sys-auth/pam_mobile_otp sys-power/powertop sys-process/incron dev-libs/log4cplus
 
 =app-misc/colordiff-1.0.21				~arm64
 =app-misc/splitvt-1.6.6_p7				 **
@@ -173,8 +173,7 @@
 =app-vim/info-1.7-r3					 **
 =app-vim/json-20150511					 **
 ~app-vim/vim-spell-en-20060123				~arm64
-~dev-perl/Net-OAuth-0.280.0				 **
-=dev-perl/Net-Twitter-Lite-0.12008			 **
+#=dev-perl/Net-Twitter-Lite-0.12008			 **
 ~dev-python/pypy3-7.3.17				~arm64
 =dev-util/ltrace-0.7.91_p195				~arm64
 ~net-analyzer/arpwatch-3.5				 **

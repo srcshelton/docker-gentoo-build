@@ -5,7 +5,6 @@ net-analyzer/ntopng					~amd64
 net-misc/autoupnp					~amd64
 net-misc/miniupnpd					~amd64
 
-~dev-perl/Net-OAuth-0.280.0				~amd64
 ~net-analyzer/dhcp_probe-1.3.1				~amd64
 ~net-analyzer/snort-2.9.20				~amd64
 ~net-analyzer/suricata-7.0.5				~amd64
@@ -23,7 +22,6 @@ net-misc/miniupnpd					~amd64
 # No longer/never present in upstream repo ...
 #app-benchmarks/bootchart				~amd64
 app-pda/ipheth-pair					~amd64
-#=dev-perl/Net-Twitter-Lite-0.12008			~amd64
 #net-analyzer/ntop					~amd64
 
 # vi: set syntax=gentoo-package-keywords sw=8 ts=8:
