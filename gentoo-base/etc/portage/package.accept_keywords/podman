@@ -2,100 +2,99 @@
 #							~amd64 ~arm ~arm64 ~x86
 
 # move app-emulation/podman app-containers/podman
-#~app-containers/podman-2.0.6				 **
-#~app-containers/podman-2.1.0				 **
-#~app-containers/podman-2.1.1				 **
+#~app-containers/podman-2.0.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-2.1.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-2.1.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-2.2.0_rc1			 **
 #~app-containers/podman-2.2.0_rc2			 **
-#~app-containers/podman-2.2.0				 **
-#~app-containers/podman-2.2.1				 **
-#~app-containers/podman-3.0.0				 **
-#~app-containers/podman-3.0.1				 **
-#~app-containers/podman-3.0.2				 **
+#~app-containers/podman-2.2.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-2.2.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-3.0.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-3.0.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-3.0.2				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-3.1.0_rc1			 **
 #~app-containers/podman-3.1.0_rc2			 **
-#~app-containers/podman-3.1.0				 **
-#=app-containers/podman-3.1.0-r1			 **
-#~app-containers/podman-3.1.1				 **
-#~app-containers/podman-3.1.2				 **
+#~app-containers/podman-3.1.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-3.1.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-3.1.2				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-3.2.0_rc1			 **
 #~app-containers/podman-3.2.0_rc2			 **
 #~app-containers/podman-3.2.0_rc3			 **
-#~app-containers/podman-3.2.0				 **
-#~app-containers/podman-3.2.1				 **
-#~app-containers/podman-3.2.2				 **
-#~app-containers/podman-3.2.3				 **
+#~app-containers/podman-3.2.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-3.2.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-3.2.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-3.2.3				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-3.2.9999			 **
 #~app-containers/podman-3.3.0_rc1			 **
 #~app-containers/podman-3.3.0_rc2			 **
 #~app-containers/podman-3.3.0_rc3			 **
-#~app-containers/podman-3.3.0				 **
-#~app-containers/podman-3.3.1				 **
+#~app-containers/podman-3.3.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-3.3.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-3.4.0_rc1			 **
 #~app-containers/podman-3.4.0_rc2			 **
-#~app-containers/podman-3.4.0				 **
-#~app-containers/podman-3.4.1				 **
-#~app-containers/podman-3.4.2				 **
-#~app-containers/podman-3.4.3				 **
-#~app-containers/podman-3.4.4				 **
-#~app-containers/podman-3.4.5				 **
-#~app-containers/podman-3.4.6				 **
-#~app-containers/podman-3.4.7				 **
+#~app-containers/podman-3.4.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-3.4.1				       ~arm        ~x86
+#~app-containers/podman-3.4.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-3.4.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-3.4.4				       ~arm        ~x86
+#~app-containers/podman-3.4.5				       ~arm        ~x86
+#~app-containers/podman-3.4.6				       ~arm        ~x86
+#~app-containers/podman-3.4.7				       ~arm        ~x86
 # podman-4.0.0 applies breaking changes to the podman state database
 #~app-containers/podman-4.0.0_rc1			 **
 #~app-containers/podman-4.0.0_rc2			 **
 #~app-containers/podman-4.0.0_rc3			 **
 #~app-containers/podman-4.0.0_rc4			 **
 #~app-containers/podman-4.0.0_rc5			 **
-#~app-containers/podman-4.0.0				 **
-#~app-containers/podman-4.0.1				 **
-#~app-containers/podman-4.0.2				 **
-#~app-containers/podman-4.0.3				 **
+#~app-containers/podman-4.0.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-4.0.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-4.0.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-4.0.3				       ~arm        ~x86
 #~app-containers/podman-4.1.0_rc1			 **
 #~app-containers/podman-4.1.0_rc2			 **
-#~app-containers/podman-4.1.0				 **
-#~app-containers/podman-4.1.1				 **
+#~app-containers/podman-4.1.0				       ~arm        ~x86
+#~app-containers/podman-4.1.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-4.2.0_rc1			 **
 #~app-containers/podman-4.2.0_rc2			 **
 #~app-containers/podman-4.2.0_rc3			 **
-#~app-containers/podman-4.2.0				 **
+#~app-containers/podman-4.2.0				~amd64 ~arm ~arm64 ~x86
 #=app-containers/podman-4.2.0-r1			 **
-#~app-containers/podman-4.2.1				 **
+#~app-containers/podman-4.2.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-4.3.0_rc1			 **
-#~app-containers/podman-4.3.0				 **
-#~app-containers/podman-4.3.1				 **
+#~app-containers/podman-4.3.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-4.3.1				       ~arm        ~x86
 #~app-containers/podman-4.4.0_rc1			 **
 #~app-containers/podman-4.4.0_rc2			 **
 #~app-containers/podman-4.4.0_rc3			 **
-#~app-containers/podman-4.4.0				 **
-#~app-containers/podman-4.4.1				 **
-#~app-containers/podman-4.4.2				 **
-#~app-containers/podman-4.4.3				 **
-#~app-containers/podman-4.4.4				 **
+#~app-containers/podman-4.4.0				       ~arm        ~x86
+#~app-containers/podman-4.4.1				       ~arm        ~x86
+#~app-containers/podman-4.4.2				       ~arm        ~x86
+#~app-containers/podman-4.4.3				       ~arm        ~x86
+#~app-containers/podman-4.4.4				       ~arm        ~x86
 #~app-containers/podman-4.5.0_rc1			 **
 #~app-containers/podman-4.5.0_rc2			 **
-#~app-containers/podman-4.5.0				 **
-#~app-containers/podman-4.5.1				 **
+#~app-containers/podman-4.5.0				       ~arm        ~x86
+#~app-containers/podman-4.5.1				       ~arm        ~x86
 #~app-containers/podman-4.6.0_rc1			 **
 #~app-containers/podman-4.6.0_rc2			 **
-#~app-containers/podman-4.6.0				 **
-#~app-containers/podman-4.6.1				 **
-#~app-containers/podman-4.6.2				 **
+#~app-containers/podman-4.6.0				       ~arm        ~x86
+#~app-containers/podman-4.6.1				       ~arm        ~x86
+#~app-containers/podman-4.6.2				       ~arm        ~x86
 #~app-containers/podman-4.7.0_rc1			 **
-#~app-containers/podman-4.7.0				 **
-#~app-containers/podman-4.7.1				 **
-#~app-containers/podman-4.7.2				 **
+#~app-containers/podman-4.7.0				       ~arm        ~x86
+#~app-containers/podman-4.7.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-4.7.2				       ~arm        ~x86
 #~app-containers/podman-4.8.0_rc1			 **
-#~app-containers/podman-4.8.0				 **
-#~app-containers/podman-4.8.1				 **
-#~app-containers/podman-4.8.2				 **
-#~app-containers/podman-4.8.3				 **
-#~app-containers/podman-4.9.0				 **
-#~app-containers/podman-4.9.1				 **
-#~app-containers/podman-4.9.2				 **
-#~app-containers/podman-4.9.3				 **
-#~app-containers/podman-4.9.4				 **
-#~app-containers/podman-4.9.5				 **
+#~app-containers/podman-4.8.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-4.8.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-4.8.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-4.8.3				       ~arm        ~x86
+#~app-containers/podman-4.9.0				       ~arm        ~x86
+#~app-containers/podman-4.9.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-4.9.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-4.9.3				       ~arm        ~x86
+#~app-containers/podman-4.9.4				       ~arm        ~x86
+#~app-containers/podman-4.9.5				       ~arm        ~x86
 #~app-containers/podman-5.0.0_rc1			 **
 #~app-containers/podman-5.0.0_rc2			 **
 #~app-containers/podman-5.0.0_rc3			 **
@@ -103,569 +102,574 @@
 #~app-containers/podman-5.0.0_rc5			 **
 #~app-containers/podman-5.0.0_rc6			 **
 #~app-containers/podman-5.0.0_rc7			 **
-#~app-containers/podman-5.0.0				 **
-#~app-containers/podman-5.0.1				 **
-#~app-containers/podman-5.0.2				 **
-#~app-containers/podman-5.0.3				 **
+#~app-containers/podman-5.0.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-5.0.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-5.0.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-5.0.3				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-5.1.0_rc1			 **
-#~app-containers/podman-5.1.0				 **
-#~app-containers/podman-5.1.1				 **
-#~app-containers/podman-5.1.2				 **
+#~app-containers/podman-5.1.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-5.1.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-5.1.2				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-5.2.0_rc1			 **
 #~app-containers/podman-5.2.0_rc2			 **
 #~app-containers/podman-5.2.0_rc3			 **
-#~app-containers/podman-5.2.0				 **
-#~app-containers/podman-5.2.1				 **
-#~app-containers/podman-5.2.2				 **
-#~app-containers/podman-5.2.3				 **
-#~app-containers/podman-5.2.4				 **
-#~app-containers/podman-5.2.5				 **
+#~app-containers/podman-5.2.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-5.2.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-5.2.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-5.2.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-5.2.4				       ~arm        ~x86
+#~app-containers/podman-5.2.5				       ~arm        ~x86
 #~app-containers/podman-5.3.0_rc1			 **
 #~app-containers/podman-5.3.0_rc2			 **
 #~app-containers/podman-5.3.0_rc3			 **
-#~app-containers/podman-5.3.0				 **
-#~app-containers/podman-5.3.1				 **
-~app-containers/podman-5.3.2				 **
+#~app-containers/podman-5.3.0				       ~arm        ~x86
+#~app-containers/podman-5.3.1				       ~arm        ~x86
+~app-containers/podman-5.3.2				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-5.4.0_rc1			 **
 #~app-containers/podman-5.4.0_rc2			 **
 #~app-containers/podman-5.4.0_rc3			 **
-~app-containers/podman-5.4.0				 **
+~app-containers/podman-5.4.0				~amd64 ~arm ~arm64 ~x86
 
-#~app-containers/podman-tui-0.14.0			 **
-#~app-containers/podman-tui-0.17.0			 **
-#~app-containers/podman-tui-0.18.0			 **
-~app-containers/podman-tui-1.0.0			 **
+#~app-containers/podman-tui-0.14.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-tui-0.17.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-tui-0.18.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-tui-1.0.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-tui-1.0.1			~amd64 ~arm ~arm64 ~x86
+~app-containers/podman-tui-1.1.0			~amd64 ~arm ~arm64 ~x86
 
 # move app-emulation/buildah app-containers/buildah
-#~app-containers/buildah-1.16.0				 **
-#~app-containers/buildah-1.16.1				 **
-#~app-containers/buildah-1.16.2				 **
-#~app-containers/buildah-1.16.3				 **
-#~app-containers/buildah-1.16.4				 **
-#~app-containers/buildah-1.16.7				 **
-#~app-containers/buildah-1.16.8				 **
-#~app-containers/buildah-1.17.0				 **
-#~app-containers/buildah-1.17.1				 **
-#~app-containers/buildah-1.17.2				 **
-#~app-containers/buildah-1.18.0				 **
-#~app-containers/buildah-1.19.0				 **
-#~app-containers/buildah-1.19.3				 **
-#~app-containers/buildah-1.19.4				 **
-#~app-containers/buildah-1.19.6				 **
-#~app-containers/buildah-1.19.8				 **
-#~app-containers/buildah-1.19.9				 **
-#~app-containers/buildah-1.19.10			 **
-#~app-containers/buildah-1.19.11			 **
-#~app-containers/buildah-1.20.0				 **
-#~app-containers/buildah-1.20.1				 **
-#~app-containers/buildah-1.20.2				 **
-#~app-containers/buildah-1.21.0				 **
-#~app-containers/buildah-1.21.1				 **
-#~app-containers/buildah-1.21.2				 **
-#~app-containers/buildah-1.21.3				 **
-#~app-containers/buildah-1.21.4				 **
-#~app-containers/buildah-1.21.5				 **
-#~app-containers/buildah-1.22.0				 **
-#~app-containers/buildah-1.22.1				 **
-#~app-containers/buildah-1.22.2				 **
-#~app-containers/buildah-1.22.3				 **
-#~app-containers/buildah-1.22.4				 **
-#~app-containers/buildah-1.22.5				 **
-#~app-containers/buildah-1.23.0				 **
-#~app-containers/buildah-1.23.1				 **
-#=app-containers/buildah-1.23.1-r1			 **
-#~app-containers/buildah-1.23.2				 **
-#~app-containers/buildah-1.23.3				 **
-#~app-containers/buildah-1.23.4				 **
-#~app-containers/buildah-1.23.5				 **
-#~app-containers/buildah-1.24.0				 **
-#~app-containers/buildah-1.24.1				 **
-#~app-containers/buildah-1.24.2				 **
-#~app-containers/buildah-1.24.3				 **
-#~app-containers/buildah-1.24.4				 **
-#~app-containers/buildah-1.24.5				 **
-#~app-containers/buildah-1.24.6				 **
-#~app-containers/buildah-1.24.7				 **
-#~app-containers/buildah-1.25.0				 **
-#~app-containers/buildah-1.25.1				 **
-#~app-containers/buildah-1.26.0				 **
-#~app-containers/buildah-1.26.1				 **
-#~app-containers/buildah-1.26.2				 **
-#~app-containers/buildah-1.26.3				 **
-#~app-containers/buildah-1.26.4				 **
-#~app-containers/buildah-1.26.5				 **
-#~app-containers/buildah-1.26.6				 **
-#~app-containers/buildah-1.26.7				 **
-#~app-containers/buildah-1.26.8				 **
-#~app-containers/buildah-1.26.9				 **
-#~app-containers/buildah-1.27.0				 **
-#~app-containers/buildah-1.27.1				 **
-#~app-containers/buildah-1.27.2				 **
-#~app-containers/buildah-1.27.3				 **
-#~app-containers/buildah-1.27.4				 **
-#~app-containers/buildah-1.27.5				 **
-#~app-containers/buildah-1.27.6				 **
-#~app-containers/buildah-1.28.0				 **
-#~app-containers/buildah-1.28.1				 **
-#~app-containers/buildah-1.28.2				 **
-#~app-containers/buildah-1.29.0				 **
-#~app-containers/buildah-1.29.1				 **
-#~app-containers/buildah-1.29.2				 **
-#~app-containers/buildah-1.29.3				 **
-#~app-containers/buildah-1.29.4				 **
-#~app-containers/buildah-1.29.5				 **
-#~app-containers/buildah-1.30.0				 **
-#~app-containers/buildah-1.31.0				 **
-#~app-containers/buildah-1.31.1				 **
-#~app-containers/buildah-1.31.2				 **
-#~app-containers/buildah-1.31.3				 **
-#~app-containers/buildah-1.31.4				 **
-#~app-containers/buildah-1.32.0				 **
-#~app-containers/buildah-1.32.1				 **
-#~app-containers/buildah-1.32.2				 **
-#~app-containers/buildah-1.32.3				 **
-#~app-containers/buildah-1.33.0				 **
-#~app-containers/buildah-1.33.1				 **
-#~app-containers/buildah-1.33.2				 **
-#~app-containers/buildah-1.33.3				 **
-#~app-containers/buildah-1.33.4				 **
-#~app-containers/buildah-1.33.5				 **
-#~app-containers/buildah-1.33.6				 **
-#~app-containers/buildah-1.33.7				 **
-#~app-containers/buildah-1.33.8				 **
-#~app-containers/buildah-1.33.10			 **
-#~app-containers/buildah-1.33.11			 **
-#~app-containers/buildah-1.33.12			 **
+#~app-containers/buildah-1.16.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.16.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.16.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.16.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.16.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.16.7				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.16.8				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.17.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.17.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.17.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.18.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.19.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.19.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.19.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.19.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.19.8				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.19.9				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.19.10			~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.19.11			~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.20.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.20.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.20.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.21.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.21.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.21.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.21.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.21.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.21.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.22.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.22.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.22.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.22.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.22.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.22.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.23.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.23.1				       ~arm        ~x86
+#~app-containers/buildah-1.23.2				       ~arm        ~x86
+#~app-containers/buildah-1.23.3				       ~arm        ~x86
+#~app-containers/buildah-1.23.4				       ~arm        ~x86
+#~app-containers/buildah-1.23.5				       ~arm        ~x86
+#~app-containers/buildah-1.24.0				       ~arm        ~x86
+#~app-containers/buildah-1.24.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.24.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.24.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.24.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.24.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.24.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.24.7				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.25.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.25.1				       ~arm        ~x86
+#~app-containers/buildah-1.26.0				       ~arm        ~x86
+#~app-containers/buildah-1.26.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.26.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.26.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.26.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.26.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.26.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.26.7				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.26.8				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.26.9				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.27.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.27.1				       ~arm        ~x86
+#~app-containers/buildah-1.27.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.27.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.27.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.27.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.27.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.28.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.28.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.28.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.29.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.29.1				       ~arm        ~x86
+#~app-containers/buildah-1.29.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.29.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.29.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.29.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.30.0				       ~arm        ~x86
+#~app-containers/buildah-1.31.0				       ~arm        ~x86
+#~app-containers/buildah-1.31.1				       ~arm        ~x86
+#~app-containers/buildah-1.31.2				       ~arm        ~x86
+#~app-containers/buildah-1.31.3				       ~arm        ~x86
+#~app-containers/buildah-1.31.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.32.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.32.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.32.2				       ~arm        ~x86
+#~app-containers/buildah-1.32.3				       ~arm        ~x86
+#~app-containers/buildah-1.33.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.33.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.33.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.33.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.33.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.33.5				       ~arm        ~x86
+#~app-containers/buildah-1.33.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.33.7				       ~arm        ~x86
+#~app-containers/buildah-1.33.8				       ~arm        ~x86
+#~app-containers/buildah-1.33.10			       ~arm        ~x86
+#~app-containers/buildah-1.33.11			       ~arm        ~x86
+#~app-containers/buildah-1.33.12			       ~arm        ~x86
 #~app-containers/buildah-1.34.0				 **
-#~app-containers/buildah-1.34.1				 **
-#~app-containers/buildah-1.34.2				 **
-#~app-containers/buildah-1.34.3				 **
-#~app-containers/buildah-1.35.0				 **
-#~app-containers/buildah-1.35.1				 **
-#~app-containers/buildah-1.35.2				 **
-#~app-containers/buildah-1.35.3				 **
-#~app-containers/buildah-1.35.4				 **
-#~app-containers/buildah-1.35.5				 **
-#~app-containers/buildah-1.36.0				 **
-#~app-containers/buildah-1.37.0				 **
-#~app-containers/buildah-1.37.1				 **
-#~app-containers/buildah-1.37.2				 **
-#~app-containers/buildah-1.37.3				 **
-#~app-containers/buildah-1.37.4				 **
-#~app-containers/buildah-1.37.5				 **
-#~app-containers/buildah-1.37.6				 **
-#~app-containers/buildah-1.38.0				 **
-~app-containers/buildah-1.38.1				 **
-~app-containers/buildah-1.39.0				 **
+#~app-containers/buildah-1.34.1				       ~arm        ~x86
+#~app-containers/buildah-1.34.2				       ~arm        ~x86
+#~app-containers/buildah-1.34.3				       ~arm        ~x86
+#~app-containers/buildah-1.35.0				       ~arm        ~x86
+#~app-containers/buildah-1.35.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.35.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.35.3				       ~arm        ~x86
+#~app-containers/buildah-1.35.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.35.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.36.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.37.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.37.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.37.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.37.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.37.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.37.5				       ~arm        ~x86
+#~app-containers/buildah-1.37.6				       ~arm        ~x86
+#~app-containers/buildah-1.38.0				       ~arm        ~x86
+~app-containers/buildah-1.38.1				~amd64 ~arm ~arm64 ~x86
+~app-containers/buildah-1.39.0				~amd64 ~arm ~arm64 ~x86
 
 # originally required by app-emulation/buildah-1.15.0
 # move app-emulation/skopeo app-containers/skopeo
-#~app-containers/skopeo-1.1.1				 **
-#~app-containers/skopeo-1.2.0				 **
-#~app-containers/skopeo-1.2.1				 **
-#~app-containers/skopeo-1.2.2				 **
-#~app-containers/skopeo-1.2.3				 **
-#~app-containers/skopeo-1.3.0				 **
-#~app-containers/skopeo-1.3.1				 **
-#~app-containers/skopeo-1.4.0				 **
-#~app-containers/skopeo-1.4.1				 **
-#~app-containers/skopeo-1.5.0				 **
-#~app-containers/skopeo-1.5.1				 **
-#~app-containers/skopeo-1.5.2				 **
-#~app-containers/skopeo-1.6.0				 **
-#~app-containers/skopeo-1.6.1				 **
-#~app-containers/skopeo-1.6.2				 **
-#~app-containers/skopeo-1.6.3				 **
-#~app-containers/skopeo-1.7.0				 **
-#~app-containers/skopeo-1.8.0				 **
-#~app-containers/skopeo-1.9.0				 **
-#~app-containers/skopeo-1.9.1				 **
-#~app-containers/skopeo-1.9.2				 **
-#~app-containers/skopeo-1.10.0				 **
-#~app-containers/skopeo-1.11.0				 **
-#~app-containers/skopeo-1.11.1				 **
-#~app-containers/skopeo-1.11.2				 **
-#~app-containers/skopeo-1.12.0				 **
-#~app-containers/skopeo-1.13.0				 **
-#~app-containers/skopeo-1.13.1				 **
-#~app-containers/skopeo-1.13.2				 **
-#~app-containers/skopeo-1.13.3				 **
-#~app-containers/skopeo-1.14.0				 **
-#~app-containers/skopeo-1.14.1				 **
-#~app-containers/skopeo-1.14.2				 **
-#~app-containers/skopeo-1.14.3				 **
-#~app-containers/skopeo-1.14.4				 **
-#~app-containers/skopeo-1.14.5				 **
-#~app-containers/skopeo-1.15.0				 **
-#~app-containers/skopeo-1.15.1				 **
-#~app-containers/skopeo-1.15.2				 **
-#~app-containers/skopeo-1.16.0				 **
-#~app-containers/skopeo-1.16.1				 **
-~app-containers/skopeo-1.17.0				 **
-~app-containers/skopeo-1.18.0				 **
+#~app-containers/skopeo-1.1.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.2.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.2.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.2.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.2.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.3.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.3.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.4.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.4.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.5.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.5.1				       ~arm        ~x86
+#~app-containers/skopeo-1.5.2				       ~arm        ~x86
+#~app-containers/skopeo-1.6.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.6.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.6.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.6.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.7.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.8.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.9.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.9.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.9.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.10.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.11.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.11.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.11.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.12.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.13.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.13.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.13.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.13.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.14.0				       ~arm        ~x86
+#~app-containers/skopeo-1.14.1				       ~arm        ~x86
+#~app-containers/skopeo-1.14.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.14.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.14.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.14.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.15.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.15.1				       ~arm        ~x86
+#~app-containers/skopeo-1.15.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.16.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.16.1				~amd64 ~arm ~arm64 ~x86
+~app-containers/skopeo-1.17.0				~amd64 ~arm ~arm64 ~x86
+~app-containers/skopeo-1.18.0				~amd64 ~arm ~arm64 ~x86
 
 # move app-emulation/crun app-containers/crun
-#~app-containers/crun-0.14.1				 **
-#~app-containers/crun-0.15				 **
-#~app-containers/crun-0.15.1				 **
-#~app-containers/crun-0.16				 **
-#~app-containers/crun-0.17				 **
-#~app-containers/crun-0.18				 **
-#~app-containers/crun-0.19				 **
-#~app-containers/crun-0.19.1				 **
-#~app-containers/crun-0.20				 **
-#~app-containers/crun-0.20.1				 **
-#~app-containers/crun-0.21				 **
-#~app-containers/crun-1.0				 **
-#~app-containers/crun-1.1				 **
-#~app-containers/crun-1.2				 **
-#~app-containers/crun-1.3				 **
-#~app-containers/crun-1.4				 **
-#~app-containers/crun-1.4.1				 **
-#~app-containers/crun-1.4.2				 **
-#~app-containers/crun-1.4.3				 **
-#~app-containers/crun-1.4.4				 **
-#~app-containers/crun-1.4.5				 **
-#~app-containers/crun-1.5				 **
-#~app-containers/crun-1.6				 **
-#~app-containers/crun-1.7				 **
-#~app-containers/crun-1.7.1				 **
-#~app-containers/crun-1.7.2				 **
-#~app-containers/crun-1.8				 **
-#~app-containers/crun-1.8.1				 **
-#~app-containers/crun-1.8.2				 **
-#~app-containers/crun-1.8.3				 **
-#~app-containers/crun-1.8.4				 **
-#~app-containers/crun-1.8.5				 **
-#~app-containers/crun-1.8.6				 **
-#~app-containers/crun-1.9				 **
-#~app-containers/crun-1.9.1				 **
-#~app-containers/crun-1.9.2				 **
-#~app-containers/crun-1.10				 **
-#~app-containers/crun-1.11				 **
-#~app-containers/crun-1.11.1				 **
-#~app-containers/crun-1.11.2				 **
-#~app-containers/crun-1.12				 **
-#~app-containers/crun-1.13				 **
-#~app-containers/crun-1.14				 **
-#~app-containers/crun-1.14.1				 **
-#~app-containers/crun-1.14.2				 **
-#~app-containers/crun-1.14.3				 **
-#~app-containers/crun-1.14.4				 **
-#~app-containers/crun-1.15				 **
-#~app-containers/crun-1.16				 **
-#~app-containers/crun-1.16.1				 **
-#~app-containers/crun-1.17				 **
-#~app-containers/crun-1.18				 **
-#~app-containers/crun-1.18.1				 **
-#~app-containers/crun-1.18.2				 **
-#~app-containers/crun-1.19				 **
-~app-containers/crun-1.19.1				 **
-~app-containers/crun-1.20				 **
+#~app-containers/crun-0.14.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-0.15				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-0.15.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-0.16				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-0.17				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-0.18				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-0.19				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-0.19.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-0.20				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-0.20.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-0.21				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.3				       ~arm        ~x86
+#~app-containers/crun-1.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.4.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.4.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.4.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.4.4				       ~arm        ~x86
+#~app-containers/crun-1.4.5				       ~arm        ~x86
+#~app-containers/crun-1.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.7				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.7.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.7.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.8				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.8.1				       ~arm        ~x86
+#~app-containers/crun-1.8.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.8.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.8.4				       ~arm        ~x86
+#~app-containers/crun-1.8.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.8.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.9				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.9.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.9.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.10				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.11				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.11.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.11.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.12				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.13				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.14				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.14.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.14.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.14.3				       ~arm        ~x86
+#~app-containers/crun-1.14.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.15				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.16				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.16.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.17				       ~arm        ~x86
+#~app-containers/crun-1.18				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.18.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.18.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.19				~amd64 ~arm ~arm64 ~x86
+~app-containers/crun-1.19.1				~amd64 ~arm ~arm64 ~x86
+~app-containers/crun-1.20				~amd64 ~arm ~arm64 ~x86
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
 #~app-containers/runc-1.0.0_rc93			 **
 #~app-containers/runc-1.0.0_rc94			 **  # CVE-2021-30465
 #~app-containers/runc-1.0.0_rc95			 **
-#~app-containers/runc-1.0.0				 **
-#~app-containers/runc-1.0.1				 **
-#~app-containers/runc-1.0.2				 **
-#~app-containers/runc-1.0.3				 **
+#~app-containers/runc-1.0.0				       ~arm        ~x86
+#~app-containers/runc-1.0.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/runc-1.0.2				       ~arm        ~x86
+#~app-containers/runc-1.0.3				       ~arm        ~x86
 #~app-containers/runc-1.1.0_rc1				 **
-#~app-containers/runc-1.1.0				 **
-#~app-containers/runc-1.1.1				 **
-#~app-containers/runc-1.1.2				 **
-#~app-containers/runc-1.1.3				 **
-#~app-containers/runc-1.1.4				 **
-#~app-containers/runc-1.1.5				 **
-#~app-containers/runc-1.1.6				 **
-#~app-containers/runc-1.1.7				 **
-#~app-containers/runc-1.1.8				 **
-#~app-containers/runc-1.1.9				 **
-#~app-containers/runc-1.1.10				 **
-#~app-containers/runc-1.1.11				 **
-#~app-containers/runc-1.1.12				 **
-#~app-containers/runc-1.1.13				 **
-#~app-containers/runc-1.1.14				 **
-~app-containers/runc-1.1.15				 **
+#~app-containers/runc-1.1.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/runc-1.1.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/runc-1.1.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/runc-1.1.3				       ~arm        ~x86
+#~app-containers/runc-1.1.4				       ~arm        ~x86
+#~app-containers/runc-1.1.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/runc-1.1.6				       ~arm        ~x86
+#~app-containers/runc-1.1.7				       ~arm        ~x86
+#~app-containers/runc-1.1.8				       ~arm        ~x86
+#~app-containers/runc-1.1.9				       ~arm        ~x86
+#~app-containers/runc-1.1.10				       ~arm        ~x86
+#~app-containers/runc-1.1.11				       ~arm        ~x86
+#~app-containers/runc-1.1.12				       ~arm        ~x86
+#~app-containers/runc-1.1.13				~amd64 ~arm ~arm64 ~x86
+#~app-containers/runc-1.1.14				~amd64 ~arm ~arm64 ~x86
+~app-containers/runc-1.1.15				~amd64 ~arm ~arm64 ~x86
 #~app-containers/runc-1.2.0_rc1				 **
 #~app-containers/runc-1.2.0_rc2				 **
 #~app-containers/runc-1.2.0_rc3				 **
-#~app-containers/runc-1.2.0				 **
-#~app-containers/runc-1.2.1				 **
-#~app-containers/runc-1.2.2				 **
-#~app-containers/runc-1.2.3				 **
-#~app-containers/runc-1.2.4				 **
-~app-containers/runc-1.2.5				 **
+#~app-containers/runc-1.2.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/runc-1.2.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/runc-1.2.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/runc-1.2.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/runc-1.2.4				       ~arm        ~x86
+~app-containers/runc-1.2.5				       ~arm        ~x86
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
-#~app-containers/conmon-2.0.20				 **
-#~app-containers/conmon-2.0.21				 **
-#~app-containers/conmon-2.0.22				 **
-#~app-containers/conmon-2.0.23				 **
-#~app-containers/conmon-2.0.24				 **
-#~app-containers/conmon-2.0.25				 **
-#~app-containers/conmon-2.0.26				 **
-#~app-containers/conmon-2.0.27				 **
-#~app-containers/conmon-2.0.28				 **
-#~app-containers/conmon-2.0.29				 **
-#~app-containers/conmon-2.0.30				 **
-#~app-containers/conmon-2.0.31				 **
-~app-containers/conmon-2.0.32				 **
-#~app-containers/conmon-2.1.0				 **
-#~app-containers/conmon-2.1.1				 **
-#~app-containers/conmon-2.1.2				 **
-#~app-containers/conmon-2.1.3				 **
-#~app-containers/conmon-2.1.4				 **
-#~app-containers/conmon-2.1.5				 **
-#~app-containers/conmon-2.1.6				 **
-#~app-containers/conmon-2.1.7				 **
-#~app-containers/conmon-2.1.8				 **
-#~app-containers/conmon-2.1.9				 **
-#~app-containers/conmon-2.1.10				 **
-#~app-containers/conmon-2.1.11				 **
-~app-containers/conmon-2.1.12				 **
+#~app-containers/conmon-2.0.20				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.0.21				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.0.22				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.0.23				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.0.24				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.0.25				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.0.26				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.0.27				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.0.28				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.0.29				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.0.30				       ~arm        ~x86
+#~app-containers/conmon-2.0.31				       ~arm        ~x86
+~app-containers/conmon-2.0.32				       ~arm        ~x86
+#~app-containers/conmon-2.1.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.1.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.1.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.1.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.1.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.1.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/conmon-2.1.6				       ~arm        ~x86
+#~app-containers/conmon-2.1.7				       ~arm        ~x86
+#~app-containers/conmon-2.1.8				       ~arm        ~x86
+#~app-containers/conmon-2.1.9				       ~arm        ~x86
+#~app-containers/conmon-2.1.10				       ~arm        ~x86
+#~app-containers/conmon-2.1.11				~amd64 ~arm ~arm64 ~x86
+~app-containers/conmon-2.1.12				~amd64 ~arm ~arm64 ~x86
 
 # move app-emulation/catatonit app-containers/catatonit
 # originally required by app-emulation/podman-2.0.0_rc7
-#~app-containers/catatonit-0.1.5			 **
-#~app-containers/catatonit-0.1.6			 **
-~app-containers/catatonit-0.1.7				 **
-#~app-containers/catatonit-0.2.0			 **
-~app-containers/catatonit-0.2.1				 **
+#~app-containers/catatonit-0.1.5			~amd64 ~arm ~arm64 ~x86
+#~app-containers/catatonit-0.1.6			~amd64 ~arm ~arm64 ~x86
+~app-containers/catatonit-0.1.7				       ~arm        ~x86
+#~app-containers/catatonit-0.2.0			       ~arm        ~x86
+~app-containers/catatonit-0.2.1				       ~arm        ~x86
 
-#~app-containers/netavark-1.0.2				 **
-#~app-containers/netavark-1.0.3				 **
-#~app-containers/netavark-1.1.0				 **
-#~app-containers/netavark-1.2.0				 **
-#~app-containers/netavark-1.3.0				 **
-#~app-containers/netavark-1.4.0				 **
-#~app-containers/netavark-1.5.0				 **
-#~app-containers/netavark-1.5.1				 **
-#~app-containers/netavark-1.6.0				 **
-#~app-containers/netavark-1.7.0				 **
-#~app-containers/netavark-1.8.0				 **
-#~app-containers/netavark-1.9.0				 **
+#~app-containers/netavark-1.0.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.0.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.1.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.2.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.3.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.4.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.5.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.5.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.6.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.7.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.8.0				       ~arm        ~x86
+#~app-containers/netavark-1.9.0				       ~arm        ~x86
 # crate missing: https://crates.io/crates/netavark/1.10.0
-#~app-containers/netavark-1.10.0			 **
-#~app-containers/netavark-1.10.1			 **
-#~app-containers/netavark-1.10.2			 **
-#~app-containers/netavark-1.10.3			 **
-#~app-containers/netavark-1.11.0			 **
+#~app-containers/netavark-1.10.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.10.1			       ~arm        ~x86
+#~app-containers/netavark-1.10.2			~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.10.3			       ~arm        ~x86
+#~app-containers/netavark-1.11.0			       ~arm        ~x86
 # release failed: https://crates.io/crates/netavark/1.12.0
-#~app-containers/netavark-1.12.1			 **
-#~app-containers/netavark-1.12.2			 **
-#~app-containers/netavark-1.13.0			 **
-~app-containers/netavark-1.13.1				 **
-~app-containers/netavark-1.14.0				 **
+#~app-containers/netavark-1.12.1			~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.12.2			       ~arm        ~x86
+#~app-containers/netavark-1.13.0			~amd64 ~arm ~arm64 ~x86
+~app-containers/netavark-1.13.1				~amd64 ~arm ~arm64 ~x86
+~app-containers/netavark-1.14.0				~amd64 ~arm ~arm64 ~x86
 
-#~app-containers/aardvark-dns-1.0.2			 **
-#~app-containers/aardvark-dns-1.0.3			 **
-#~app-containers/aardvark-dns-1.1.0			 **
-#~app-containers/aardvark-dns-1.2.0			 **
-#~app-containers/aardvark-dns-1.3.0			 **
-#~app-containers/aardvark-dns-1.4.0			 **
-#~app-containers/aardvark-dns-1.5.0			 **
-#~app-containers/aardvark-dns-1.6.0			 **
-#~app-containers/aardvark-dns-1.7.0			 **
-#~app-containers/aardvark-dns-1.8.0			 **
-#~app-containers/aardvark-dns-1.9.0			 **
-#~app-containers/aardvark-dns-1.10.0			 **
+#~app-containers/aardvark-dns-1.0.2			~amd64 ~arm ~arm64 ~x86
+#~app-containers/aardvark-dns-1.0.3			~amd64 ~arm ~arm64 ~x86
+#~app-containers/aardvark-dns-1.1.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/aardvark-dns-1.2.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/aardvark-dns-1.3.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/aardvark-dns-1.4.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/aardvark-dns-1.5.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/aardvark-dns-1.6.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/aardvark-dns-1.7.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/aardvark-dns-1.8.0			       ~arm        ~x86
+#~app-containers/aardvark-dns-1.9.0			       ~arm        ~x86
+#~app-containers/aardvark-dns-1.10.0			       ~arm        ~x86
 # crate missing: https://crates.io/crates/aardvark-dns/1.10.1-rhel
-#~app-containers/aardvark-dns-1.11.0			 **
+#~app-containers/aardvark-dns-1.11.0			       ~arm        ~x86
 # release failed: https://crates.io/crates/aardvark-dns/1.12.0
-#~app-containers/aardvark-dns-1.12.1			 **
-#~app-containers/aardvark-dns-1.12.2			 **
-~app-containers/aardvark-dns-1.13.0			 **
+#~app-containers/aardvark-dns-1.12.1			~amd64 ~arm ~arm64 ~x86
+#~app-containers/aardvark-dns-1.12.2			       ~arm        ~x86
+~app-containers/aardvark-dns-1.13.0			~amd64 ~arm ~arm64 ~x86
 # crate missing: https://crates.io/crates/aardvark-dns/1.13.1
-~app-containers/aardvark-dns-1.14.0			 **
+~app-containers/aardvark-dns-1.14.0			~amd64 ~arm ~arm64 ~x86
 
 # required for <=app-containers/podman-3.4.7
 # optional for <=podman/podman-4.5.0_rc2:4
-#~net-misc/cni-plugins-0.8.7				 **
-#~net-misc/cni-plugins-0.9.0				 **
-#~net-misc/cni-plugins-0.9.1				 **
-#~net-misc/cni-plugins-1.0.0				 **
-#~net-misc/cni-plugins-1.0.1				 **
-#~net-misc/cni-plugins-1.1.0				 **
-#~net-misc/cni-plugins-1.1.1				 **
-#~net-misc/cni-plugins-1.1.1-r1				 **
-#~net-misc/cni-plugins-1.2.0				 **
-#~net-misc/cni-plugins-1.3.0				 **
-#~net-misc/cni-plugins-1.4.0				 **
-#~net-misc/cni-plugins-1.4.1				 **
-#~net-misc/cni-plugins-1.5.0				 **
-~net-misc/cni-plugins-1.5.1				 **
-#~net-misc/cni-plugins-1.6.0				 **
-#~net-misc/cni-plugins-1.6.1				 **
-~net-misc/cni-plugins-1.6.2				 **
+#~net-misc/cni-plugins-0.8.7				~amd64 ~arm ~arm64 ~x86
+#~net-misc/cni-plugins-0.9.0				~amd64 ~arm ~arm64 ~x86
+#~net-misc/cni-plugins-0.9.1				       ~arm        ~x86
+#~net-misc/cni-plugins-1.0.0				~amd64 ~arm ~arm64 ~x86
+#~net-misc/cni-plugins-1.0.1				~amd64 ~arm ~arm64 ~x86
+#~net-misc/cni-plugins-1.1.0				~amd64 ~arm ~arm64 ~x86
+#~net-misc/cni-plugins-1.1.1				~amd64 ~arm ~arm64 ~x86
+#~net-misc/cni-plugins-1.1.1-r1				~amd64 ~arm ~arm64 ~x86
+#~net-misc/cni-plugins-1.2.0				       ~arm        ~x86
+#~net-misc/cni-plugins-1.3.0				       ~arm        ~x86
+#~net-misc/cni-plugins-1.4.0				~amd64 ~arm ~arm64 ~x86
+#~net-misc/cni-plugins-1.4.1				~amd64 ~arm ~arm64 ~x86
+#~net-misc/cni-plugins-1.5.0				~amd64 ~arm ~arm64 ~x86
+~net-misc/cni-plugins-1.5.1				~amd64 ~arm ~arm64 ~x86
+#~net-misc/cni-plugins-1.6.0				~amd64 ~arm ~arm64 ~x86
+#~net-misc/cni-plugins-1.6.1				~amd64 ~arm ~arm64 ~x86
+~net-misc/cni-plugins-1.6.2				~amd64 ~arm ~arm64 ~x86
 
 # optional for >=app-containers/podman-4.4.0_rc3[rootless]
 # required for >=app-containers/podman-5.0.0_rc7[rootless]
 # required for >=containers-common/containers-common-0.57.5[rootless]
-#~app-containers/passt-20221116				 **
-~net-misc/passt-2024.03.20				 **
-~net-misc/passt-2024.04.05				 **
-~net-misc/passt-2024.09.06				 **
+#~app-containers/passt-20221116				~amd64 ~arm ~arm64 ~x86
+#~net-misc/passt-2024.03.20				~amd64 ~arm ~arm64 ~x86
+#~net-misc/passt-2024.04.05				~amd64 ~arm ~arm64 ~x86
+#~net-misc/passt-2024.05.10				       ~arm        ~x86
+~net-misc/passt-2024.09.06				       ~arm        ~x86
+~net-misc/passt-2025.02.17				       ~arm        ~x86
 
 # originally required by app-emulation/podman-1.9.3[rootless]
 # required for <=app-containers/podman-4.4.0_rc2[rootless]
 # optional for ( >=app-containers/podman-4.4.0[rootless] <=app-containers/podman-5.0.0_rc6[rootless] )
 # move app-emulation/slirp4netns app-containers/slirp4netns
-#~app-containers/slirp4netns-1.1.4			 **
-#~app-containers/slirp4netns-1.1.6			 **
-#~app-containers/slirp4netns-1.1.7			 **
-#~app-containers/slirp4netns-1.1.8			 **
-#~app-containers/slirp4netns-1.1.9			 **
-#~app-containers/slirp4netns-1.1.10			 **
-#~app-containers/slirp4netns-1.1.11			 **
-#~app-containers/slirp4netns-1.1.12			 **
-#~app-containers/slirp4netns-1.2.0_beta0		 **
-#~app-containers/slirp4netns-1.2.0_rc0			 **
-#~app-containers/slirp4netns-1.2.0			 **
-#~app-containers/slirp4netns-1.2.1			 **
-#~app-containers/slirp4netns-1.2.2			 **
-~app-containers/slirp4netns-1.2.3			 **
-#~app-containers/slirp4netns-1.3.0			 **
-#~app-containers/slirp4netns-1.3.1			 **
-~app-containers/slirp4netns-1.3.2			 **
+#~app-containers/slirp4netns-1.1.4			~amd64 ~arm ~arm64 ~x86
+#~app-containers/slirp4netns-1.1.6			~amd64 ~arm ~arm64 ~x86
+#~app-containers/slirp4netns-1.1.7			~amd64 ~arm ~arm64 ~x86
+#~app-containers/slirp4netns-1.1.8			~amd64 ~arm ~arm64 ~x86
+#~app-containers/slirp4netns-1.1.9			~amd64 ~arm ~arm64 ~x86
+#~app-containers/slirp4netns-1.1.10			~amd64 ~arm ~arm64 ~x86
+#~app-containers/slirp4netns-1.1.11			~amd64 ~arm ~arm64 ~x86
+#~app-containers/slirp4netns-1.1.12			       ~arm        ~x86
+#~app-containers/slirp4netns-1.2.0_beta0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/slirp4netns-1.2.0_rc0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/slirp4netns-1.2.0			       ~arm        ~x86
+#~app-containers/slirp4netns-1.2.1			       ~arm        ~x86
+#~app-containers/slirp4netns-1.2.2			       ~arm        ~x86
+~app-containers/slirp4netns-1.2.3			       ~arm        ~x86
+#~app-containers/slirp4netns-1.3.0			       ~arm        ~x86
+#~app-containers/slirp4netns-1.3.1			       ~arm        ~x86
+~app-containers/slirp4netns-1.3.2			       ~arm        ~x86
 
-#~app-containers/containers-common-0.56.0		 **
-#~app-containers/containers-common-0.57.0		 **
-#~app-containers/containers-common-0.57.1		 **
-#~app-containers/containers-common-0.57.2		 **
-#~app-containers/containers-common-0.57.3		 **
-#~app-containers/containers-common-0.57.4		 **
-#~app-containers/containers-common-0.57.5		 **
-#~app-containers/containers-common-0.57.6		 **
-#~app-containers/containers-common-0.58.0		 **
-#~app-containers/containers-common-0.58.1		 **
-#~app-containers/containers-common-0.58.2		 **
-#~app-containers/containers-common-0.58.3		 **
-#~app-containers/containers-common-0.58.4		 **
-#~app-containers/containers-common-0.58.5		 **
-#~app-containers/containers-common-0.59.0		 **
-#~app-containers/containers-common-0.59.1		 **
-#~app-containers/containers-common-0.59.2		 **
-#~app-containers/containers-common-0.60.0		 **
-#~app-containers/containers-common-0.60.1		 **
-#~app-containers/containers-common-0.60.2		 **
-#~app-containers/containers-common-0.60.3		 **
-#~app-containers/containers-common-0.60.4		 **
-#~app-containers/containers-common-0.61.0		 **
-~app-containers/containers-common-0.61.1		 **
-~app-containers/containers-common-0.62.0		 **
+#~app-containers/containers-common-0.56.0		       ~arm        ~x86
+#~app-containers/containers-common-0.57.0		       ~arm        ~x86
+#~app-containers/containers-common-0.57.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.57.2		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.57.3		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.57.4		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.57.5		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.57.6		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.58.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.58.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.58.2		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.58.3		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.58.4		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.58.5		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.59.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.59.1		       ~arm        ~x86
+#~app-containers/containers-common-0.59.2		       ~arm        ~x86
+#~app-containers/containers-common-0.60.0		       ~arm        ~x86
+#~app-containers/containers-common-0.60.1		       ~arm        ~x86
+#~app-containers/containers-common-0.60.2		       ~arm        ~x86
+#~app-containers/containers-common-0.60.3		       ~arm        ~x86
+#~app-containers/containers-common-0.60.4		       ~arm        ~x86
+#~app-containers/containers-common-0.61.0		~amd64 ~arm ~arm64 ~x86
+~app-containers/containers-common-0.61.1		~amd64 ~arm ~arm64 ~x86
+~app-containers/containers-common-0.62.0		~amd64 ~arm ~arm64 ~x86
 
-~app-containers/containers-image-5.30.0			 **
-~app-containers/containers-image-5.32.2			 **
+~app-containers/containers-image-5.30.0			       ~arm        ~x86
+~app-containers/containers-image-5.32.2			       ~arm        ~x86
 
-~app-containers/containers-shortnames-2023.02.20	 **
+~app-containers/containers-shortnames-2023.02.20	       ~arm        ~x86
 
 # move app-emulation/containers-storage app-containers/containers-storage
-#~app-containers/containers-storage-1.27.0		 **
-#~app-containers/containers-storage-1.28.0		 **
-#~app-containers/containers-storage-1.28.1		 **
-#~app-containers/containers-storage-1.29.0		 **
-#~app-containers/containers-storage-1.30.0		 **
-#~app-containers/containers-storage-1.30.1		 **
-#~app-containers/containers-storage-1.30.2		 **
-#~app-containers/containers-storage-1.30.3		 **
-#~app-containers/containers-storage-1.31.1		 **
-#~app-containers/containers-storage-1.31.2		 **
-#~app-containers/containers-storage-1.31.3		 **
-#~app-containers/containers-storage-1.31.4		 **
-#~app-containers/containers-storage-1.32.0		 **
-#~app-containers/containers-storage-1.32.1		 **
-#~app-containers/containers-storage-1.32.2		 **
-#~app-containers/containers-storage-1.32.3		 **
-#~app-containers/containers-storage-1.32.4		 **
-#~app-containers/containers-storage-1.32.5		 **
-#~app-containers/containers-storage-1.32.6		 **
-#~app-containers/containers-storage-1.32.7		 **
-#~app-containers/containers-storage-1.33.0		 **
-#~app-containers/containers-storage-1.33.1		 **
-#~app-containers/containers-storage-1.33.2		 **
-#~app-containers/containers-storage-1.34.0		 **
-#~app-containers/containers-storage-1.34.1		 **
-#~app-containers/containers-storage-1.34.2		 **
-#~app-containers/containers-storage-1.35.0		 **
-#~app-containers/containers-storage-1.36.0		 **
-#~app-containers/containers-storage-1.36.1		 **
+#~app-containers/containers-storage-1.27.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.28.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.28.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.29.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.30.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.30.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.30.2		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.30.3		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.31.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.31.2		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.31.3		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.31.4		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.32.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.32.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.32.2		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.32.3		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.32.4		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.32.5		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.32.6		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.32.7		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.33.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.33.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.33.2		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.34.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.34.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.34.2		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.35.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.36.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.36.1		~amd64 ~arm ~arm64 ~x86
 # ~app-containers/containers-storage-1.36.2 was never released...
-#~app-containers/containers-storage-1.36.3		 **
-#~app-containers/containers-storage-1.36.4		 **
-#~app-containers/containers-storage-1.37.0		 **
-#~app-containers/containers-storage-1.37.1		 **
-#~app-containers/containers-storage-1.37.2		 **
-#~app-containers/containers-storage-1.37.3		 **
-#~app-containers/containers-storage-1.38.0		 **
-#~app-containers/containers-storage-1.38.1		 **
-#~app-containers/containers-storage-1.38.2		 **
-#~app-containers/containers-storage-1.38.3		 **
-#~app-containers/containers-storage-1.38.4		 **
-#~app-containers/containers-storage-1.38.5		 **
-#~app-containers/containers-storage-1.39.0		 **
-#~app-containers/containers-storage-1.40.0		 **
-#~app-containers/containers-storage-1.40.1		 **
-#~app-containers/containers-storage-1.40.2		 **
-#~app-containers/containers-storage-1.40.3		 **
-#~app-containers/containers-storage-1.41.0		 **
-#~app-containers/containers-storage-1.42.0		 **
-#~app-containers/containers-storage-1.43.0		 **
-#~app-containers/containers-storage-1.43.1		 **
-#~app-containers/containers-storage-1.43.2		 **
-#~app-containers/containers-storage-1.44.0		 **
-#~app-containers/containers-storage-1.45.0		 **
-#~app-containers/containers-storage-1.45.1		 **
-#~app-containers/containers-storage-1.45.2		 **
-#~app-containers/containers-storage-1.45.3		 **
-#~app-containers/containers-storage-1.45.4		 **
-#~app-containers/containers-storage-1.45.5		 **
-#~app-containers/containers-storage-1.45.6		 **
-#~app-containers/containers-storage-1.45.7		 **
-#~app-containers/containers-storage-1.46.0		 **
-#~app-containers/containers-storage-1.46.1		 **
-#~app-containers/containers-storage-1.47.0		 **
-#~app-containers/containers-storage-1.48.0		 **
-#~app-containers/containers-storage-1.48.1		 **
-#~app-containers/containers-storage-1.49.0		 **
-#~app-containers/containers-storage-1.50.0		 **
-#~app-containers/containers-storage-1.50.1		 **
-#~app-containers/containers-storage-1.50.2		 **
-#~app-containers/containers-storage-1.51.0		 **
-#~app-containers/containers-storage-1.51.1		 **
-#~app-containers/containers-storage-1.51.2		 **
-#~app-containers/containers-storage-1.52.0		 **
-#~app-containers/containers-storage-1.53.0		 **
-#~app-containers/containers-storage-1.54.0		 **
-#~app-containers/containers-storage-1.55.0		 **
-#~app-containers/containers-storage-1.55.1		 **
-#~app-containers/containers-storage-1.55.2		 **
-#~app-containers/containers-storage-1.56.0		 **
-~app-containers/containers-storage-1.56.1		 **
-#~app-containers/containers-storage-1.57.0		 **
-~app-containers/containers-storage-1.57.1		 **
+#~app-containers/containers-storage-1.36.3		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.36.4		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.37.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.37.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.37.2		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.37.3		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.38.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.38.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.38.2		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.38.3		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.38.4		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.38.5		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.39.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.40.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.40.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.40.2		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.40.3		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.41.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.42.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.43.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.43.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.43.2		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.44.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.45.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.45.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.45.2		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.45.3		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.45.4		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.45.5		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.45.6		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.45.7		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.46.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.46.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.47.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.48.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.48.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.49.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.50.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.50.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.50.2		       ~arm        ~x86
+#~app-containers/containers-storage-1.51.0		       ~arm        ~x86
+#~app-containers/containers-storage-1.51.1		       ~arm        ~x86
+#~app-containers/containers-storage-1.51.2		       ~arm        ~x86
+#~app-containers/containers-storage-1.52.0		       ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.53.0		       ~arm        ~x86
+#~app-containers/containers-storage-1.54.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.55.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.55.1		       ~arm        ~x86
+#~app-containers/containers-storage-1.55.2		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.56.0		~amd64 ~arm ~arm64 ~x86
+~app-containers/containers-storage-1.56.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.57.0		~amd64 ~arm ~arm64 ~x86
+~app-containers/containers-storage-1.57.1		~amd64 ~arm ~arm64 ~x86
 
 # rust build dependencies for netavark/aardvark-dns
-~dev-util/cargo-ebuild-0.5.4				~amd64
+# deprecated for app-portage/pycargoebuild
+#~dev-util/cargo-ebuild-0.5.4				~amd64
 
 # originally required by app-emulation/podman-1.9.3[fuse]
-#~sys-fs/fuse-overlayfs-1.1.2				 **
-#~sys-fs/fuse-overlayfs-1.2.0				 **
-#~sys-fs/fuse-overlayfs-1.3.0				 **
-#~sys-fs/fuse-overlayfs-1.4.0				 **
-#~sys-fs/fuse-overlayfs-1.5.0				 **
-#~sys-fs/fuse-overlayfs-1.7.1				 **
-#~sys-fs/fuse-overlayfs-1.8				 **
-#~sys-fs/fuse-overlayfs-1.8.1				 **
-#~sys-fs/fuse-overlayfs-1.8.2				 **
+#~sys-fs/fuse-overlayfs-1.1.2				~amd64 ~arm ~arm64 ~x86
+#~sys-fs/fuse-overlayfs-1.2.0				~amd64 ~arm ~arm64 ~x86
+#~sys-fs/fuse-overlayfs-1.3.0				~amd64 ~arm ~arm64 ~x86
+#~sys-fs/fuse-overlayfs-1.4.0				~amd64 ~arm ~arm64 ~x86
+#~sys-fs/fuse-overlayfs-1.5.0				~amd64 ~arm ~arm64 ~x86
+#~sys-fs/fuse-overlayfs-1.7.1				~amd64 ~arm ~arm64 ~x86
+#~sys-fs/fuse-overlayfs-1.8				~amd64 ~arm ~arm64 ~x86
+#~sys-fs/fuse-overlayfs-1.8.1				~amd64 ~arm ~arm64 ~x86
+#~sys-fs/fuse-overlayfs-1.8.2				~amd64 ~arm ~arm64 ~x86
 # ...
-~sys-fs/fuse-overlayfs-1.12				 **
-~sys-fs/fuse-overlayfs-1.13				 **
+#~sys-fs/fuse-overlayfs-1.12				       ~arm        ~x86
+~sys-fs/fuse-overlayfs-1.13				       ~arm        ~x86
+~sys-fs/fuse-overlayfs-1.14				       ~arm        ~x86
 
 # originally required by app-containers/podman-5.3.1[composefs]
-~sys-fs/composefs-1.0.8					 **
+~sys-fs/composefs-1.0.8					~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:
