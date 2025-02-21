@@ -48,21 +48,21 @@ format() {
 	[ -n "${format_variable:-}" ] || return 1
 
 	format_variable="$( # <- Syntax
-		echo "${format_variable}" | xargs -rn 1 | sort -d | xargs -r
-	)"
+			echo "${format_variable}" | xargs -rn 1 | sort -d | xargs -r
+		)"
 	format_spaces="$( printf "%${format_padding}s" )"
 	format_string="%-${format_padding}s= \"%s\"\\n"
 
 	# shellcheck disable=SC2059
 	printf "${format_string}" "${format_variable}" "$( # <- Syntax
-		cat - |
-			grep -- "^${format_variable}=" |
-			cut -d'"' -f 2 |
-			sort |
-			uniq |
-			fmt -w $(( ${COLUMNS:-"80"} - ( format_padding + 3 ) )) |
-			sed "s/^/   ${format_spaces}/ ; 1 s/^\s\+//"
-	)"
+			cat - |
+				grep -- "^${format_variable}=" |
+				cut -d'"' -f 2 |
+				sort |
+				uniq |
+				fmt -w $(( ${COLUMNS:-"80"} - ( format_padding + 3 ) )) |
+				sed "s/^/   ${format_spaces}/ ; 1 s/^\s\+//"
+		)"
 
 	unset format_string format_spaces format_padding format_variable
 
@@ -89,13 +89,13 @@ parse_opt() {
 	if [ -z "$( eval "echo \${${po_var}:-}" )" ]; then
 		print "parse_opt: Generating new emerge option list for root '${ROOT:-}'"
 		eval "${po_var}=\$(
-			emerge --bad_option 2>&1 |
-				grep -v -- '^emerge: error: unrecognized arguments: --bad_option$' |
-				sed 's/^[^[]*\[/[/ ; s/^\[// ; s/\] \[/!/g ; s/\]$//' |
-				tr '!' '\n' |
-				grep -v -- '^positional_args' |
-				tr '\n' '!'
-		)"
+				emerge --bad_option 2>&1 |
+					grep -v -- '^emerge: error: unrecognized arguments: --bad_option$' |
+					sed 's/^[^[]*\[/[/ ; s/^\[// ; s/\] \[/!/g ; s/\]$//' |
+					tr '!' '\n' |
+					grep -v -- '^positional_args' |
+					tr '\n' '!'
+			)"
 	fi
 	[ -n "$( eval "echo \${${po_var}:-}" )" ] || return 1
 
@@ -129,10 +129,11 @@ parse_opt() {
 						#
 						print "           ... valid competions are '${po_line#* }'"
 						if echo "${po_arg}" | grep -Eq -- "$( # <- Syntax
-								echo "${po_line}" |
-									awk '{ print $2 }' |
-									grep -o -- '{[^}]\+}' |
-									sed 's/^{// ; s/}$// ; s/,/|/g' )"
+									echo "${po_line}" |
+										awk '{ print $2 }' |
+										grep -o -- '{[^}]\+}' |
+										sed 's/^{// ; s/}$// ; s/,/|/g'
+								)"
 						then
 							if [ "${po_opt}" = "${po_opt%"="*}=${po_arg}" ]
 							then
@@ -545,11 +546,12 @@ savefailed() {
 	#
 	# shellcheck disable=SC2012
 	if [ -n "$( # <- Syntax
-			ls -1 2>/dev/null \
-					"${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log \
-					"${PORTAGE_TMPDIR}"/portage/*/*/work/*/config.log |
-				head -n 1 || :
-	)" ]; then
+				ls -1 2>/dev/null \
+						"${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log \
+						"${PORTAGE_TMPDIR}"/portage/*/*/work/*/config.log |
+					head -n 1 || :
+			)" ]
+	then
 		mkdir -p "${PORTAGE_LOGDIR}"/failed
 		for file in \
 				"${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log \
@@ -603,6 +605,9 @@ applyworkarounds() {
 	#  1 - Add required post_pkgs
 	#  2 - Add required post_use
 
+	# N.B. No replace_flags() here - it'd be really useful, but needs array
+	#      support in order to be sensibly implemented :(
+
 	if echo "${aw_arg:-}" | grep -q -- '^--'; then
 		# It's possible for the first argument to be an emerge(1) parameter,
 		# so don't abort if we don't get a match below (although we don't need
@@ -645,36 +650,8 @@ applyworkarounds() {
 				"applyworkarounds(<mode>, '${aw_arg}', >'${*}'<)"
 		fi
 	fi
-	print >&2 "applyworkarounds() called for package(s) '${aw_arg}' with parameters '${*:-}'"
-
-	#aw_pkgs='app-containers/buildah'
-	#[ $(( aw_mode )) -ne 2 ] &&
-	#	info >&2 "Checking for ${aw_pkgs} work-arounds ..."
-	#aw_list=''
-	#for aw_pkg in ${aw_pkgs}; do
-	#	aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
-	#done
-	#aw_pkg=''
-	#if aw_pkg="$( # <- Syntax
-	#		echo " ${aw_arg} " |
-	#			sed 's/ /  /g' |
-	#			grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
-	#)" && [ -n "${aw_pkg:-}" ]
-	#then
-	#	if [ $(( aw_mode )) -eq 1 ]; then
-	#		aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
-	#		warn >&2 "Adding post-package entry 'sys-devel/binutils'" \
-	#			"due to presence of ${aw_pkg} ..."
-	#		aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}sys-devel/binutils"
-	#	elif [ $(( aw_mode )) -eq 0 ]; then
-	#		warn >&2 "Activating app-containers/buildah work-arounds ..."
-	#		print >&2 "Before work-around, USE is '${aw_USE}' ..."
-	#		aw_USE="${aw_USE:+"$( # <- Syntax
-	#			echo " ${aw_USE} " | sed 's/ -gold / / ; s/^ //'
-	#		)"}gold"
-	#		print >&2 "After work-around, USE is '${aw_USE}'"
-	#	fi
-	#fi
+	print >&2 "applyworkarounds() called for package(s) '${aw_arg}' with" \
+		"parameters '${*:-}'"
 
 	# N.B. virtual/rust is now deprecated
 	aw_pkgs='app-containers/podman app-containers/netavark app-containers/aardvark-dns dev-lang/rust dev-util/bindgen'  # virtual/rust
@@ -685,12 +662,14 @@ applyworkarounds() {
 		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
 	done
 	aw_pkg=''
-	#print >&2 "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+	#print >&2 "Matching ' ${aw_arg} ' against" \
+	#	"' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+
 	if aw_pkg="$( # <- Syntax
-			echo " ${aw_arg} " |
-				sed 's/ /  /g' |
-				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
-		)" && [ -n "${aw_pkg:-}" ]
+				echo " ${aw_arg} " |
+					sed 's/ /  /g' |
+					grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+			)" && [ -n "${aw_pkg:-}" ]
 	then
 		if [ $(( aw_mode )) -eq 1 ]; then  # post_pkgs
 			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
@@ -701,8 +680,9 @@ applyworkarounds() {
 			warn >&2 "Activating app-containers/netavark work-arounds ..."
 			print >&2 "Before work-around, USE is '${aw_USE}' ..."
 			aw_USE="${aw_USE:+"$( # <- Syntax
-				echo " ${aw_USE} " | sed 's/ -http2 / / ; s/ -rustfmt / / ; s/^ //'
-			)"}http2 rustfmt"
+					echo " ${aw_USE} " |
+						sed 's/ -http2 / / ; s/ -rustfmt / / ; s/^ //'
+				)"}http2 rustfmt"
 			print >&2 "After work-around, USE is '${aw_USE}'"
 		fi
 	fi
@@ -715,7 +695,9 @@ applyworkarounds() {
 		aw_list="${aw_list:+"${aw_list}|"}${aw_pkg#*"/"}|${aw_pkg}"
 	done
 	aw_pkg=''
-	#print >&2 "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+	#print >&2 "Matching ' ${aw_arg} ' against" \
+	#	"' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+
 	if aw_pkg="$( # <- Syntax
 			echo " ${aw_arg} " |
 				sed 's/ /  /g' |
@@ -726,13 +708,13 @@ applyworkarounds() {
 			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
 			warn >&2 "Adding post-package entry 'media-libs/freetype'" \
 				"due to presence of ${aw_pkg} ..."
-			aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}media-libs/freetype"
+			aw_post_pkgs="${aw_post_pkgs:+"${aw_post_pkgs} "}media-libs/freetype"  # media-libs/harfbuzz
 		elif [ $(( aw_mode )) -eq 0 ]; then  # USE
 			warn >&2 "Activating media-libs/harfbuzz work-arounds ..."
 			print >&2 "Before work-around, USE is '${aw_USE}' ..."
 			aw_USE="${aw_USE:+"$( # <- Syntax
-				echo " ${aw_USE} " | sed 's/ harfbuzz / / ; s/^ //'
-			)"}-harfbuzz"
+					echo " ${aw_USE} " | sed 's/ harfbuzz / / ; s/^ //'
+				)"}-harfbuzz"  # -truetype
 			print >&2 "After work-around, USE is '${aw_USE}'"
 		fi
 	fi
@@ -746,10 +728,10 @@ applyworkarounds() {
 	#done
 	#aw_pkg=''
 	#if aw_pkg="$( # <- Syntax
-	#		echo " ${aw_arg} " |
-	#			sed 's/ /  /g' |
-	#			grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
-	#)" && [ -n "${aw_pkg:-}" ]
+	#				echo " ${aw_arg} " |
+	#					sed 's/ /  /g' |
+	#					grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+	#		)" && [ -n "${aw_pkg:-}" ]
 	#then
 	#	if [ $(( aw_mode )) -eq 1 ]; then
 	#		aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
@@ -785,15 +767,17 @@ applyworkarounds() {
 	aw_pkg=''
 	#print >&2 "Matching ' ${aw_arg} ' against" \
 	#	"' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
+
 	if aw_pkg="$( # <- Syntax
-			# We want to match 'sys-devel/gcc' but not 'sys-devel/gcc-config'
-			echo " ${aw_arg} " |
-				sed 's/ /  /g' |
-				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? " |
-				xargs -rn 1 |
-				grep -Fv -- 'gcc-config' |
-				xargs -r
-		)" && [ -n "${aw_pkg:-}" ]
+				# We want to match 'sys-devel/gcc' but not
+				# 'sys-devel/gcc-config'
+				echo " ${aw_arg} " |
+					sed 's/ /  /g' |
+					grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? " |
+					xargs -rn 1 |
+					grep -Fv -- 'gcc-config' |
+					xargs -r
+			)" && [ -n "${aw_pkg:-}" ]
 	then
 		if [ $(( aw_mode )) -eq 2 ]; then  # post_use
 			warn >&2 "Adding post-package USE flag '-graphite' due to" \
@@ -815,6 +799,7 @@ applyworkarounds() {
 			aw_gcc_use=''
 			warn >&2 "Activating sys-devel/gcc work-arounds ..."
 			print >&2 "Before work-around, USE is '${aw_USE}' ..."
+
 			# We want to abort with an unbound variable error if
 			# ${use_essential_gcc} is referenced unassigned here...
 			#
@@ -840,9 +825,9 @@ applyworkarounds() {
 					warn >&2 "Safely removing USE flag 'graphite' due to" \
 						"inactive CFLAGs"
 					aw_gcc_use="$( # <- Syntax
-						echo " ${use_essential_gcc} " |
-							sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
-					)"
+							echo " ${use_essential_gcc} " |
+								sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
+						)"
 				else
 					print >&2 "Neither USE flags for CFLAGS include 'graphite'"
 				fi
@@ -854,9 +839,9 @@ applyworkarounds() {
 				aw_gcc_use="${aw_gcc_use:+"${aw_gcc_use} "}openmp"
 			fi
 			aw_USE="${aw_USE:+"$( # <- Syntax
-				echo " ${aw_USE} " |
-					sed 's/ lib-only / / ; s/^ //'
-			)"}-lib-only nls ${aw_gcc_use}"
+					echo " ${aw_USE} " |
+						sed 's/ lib-only / / ; s/^ //'
+				)"}-lib-only nls ${aw_gcc_use}"
 			unset aw_gcc_use
 			print >&2 "After work-around, USE is '${aw_USE}'"
 		fi
@@ -872,10 +857,10 @@ applyworkarounds() {
 	aw_pkg=''
 	#print >&2 "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
 	if aw_pkg="$( # <- Syntax
-			echo " ${aw_arg} " |
-				sed 's/ /  /g' |
-				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
-		)" && [ -n "${aw_pkg:-}" ]
+				echo " ${aw_arg} " |
+					sed 's/ /  /g' |
+					grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+			)" && [ -n "${aw_pkg:-}" ]
 	then
 		if [ $(( aw_mode )) -eq 1 ]; then  # post_pkgs
 			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
@@ -887,8 +872,8 @@ applyworkarounds() {
 			warn >&2 "Activating sys-libs/glibc work-arounds ..."
 			print >&2 "Before work-around, USE is '${aw_USE}' ..."
 			aw_USE="${aw_USE:+"$( # <- Syntax
-				echo " ${aw_USE} " | sed 's/ compile-locales / / ; s/^ //'
-			)"}-compile-locales"
+					echo " ${aw_USE} " | sed 's/ compile-locales / / ; s/^ //'
+				)"}-compile-locales"
 			print >&2 "After work-around, USE is '${aw_USE}'"
 		fi
 	fi
@@ -903,30 +888,32 @@ applyworkarounds() {
 	aw_pkg=''
 	#print >&2 "Matching ' ${aw_arg} ' against ' ([<>]?=|~)?(${aw_list})(-[^ ]+)? '"
 	if aw_pkg="$( # <- Syntax
-			echo " ${aw_arg} " |
-				sed 's/ /  /g' |
-				grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
-		)" && [ -n "${aw_pkg:-}" ]
+				echo " ${aw_arg} " |
+					sed 's/ /  /g' |
+					grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
+			)" && [ -n "${aw_pkg:-}" ]
 	then
 		if [ $(( aw_mode )) -eq 0 ]; then  # USE
 			warn >&2 "Activating llvm-runtimes/llvm-libunwind work-arounds ..."
 			print >&2 "Before work-around, USE is '${aw_USE}' ..."
 			aw_USE="${aw_USE:+"$( # <- Syntax
-				echo " ${aw_USE} " | sed 's/ default-compiler-rt / / ; s/^ //'
-			)"}-default-compiler-rt"
+					echo " ${aw_USE} " |
+						sed 's/ default-compiler-rt / / ; s/^ //'
+				)"}-default-compiler-rt"
 			#aw_USE="${aw_USE:+"$( # <- Syntax
-			#	echo " ${aw_USE} " | sed 's/ default-libcxx / / ; s/^ //'
-			#)"}-default-libcxx"
+			#		echo " ${aw_USE} " | sed 's/ default-libcxx / / ; s/^ //'
+			#	)"}-default-libcxx"
 			#aw_USE="${aw_USE:+"$( # <- Syntax
-			#	echo " ${aw_USE} " | sed 's/ default-lld / / ; s/^ //'
-			#)"}-default-lld"
+			#		echo " ${aw_USE} " | sed 's/ default-lld / / ; s/^ //'
+			#	)"}-default-lld"
 			aw_USE="${aw_USE:+"$( # <- Syntax
-				echo " ${aw_USE} " | sed 's/ llvm-libunwind / / ; s/^ //'
-			)"}-llvm-libunwind"
+					echo " ${aw_USE} " | sed 's/ llvm-libunwind / / ; s/^ //'
+				)"}-llvm-libunwind"
 			print >&2 "After work-around, USE is '${aw_USE}'"
 		else
 			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
 			if [ $(( aw_mode )) -eq 2 ]; then  # post_use
+
 				# 'default-compiler-rt' is a USE flag for
 				# llvm-core/clang:14 but for llvm-core/clang-common
 				# thereafter...
@@ -934,6 +921,7 @@ applyworkarounds() {
 					"default-libcxx default-lld llvm-libunwind' due to" \
 					"presence of ${aw_pkg} ..."
 				aw_post_use="${aw_post_use:+"${aw_post_use} "}default-compiler-rt default-libcxx default-lld llvm-libunwind"
+
 				# aw_USE is only set when aw_mode == 0...
 				if echo " ${USE} " |
 						grep -Fq -- ' python_single_target_python'
@@ -962,24 +950,24 @@ applyworkarounds() {
 	if [ $(( aw_mode )) -eq 2 ]; then  # post_use
 		if [ -n "${aw_post_use:-}" ]; then
 			aw_post_use="$( # <- Syntax
-				echo "${aw_post_use}" |
-					xargs -rn 1 |
-					sort |
-					uniq |
-					xargs -r
-			)"
+					echo "${aw_post_use}" |
+						xargs -rn 1 |
+						sort |
+						uniq |
+						xargs -r
+				)"
 			#export post_use="${aw_post_use}"
 			echo "${aw_post_use}"
 		fi
 	elif [ $(( aw_mode )) -eq 1 ]; then  # post_pkgs
 		if [ -n "${aw_post_pkgs:-}" ]; then
 			aw_post_pkgs="$( # <- Syntax
-				echo "${aw_post_pkgs}" |
-					xargs -rn 1 |
-					sort -V |
-					uniq |
-					xargs -r
-			)"
+					echo "${aw_post_pkgs}" |
+						xargs -rn 1 |
+						sort -V |
+						uniq |
+						xargs -r
+				)"
 			#export post_pkgs="${aw_post_pkgs}"
 			echo "${aw_post_pkgs}"
 		fi
@@ -987,16 +975,17 @@ applyworkarounds() {
 		if [ -n "${aw_USE:-}" ]; then
 			# We actually don't want to re-order arguments...
 			#aw_USE="$( # <- Syntax
-			#	echo "${aw_USE}" |
-			#		xargs -rn 1 |
-			#		sort |
-			#		uniq |
-			#		xargs -r
-			#)"
+			#		echo "${aw_USE}" |
+			#			xargs -rn 1 |
+			#			sort |
+			#			uniq |
+			#			xargs -r
+			#	)"
 			#export USE="${aw_USE}"
 			echo "${aw_USE}"
 		fi
 	fi
+
 	unset aw_USE aw_post_pkg
 }  # applyworkarounds
 
@@ -1063,15 +1052,27 @@ do_emerge() {
 	[ -n "${do_emerge_args:-}" ] || return 1
 
 	if [ $(( $(
-		localedef --list-archive |
-			grep -cF -e 'utf8' -e 'UTF-8'
-	) )) -eq 0 ]
+				localedef --list-archive |
+					grep -cF -e 'utf8' -e 'UTF-8'
+			) )) -eq 0 ]
 	then
 		mkdir -p /usr/lib/locale
 		localedef --replace -f UTF-8 -i C C.UTF-8 --force
 	fi
 
 	export USE
+
+	if ! [ -f /srv/host/var/lib/portage/eclass/linux-info/.keep ]; then
+		warn "Running emerge with ROOT='${ROOT}' without 'eclass/linux-info'" \
+			"mounted into '/srv/host/var/lib/portage' - kernel configuration" \
+			"dependencies will not be recorded"
+		warn
+		warn "Mounts:"
+		mount | sort -V | sed 's/ (.*$//' | while read -r line; do
+			warn "  ${line}"
+		done
+		unset line
+	fi
 
 	print "Running \"emerge ${do_emerge_args}\"${USE:+" with USE='${USE}'"}" \
 		"with ROOT='${ROOT}'"
@@ -1091,6 +1092,56 @@ do_emerge() {
 	)"
 	eval "${do_emerge_str}" ||
 		do_emerge_rc=${?}
+
+	if [ $(( do_emerge_rc )) -eq 0 ]; then
+		do_emerge_dir='var/lib/portage/eclass/linux-info'
+		if [ -d "${ROOT:-}/${do_emerge_dir}/" ]; then
+			if [ ! -d "/srv/host/${do_emerge_dir}" ]; then
+				warn "'${ROOT:-}/${do_emerge_dir}/' exists but"
+					"'/srv/host/${do_emerge_dir}' is not mounted"
+			else
+				do_emerge_li='' do_emerge_f='' do_emerge_s1=0 do_emerge_s2=0
+
+				info "Looking for kernel configuration hints in" \
+					"'${ROOT:-}/${do_emerge_dir}/' ..."
+
+				for do_emerge_li in "${ROOT:-}/${do_emerge_dir}"/*; do
+					do_emerge_f="$( basename "${do_emerge_li}" )"
+
+					[ "${do_emerge_f}" = '.keep' ] &&
+						continue
+
+					info ".. found file '${do_emerge_f}'"
+
+					do_emerge_s1="$( stat -c '%s' "${do_emerge_li}" )"
+					if [ -s "/srv/host/${do_emerge_dir}/${do_emerge_f}" ]; then
+						info ".... comparing to exisiting file" \
+							"'/srv/host/${do_emerge_dir}/${do_emerge_f}'"
+
+						do_emerge_s2="$(
+								stat -c '%s' \
+									"/srv/host/${do_emerge_dir}/${do_emerge_f}"
+							)"
+					else
+						do_emerge_s2=0
+					fi
+					if [ $(( do_emerge_s1 )) -ne $(( do_emerge_s2 )) ]; then
+						info ".... file size has changed, saving" \
+							"'${do_emerge_f}'"
+
+						cp -a "${do_emerge_li}" \
+								"/srv/host/${do_emerge_dir}/${do_emerge_f}" ||
+							die "Unable to copy '${do_emerge_li}' to" \
+								"'/srv/host/${do_emerge_dir}/${do_emerge_f}':" \
+								"${?}"
+					else
+						info ".... discarding identical file"
+					fi
+				done
+				unset do_emerge_s2 do_emerge_s1 do_emerge_f do_emerge_li
+			fi  # [ -d "/srv/host/${do_emerge_dir}" ]
+		fi  # [ -d "${ROOT:-}/${do_emerge_dir}/" ]
+	fi  # [ $(( do_emerge_rc )) -eq 0 ]
 
 	unset do_emerge_args
 	return ${do_emerge_rc}
@@ -1151,9 +1202,9 @@ fi
 
 if set | grep -q -- '=__[A-Z]\+__$'; then
 	die "Unexpanded variable(s) in environment: $( # <- Syntax
-		echo
-		set | grep -- '=__[A-Z]\+__$' | sed 's/^/  /'
-	)"
+			echo
+			set | grep -- '=__[A-Z]\+__$' | sed 's/^/  /'
+		)"
 fi
 
 if [ -e /etc/portage/repos.conf.host ]; then
@@ -1356,8 +1407,8 @@ for arg in "${@}"; do
 	case "${arg}" in
 		--force-python=*)
 			force_python="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			if ! echo "${force_python:-}" |
 					grep -q -- '^python[2-9]_[0-9]\+$'
 			then
@@ -1371,44 +1422,44 @@ for arg in "${@}"; do
 			;;
 		--pre-remove=*)
 			pre_remove="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--pre-pkgs=*)
 			pre_pkgs="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--pre-use=*)
 			pre_use="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--post-pkgs=*)
 			post_pkgs="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--post-use=*)
 			post_use="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--rebuild=*)
 			rebuild="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--post-remove=*)
 			post_remove="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--depclean)
@@ -1417,20 +1468,20 @@ for arg in "${@}"; do
 			;;
 		--depclean-extra=*)
 			depclean_extra="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--depclean-exclude=*)
 			depclean_exclude="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--intent=*)
 			intent="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--sysroot)
@@ -1442,8 +1493,8 @@ for arg in "${@}"; do
 			;;
 		--with-use=*)
 			TUSE="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--with-pkg-use=*|--with-package-use=*)
@@ -1451,21 +1502,21 @@ for arg in "${@}"; do
 			#
 			pkg_use=1
 			pkg_use_use="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			pkg_use_pkg="$( # <- Syntax
-				echo "${pkg_use_use:-}" | cut -d' ' -f 1
-			)"
+					echo "${pkg_use_use:-}" | cut -d' ' -f 1
+				)"
 			pkg_use_use="$( # <- Syntax
-				echo "${pkg_use_use:-}" | cut -d' ' -f 2-
-			)"
+					echo "${pkg_use_use:-}" | cut -d' ' -f 2-
+				)"
 			if [ -z "${pkg_use_pkg:-}" ] || [ -z "${pkg_use_use:-}" ]; then
 				die "Unable to extract package and USE flags from '${arg}'"
 			fi
 			mkdir -p /etc/portage/package.use
 			pkg_use_file="/etc/portage/package.use/$( # <- Syntax
-				echo "${pkg_use_pkg}" | cut -d'/' -f 2-
-			)"
+					echo "${pkg_use_pkg}" | cut -d'/' -f 2-
+				)"
 			printf '%s %s\n' \
 				"${pkg_use_pkg}" \
 				"${pkg_use_use}" >> "${pkg_use_file}"
@@ -1479,12 +1530,12 @@ for arg in "${@}"; do
 		--with-pkg-mask=*|--with-package-mask=*)
 			pkg_mask=1
 			pkg_mask_pkg="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			mkdir -p /etc/portage/package.mask
 			#pkg_mask_file="/etc/portage/package.mask/$( # <- Syntax
-			#	echo "${pkg_mask_pkg}" | cut -d'/' -f 2-
-			#)"
+			#		echo "${pkg_mask_pkg}" | cut -d'/' -f 2-
+			#	)"
 			pkg_mask_file="/etc/portage/package.mask/extra.mask"
 			printf '%s\n' "${pkg_mask_pkg}" >> "${pkg_mask_file}"
 			#warn "Applied package mask(s):"
@@ -1695,36 +1746,66 @@ echo
 echo 'Resolved build variables for build stage:'
 echo '----------------------------------------'
 echo
+echo "${info}" | format 'CFLAGS'
+echo "${info}" | format 'LDFLAGS'
+echo
 #echo "ROOT                = $( # <- Syntax
-#	echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
-#)"
+#		echo "${info}" |
+#			grep -- '^ROOT=' |
+#			cut -d'=' -f 2- |
+#			uniq |
+#			head -n 1
+#	)"
 #echo "SYSROOT             = $( # <- Syntax
-#	echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
-#)"
+#		echo "${info}" |
+#			grep -- '^SYSROOT=' |
+#			cut -d'=' -f 2- |
+#			uniq |
+#			head -n 1
+#	)"
 echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-	echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^PORTAGE_CONFIGROOT=' |
+			cut -d'=' -f 2- |
+			uniq |
+			head -n 1
+	)"
 echo
 echo "${info}" | format 'FEATURES'
 echo "${info}" | format 'ACCEPT_LICENSE'
 echo "${info}" | format 'ACCEPT_KEYWORDS'
 echo "${info}" | format 'INSTALL_MASK'
 echo "${info}" | format 'USE'
+#echo "${info}" | format 'PYTHON_SINGLE_TARGET'
+#echo "${info}" | format 'PYTHON_TARGETS'
 echo "MAKEOPTS            = $( # <- Syntax
-	echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^MAKEOPTS=' |
+			cut -d'=' -f 2- |
+			uniq
+	)"
 echo
 echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 echo
 echo "DISTDIR             = $( # <- Syntax
-	echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^DISTDIR=' |
+			cut -d'=' -f 2- |
+			uniq
+	)"
 echo "PKGDIR              = $( # <- Syntax
-	echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^PKGDIR=' |
+			cut -d'=' -f 2- |
+			uniq |
+			head -n 1
+	)"
 echo "PORTAGE_LOGDIR      = $( # <- Syntax
-	echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^PORTAGE_LOGDIR=' |
+			cut -d'=' -f 2- |
+			uniq
+	)"
 echo
 unset info
 
@@ -1830,8 +1911,20 @@ if [ -n "${pre_pkgs:-}" ]; then
 		echo 'Resolved build variables for pre-installation packages:'
 		echo '------------------------------------------------------'
 		echo
-		echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
-		echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+		echo "ROOT                = $( # <- Syntax
+				echo "${info}" |
+					grep -- '^ROOT=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
+		echo "SYSROOT             = $( # <- Syntax
+				echo "${info}" |
+					grep -- '^SYSROOT=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
 		echo "${info}" | format 'FEATURES'
 		echo "${info}" | format 'USE'
 		unset info
@@ -1909,7 +2002,7 @@ echo
 echo " * Ensuring base packages in '${service_root}/' ROOT are current:"
 echo
 
-# Replace default file with patched version
+# Replace default file with (potentially?) patched version
 #
 if [ -s /etc/bash/bashrc ]; then
 	mkdir -p "${service_root}"/etc/bash
@@ -1951,11 +2044,19 @@ fi
 	echo '---------------------------------------------'
 	echo
 	echo "ROOT                = $( # <- Syntax
-		echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
-	)"
+			echo "${info}" |
+				grep -- '^ROOT=' |
+				cut -d'=' -f 2- |
+				uniq |
+				head -n 1
+		)"
 	echo "SYSROOT             = $( # <- Syntax
-		echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
-	)"
+			echo "${info}" |
+				grep -- '^SYSROOT=' |
+				cut -d'=' -f 2- |
+				uniq |
+				head -n 1
+		)"
 	echo "${info}" | format 'FEATURES'
 	echo "${info}" | format 'USE'
 	unset info
@@ -1989,8 +2090,8 @@ fi
 	service_pkgs="${service_pkgs} dev-lang/python-exec"
 	if [ -n "${force_python:-}" ]; then
 		service_pkgs="${service_pkgs} dev-lang/python:$( # <- Syntax
-			echo "${force_python}" | sed 's/^python// ; s/_/./'
-		)"
+				echo "${force_python}" | sed 's/^python// ; s/_/./'
+			)"
 	fi
 
 	exclude=''
@@ -2075,12 +2176,13 @@ if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
 fi
 
 (
-	for ROOT in $( # <- Syntax
-			echo '/' "${ROOT:-}" |
-				xargs -n 1 |
-				sort |
-				uniq
-	); do
+	for ROOT in $(
+				echo '/' "${ROOT:-}" |
+					xargs -n 1 |
+					sort |
+					uniq
+			)
+	do
 		export ROOT
 		if [ -x "${ROOT%"/"}"/usr/bin/eselect ]; then
 			if [ -s "${ROOT%"/"}"/usr/share/eselect/modules/python.eselect ]
@@ -2093,17 +2195,17 @@ fi
 				eselect python update --if-unset
 				if [ -n "${force_python:-}" ]; then
 					print "python-exec supported interpreters: $( # <- Syntax
-						python-exec2c -l | xargs echo
-					)"
+							python-exec2c -l | xargs echo
+						)"
 					if [ "${force_python#"python2"}" != "${force_python}" ]
 					then
 						eselect python set --python2 "$( # <- Syntax
-							echo "${force_python}" | tr '_' '.'
-						)"
+								echo "${force_python}" | tr '_' '.'
+							)"
 					else
 						eselect python set "$( # <- Syntax
-							echo "${force_python}" | tr '_' '.'
-						)"
+								echo "${force_python}" | tr '_' '.'
+							)"
 					fi
 				fi
 				#eselect python list
@@ -2160,11 +2262,19 @@ case "${1:-}" in
 		echo '---------------------------------------------'
 		echo
 		echo "ROOT                = $( # <- Syntax
-			echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^ROOT=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
 		echo "SYSROOT             = $( # <- Syntax
-			echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^SYSROOT=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
 		echo "${info}" | format 'FEATURES'
 		echo "${info}" | format 'USE'
 		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
@@ -2172,14 +2282,15 @@ case "${1:-}" in
 		echo
 		target=''
 		for target in $( # <- Syntax
-			echo "${info}" |
-				grep -o -- ' [^ ]*TARGET[^ ]* ' |
-				cut -d'=' -f 1 |
-				sed 's/ //g' |
-				sort |
-				uniq |
-				grep -Ev -- '^(AMDGPU|PYTHON|QEMU)_'
-		); do
+					echo "${info}" |
+						grep -o -- ' [^ ]*TARGET[^ ]* ' |
+						cut -d'=' -f 1 |
+						sed 's/ //g' |
+						sort |
+						uniq |
+						grep -Ev -- '^(AMDGPU|PYTHON|QEMU)_'
+				)
+		do
 			echo "${info}" | format "${target}"
 		done
 		unset target
@@ -2233,11 +2344,11 @@ case "${1:-}" in
 		#
 		if ! echo " ${post_pkgs:-} " | grep -Fq -- ' --nodeps '; then
 			post_pkgs="${post_pkgs:+"${post_pkgs} "}$( # <- Syntax
-				applyworkarounds --post_pkgs "${*}"
-			)"
+					applyworkarounds --post_pkgs "${*}"
+				)"
 			post_use="${post_use:+"${post_use} "}$( # <- Syntax
-				applyworkarounds --post_use "${*}"
-			)"
+					applyworkarounds --post_use "${*}"
+				)"
 		fi  # ! echo " ${post_pkgs:-} " | grep -Fq -- ' --nodeps '
 
 		echo
@@ -2250,14 +2361,14 @@ case "${1:-}" in
 				[ -n "${COLLISION_IGNORE:-}" ]
 		then
 			COLLISION_IGNORE="${COLLISION_IGNORE} $( # <- Syntax
-				echo "${COLLISION_IGNORE}" |
-					sed "s|${ROOT%"/"}||g"
-			)"
+					echo "${COLLISION_IGNORE}" |
+						sed "s|${ROOT%"/"}||g"
+				)"
 		fi
 		COLLISION_IGNORE="$( # <- Syntax
-			echo "${COLLISION_IGNORE}" |
-				xargs -r printf '%s '
-		)"
+				echo "${COLLISION_IGNORE}" |
+					xargs -r printf '%s '
+			)"
 		COLLISION_IGNORE="${COLLISION_IGNORE%" "}"
 		export COLLISION_IGNORE
 
@@ -2267,8 +2378,20 @@ case "${1:-}" in
 			"packages${post_pkgs:+" (with post-package list)"}:"
 		echo '-----------------------------------------------'
 		echo
-		echo "ROOT                = $( echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2- )"
-		echo "SYSROOT             = $( echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2- )"
+		echo "ROOT                = $( # <- Syntax
+				echo "${info}" |
+					grep -- '^ROOT=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
+		echo "SYSROOT             = $( # <- Syntax
+				echo "${info}" |
+					grep -- '^SYSROOT=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
 		echo "${info}" | format 'FEATURES'
 		echo "${info}" | format 'ACCEPT_LICENSE'
 		echo "${info}" | format 'USE'
@@ -2278,14 +2401,15 @@ case "${1:-}" in
 		echo
 		target=''
 		for target in $( # <- Syntax
-			echo "${info}" |
-				grep -o -- ' [^ ]*TARGET[^ ]* ' |
-				cut -d'=' -f 1 |
-				sed 's/ //g' |
-				sort |
-				uniq |
-				grep -Ev -- '^(AMDGPU|PYTHON|QEMU)_'
-		); do
+					echo "${info}" |
+						grep -o -- ' [^ ]*TARGET[^ ]* ' |
+						cut -d'=' -f 1 |
+						sed 's/ //g' |
+						sort |
+						uniq |
+						grep -Ev -- '^(AMDGPU|PYTHON|QEMU)_'
+				)
+		do
 			echo "${info}" | format "${target}"
 		done
 		unset target
@@ -2516,17 +2640,17 @@ case "${1:-}" in
 				# and app-alternatives/lex here too...
 				post_use="${post_use:+"${post_use} "}bison flex openmp"
 				extra_pkgs="$( # <- Syntax
-					# dev-php/pecl-imagick requires
-					# media-gfx/imagemagick[-openmp]
-					#
-					grep -lw -- 'openmp' "${ROOT%"/"}"/var/db/pkg/*/*/IUSE |
-						rev |
-						cut -d'/' -f 2-3 |
-						rev |
-						grep -Fv -- 'media-gfx/imagemagick' |
-						sed 's/^/>=/' |
-						xargs -r
-				)"
+						# dev-php/pecl-imagick requires
+						# media-gfx/imagemagick[-openmp]
+						#
+						grep -lw -- 'openmp' "${ROOT%"/"}"/var/db/pkg/*/*/IUSE |
+							rev |
+							cut -d'/' -f 2-3 |
+							rev |
+							grep -Fv -- 'media-gfx/imagemagick' |
+							sed 's/^/>=/' |
+							xargs -r
+					)"
 			fi
 			if [ -n "${extra_pkgs:-}" ]; then
 				print "Adding 'openmp' USE flag and additional packages" \
@@ -2558,25 +2682,34 @@ case "${1:-}" in
 			echo '-------------------------------------------------------'
 			echo
 			echo "ROOT                = $( # <- Syntax
-				echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
-			)"
+					echo "${info}" |
+						grep -- '^ROOT=' |
+						cut -d'=' -f 2- |
+						uniq |
+						head -n 1
+				)"
 			echo "SYSROOT             = $( # <- Syntax
-				echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
-			)"
+					echo "${info}" |
+						grep -- '^SYSROOT=' |
+						cut -d'=' -f 2- |
+						uniq |
+						head -n 1
+				)"
 			echo "${info}" | format 'USE'
 			echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 			echo "${info}" | format 'PYTHON_TARGETS'
 			echo
 			target=''
 			for target in $( # <- Syntax
-				echo "${info}" |
-					grep -o -- ' [^ ]*TARGET[^ ]* ' |
-					cut -d'=' -f 1 |
-					sed 's/ //g' |
-					sort |
-					uniq |
-					grep -Ev -- '^(AMDGPU|PYTHON|QEMU)_'
-			); do
+						echo "${info}" |
+							grep -o -- ' [^ ]*TARGET[^ ]* ' |
+							cut -d'=' -f 1 |
+							sed 's/ //g' |
+							sort |
+							uniq |
+							grep -Ev -- '^(AMDGPU|PYTHON|QEMU)_'
+					)
+			do
 				echo "${info}" | format "${target}"
 			done
 			unset target
@@ -2603,12 +2736,12 @@ case "${1:-}" in
 			#
 			if echo "${packages}" | grep -q -- 'acct-'; then
 				post_acct_pkgs="$( # <- Syntax
-					echo "${packages}" |
-						xargs -rn 1 |
-						grep -- '^acct-' |
-						sort |
-						xargs -r
-				)"
+						echo "${packages}" |
+							xargs -rn 1 |
+							grep -- '^acct-' |
+							sort |
+							xargs -r
+					)"
 				if [ -n "${post_acct_pkgs:-}" ]; then
 					echo
 					echo " * Building specified post-installation" \
@@ -2632,11 +2765,11 @@ case "${1:-}" in
 				fi  # [ -n "${post_acct_pkgs:-}" ]
 
 				packages="$( # <- Syntax
-					echo "${packages}" |
-						xargs -rn 1 |
-						grep -v -- '^acct-' |
-						xargs -r
-				)"
+						echo "${packages}" |
+							xargs -rn 1 |
+							grep -v -- '^acct-' |
+							xargs -r
+					)"
 			fi  # echo "${post_pkgs}" | grep -q -- 'acct-'
 
 			# First build any post_pkgs which will be installed without
@@ -2702,15 +2835,15 @@ case "${1:-}" in
 
 			if [ -n "${gcc_exclude:-}" ]; then
 				gcc_pkgs="$( # <- Syntax
-					echo " ${packages} " |
-						grep -Eo -- '\s([<>]?=?sys-devel/)?gcc(-config)?([-:][^\s]+)?\s' |
-						awk '{ print $1 }' |
-						xargs -rn 1 |
-						sort |
-						uniq |
-						grep -Fv -- 'gcc-config' |
-						xargs -r
-				)"
+						echo " ${packages} " |
+							grep -Eo -- '\s([<>]?=?sys-devel/)?gcc(-config)?([-:][^\s]+)?\s' |
+							awk '{ print $1 }' |
+							xargs -rn 1 |
+							sort |
+							uniq |
+							grep -Fv -- 'gcc-config' |
+							xargs -r
+					)"
 				if [ -z "${gcc_pkgs:-}" ]; then
 					# If the 'lib-only' USE flag is set, then we can reach
 					# this point without sys-devel/gcc being included in the
@@ -2757,9 +2890,9 @@ case "${1:-}" in
 							# If we're not building a usable toolchain,
 							# then remove dependency on dev-libs/isl...
 							USE="${USE} $( # <- Syntax
-								echo " ${use_essential_gcc} " |
-									sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
-							) lto pgo"
+									echo " ${use_essential_gcc} " |
+										sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
+								) lto pgo"
 						else
 							USE="${USE} ${use_essential_gcc}"
 						fi
@@ -2848,15 +2981,15 @@ if [ $(( depclean )) -ne 0 ]; then
 	if command -v qatom >/dev/null 2>&1; then
 		for arg in ${depclean_exclude:-}; do
 			filtered_depclean_exclude="${filtered_depclean_exclude:+"${filtered_depclean_exclude} "}$( # <- Syntax
-				qatom -CF '%{CATEGORY}/%{PN}' "${arg}"
-			)"
+					qatom -CF '%{CATEGORY}/%{PN}' "${arg}"
+				)"
 		done
 	else
 		for arg in ${depclean_exclude:-}; do
 			filtered_depclean_exclude="${filtered_depclean_exclude:+"${filtered_depclean_exclude} "}$( # <- Syntax
-				echo "${arg}" |
-					sed 's/^[<>]\?=\?// ; s/-[0-9].*$// ; s/::.*$//'
-			)"
+					echo "${arg}" |
+						sed 's/^[<>]\?=\?// ; s/-[0-9].*$// ; s/::.*$//'
+				)"
 		done
 	fi
 	unset arg
@@ -2881,38 +3014,32 @@ if [ $(( depclean )) -ne 0 ]; then
 	#
 	# ...and we're still getting some build-time dependencies retained...
 	#
-	# shellcheck disable=SC2046,SC2086
 	(
-		#do_emerge \
-		#		--depclean \
-		#		  ${depclean_exclude} \
-		#		--verbose=y \
-		#		--with-bdeps=n \
-		# shellcheck disable=SC2086
+		# shellcheck disable=SC2046,SC2086
 		pkg_remove 'final' \
-			${depclean_exclude:-} \
-			-- $( # <- Syntax
-				parse_opt_get_packages "${@}" ${post_pkgs} |
-						grep -Fq -- 'dev-lang/perl' ||
-					echo 'dev-lang/perl'
-			) 'perl-core/*' 'virtual/perl-*' 'app-admin/perl-cleaner' \
-			$( # <- Syntax
-				[ -z "${gcc_exclude:-}" ] &&
-					echo 'dev-libs/gmp dev-libs/isl dev-libs/mpc' \
-						'dev-libs/mpfr sys-devel/gcc sys-devel/gcc-config'
-			) \
-			app-alternatives/awk sys-apps/gawk \
-			app-alternatives/bzip2 app-arch/bzip2 \
-			app-alternatives/gzip app-arch/gzip \
-			app-alternatives/yacc sys-devel/bison \
-			app-arch/unzip \
-			app-crypt/libb2 \
-			app-portage/portage-utils \
-			sys-apps/grep \
-			sys-apps/help2man \
-			sys-apps/kbd \
-			sys-apps/locale-gen \
-			sys-libs/zlib
+			${depclean_exclude:-} -- \
+			$(
+					parse_opt_get_packages "${@}" ${post_pkgs} |
+							grep -Fq -- 'dev-lang/perl' ||
+						echo 'dev-lang/perl'
+				) 'perl-core/*' 'virtual/perl-*' 'app-admin/perl-cleaner' \
+			$(
+					[ -z "${gcc_exclude:-}" ] &&
+						echo 'dev-libs/gmp dev-libs/isl dev-libs/mpc' \
+							'dev-libs/mpfr sys-devel/gcc sys-devel/gcc-config'
+				) \
+			'app-alternatives/awk sys-apps/gawk' \
+			'app-alternatives/bzip2 app-arch/bzip2' \
+			'app-alternatives/gzip app-arch/gzip' \
+			'app-alternatives/yacc sys-devel/bison' \
+			'app-arch/unzip' \
+			'app-crypt/libb2' \
+			'app-portage/portage-utils' \
+			'sys-apps/grep' \
+			'sys-apps/help2man' \
+			'sys-apps/kbd' \
+			'sys-apps/locale-gen' \
+			'sys-libs/zlib'
 	) || :
 
 	if [ -n "${depclean_extra:-}" ]; then
@@ -2922,27 +3049,15 @@ if [ $(( depclean )) -ne 0 ]; then
 			warn "Unable to depclean essential system packages" \
 				"'sys-apps/busybox' or 'sys-apps/gentoo-functions'"
 		fi
-		# shellcheck disable=SC2086
 		(
-			#do_emerge \
-			#		--depclean \
-			#		--exclude="sys-apps/busybox sys-apps/gentoo-functions" \
-			#		--verbose=y \
-			#		--with-bdeps=n \
+			# shellcheck disable=SC2086
 			pkg_remove 'final extra' \
 				--exclude=sys-apps/busybox \
 				--exclude=sys-apps/gentoo-functions \
 				-- ${depclean_extra}
 		) || :
 	fi
-	# shellcheck disable=SC2086
 	(
-		#do_emerge \
-		#	--depclean \
-		#	--exclude=dev-libs/libffi \
-		#	${depclean_exclude:-} \
-		#	--verbose=y \
-		#	--with-bdeps=n
 		# shellcheck disable=SC2086
 		pkg_remove 'last' \
 			--exclude=dev-libs/libffi \

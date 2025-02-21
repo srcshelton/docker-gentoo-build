@@ -31,6 +31,11 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 declare IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
 [[ -s common/run.sh ]] && . common/run.sh >/dev/null
+if [[ "$( type -t 'die' )" != 'function' ]]; then
+	echo >&2 "FATAL: Unable to source shared functions from" \
+		"'common/run.sh': ${?}"
+	exit 127
+fi
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
 	# Darwin/BSD lacks GNU readlink - either realpath or perl's Cwd module
@@ -297,6 +302,9 @@ docker_run() {
 		${rw_repo_path:-}
 		'/var/log/portage'
 	)
+	if [[ -d /var/lib/portage/eclass/linux-info ]]; then
+		mountpoints['/var/lib/portage/eclass/linux-info']="/srv/host/var/lib/portage/eclass/linux-info"
+	fi
 
 	#ENV PKGDIR="${PKGCACHE:-"/var/cache/portage/pkg"}/${ARCH:-"amd64"}/${PKGHOST:-"docker"}"
 	#local PKGCACHE="${PKGCACHE:="/var/cache/portage/pkg"}"

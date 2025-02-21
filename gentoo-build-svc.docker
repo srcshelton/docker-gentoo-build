@@ -168,13 +168,18 @@ else
 		. /etc/portage/make.conf 2>&1
 		set |
 			grep -F -- 'FLAGS=' |
-			sed 's|^[A-Z]\+=|\L&| ; s|$|;|' |
+			sed 's|^[A-Z_]\+=|\L&| ; s|$|;|' |
 			grep -E -- '^c(xx)?flags='
 	)"
 fi
 [[ -n "${cflags:-}" ]] || cflags='-O2 -pipe'
 [[ -n "${cxxflags:-}" ]] || cxxflags="${cflags}"
-print "Found CFLAGS '${cflags}', CXXFLAGS '${cxxflags}'"
+
+# The addition of ${gcc_target_opts} here is only to prevent confusion - it
+# should still be applied within build-containers!
+#
+print "Found CFLAGS '${gcc_target_opts:+"${gcc_target_opts} "}${cflags}'"
+print "Found CXXFLAGS '${gcc_target_opts:+"${gcc_target_opts} "}${cxxflags}'"
 
 # Temporarily throw away all other arguments to try to get a set of parameters
 # we can use to perform a manual service build (... which is largely deprecated
@@ -1466,7 +1471,7 @@ if ! echo " ${pre_pkgs:-} " | grep -q -- ' sys-devel/gcc '; then
 						"${gcc_extra_use_flags:-} " |
 					grep -q -- ' openmp ' ||
 				echo " ${cflags} ${cxxflags} " |
-					grep -q -- ' -fopenmp '
+					grep -q -- '\s-fopenmp\s'
 	then
 		print "Adding pre-installation package 'sys-devel/gcc' due to" \
 			"presence of 'openmp' USE flag or C(XX)FLAG"
@@ -1524,7 +1529,7 @@ case " ${pre_pkgs} " in
 				replace_flags 'openmp' -- "${gcc_extra_use_flags:-}"
 			)"
 		fi
-		if echo "${cflags} ${cxxflags}" |
+		if echo " ${cflags} ${cxxflags} " |
 				grep -Fqw -e '-fgraphite' -e '-fgraphite-identity' \
 					-e '-floop-nest-optimize' -e '-floop-parallelize-all'
 		then
@@ -1943,6 +1948,13 @@ docker_extra_mounts+=( # <- Syntax
 		$( add_mount --print '%base%/etc/portage/profile/package.use.force' )
 		$( add_mount --print '%base%/etc/portage/profile/package.use.mask' )
 	) || :
+if [[ -d '/var/lib/portage/eclass/linux-info' ]]; then
+	docker_extra_mounts+=(
+		$( add_mount --dir --no-ro --print \
+				'/var/lib/portage/eclass/linux-info' \
+				'/srv/host/...'
+		) ) || :
+fi
 
 export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 unset docker_extra_mounts

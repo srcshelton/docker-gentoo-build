@@ -122,7 +122,12 @@ declare -i NOTIFY_MKDIR=0
 # shellcheck disable=SC2034
 IMAGE="${base_name}:latest"
 # shellcheck disable=SC1091
-[[ -s common/run.sh ]] && . common/run.sh
+[[ -s common/run.sh ]] && . common/run.sh >/dev/null
+if [[ "$( type -t 'die' )" != 'function' ]]; then
+	echo >&2 "FATAL: Unable to source shared functions from" \
+		"'common/run.sh': ${?}"
+	exit 127
+fi
 
 if [[ -n "${*:-}" ]]; then
 	if grep -Eq -- ' -(h|-help) ' <<<" ${*} "; then
@@ -313,7 +318,6 @@ unset args arg
 
 _docker_setup
 
-[[ -d log ]] || mkdir -p log
 pushd "${base_dir}" >/dev/null 2>&1 ||
 	die "chdir() to '${base_dir}' failed; ${?}"
 
@@ -477,6 +481,8 @@ makedir() {
 }  # makedir
 
 declare repo_path_srcshelton=''
+
+[[ -d ../log ]] || makedir ../log
 
 # Check for environment sanity...
 if ! type -pf portageq >/dev/null 2>&1; then
@@ -838,12 +844,17 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		#--build-arg CPU_FLAGS_X86
 		#--build-arg TARGET_OPT
 		#--build-arg CPPFLAGS
+		#--build-arg CGO_CPPFLAGS
 		#--build-arg CFLAGS
 		#--build-arg CXXFLAGS
+		#--build-arg CGO_CFLAGS
+		#--build-arg CGO_CXXFLAGS
 		#--build-arg FFLAGS
 		#--build-arg FCFLAGS
-		#--build-arg LDFLAGS
 		#--build-arg FLFLAGS
+		#--build-arg CGO_FFLAGS
+		#--build-arg LDFLAGS
+		#--build-arg CGO_LDFLAGS
 		#--build-arg RUSTFLAGS
 
 		--compress
@@ -867,8 +878,11 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 	[[ -z "${rust_target_opt:-}" ]] || build_args+=( # <- Syntax
 		--build-arg RUST_TARGET_OPT="${rust_target_opt}"
 	)
-	declare cppflags='' cflags='' cxxflags='' fflags='' fcflags='' ldflags='' \
-		flflags='' rustflags=''
+	declare cppflags='' cflags='' cxxflags='' fflags='' \
+		ldflags='' \
+		cgo_cppflags='' cgo_cflags='' cgo_cxxflags='' cgo_fflags='' \
+		cgo_ldflags='' \
+		fcflags='' flflags='' rustflags=''
 	if type -pf emerge >/dev/null 2>&1; then
 		cppflags="$( # <- Syntax
 				emerge --info 2>&1 |
@@ -895,14 +909,39 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 					grep -- '^FCFLAGS=' |
 					awk -F'"' '{print $2}' || :
 			)"
+		flflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^FLFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
 		ldflags="$( # <- Syntax
 				emerge --info 2>&1 |
 					grep -- '^LDFLAGS=' |
 					awk -F'"' '{print $2}' || :
 			)"
-		flflags="$( # <- Syntax
+		cgo_cppflags="$( # <- Syntax
 				emerge --info 2>&1 |
-					grep -- '^FLFLAGS=' |
+					grep -- '^CGO_CPPFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
+		cgo_cflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^CGO_CFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
+		cgo_cxxflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^CGO_CXXFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
+		cgo_fflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^CGO_FFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
+		cgo_ldflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^CGO_LDFLAGS=' |
 					awk -F'"' '{print $2}' || :
 			)"
 		rustflags="$( # <- Syntax
@@ -914,7 +953,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		# shellcheck disable=SC1091,SC2030
 		eval "$(
 			# shellcheck disable=SC2034
-			[[ -n "${LDFLAGS:-}" ]] || case "${arch}" in
+			[[ -n "${LDFLAGS:-}" ]] || case "${arch:-"$( uname -m )"}" in
 				amd64|ppc64|x86)
 					LDFLAGS='-Wl,-O1 -Wl,--as-needed -Wl,-z,pack-relative-relocs'
 					;;
@@ -922,12 +961,14 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 					LDFLAGS='-Wl,-O1 -Wl,--as-needed'
 					;;
 			esac
-			[[ -n "${ARCH:-}" ]] || ARCH="${arch}"
+			[[ -n "${ARCH:-}" ]] || ARCH="${arch:-"$( uname -m )"}"
+
+			# shellcheck disable=SC1091
 			. /etc/portage/make.conf 2>/dev/null
 			set |
 				grep -F -- 'FLAGS=' |
-				sed 's|^[A-Z]\+=|\L&| ; s|$|;|' |
-				grep -E -- '^(c(xx|pp)?|f[fcl]|ld|rust)flags='
+				sed 's|^[A-Z_]\+=|\L&| ; s|$|;|' |
+				grep -E -- '^((cgo_)?(c(xx|pp)?|f|ld))|(f[cl]|rust)flags='
 		)"
 	fi
 	[[ -n "${cflags:-}" ]] || cflags='-O2 -pipe'
@@ -945,17 +986,51 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		esac
 	fi
 	[[ -n "${flflags:-}" ]] || flflags="${ldflags}"
+	[[ -n "${cgo_cflags:-}" ]] || cgo_cflags="$( # <- Syntax
+			go env 2>/dev/null |
+					grep -F 'CGO_CFLAGS=' |
+					cut -d"'" -f 2 |
+					grep -x '.*' ||
+				echo '-O2 -g -pipe'
+		)"
+	[[ -n "${cgo_cxxflags:-}" ]] || cgo_cxxflags="$( # <- Syntax
+			go env 2>/dev/null |
+					grep -F 'CGO_CXXFLAGS=' |
+					cut -d"'" -f 2 |
+					grep -x '.*' ||
+				echo "${cgo_cflags:-}"
+		)"
+	[[ -n "${cgo_fflags:-}" ]] || cgo_fflags="$( # <- Syntax
+			go env 2>/dev/null |
+					grep -F 'CGO_FFLAGS=' |
+					cut -d"'" -f 2 |
+					grep -x '.*' ||
+				echo "${cgo_cflags:-}"
+		)"
+	[[ -n "${cgo_ldflags:-}" ]] || cgo_ldflags="$( # <- Syntax
+			go env 2>/dev/null |
+					grep -F 'CGO_LDFLAGS=' |
+					cut -d"'" -f 2 |
+					grep -x '.*' ||
+				echo "${cgo_cflags:-}"
+		)"
 	build_args+=( # <- Syntax
 		--build-arg CPPFLAGS="${cppflags:-}"
 		--build-arg CFLAGS="${cflags:-}"
 		--build-arg CXXFLAGS="${cxxflags:-}"
 		--build-arg FFLAGS="${fflags:-}"
 		--build-arg FCFLAGS="${fcflags:-}"
-		--build-arg LDFLAGS="${ldflags:-}"
 		--build-arg FLFLAGS="${flflags:-}"
+		--build-arg LDFLAGS="${ldflags:-}"
+		--build-arg CGO_CPPFLAGS="${cgo_cppflags:-}"
+		--build-arg CGO_CFLAGS="${cgo_cflags:-}"
+		--build-arg CGO_CXXFLAGS="${cgo_cxxflags:-}"
+		--build-arg CGO_FFLAGS="${cgo_fflags:-}"
+		--build-arg CGO_LDFLAGS="${cgo_ldflags:-}"
 		--build-arg RUSTFLAGS="${rustflags:-}"
 	)
-	unset cppflags cflags cxxflags fflags fcflags ldflags flflags rustflags
+	unset cppflags cflags cxxflags fflags fcflags flflags ldflags \
+		cgo_cppflags cgo_cflags cgo_cxxflags cgo_fflags cgo_ldflags rustflags
 	# shellcheck disable=SC2206
 	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
 		--loglevel 3
@@ -1517,6 +1592,17 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		export image="${init_name}:latest"
 		# shellcheck disable=SC2031
 		export DOCKER_CMD_VARS="--env ARCH=${arch:-"${ARCH}"}"
+
+		if [[ -d /var/lib/portage/eclass/linux-info ]]; then
+			declare DOCKER_EXTRA_MOUNTS=''
+			DOCKER_EXTRA_MOUNTS="$( # <- Syntax
+					add_mount --dir --no-ro --print \
+						'/var/lib/portage/eclass/linux-info' \
+						'/srv/host/...'
+				)"
+			export DOCKER_EXTRA_MOUNTS
+		fi
+
 		declare -a docker_run_args=()
 		docker_run_args+=( # <- Syntax
 			--post-pkgs="${post_pkgs}"
@@ -1722,6 +1808,17 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		[[ -z "${pkg_pypy_post_remove:-}" ]] || build_args+=( # <- Syntax
 			--post-remove="${pkg_pypy_post_remove}"
 		)
+
+		if [[ -d /var/lib/portage/eclass/linux-info ]]; then
+			declare DOCKER_EXTRA_MOUNTS=''
+			DOCKER_EXTRA_MOUNTS="$( # <- Syntax
+					add_mount --dir --no-ro --print \
+						'/var/lib/portage/eclass/linux-info' \
+						'/srv/host/...'
+				)"
+			export DOCKER_EXTRA_MOUNTS
+		fi
+
 		# @system includes virtual/ssh, which sometimes tries to pull-in
 		# net-misc/dropbear rather than net-misc/openssh, so include the latter
 		# to try to avoid this...

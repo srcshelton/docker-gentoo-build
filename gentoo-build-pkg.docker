@@ -7,7 +7,7 @@ declare debug="${DEBUG:-}"
 set -eu
 set -o pipefail
 
-[ -n "${trace:-}" ] && set -o xtrace
+[[ -n "${trace:-}" ]] && set -o xtrace
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
@@ -16,8 +16,8 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 #declare build_name=''
 
 # shellcheck disable=SC1091
-[ ! -s common/vars.sh ] || . common/vars.sh
-# shellcheck disable=SC2034 # Set from common/vars.sh
+[[ ! -s common/vars.sh ]] || . common/vars.sh
+# shellcheck disable=SC2034  # Set from common/vars.sh
 [[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
 	echo >&2 'FATAL: Inclusion of common defaults failed'
 	exit 1
@@ -26,29 +26,69 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 # shellcheck disable=SC2034,SC2154
 declare IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
-[ -s common/run.sh ] && . common/run.sh
+[[ -s common/run.sh ]] && . common/run.sh >/dev/null
+if [[ "$( type -t 'die' )" != 'function' ]]; then
+	echo >&2 "FATAL: Unable to source shared functions from" \
+		"'common/run.sh': ${?}"
+	exit 127
+fi
 
-if [ -z "${*:-}" ] || echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	output >&2 "Usage: $( basename "${0}" ) <category/package_name [portage_atom...]> [--rebuild='<portage_atom...>'] [--force-keywords] [--cmd=<cmd>] [--entrypoint=<path>] [--memory=2g] [--memory-limit=8g]"
+if [[ -z "${*:-}" || " ${*:-} " =~ \ -(h|-help)\  ]]; then
+	output >&2 "Usage: $( basename "${0}" )" \
+		"<category/package_name [portage_atom...]>" \
+		"[--rebuild='<portage_atom ...>'] [--force-keywords] [--cmd=<cmd>]" \
+		"[--entrypoint=<path>] [--memory=2g] [--memory-limit=8g]" \
+		"[--name=<container_name>]"
 	exit 0
 fi
 
-# Support 'core' user for podman+machine Fedora default user...
-if [[ "$( uname -s )" == 'Darwin' ]]; then
-	if (( EUID )) && [[ "$( id -nu )" == 'core' ]]; then
-		die "Please re-run '$( basename "${0}" )' as user 'root'"
+declare _output=''
+# shellcheck disable=SC2154
+if ! [[ -x "$( type -pf "${_command}" )" ]]; then
+	echo >&2 "FATAL: Cannot locate binary '${_command}'"
+	exit 1
+elif ! _output="$( "${_command}" info 2>&1 )"; then
+	if [[ "${_command}" == 'podman' ]]; then
+		echo >&2 "FATAL: Unable to successfully execute" \
+			"'${_command}' - do you need to run '${_command}" \
+			"machine start' or re-run '$( basename "${0}" )' as" \
+			"'root'?"
+	else
+		echo >&2 "FATAL: Unable to successfully execute" \
+			"'${_command}' - do you need to re-run" \
+			"'$( basename "${0}" )' as 'root'?"
 	fi
+	exit 1
+elif [[ "$( uname -s )" != 'Darwin' ]] &&
+		(( EUID )) &&
+		grep -Fq -- 'rootless: false' <<<"${_output}"
+then
+	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
+	exit 1
 fi
+unset _output
+
+declare -i FORCE_KEYWORDS=0
+declare -i PODMAN_MEMORY_RESERVATION=0
+declare -i PODMAN_MEMORY_LIMIT=0
+declare -i PODMAN_SWAP_LIMIT=0
+declare DOCKER_ENTRYPOINT=''
+declare DOCKER_CMD=''
+declare rebuild=''
+
+declare args='' arg=''
 
 # Extract 'entrypoint' argument - all others can be handled by the entrypoint
 # script within the container itself...
-args=''
-rebuild=''
-for arg in "${@}"; do
+for arg in "${@:-}"; do
 	# pop 'arg', but then process it (and potentially re-add it) below...
-	shift
+	if [[ -n "${2:-}" ]]; then
+		shift
+	else
+		set --
+	fi
 
-	case "${arg}" in
+	case "${arg:-}" in
 		-k|--force-keywords)
 			FORCE_KEYWORDS=1
 			export FORCE_KEYWORDS
@@ -65,13 +105,17 @@ for arg in "${@}"; do
 			continue
 			;;
 		--rebuild=*)
-			rebuild="${rebuild:+"${rebuild} "}${arg#"--rebuild="}"
-			set -- "${@}" "${arg}"
+			rebuild="${rebuild:+"${rebuild} "}$( # <- Syntax
+					xargs -r <<<"${arg#"--rebuild="}"
+				)"
+			set -- "${@}" "$( xargs -r <<<"${arg}" )"
 			;;
 		--rebuild)
 			if [[ -n "${1:-}" ]]; then
-				rebuild="${rebuild:+"${rebuild} "}${1}"
-				set -- "${@}" "${arg}=${1}"
+				rebuild="${rebuild:+"${rebuild} "}$( # <- Syntax
+						xargs -r <<<"${1}"
+					)"
+				set -- "${@}" "${arg}=$( xargs -r <<<"${1}" )"
 				shift
 			fi
 			;;
@@ -97,11 +141,18 @@ for arg in "${@}"; do
 	esac
 done
 
-if [ -z "${args:-}" ] && [ -n "${rebuild:-}" ]; then
-	# We only need to specify one package, as the rebuild logic will
-	# pull-in each original package prior to recompiling it...
+if [[ -z "${args:-}" && -n "${rebuild:-}" ]]; then
+	# We only need to specify one package, as the rebuild logic will pull-in
+	# each original package prior to recompiling it...
 	set -- "${rebuild%%" "*}" "${@}"
+	print "First element of \$rebuild re-added as first argument to give$( #
+			for arg in "${@:-}"; do
+				printf " '%s'" "${arg:-}"
+			done
+		)"
 fi
+
+unset arg args rebuild
 
 # FIXME: shellcheck wants:
 #
@@ -124,11 +175,17 @@ docker_extra_mounts+=(
 	$( add_mount --print '/etc/portage/profile/package.use.force' )
 	$( add_mount --print '/etc/portage/profile/package.use.mask' )
 ) || :
-
+if [[ -d '/var/lib/portage/eclass/linux-info' ]]; then
+	docker_extra_mounts+=(
+		$( add_mount --dir --no-ro --print '/var/lib/portage/eclass/linux-info' \
+				'/srv/host/...'
+			)
+	) || :
+fi
 
 # Use host package.mask (if present), overriding the container build-time
 # default...
-if ! [ -d /etc/portage/package.mask ]; then
+if ! [[ -d /etc/portage/package.mask ]]; then
 	docker_extra_mounts+=( $( add_mount --print \
 			'/etc/portage/package.mask' \
 			'../host.mask'
@@ -138,6 +195,7 @@ else
 			'/etc/portage/package.mask/package.mask' \
 			'/etc/portage/package.mask/host.mask'
 		) ) || :
+
 	declare extra_mask='' file=''
 	while read -r extra_mask; do
 		file="$( basename "${extra_mask}" )"
@@ -151,14 +209,15 @@ else
 				-type f \
 				-not -name 'package.mask' \
 				-print0 |
-			grep -vz -- '^repo-.*-mask'
+			grep -vz -- '^repo-.*-mask' |
+			xargs -0rn 1
 	)
 	unset file extra_mask
-fi # [ -d /etc/portage/package.mask ]
+fi # [[ -d /etc/portage/package.mask ]]
 
 # Use host package.unmask (if present), overriding the container build-time
 # default...
-if ! [ -d /etc/portage/package.unmask ]; then
+if ! [[ -d /etc/portage/package.unmask ]]; then
 	#docker_extra_mounts+=( $( add_mount --print \
 	#		'/etc/portage/package.unmask'
 	#	) ) || :
@@ -171,6 +230,7 @@ else
 			'/etc/portage/package.unmask/package.unmask' \
 			'/etc/portage/package.unmask/host.unmask'
 		) ) || :
+
 	declare extra_unmask='' file=''
 	while read -r extra_unmask; do
 		file="$( basename "${extra_unmask}" )"
@@ -186,9 +246,9 @@ else
 			-print
 	)
 	unset file extra_unmask
-fi # [ -d /etc/portage/package.unmask ]
+fi # [[ -d /etc/portage/package.unmask ]]
 
-if ! [ -d /etc/portage/package.use ]; then
+if ! [[ -d /etc/portage/package.use ]]; then
 	docker_extra_mounts+=( $( add_mount --print \
 			'/etc/portage/package.use' \
 			'.../package.use'
@@ -199,6 +259,7 @@ else
 		$( add_mount --print '/etc/portage/package.use/01_package.use.local' )
 		$( add_mount --print '/etc/portage/package.use/05_host.use' )
 	) || :
+
 	declare targets='' file=''
 	while read -r targets; do
 		file="$( basename "${targets}" )"
@@ -217,10 +278,10 @@ else
 				-type f \
 				-print0 |
 			xargs -0rn 1 basename |
-				grep -FvZ -e '.use' -e '_targets'
+			grep -Fv -e '.use' -e '_targets'
 	)
 	unset file targets
-fi # [ -d /etc/portage/package.use ]
+fi # [[ -d /etc/portage/package.use ]]
 
 # Even with all of the below made available, linux-info.eclass still causes
 # builds to fail due to not being able to find a valid kernel configuration?!
@@ -233,59 +294,24 @@ fi # [ -d /etc/portage/package.use ]
 
 export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 unset docker_extra_mounts
-}
+}  # end shellcheck disable SC2207
 
-# We're including USE later (via ${use}/--with-use) and so this block was
-# simply duplicating arguments...
-#
-#if [ -n "${USE:-}" ]; then
-#	# Without passing USE flags in this way, they appear to be getting lost (when /etc/portage/package.use exists?)
-#	set -- "${@}" --with-use="${USE}"
-#fi
+declare prepkg=''
+declare preuse="${PREUSE:-}"
+declare use="${USE:-}"
+declare postuse="${POSTUSE:-}"
 
-#note >&2 'Adding circular-dependency fixes ...'
-#if echo "${*}" | grep -q -- 'app-arch/libarchive'; then
-#	pkg="${pkg:+"${pkg} "}$( echo " ${*} " | sed -r 's|^.*\s([^[:space:]]*app-arch/libarchive[^[:space:]]*)\s.*$|\1|' )"
-#else
-#	pkg="${pkg:+"${pkg} "}app-arch/libarchive"
-#fi
-##if echo "${*}" | grep -q -- 'dev-util/pkgconfig'; then
-##	pkg="${pkg:+"${pkg} "}$( echo " ${*} " | sed -r 's|^.*\s([^[:space:]]*dev-util/pkgconfig[^[:space:]]*)\s.*$|\1|' )"
-##else
-##	pkg="${pkg:+"${pkg} "}dev-util/pkgconfig"
-##fi
-#set -- "${@}" --pre-pkgs="${pkg}" --pre-use='-lz4 internal-glib'
-#unset pkg
-#set -- "${@}" --pre-use='-lz4 internal-glib'
-
-prepkg=''
-preuse="${PREUSE:-}"
-use="${USE:-}"
-postuse="${POSTUSE:-}"
-for arg in "${@:-}"; do
-	case "$( echo "${arg}" | sed -r 's/^[<>]?=?//' )" in
-		media-libs/freetype|freetype|media-libs/freetype-*|freetype-*)
-			prepkg="${prepkg:+"${prepkg} "}${arg} media-libs/harfbuzz"
-			preuse="$( replace_flags '-harfbuzz' '-truetype' -- "${preuse}" )"
-			;;
-		media-libs/harfbuzz|harfbuzz|media-libs/harfbuzz-*|harfbuzz-*)
-			prepkg="${prepkg:+"${prepkg} "}${arg} media-libs/freetype"
-			preuse="$( replace_flags '-harfbuzz' '-truetype' -- "${preuse}" )"
-			;;
-		#sys-libs/glibc|glibc|sys-libs/glibc-*|glibc-*)
-		#	prepkg="${prepkg:+"${prepkg} "}${arg}"
-		#	;;
-	esac
-done
 preuse="$( replace_flags '-lib-only' -- "${preuse:-}" )"
 use="$( replace_flags '-lib-only' -- "${use:-}" )"
 postuse="$( replace_flags 'lib-only' -- "${postuse:-}" )"
 if [ -n "${prepkg:-}" ]; then
-	note >&2 "Adding pre-build package(s) '$( xargs -r <<<"${prepkg}" )' to resolve depenency loops ..."
+	note >&2 "Adding pre-build package(s) '$( xargs -r <<<"${prepkg}" )'" \
+		"to resolve depenency loops ..."
 	set -- "${@}" --pre-pkgs="${prepkg}"
 fi
 if [ -n "${preuse:-}" ]; then
-	note >&2 "Adding pre-build USE flag(s) '$( xargs -r <<<"${preuse}" )' to resolve depenency loops ..."
+	note >&2 "Adding pre-build USE flag(s) '$( xargs -r <<<"${preuse}" )'" \
+		"to resolve depenency loops ..."
 	set -- "${@}" --pre-use="${preuse}"
 fi
 if [ -n "${use:-}" ]; then
@@ -293,30 +319,22 @@ if [ -n "${use:-}" ]; then
 	set -- "${@}" --with-use="${use}"
 fi
 if [ -n "${postuse:-}" ]; then
-	note >&2 "Adding post-build USE flag(s) '$( xargs -r <<<"${postuse}" )' to minimise host requirements ..."
+	note >&2 "Adding post-build USE flag(s) '$( xargs -r <<<"${postuse}" )'" \
+		"to minimise host requirements ..."
 	set -- "${@}" --post-use="${postuse}"
 fi
 
 # Add '--cap-add' entries sync'd with 'fcaps' calls in ebuilds...
 #
-# FIXME: Add a distinct 'DOCKER_CAPS' or similar
-#
 # shellcheck disable=SC2034
-DOCKER_CMD_VARS="
-	--cap-add=DAC_OVERRIDE
-	--cap-add=DAC_READ_SEARCH
-	--cap-add=NET_ADMIN
-	--cap-add=NET_BIND_SERVICE
-	--cap-add=NET_RAW
-	--cap-add=SETGID
-	--cap-add=SETUID
-	--cap-add=SYS_ADMIN
-	--cap-add=SYS_RESOURCE
-	--cap-add=SYS_TTY_CONFIG
+DOCKER_CAPS="
+	DAC_OVERRIDE DAC_READ_SEARCH
+	NET_ADMIN NET_BIND_SERVICE NET_RAW
+	SETGID SETUID
+	SYS_ADMIN SYS_RESOURCE SYS_TTY_CONFIG
 "
 
-# Provide a '--name' to prevent the container being removed on exit;
-# invoke with '--usepkg=n' to rebuild existing packages...
+# Provide a '--name' to prevent the container being removed on exit
 #
 _docker_build --intent=discard ${@+"${@}"} \
 

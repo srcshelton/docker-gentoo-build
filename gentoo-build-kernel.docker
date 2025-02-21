@@ -29,7 +29,12 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 # shellcheck disable=SC2154
 declare IMAGE="${build_name}:latest"
 # shellcheck disable=SC1091
-[ -s common/run.sh ] && . common/run.sh
+[ -s common/run.sh ] && . common/run.sh >/dev/null
+if [[ "$( type -t 'die' )" != 'function' ]]; then
+	echo >&2 "FATAL: Unable to source shared functions from" \
+		"'common/run.sh': ${?}"
+	exit 127
+fi
 
 declare -ir PARALLEL_MEMORY_MIN=4
 

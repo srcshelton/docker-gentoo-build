@@ -64,21 +64,21 @@ format() {
 	[ -n "${format_variable:-}" ] || return 1
 
 	format_variable="$( # <- Syntax
-		echo "${format_variable}" | xargs -rn 1 | sort -d | xargs -r
-	)"
+			echo "${format_variable}" | xargs -rn 1 | sort -d | xargs -r
+		)"
 	format_spaces="$( printf "%${format_padding}s" )"
 	format_string="%-${format_padding}s= \"%s\"\\n"
 
 	# shellcheck disable=SC2059
 	printf "${format_string}" "${format_variable}" "$( # <- Syntax
-		cat - |
-			grep -- "^${format_variable}=" |
-			cut -d'"' -f 2 |
-			sort |
-			uniq |
-			fmt -w $(( ${COLUMNS:-"80"} - ( format_padding + 3 ) )) |
-			sed "s/^/   ${format_spaces}/ ; 1 s/^\s\+//"
-	)"
+			cat - |
+				grep -- "^${format_variable}=" |
+				cut -d'"' -f 2 |
+				sort |
+				uniq |
+				fmt -w $(( ${COLUMNS:-"80"} - ( format_padding + 3 ) )) |
+				sed "s/^/   ${format_spaces}/ ; 1 s/^\s\+//"
+		)"
 
 	unset format_string format_spaces format_padding format_variable
 
@@ -211,10 +211,10 @@ get_stage3() {
 	unset get_cache
 
 	get_result="$( # <- Syntax
-		echo "${stage3_flags}" |
-			grep -- "^STAGE3_${get_type}=" |
-			cut -d'"' -f 2
-	)" # ' # <- Syntax
+			echo "${stage3_flags}" |
+				grep -- "^STAGE3_${get_type}=" |
+				cut -d'"' -f 2
+		)" # ' # <- Syntax
 	print "get_stage3 get_result for '${get_type}' is '${get_result}'"
 
 	if [ "${get_type}" = 'USE' ]; then
@@ -222,22 +222,22 @@ get_stage3() {
 		# apply to multiple packages, but can (problematically) only be present
 		# for one package per installation ROOT...
 		get_result="$( # <- Syntax
-			get_exclude='cet|cpudetection|egrep-fgrep|ensurepip|hostname|installkernel|kill|pcre16|pcre32|pop3|qmanifest|qtegrity|smartcard|su|test-rust|tmpfiles|tofu'
-			echo "${get_result}" |
-				xargs -rn 1 |
-				grep -Ev "^(${get_exclude})$" |
-				xargs -r
-			unset get_exclude
-		)"
+				get_exclude='cet|cpudetection|egrep-fgrep|ensurepip|hostname|installkernel|kill|pcre16|pcre32|pop3|qmanifest|qtegrity|smartcard|su|test-rust|tmpfiles|tofu'
+				echo "${get_result}" |
+					xargs -rn 1 |
+					grep -Ev "^(${get_exclude})$" |
+					xargs -r
+				unset get_exclude
+			)"
 		print "get_stage3 get_result for USE('${get_type}') after filter is" \
 			"'${get_result}'"
 
 		entries='' entry=''
 		entries="$( # <- Syntax
-			echo "${stage3_flags}" |
-				grep -- '^STAGE3_PYTHON_SINGLE_TARGET=' |
-				cut -d'"' -f 2
-		)" # ' # <- Syntax
+				echo "${stage3_flags}" |
+					grep -- '^STAGE3_PYTHON_SINGLE_TARGET=' |
+					cut -d'"' -f 2
+			)" # ' # <- Syntax
 		print "get_stage3 entries for SINGLE_TARGET is '${entries}'"
 
 		for entry in ${entries}; do
@@ -247,10 +247,10 @@ get_stage3() {
 			"'${get_result}'"
 
 		entries="$( # <- Syntax
-			echo "${stage3_flags}" |
-				grep -- '^STAGE3_PYTHON_TARGETS=' |
-				cut -d'"' -f 2
-		)" # ' # <- Syntax
+				echo "${stage3_flags}" |
+					grep -- '^STAGE3_PYTHON_TARGETS=' |
+					cut -d'"' -f 2
+			)" # ' # <- Syntax
 		print "get_stage3 entries for TARGETS is '${entries}'"
 
 		for entry in ${entries}; do
@@ -493,11 +493,11 @@ filter_portage_flags() {
 					ftcf_match='(-)?' ;;
 			esac
 			ftcf_val="$( # <- Syntax
-				echo "${ftcf_val}" |
-					xargs -rn 1 |
-					grep -Ev -- "^${ftcf_match:-}(${ftcf_flags})$" |
-					xargs -r
-			)"
+					echo "${ftcf_val}" |
+						xargs -rn 1 |
+						grep -Ev -- "^${ftcf_match:-}(${ftcf_flags})$" |
+						xargs -r
+				)"
 			if echo " ${ftcf_val} " | grep -Eq -- " (${ftcf_flags}) "; then
 				warn "filter_portage_flags(): After filtering, variable" \
 					"'${ftcf_var}' still contains flags to be removed"
@@ -531,10 +531,16 @@ filter_toolchain_flags() {
 	if [ -n "${1:-}" ] && [ -n "${2:-}" ] && [ "${1}" = '--env-only' ]; then
 		shift
 		filter_portage_flags --env-only \
-			CFLAGS CXXFLAGS FFLAGS FCFLAGS LDFLAGS FLFLAGS -- "${@:-}"
+			CFLAGS CGO_CFLAGS \
+			CXXFLAGS CGO_CXXFLAGS \
+			FFLAGS FCFLAGS CGO_FFLAGS \
+			LDFLAGS CGO_LDFLAGS FLFLAGS -- "${@:-}"
 	else
 		filter_portage_flags \
-			CFLAGS CXXFLAGS FFLAGS FCFLAGS LDFLAGS FLFLAGS -- "${@:-}"
+			CFLAGS CGO_CFLAGS \
+			CXXFLAGS CGO_CXXFLAGS \
+			FFLAGS FCFLAGS CGO_FFLAGS \
+			LDFLAGS CGO_LDFLAGS FLFLAGS -- "${@:-}"
 	fi
 }  # filter_toolchain_flags
 
@@ -573,14 +579,14 @@ resolve_python_flags() {
 	# We seem to have a weird situation where USE and PYTHON_*
 	# variables are not in sync with each other...?
 	resolve_use="${USE:+"${USE} "}${resolve_use:+"${resolve_use} "}$( # <- Syntax
-		get_portage_flags 'USE'
-	)" # ' # <- Syntax
+			get_portage_flags 'USE'
+		)"
 	resolve_python_single_target="${PYTHON_SINGLE_TARGET:-} ${resolve_python_single_target:-} $( # <- Syntax
-		get_portage_flags 'PYTHON_SINGLE_TARGET'
-	)${python_targets:+" ${python_targets%%" "*}"}" # ' # <- Syntax
+			get_portage_flags 'PYTHON_SINGLE_TARGET'
+		)${python_targets:+" ${python_targets%%" "*}"}"
 	resolve_python_targets="${PYTHON_TARGETS:-} ${resolve_python_targets:-} $( # <- Syntax
-		get_portage_flags 'PYTHON_TARGETS'
-	) ${python_targets:-}" # ' # <- Syntax
+			get_portage_flags 'PYTHON_TARGETS'
+		) ${python_targets:-}"
 
 	for resolve_target in ${resolve_python_single_target:-}; do
 		resolve_target="python_single_target_${resolve_target}"
@@ -616,16 +622,27 @@ resolve_python_flags() {
 		esac
 	done
 	printf '%s="%s"\n' 'USE' "$( # <- Syntax
-		echo "${resolve_use}" | xargs -rn 1 | sort | uniq | xargs -r
-	)"
+			echo "${resolve_use}" |
+				xargs -rn 1 |
+				sort |
+				uniq |
+				xargs -r
+		)"
 	# Auto-select greatest value... is this reasonable?
 	printf '%s="%s"\n' 'PYTHON_SINGLE_TARGET' "$( # <- Syntax
-		echo "${resolve_python_single_target}" | xargs -rn 1 | sort -V | uniq |
-			tail -n 1
-	)"
+			echo "${resolve_python_single_target}" |
+				xargs -rn 1 |
+				sort -V |
+				uniq |
+				tail -n 1
+		)"
 	printf '%s="%s"\n' 'PYTHON_TARGETS' "$( # <- Syntax
-		echo "${resolve_python_targets}" | xargs -rn 1 | sort | uniq | xargs -r
-	)"
+			echo "${resolve_python_targets}" |
+				xargs -rn 1 |
+				sort |
+				uniq |
+				xargs -r
+		)"
 
 	unset resolve_target resolve_python_targets resolve_python_single_target \
 		resolve_use
@@ -643,48 +660,87 @@ savefailed() {
 
 	#[ -n "${trace:-}" ] || set -o xtrace
 
+	sf_d=''
+	sf_d="${PORTAGE_TMPDIR:-"$(get_portage_flags 'PORTAGE_TMPDIR')"}"
+	sf_d="${sf_d%/}/portage"
+
 	# We can't rely on findutils being present...
 	#
 	# shellcheck disable=SC2012
 	if [ -n "$( # <- Syntax
-			ls -1 2>/dev/null \
-					"${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log \
-					"${PORTAGE_TMPDIR}"/portage/*/*/work/*/config.log |
-				head -n 1 || :
-	)" ]; then
-		mkdir -p "${PORTAGE_LOGDIR}"/failed
-		for file in \
-				"${PORTAGE_TMPDIR}"/portage/*/*/temp/build.log \
-				"${PORTAGE_TMPDIR}"/portage/*/*/work/*/config.log
-		do
-			[ -e "${file}" ] || continue
+				if command -v find >/dev/null 2>&1; then
+					# shellcheck disable=SC2227
+					find "${sf_d}" 2>/dev/null \
+							-mindepth 4 \
+							-maxdepth 5 \
+							-name 'build.log' -or -name 'config.log' \
+							-type f \
+							-print |
+						head -n 1 || :
+				else
+					ls -1 2>/dev/null \
+							"${sf_d}"/*/*/temp/build.log \
+							"${sf_d}"/*/*/work/*/config.log |
+						head -n 1 || :
+				fi
+			)" ]
+	then
+		sf_l='' sf_f=''
 
+		sf_l="${PORTAGE_LOGDIR:-"$(get_portage_flags 'PORTAGE_LOGDIR')"}"
+		mkdir -p "${sf_l%/}"/failed
+
+		for sf_f in $(
+				if command -v find >/dev/null 2>&1; then
+					# Assume that only at most one of each of these two files
+					# may exist across these two levels...
+					#
+					# shellcheck disable=SC2227
+					find "${sf_d}" 2>/dev/null \
+							-mindepth 4 \
+							-maxdepth 5 \
+							-name 'build.log' -or -name 'config.log' \
+							-type f \
+							-print
+				else
+					ls -1 2>/dev/null \
+							"${sf_d}"/*/*/temp/build.log \
+							"${sf_d}"/*/*/work/*/config.log
+				fi
+			)
+		do
+			[ -e "${sf_f}" ] || continue
+
+			sf_type='' sf_pkg='' sf_cat=''
 			sf_rc=1
-			type="$( echo "${file}" | rev | cut -d'/' -f 1 | rev )"
-			case "${type}" in
+			sf_type="$( echo "${sf_f}" | rev | cut -d'/' -f 1 | rev )"
+			case "${sf_type}" in
 				build.log)
-					cat="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"
-					pkg="$( echo "${file}" | rev | cut -d'/' -f 3 | rev )"
+					sf_cat="$( echo "${sf_f}" | rev | cut -d'/' -f 4 | rev )"
+					sf_pkg="$( echo "${sf_f}" | rev | cut -d'/' -f 3 | rev )"
 					;;
 				config.log)
-					cat="$( echo "${file}" | rev | cut -d'/' -f 5 | rev )"
-					pkg="$( echo "${file}" | rev | cut -d'/' -f 4 | rev )"
+					sf_cat="$( echo "${sf_f}" | rev | cut -d'/' -f 5 | rev )"
+					sf_pkg="$( echo "${sf_f}" | rev | cut -d'/' -f 4 | rev )"
 					;;
 				*)
-					warn "Unknown log type '${type}'"
+					warn "Unknown log type '${sf_type}'"
 					continue
 					;;
 			esac
-			mkdir --parents "${PORTAGE_LOGDIR}/failed/${cat}"
-			mv --verbose "${file}" \
-				"${PORTAGE_LOGDIR}/failed/${cat}/${pkg}-${type}" 2>/dev/null || :
+			mkdir --parents "${sf_l%/}/failed/${sf_cat}"
+			mv 2>/dev/null --verbose "${sf_f}" \
+				"${sf_l%/}/failed/${sf_cat}/${sf_pkg}-${sf_type}" || :
 			rmdir \
-					--parents \
 					--ignore-fail-on-non-empty \
-				"$( dirname "${file}" )" "${PORTAGE_LOGDIR}/failed/${cat}" || :
-			unset type pkg cat
+					--parents \
+				"$( dirname "${sf_f}" )" "${sf_l%/}/failed/${sf_cat}" || :
+			unset sf_type sf_pkg sf_cat
 		done
+		unset sf_f sf_l
 	fi
+
+	unset sf_d
 
 	#[ -n "${trace:-}" ] || set +o xtrace
 
@@ -692,10 +748,10 @@ savefailed() {
 }  # savefailed
 
 do_emerge() {
-	emerge_arg=''
-	emerge_opts=''
-	#emerge_features=''
-	emerge_rc=0
+	do_emerge_arg=''
+	do_emerge_opts=''
+	#do_emerge_features=''
+	do_emerge_rc=0
 
 	[ "${#}" -gt 0 ] || return 1
 
@@ -706,13 +762,13 @@ do_emerge() {
 	# opposite of its stated function :o
 	#
 	#if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
-	#	emerge_opts='--root-deps'
+	#	do_emerge_opts='--root-deps'
 	#fi
 
 
-	for emerge_arg in "${@}"; do
+	for do_emerge_arg in "${@}"; do
 		shift
-		case "${emerge_arg:-}" in
+		case "${do_emerge_arg:-}" in
 			'')
 				:
 				;;
@@ -729,7 +785,7 @@ do_emerge() {
 			'--depclean-defaults')
 				set -- "${@}" \
 					--implicit-system-deps=n \
-					--verbose=y \
+					--verbose=n \
 					--with-bdeps=n \
 					--with-bdeps-auto=n \
 					--depclean
@@ -744,9 +800,9 @@ do_emerge() {
 					  ${opts:-} \
 					--verbose=y \
 					--verbose-conflicts \
-					  ${emerge_opts}
+					  ${do_emerge_opts}
 
-				case "${emerge_arg}" in
+				case "${do_emerge_arg}" in
 					'--defaults')
 						:
 						;;
@@ -776,17 +832,17 @@ do_emerge() {
 							--with-bdeps=n \
 							--with-bdeps-auto=n
 
-						case "${emerge_arg}" in
+						case "${do_emerge_arg}" in
 							'--once-defaults')
 								set -- "${@}" \
 									--binpkg-changed-deps=y \
 									--oneshot
-								#emerge_features='-preserve-libs'
+								#do_emerge_features='-preserve-libs'
 								;;
 							'--single-defaults')
 								set -- "${@}" \
 									--binpkg-changed-deps=y
-								#emerge_features='-preserve-libs'
+								#do_emerge_features='-preserve-libs'
 								;;
 							'--chost-defaults')
 								# shellcheck disable=SC2086
@@ -816,7 +872,7 @@ do_emerge() {
 							--with-bdeps=n \
 							--with-bdeps-auto=n
 
-						case "${emerge_arg}" in
+						case "${do_emerge_arg}" in
 							'--multi-defaults')
 								set -- "${@}" \
 									--usepkg=y
@@ -855,57 +911,128 @@ do_emerge() {
 						;;
 
 					*)
-						warn "Unknown emerge defaults set '${emerge_arg}'"
+						warn "Unknown emerge defaults set '${do_emerge_arg}'"
 						;;
 				esac
 				;;
 
 			*)
-				set -- "${@}" "${emerge_arg}"
+				set -- "${@}" "${do_emerge_arg}"
 				;;
 		esac
 	done
 
+	if ! [ -f /srv/host/var/lib/portage/eclass/linux-info/.keep ]; then
+		warn "Running emerge with ROOT='${ROOT}' without 'eclass/linux-info'" \
+			"mounted into '/srv/host/var/lib/portage' - kernel configuration" \
+			"dependencies will not be recorded"
+		warn
+		warn "Mounts:"
+		mount | sort -V | sed 's/ (.*$//' | while read -r line; do
+			warn "  ${line}"
+		done
+		unset line
+	fi
+
 	print "Running \"emerge ${*}\"${USE:+" with USE='${USE}'"}" \
 		"${ROOT:+" with ROOT='${ROOT}'"}"
-	#FEATURES="${emerge_features:-}" \
-	emerge --ignore-default-opts --color=y "${@:-}" || emerge_rc="${?}"
-	echo "   -> ${emerge_rc}"
+	#FEATURES="${do_emerge_features:-}" \
+	emerge --ignore-default-opts --color=y "${@:-}" || do_emerge_rc="${?}"
+	echo "   -> ${do_emerge_rc}"
 
-	if [ $(( emerge_rc )) -eq 0 ]; then
+	if [ $(( do_emerge_rc )) -eq 0 ]; then
+		do_emerge_dir='var/lib/portage/eclass/linux-info'
+		if [ -d "${ROOT:-}/${do_emerge_dir}/" ]; then
+			if [ ! -d "/srv/host/${do_emerge_dir}" ]; then
+				warn "'${ROOT:-}/${do_emerge_dir}/' exists but"
+					"'/srv/host/${do_emerge_dir}' is not mounted"
+			else
+				do_emerge_li='' do_emerge_f='' do_emerge_s1=0 do_emerge_s2=0
+
+				info "Looking for kernel configuration hints in" \
+					"'${ROOT:-}/${do_emerge_dir}/' ..."
+
+				for do_emerge_li in "${ROOT:-}/${do_emerge_dir}"/*; do
+					do_emerge_f="$( basename "${do_emerge_li}" )"
+
+					[ "${do_emerge_f}" = '.keep' ] &&
+						continue
+
+					info ".. found file '${do_emerge_f}'"
+
+					do_emerge_s1="$( stat -c '%s' "${do_emerge_li}" )"
+					if [ -s "/srv/host/${do_emerge_dir}/${do_emerge_f}" ]; then
+						info ".... comparing to exisiting file" \
+							"'/srv/host/${do_emerge_dir}/${do_emerge_f}'"
+
+						do_emerge_s2="$(
+								stat -c '%s' \
+									"/srv/host/${do_emerge_dir}/${do_emerge_f}"
+							)"
+					else
+						do_emerge_s2=0
+					fi
+					if [ $(( do_emerge_s1 )) -ne $(( do_emerge_s2 )) ]; then
+						info ".... file size has changed, saving" \
+							"'${do_emerge_f}'"
+
+						cp -a "${do_emerge_li}" \
+								"/srv/host/${do_emerge_dir}/${do_emerge_f}" ||
+							die "Unable to copy '${do_emerge_li}' to" \
+								"'/srv/host/${do_emerge_dir}/${do_emerge_f}':" \
+								"${?}"
+					else
+						info ".... discarding identical file"
+					fi
+				done
+				unset do_emerge_s2 do_emerge_s1 do_emerge_f do_emerge_li
+			fi  # [ -d "/srv/host/${do_emerge_dir}" ]
+		fi  # [ -d "${ROOT:-}/${do_emerge_dir}/" ]
+
 		[ -f /etc/._cfg0000_hosts ] && rm -f /etc/._cfg0000_hosts
+
 		# For some reason, after dealing with /usr/sbin being a symlink to
 		# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
 		# following line is encountered, despite both elements still appearing
 		# in $PATH...
 		LC_ALL='C' /usr/sbin/etc-update -q --automode -5
 		LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
-	else
-		warn "Build failed (${emerge_rc}):"
+	elif ! echo "${*:-}" | grep -qw -e '--unmerge' -e '--depclean'; then
+		warn "Build failed (${do_emerge_rc}):"
 		warn "  USE='${USE:-}'"
 		warn "  ROOT='${ROOT:-}'"
 		warn "  \${*}='${*:-}'"
 		warn "  PKGDIR='$( get_portage_flags 'PKGDIR' )'"
 		warn "  CFLAGS='$( get_portage_flags 'CFLAGS' )'"
+		warn "  CXXFLAGS='$( get_portage_flags 'CXXFLAGS' )'"
+		warn "  CGO_CFLAGS='$( get_portage_flags 'CGO_CFLAGS' )'"
+		warn "  CGO_CXXFLAGS='$( get_portage_flags 'CGO_CXXFLAGS' )'"
 		warn "  LDFLAGS='$( get_portage_flags 'LDFLAGS' )'"
-		d='' f=''
-		d="$( get_portage_flags 'PORTAGE_TMPDIR' )/portage"
-		info "Looking for 'config.log' files beneath '${d}' ..."
-		find "${d}" -mindepth 5 -type f -name 'config.log' -print |
-				while read -r f
-		do
-			warn
-			warn "$( echo "${f}" | sed "s|^${d}/||" ):"
-			cat "${f}"
-		done
-		savefailed
-		#ls -lR "${d}/portage"
-		unset f d
+		warn "  CGO_LDFLAGS='$( get_portage_flags 'CGO_LDFLAGS' )'"
+		warn "  RUSTFLAGS='$( get_portage_flags 'RUSTFLAGS' )'"
+		de_d=''
+		de_d="${PORTAGE_TMPDIR:-"$(get_portage_flags 'PORTAGE_TMPDIR')"}"
+		de_d="${de_d%/}/portage"
+		if [ -d "${de_d}" ]; then
+			info "Looking for 'config.log' files beneath '${de_d}' ..."
+			de_f=''
+			find "${de_d}" -mindepth 5 -type f -name 'config.log' -print |
+					while read -r de_f
+			do
+				warn
+				warn "$( echo "${de_f}" | sed "s|^${de_d}/||" ):"
+				cat "${de_f}"
+			done
+			savefailed
+			#ls -lR "${de_d}/portage"
+			unset de_f
+		fi
+		unset de_d
 	fi
 
-	unset emerge_opts emerge_arg
+	unset do_emerge_opts do_emerge_arg
 
-	return ${emerge_rc}
+	return ${do_emerge_rc}
 }  # do_emerge
 
 fix_sh_symlink() {
@@ -939,9 +1066,9 @@ fi
 
 if set | grep -q -- '=__[A-Z]\+__$'; then
 	die "Unexpanded variable(s) in environment: $( # <- Syntax
-		echo
-		set | grep -- '=__[A-Z]\+__$' | sed 's/^/  /'
-	)"
+			echo
+			set | grep -- '=__[A-Z]\+__$' | sed 's/^/  /'
+		)"
 fi
 
 if [ -e /etc/portage/repos.conf.host ]; then
@@ -1137,20 +1264,20 @@ for arg in "${@}"; do
 	case "${arg}" in
 		--post-pkgs=*)
 			post_pkgs="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--post-use=*)
 			post_use="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--python-target=*|--python-targets=*)
 			python_targets="$( # <- Syntax
-				printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-			)"
+					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
+				)"
 			continue
 			;;
 		--verbose-build)
@@ -1231,17 +1358,17 @@ touch "${PKGDIR}/Packages" ||
 
 get_stage3 --cache-only
 info="$( # <- Syntax
-	eval "export $( get_stage3 USE )"
-	eval "export $( get_stage3 PYTHON_SINGLE_TARGET )"
-	eval "export $( get_stage3 PYTHON_TARGETS )"
-	eval "$( # <- Syntax
-		resolve_python_flags \
-			"${USE}" \
-			"${PYTHON_SINGLE_TARGET}" \
-			"${PYTHON_TARGETS}"
+		eval "export $( get_stage3 USE )"
+		eval "export $( get_stage3 PYTHON_SINGLE_TARGET )"
+		eval "export $( get_stage3 PYTHON_TARGETS )"
+		eval "$( # <- Syntax
+				resolve_python_flags \
+					"${USE}" \
+					"${PYTHON_SINGLE_TARGET}" \
+					"${PYTHON_TARGETS}"
+			)"
+		LC_ALL='C' emerge --info --verbose=y 2>&1
 	)"
-	LC_ALL='C' emerge --info --verbose=y 2>&1
-)"
 echo
 echo 'Resolved build variables for stage3:'
 echo '-----------------------------------'
@@ -1250,36 +1377,62 @@ echo "${info}" | format 'CFLAGS'
 echo "${info}" | format 'LDFLAGS'
 echo
 echo "ROOT                = $( # <- Syntax
-	echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^ROOT=' |
+			cut -d'=' -f 2- |
+			uniq |
+			head -n 1
+	)"
 echo "SYSROOT             = $( # <- Syntax
-	echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^SYSROOT=' |
+			cut -d'=' -f 2- |
+			uniq |
+			head -n 1
+	)"
 echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-	echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^PORTAGE_CONFIGROOT=' |
+			cut -d'=' -f 2- |
+			uniq |
+			head -n 1
+	)"
 echo
 echo "${info}" | format 'FEATURES'
 echo "${info}" | format 'ACCEPT_LICENSE'
 echo "${info}" | format 'ACCEPT_KEYWORDS'
+#echo "${info}" | format 'INSTALL_MASK'
 echo "${info}" | format 'USE'
 echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 echo "${info}" | format 'PYTHON_TARGETS'
 echo "MAKEOPTS            = $( # <- Syntax
-	echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^MAKEOPTS=' |
+			cut -d'=' -f 2- |
+			uniq
+	)"
 echo
 echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 echo
 echo "DISTDIR             = $( # <- Syntax
-	echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^DISTDIR=' |
+			cut -d'=' -f 2- |
+			uniq
+	)"
 echo "PKGDIR              = $( # <- Syntax
-	echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^PKGDIR=' |
+			cut -d'=' -f 2- |
+			uniq |
+			head -n 1
+	)"
 echo "PORTAGE_LOGDIR      = $( # <- Syntax
-	echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^PORTAGE_LOGDIR=' |
+			cut -d'=' -f 2- |
+			uniq
+	)"
 echo
 unset info
 
@@ -1306,8 +1459,10 @@ fi
 LC_ALL='C' eselect --colour=yes profile list | grep 'stable'
 LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" # 2>/dev/null
 info "Selected profile '$( # <- Syntax
-	LC_ALL='C' eselect --colour=yes profile show | tail -n 1 | sed 's/\s\+//'
-)'"
+		LC_ALL='C' eselect --colour=yes profile show |
+			tail -n 1 |
+			sed 's/\s\+//'
+	)'"
 
 LC_ALL='C' emaint --fix binhost
 
@@ -1324,16 +1479,23 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 # 'graphite' functionality - therefore, we need to strip these flags to prevent
 # built failures up to that point.
 #
-_o_CFLAGS='' _o_CXXFLAGS='' _o_FFLAGS='' _o_FCFLAGS=''
-_o_LDFLAGS='' _o_FLFLAGS=''
+_o_CFLAGS='' _o_CXXFLAGS=''
+_o_CGO_CFLAGS='' _o_CGO_CXXFLAGS=''
+_o_FFLAGS='' _o_FCFLAGS='' _o_CGO_FFLAGS=''
+_o_LDFLAGS='' _o_FLFLAGS='' _o_CGO_LDFLAGS=''
 if [ -n "${CFLAGS:-}${CXXFLAGS:-}" ]; then
-	if echo "${CFLAGS:-} ${CXXFLAGS:-}" | grep -Eq -- '(-fgraphite|-floop-)'
+	if echo " ${CFLAGS:-} ${CXXFLAGS:-} " |
+			grep -Eq -- '\s(-fgraphite|-floop-)'
 	then
 		_o_CFLAGS="${CFLAGS:-}"
-		_o_CXXFLAGS="${CFLAGS:-}"
+		_o_CXXFLAGS="${CXXCFLAGS:-}"
+		_o_CGO_CFLAGS="${CGO_CFLAGS:-}"
+		_o_CGO_CXXFLAGS="${CGO_CXXFLAGS:-}"
 		_o_FFLAGS="${FFLAGS:-}"
 		_o_FCFLAGS="${FCFLAGS:-}"
+		_o_CGO_FFLAGS="${CGO_FFLAGS:-}"
 		_o_LDFLAGS="${LDFLAGS:-}"
+		_o_CGO_LDFLAGS="${CGO_LDFLAGS:-}"
 		_o_FLFLAGS="${FLFLAGS:-}"
 		eval "$( # <- Syntax
 				filter_toolchain_flags -fgraphite -fgraphite-identity \
@@ -1422,39 +1584,39 @@ fi
 	#    sys-fs/udev-init-scripts-34 requires >=virtual/udev-217
 	#    virtual/dev-manager-0-r2 requires virtual/udev
 	list="$( # <- Syntax
-		{
-			sed 's/#.*$//' /etc/portage/package.mask/* |
-					grep -v -- 'gentoo-functions'
+			{
+				sed 's/#.*$//' /etc/portage/package.mask/* |
+						grep -v -- 'gentoo-functions'
 
-			sed 's/#.*$//' /etc/portage/package.mask/* |
-					grep -Eow -- '((virtual|sys-fs)/)?e?udev' &&
-				echo 'sys-apps/hwids sys-fs/udev-init-scripts'
+				sed 's/#.*$//' /etc/portage/package.mask/* |
+						grep -Eow -- '((virtual|sys-fs)/)?e?udev' &&
+					echo 'sys-apps/hwids sys-fs/udev-init-scripts'
 
-			echo "<dev-lang/$(
-				echo "${python_default_targets}" |
-					sed 's/3_/-3./' |
-					sort -V |
-					tail -n 1
-			)"
-		} |
-			grep -Fv -- '::' |
-			sort -V |
-			xargs -r
-	)"
+				echo "<dev-lang/$( # <- Syntax
+						echo "${python_default_targets}" |
+							sed 's/3_/-3./' |
+							sort -V |
+							tail -n 1
+					)"
+			} |
+				grep -Fv -- '::' |
+				sort -V |
+				xargs -r
+		)"
 	echo "Package list: ${list}"
 	echo
 	# shellcheck disable=SC2086
 	do_emerge --depclean-defaults ${list} || :
 )
 
-if [ $(( $( # <- Syntax
-		find /var/db/pkg/dev-lang/ \
-				-mindepth 1 -maxdepth 1 \
-				-type d \
-				-name 'python-3.*' \
-				-print |
-			wc -l
-	) )) -gt 1 ]
+if [ $(( $(
+			find /var/db/pkg/dev-lang/ \
+					-mindepth 1 -maxdepth 1 \
+					-type d \
+					-name 'python-3.*' \
+					-print |
+				wc -l
+		) )) -gt 1 ]
 then
 	echo
 	echo " * Multiple python interpreters present, attempting to" \
@@ -1487,22 +1649,22 @@ then
 		unset pkgdir
 		USE="-* $( get_stage3 --values-only USE ) -udev split-usr"
 		USE="$( # <- Syntax
-			echo "${USE}" |
-				xargs -rn 1 |
-				grep -v -e '^python_single_target_' -e 'python_targets_' |
-				xargs -r
-			echo "python_single_target_${python_default_targets%%" "*}"
-			echo "python_targets_${python_default_targets%%" "*}"
-		)"
+				echo "${USE}" |
+					xargs -rn 1 |
+					grep -v -e '^python_single_target_' -e 'python_targets_' |
+					xargs -r
+				echo "python_single_target_${python_default_targets%%" "*}"
+				echo "python_targets_${python_default_targets%%" "*}"
+			)"
 		export USE
 		export PYTHON_DEFAULT_TARGET="${python_default_targets%%" "*}"
 		export PYTHON_TARGETS="${python_default_targets}"
 		eval "$( # <- Syntax
-			resolve_python_flags \
-				"${USE}" \
-				"python_single_target_${python_default_targets%%" "*}" \
-				"python_targets_${python_default_targets%%" "*}"
-		)"
+				resolve_python_flags \
+					"${USE}" \
+					"python_single_target_${python_default_targets%%" "*}" \
+					"python_targets_${python_default_targets%%" "*}"
+			)"
 
 		# FIXME: Nasty hack to avoid preserved libraries...
 		# shellcheck disable=SC2046
@@ -1514,8 +1676,7 @@ then
 
 		if command -v qatom >/dev/null; then
 			# shellcheck disable=SC2046,SC2086
-			do_emerge --once-defaults \
-				$(
+			do_emerge --once-defaults $(
 					P=''
 
 					# The 20240605 arm64 stage3 image contains several outdated
@@ -1537,38 +1698,37 @@ then
 				)
 
 			list="$( # <- Syntax
-				{
-					P=''
+					{
+						P=''
 
-					echo "<dev-lang/$(
-						echo "${python_default_targets}" |
-							sed 's/3_/-3./' |
-							sort -V |
-							tail -n 1
-					)"
-					grep 'python_[^ ]*target' \
-							"${ROOT:-}"/var/db/pkg/*/*/USE |
-						grep -v "_${python_default_targets%%" "*}" |
-						grep '_python3_' |
-						grep 'backports' |
-						cut -d':' -f 1 |
-						rev |
-						cut -d'/' -f 2-3 |
-						rev |
-						while read -r P; do
-							qatom -CF '%{CATEGORY}/%{PN}' "${P}"
-						done |
+						echo "<dev-lang/$(
+							echo "${python_default_targets}" |
+								sed 's/3_/-3./' |
+								sort -V |
+								tail -n 1
+						)"
+						grep 'python_[^ ]*target' \
+								"${ROOT:-}"/var/db/pkg/*/*/USE |
+							grep -v "_${python_default_targets%%" "*}" |
+							grep '_python3_' |
+							grep 'backports' |
+							cut -d':' -f 1 |
+							rev |
+							cut -d'/' -f 2-3 |
+							rev |
+							while read -r P; do
+								qatom -CF '%{CATEGORY}/%{PN}' "${P}"
+							done |
+							xargs -r
+					} |
+						grep -Fv -- '::' |
+						sort -V |
 						xargs -r
-				} |
-					grep -Fv -- '::' |
-					sort -V |
-					xargs -r
-			)"
+				)"
 		else
 			# shellcheck disable=SC2046,SC2086
 			#	debug=1 \
-			do_emerge --once-defaults \
-				$(
+			do_emerge --once-defaults $(
 					# The 20240605 arm64 stage3 image contains several outdated
 					# pakages which no longer exist in the portage tree :(
 					#
@@ -1586,29 +1746,29 @@ then
 				)
 
 			list="$( # <- Syntax
-				{
-					echo "<dev-lang/$(
-						echo "${python_default_targets}" |
-							sed 's/3_/-3./' |
-							sort -V |
-							tail -n 1
-					)"
-					grep 'python_[^ ]*target' \
-							"${ROOT:-}"/var/db/pkg/*/*/USE |
-						grep -v "_${python_default_targets%%" "*}" |
-						grep '_python3_' |
-						grep 'backports' |
-						cut -d':' -f 1 |
-						rev |
-						cut -d'/' -f 2-3 |
-						rev |
-						sed -r 's|^(.*)-[0-9].*$|\1|' |
+					{
+						echo "<dev-lang/$(
+							echo "${python_default_targets}" |
+								sed 's/3_/-3./' |
+								sort -V |
+								tail -n 1
+						)"
+						grep 'python_[^ ]*target' \
+								"${ROOT:-}"/var/db/pkg/*/*/USE |
+							grep -v "_${python_default_targets%%" "*}" |
+							grep '_python3_' |
+							grep 'backports' |
+							cut -d':' -f 1 |
+							rev |
+							cut -d'/' -f 2-3 |
+							rev |
+							sed -r 's|^(.*)-[0-9].*$|\1|' |
+							xargs -r
+					} |
+						grep -Fv -- '::' |
+						sort -V |
 						xargs -r
-				} |
-					grep -Fv -- '::' |
-					sort -V |
-					xargs -r
-			)"
+				)"
 		fi
 		echo "Package list: ${list}"
 		echo
@@ -1620,10 +1780,11 @@ then
 fi
 # shellcheck disable=SC2046
 if ! test -d $(
-		printf '/var/db/pkg/dev-lang/%s*/.' "$( # <- Syntax
-			echo "${python_default_targets%%" "*}" |
-				sed 's/3_/-3./'
-	)" )
+			printf '/var/db/pkg/dev-lang/%s*/.' "$( # <- Syntax
+					echo "${python_default_targets%%" "*}" |
+						sed 's/3_/-3./'
+				)"
+		)
 then
 	die "No installed package found for python_default_target" \
 		"'${python_default_targets%%" "*}'"
@@ -1690,20 +1851,19 @@ for ithreads in 'ithreads' ''; do
 	(
 		USE="-* $( get_stage3 --values-only USE )"
 		USE="$( # <- Syntax
-			echo " berkdb gdbm $(usex ithreads 'perl_features_ithreads ' '')${USE}$(usex ithreads '' ' -perl_features_ithreads') " |
-				sed "s/ $(usex ithreads '-' '')perl_features_ithreads / /g" |
-				xargs -rn 1 |
-				sort -u |
-				xargs -r
-		)"
+				echo " berkdb gdbm $(usex ithreads 'perl_features_ithreads ' '')${USE}$(usex ithreads '' ' -perl_features_ithreads') " |
+					sed "s/ $(usex ithreads '-' '')perl_features_ithreads / /g" |
+					xargs -rn 1 |
+					sort -u |
+					xargs -r
+			)"
 		export USE
 		export PERL_FEATURES="${ithreads:-}"
 		pkgdir="$( LC_ALL='C' portageq pkgdir )"
 		export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 		unset pkgdir
 		# shellcheck disable=SC2046
-		do_emerge --single-defaults dev-lang/perl dev-perl/libintl-perl \
-			$(
+		do_emerge --single-defaults dev-lang/perl dev-perl/libintl-perl $(
 				grep -lw 'perl_features_ithreads' \
 						"${ROOT:-}"/var/db/pkg/*/*/IUSE |
 					rev |
@@ -1753,14 +1913,14 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	echo
 
 	oldchost="$( # <- Syntax
-		find /usr \
-				-mindepth 1 \
-				-maxdepth 1 \
-				-type d \
-				-name '*-*-*' \
-				-exec basename {} ';' |
-			head -n 1
-	)"
+			find /usr \
+					-mindepth 1 \
+					-maxdepth 1 \
+					-type d \
+					-name '*-*-*' \
+					-exec basename {} ';' |
+				head -n 1
+		)"
 	for pkg in 'sys-devel/binutils' 'sys-devel/gcc' 'sys-libs/glibc'; do
 		(
 			USE="-* nptl $( get_stage3 --values-only USE )"
@@ -1846,22 +2006,22 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		#cat /var/db/pkg/dev-libs/libgpg-error*/CONTENTS
 
 		# shellcheck disable=SC2012,SC2046
-		do_emerge --preserved-defaults --exclude "${exclude}" $( # <- Syntax
-				for object in \
-						"/usr/bin/${oldchost}-"* \
-						"/usr/include/${oldchost}" \
-						/usr/lib/llvm/*/bin/"${oldchost}"-*
-				do
-					if [ -e "${object}" ]; then
-						printf '%s ' "${object}"
-					fi
-				done
-			)dev-lang/perl ">=$( # <- Syntax
-				ls /var/db/pkg/dev-lang/python-3* -1d |
-					cut -d'/' -f 5-6 |
-					sort -V |
-					head -n 1
-			)" '@preserved-rebuild'
+		do_emerge --preserved-defaults --exclude "${exclude}" $(
+					for object in \
+							"/usr/bin/${oldchost}-"* \
+							"/usr/include/${oldchost}" \
+							/usr/lib/llvm/*/bin/"${oldchost}"-*
+					do
+						if [ -e "${object}" ]; then
+							printf '%s ' "${object}"
+						fi
+					done
+				)dev-lang/perl ">=$( # <- Syntax
+						ls /var/db/pkg/dev-lang/python-3* -1d |
+							cut -d'/' -f 5-6 |
+							sort -V |
+							head -n 1
+					)" '@preserved-rebuild'
 	)
 	#if LC_ALL='C' eselect --colour=yes news read new |
 	#		grep -Fv -- 'No news is good news.'
@@ -1920,8 +2080,7 @@ echo
 					if LC_ALL='C' portageq get_repos '/' |
 							grep -Fq -- 'srcshelton'
 					then
-						grep -lm 1 '^inherit[^#]\+usr-ldscript' \
-								"$( # <- Syntax
+						grep -lm 1 '^inherit[^#]\+usr-ldscript' "$( # <- Syntax
 										portageq get_repo_path '/' srcshelton
 									)"/*/*/*.ebuild |
 							rev |
@@ -2019,19 +2178,19 @@ do
 	(
 		USE="-* $( get_stage3 --values-only USE )"
 		USE="$( # <- Syntax
-			echo "${USE}" |
-				xargs -rn 1 |
-				grep -v -e '^python_single_target_' -e 'python_targets_' |
-				xargs -r
-			echo "python_single_target_${python_default_targets%%" "*}"
-			echo "python_targets_${python_default_targets%%" "*}"
-		)"
+				echo "${USE}" |
+					xargs -rn 1 |
+					grep -v -e '^python_single_target_' -e 'python_targets_' |
+					xargs -r
+				echo "python_single_target_${python_default_targets%%" "*}"
+				echo "python_targets_${python_default_targets%%" "*}"
+			)"
 		eval "$( # <- Syntax
-			resolve_python_flags \
-				"${USE}" \
-				"${PYTHON_SINGLE_TARGET:-"${python_default_targets%%" "*}"}" \
-				"${PYTHON_TARGETS:-"${python_default_targets}"}"
-		)"
+				resolve_python_flags \
+					"${USE}" \
+					"${PYTHON_SINGLE_TARGET:-"${python_default_targets%%" "*}"}" \
+					"${PYTHON_TARGETS:-"${python_default_targets}"}"
+			)"
 		# Add 'xml' to prevent an additional python install/rebuild for
 		# sys-process/audit (which pulls-in dev-lang/python without USE='xml')
 		# vs. dev-libs/libxml2 (which requires dev-lang/python[xml])
@@ -2094,14 +2253,20 @@ unset pkg
 # Since we've rebuilt sys-devel/gcc, restore user-specified *FLAGS
 #
 cc_opt=''
-for cc_opt in CFLAGS CXXFLAGS FFLAGS FCFLAGS LDFLAGS FLFLAGS; do
+for cc_opt in \
+		CFLAGS CXXFLAGS \
+		CGO_CFLAGS CGO_CXXFLAGS \
+		FFLAGS FCFLAGS CGO_FFLAGS \
+		LDFLAGS CGO_LDFLAGS FLFLAGS
+do
 	if [ -n "$( eval "echo \"\$_o_${cc_opt}\"" )" ]; then
 		export "$( # <- Syntax
 				eval echo "${cc_opt}=\"$( eval "echo \"\$_o_${cc_opt}\"" )\""
 			)"
 	fi
 done
-unset _o_CFLAGS _o_CXXFLAGS _o_FFLAGS _o_FCFLAGS _o_LDFLAGS _o_FLFLAGS
+unset _o_CFLAGS _o_CXXFLAGS _o_CGO_CFLAGS _o_CGO_CXXFLAGS \
+	_o_FFLAGS _o_FCFLAGS _o_CGO_FFLAGS _o_LDFLAGS _o_CGO_LDFLAGS _o_FLFLAGS
 
 # Now we can build our ROOT environment...
 #
@@ -2251,11 +2416,11 @@ if [ -n "${pkg_initial:-}" ]; then
 				PYTHON_SINGLE_TARGET="${PYTHON_SINGLE_TARGET:+"${PYTHON_SINGLE_TARGET} "}$( get_stage3 --values-only PYTHON_SINGLE_TARGET )"
 				PYTHON_TARGETS="${PYTHON_TARGETS:+"${PYTHON_TARGETS} "}$( get_stage3 --values-only PYTHON_TARGETS )"
 				eval "$( # <- Syntax
-					resolve_python_flags \
-							"${USE}" \
-							"${PYTHON_SINGLE_TARGET}" \
-							"${PYTHON_TARGETS}"
-				)"
+						resolve_python_flags \
+								"${USE}" \
+								"${PYTHON_SINGLE_TARGET}" \
+								"${PYTHON_TARGETS}"
+					)"
 			fi
 		else # [ "${ROOT:-"/"}" != '/' ]; then
 			print "'python_targets' is '${python_targets:-}'," \
@@ -2264,11 +2429,11 @@ if [ -n "${pkg_initial:-}" ]; then
 			PYTHON_SINGLE_TARGET="${python_targets:+"${python_targets%%" "*}"}"
 			PYTHON_TARGETS="${python_targets:-}"
 			eval "$( # <- Syntax
-				resolve_python_flags \
-						"${USE:-}" \
-						"${PYTHON_SINGLE_TARGET}" \
-						"${PYTHON_TARGETS}"
-			)"
+					resolve_python_flags \
+							"${USE:-}" \
+							"${PYTHON_SINGLE_TARGET}" \
+							"${PYTHON_TARGETS}"
+				)"
 			export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 			print "'python_targets' is '${python_targets:-}'," \
 				"'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}'," \
@@ -2295,14 +2460,25 @@ if [ -n "${pkg_initial:-}" ]; then
 		echo "${info}" | format 'LDFLAGS'
 		echo
 		echo "ROOT                = $( # <- Syntax
-			echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^ROOT=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
 		echo "SYSROOT             = $( # <- Syntax
-			echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^SYSROOT=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
 		echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-			echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
 		echo
 		echo "${info}" | format 'FEATURES'
 		echo "${info}" | format 'ACCEPT_LICENSE'
@@ -2311,20 +2487,33 @@ if [ -n "${pkg_initial:-}" ]; then
 		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 		echo "${info}" | format 'PYTHON_TARGETS'
 		echo "MAKEOPTS            = $( # <- Syntax
-			echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^MAKEOPTS=' |
+					cut -d'=' -f 2- |
+					uniq
+			)"
 		echo
 		echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 		echo
 		echo "DISTDIR             = $( # <- Syntax
-			echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^DISTDIR=' |
+					cut -d'=' -f 2- |
+					uniq
+			)"
 		echo "PKGDIR              = $( # <- Syntax
-			echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^PKGDIR=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
 		echo "PORTAGE_LOGDIR      = $( # <- Syntax
-			echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^PORTAGE_LOGDIR=' |
+					cut -d'=' -f 2- |
+					uniq
+			)"
 		echo
 		unset info
 
@@ -2338,12 +2527,12 @@ if [ -n "${pkg_initial:-}" ]; then
 		fi
 
 		for pkg in ${pkg_initial:-}; do
-			for ROOT in $( # <- Syntax
-					echo "${extra_root:-}" "${ROOT}" |
-						xargs -rn 1 |
-						sort -u |
-						xargs -r
-				)
+			for ROOT in $(
+						echo "${extra_root:-}" "${ROOT}" |
+							xargs -rn 1 |
+							sort -u |
+							xargs -r
+					)
 			do
 				export ROOT
 				export SYSROOT="${ROOT}"
@@ -2400,17 +2589,17 @@ if [ -n "${pkg_initial:-}" ]; then
 						esac
 
 						eval "$( # <- Syntax
-							resolve_python_flags \
-									"${USE:-} ${use_essential} ${use_essential_gcc}" \
-									"${PYTHON_SINGLE_TARGET}" \
-									"${PYTHON_TARGETS}"
-						)"
+								resolve_python_flags \
+										"${USE:-} ${use_essential} ${use_essential_gcc}" \
+										"${PYTHON_SINGLE_TARGET}" \
+										"${PYTHON_TARGETS}"
+							)"
 						PERL_FEATURES=''  # Negation ('-ithreads') not allowed
 						USE="$( # <- Syntax
-							echo " ${USE} " |
-								sed 's/ perl_features_ithreads / /g' |
-								sed 's/^ // ; s/ $//'
-						)"
+								echo " ${USE} " |
+									sed 's/ perl_features_ithreads / /g' |
+									sed 's/^ // ; s/ $//'
+							)"
 						# Requirement patched out for >=sys-devel/binutils-2.41
 						#if [ "${ARCH}" = 'arm64' ]; then
 						#	USE="gold ${USE:-}"
@@ -2427,20 +2616,25 @@ if [ -n "${pkg_initial:-}" ]; then
 						echo "${info}" | format 'LDFLAGS'
 						echo
 						echo "ROOT                = $( # <- Syntax
-							echo "${info}" |
-								grep -- '^ROOT=' |
-								cut -d'=' -f 2-
-						)"
+								echo "${info}" |
+									grep -- '^ROOT=' |
+									cut -d'=' -f 2- |
+									uniq |
+									head -n 1
+							)"
 						echo "SYSROOT             = $( # <- Syntax
-							echo "${info}" |
-								grep -- '^SYSROOT=' |
-								cut -d'=' -f 2-
-						)"
+								echo "${info}" |
+									grep -- '^SYSROOT=' |
+									cut -d'=' -f 2- |
+									uniq |
+									head -n 1
+							)"
 						echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-							echo "${info}" |
-								grep -- '^PORTAGE_CONFIGROOT=' |
-								cut -d'=' -f 2-
-						)"
+								echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' |
+									cut -d'=' -f 2- |
+									uniq |
+									head -n 1
+							)"
 						echo
 						echo "${info}" | format 'ACCEPT_LICENSE'
 						echo "${info}" | format 'ACCEPT_KEYWORDS'
@@ -2448,26 +2642,33 @@ if [ -n "${pkg_initial:-}" ]; then
 						echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 						echo "${info}" | format 'PYTHON_TARGETS'
 						echo "MAKEOPTS            = $( # <- Syntax
-							echo "${info}" |
-								grep -- '^MAKEOPTS=' |
-								cut -d'=' -f 2-
-						)"
+								echo "${info}" |
+									grep -- '^MAKEOPTS=' |
+									cut -d'=' -f 2- |
+									uniq
+							)"
+						echo
+						echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 						echo
 						echo "DISTDIR             = $( # <- Syntax
-							echo "${info}" |
-								grep -- '^DISTDIR=' |
-								cut -d'=' -f 2-
-						)"
+								echo "${info}" |
+									grep -- '^DISTDIR=' |
+									cut -d'=' -f 2- |
+									uniq
+							)"
 						echo "PKGDIR              = $( # <- Syntax
-							echo "${info}" |
-								grep -- '^PKGDIR=' |
-								cut -d'=' -f 2-
-						)"
+								echo "${info}" |
+									grep -- '^PKGDIR=' |
+									cut -d'=' -f 2- |
+									uniq |
+									head -n 1
+							)"
 						echo "PORTAGE_LOGDIR      = $( # <- Syntax
-							echo "${info}" |
-								grep -- '^PORTAGE_LOGDIR=' |
-								cut -d'=' -f 2-
-						)"
+								echo "${info}" |
+									grep -- '^PORTAGE_LOGDIR=' |
+									cut -d'=' -f 2- |
+									uniq
+							)"
 						echo
 						unset info
 
@@ -2556,19 +2757,19 @@ if [ -n "${pkg_initial:-}" ]; then
 						esac
 
 						eval "$( # <- Syntax
-							resolve_python_flags \
-									"${USE:-} ${use_essential} ${use_essential_gcc}" \
-									"${PYTHON_SINGLE_TARGET}" \
-									"${PYTHON_TARGETS}"
-						)"
+								resolve_python_flags \
+										"${USE:-} ${use_essential} ${use_essential_gcc}" \
+										"${PYTHON_SINGLE_TARGET}" \
+										"${PYTHON_TARGETS}"
+							)"
 						PERL_FEATURES=''  # Negation ('-ithreads') not allowed
 						USE="$( # <- Syntax
-							# Remove certain USE flags to prevent unnecessary
-							# rebuilds...
-							echo " ${USE} " |
-								sed 's/ perl_features_ithreads / /g' |
-								sed 's/^ // ; s/ $//'
-						)"
+								# Remove certain USE flags to prevent
+								# unnecessary rebuilds...
+								echo " ${USE} " |
+									sed 's/ perl_features_ithreads / /g' |
+									sed 's/^ // ; s/ $//'
+							)"
 						# Requirement patched out for >=sys-devel/binutils-2.41
 						#if [ "${ARCH}" = 'arm64' ]; then
 						#	USE="gold ${USE:-}"
@@ -2653,27 +2854,26 @@ if [ -n "${pkg_initial:-}" ]; then
 						# shellcheck disable=SC2046,SC2086
 							PERL_FEATURES='' \
 							USE="$( # <- Syntax
-								echo " ${USE} ${use_essential}" \
-										"${use_essential_gcc}" \
-										"-perl_features_ithreads " |
-									sed 's/ perl_features_ithreads / /g' |
-									xargs -rn 1 |
-									sort |
-									uniq |
-									xargs -r
-							)" \
+									echo " ${USE} ${use_essential}" \
+											"${use_essential_gcc}" \
+											"-perl_features_ithreads " |
+										sed 's/ perl_features_ithreads / /g' |
+										xargs -rn 1 |
+										sort |
+										uniq |
+										xargs -r
+								)" \
 						do_emerge \
 								--build-defaults \
-							dev-lang/perl \
-							$(
-								grep -lw 'perl_features_ithreads' \
-										"${ROOT:-}"/var/db/pkg/*/*/IUSE |
-									rev |
-									cut -d'/' -f 2-3 |
-									rev |
-									sed 's/^/>=/' |
-									xargs -r
-							) \
+							dev-lang/perl $(
+									grep -lw 'perl_features_ithreads' \
+											"${ROOT:-}"/var/db/pkg/*/*/IUSE |
+										rev |
+										cut -d'/' -f 2-3 |
+										rev |
+										sed 's/^/>=/' |
+										xargs -r
+								) \
 							${pkg} # || :
 								#--emptytree \
 					)
@@ -2763,11 +2963,12 @@ echo
 		warn "Disabling openmp toolchain flags for system build ..."
 	fi
 
-	for ROOT in $( # <- Syntax
-			echo '/' "${extra_root:-}" "${ROOT}" |
-				xargs -rn 1 |
-				sort -u
-	); do
+	for ROOT in $(
+				echo '/' "${extra_root:-}" "${ROOT}" |
+					xargs -rn 1 |
+					sort -u
+			)
+	do
 		export ROOT
 		export SYSROOT="${ROOT}"
 		export PORTAGE_CONFIGROOT="${SYSROOT}"
@@ -2794,14 +2995,25 @@ echo
 		echo "${info}" | format 'LDFLAGS'
 		echo
 		echo "ROOT                = $( # <- Syntax
-			echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^ROOT=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
 		echo "SYSROOT             = $( # <- Syntax
-			echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^SYSROOT=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
 		echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-			echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
 		echo
 		echo "${info}" | format 'ACCEPT_LICENSE'
 		echo "${info}" | format 'ACCEPT_KEYWORDS'
@@ -2809,20 +3021,33 @@ echo
 		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 		echo "${info}" | format 'PYTHON_TARGETS'
 		echo "MAKEOPTS            = $( # <- Syntax
-			echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^MAKEOPTS=' |
+					cut -d'=' -f 2- |
+					uniq
+			)"
 		echo
 		echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 		echo
 		echo "DISTDIR             = $( # <- Syntax
-			echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^DISTDIR=' |
+					cut -d'=' -f 2- |
+					uniq
+			)"
 		echo "PKGDIR              = $( # <- Syntax
-			echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^PKGDIR=' |
+					cut -d'=' -f 2- |
+					uniq |
+					head -n 1
+			)"
 		echo "PORTAGE_LOGDIR      = $( # <- Syntax
-			echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
-		)"
+				echo "${info}" |
+					grep -- '^PORTAGE_LOGDIR=' |
+					cut -d'=' -f 2- |
+					uniq
+			)"
 		echo
 		unset info
 
@@ -2874,13 +3099,7 @@ echo
 		#	debug=1 \
 			USE="asm cxx gmp minimal openssl perl_features_ithreads${USE:+" ${USE}"} -ensurepip -gdbm -ncurses -readline -sqlite -zstd" \
 			PERL_FEATURES="ithreads" \
-		do_emerge --once-defaults \
-			net-libs/gnutls \
-			dev-libs/nettle \
-			dev-lang/python \
-			dev-lang/perl \
-			sys-libs/gdbm \
-			$(
+		do_emerge --once-defaults $(
 				grep -lw 'perl_features_ithreads' \
 						"${ROOT:-}"/var/db/pkg/*/*/IUSE |
 					rev |
@@ -2888,7 +3107,12 @@ echo
 					rev |
 					sed 's/^/>=/' |
 					xargs -r
-			)
+			) \
+			net-libs/gnutls \
+			dev-libs/nettle \
+			dev-lang/python \
+			dev-lang/perl \
+			sys-libs/gdbm \
 
 		root_use='' arm64_use=''
 		if [ -z "${ROOT:-}" ] || [ "${ROOT}" = '/' ]; then
@@ -2943,28 +3167,35 @@ fix_sh_symlink "${ROOT}" '@system'
 
 # ... and fix the default bash prompt setup w.r.t. 'screen' window names!
 #
-if [ -s /etc/bash/bashrc.patch ] && grep -q -- 'PS1=' "${ROOT}"/etc/bashrc
-then
-	if ! command -v patch >/dev/null; then
-		warn "@system build has not installed package 'sys-devel/patch'"
-	else
-		#pushd >/dev/null "${ROOT}"/etc/bash/  # bash only
-		src_cwd="${PWD}"
-		cd "${ROOT}"/etc/bash/
+# N.B. Compatibility-only: actual configuration is now in /etc/bash/bashrc.d/
+#
+if [ -s /etc/bash/bashrc.patch ]; then
+	if [ -s "${ROOT}"/etc/bash/bashrc ]; then
+		if grep -q -- 'PS1=' "${ROOT}"/etc/bash/bashrc; then
+			if ! command -v patch >/dev/null; then
+				warn "@system build has not installed package" \
+					"'sys-devel/patch'"
+			else
+				#pushd >/dev/null "${ROOT}"/etc/bash/  # bash only
+				src_cwd="${PWD}"
+				cd "${ROOT}"/etc/bash/ ||
+					die "chdir() to '${ROOT%"/"}/etc/bash' failed: ${?}"
 
-		if [ -s bashrc ]; then
-			echo ' * Patching /etc/bash/bashrc ...'
-			patch -p1 -r - -s </etc/bash/bashrc.patch ||
-				die "Applying patch to bashrc failed: ${?}"
-			rm /etc/bash/bashrc.patch
-		else
-			warn "'${ROOT%"/"}/etc/bash/bashrc' does not exist or is empty"
+				echo ' * Patching /etc/bash/bashrc ...'
+				patch -p1 -r - -s </etc/bash/bashrc.patch ||
+					die "Applying patch to bashrc failed: ${?}"
+
+				#popd >/dev/null  # bash only
+				cd "${src_cwd}" ||
+					die "chdir() to '${src_cwd}' failed: ${?}"
+				unset src_cwd
+			fi
 		fi
-
-		#popd >/dev/null  # bash only
-		cd "${src_cwd}"
-		unset src_cwd
+	else
+		warn "'${ROOT%"/"}/etc/bash/bashrc' does not exist or is empty"
 	fi
+
+	rm /etc/bash/bashrc.patch
 fi
 
 echo
@@ -3029,14 +3260,25 @@ echo "${info}" | format 'CFLAGS'
 echo "${info}" | format 'LDFLAGS'
 echo
 echo "ROOT                = $( # <- Syntax
-	echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^ROOT=' |
+			cut -d'=' -f 2- |
+			uniq |
+			head -n 1
+	)"
 echo "SYSROOT             = $( # <- Syntax
-	echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^SYSROOT=' |
+			cut -d'=' -f 2- |
+			uniq |
+			head -n 1
+	)"
 echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-	echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
-)"
+		echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' |
+			cut -d'=' -f 2- |
+			uniq |
+			head -n 1
+	)"
 echo
 echo "${info}" | format 'ACCEPT_LICENSE'
 echo "${info}" | format 'ACCEPT_KEYWORDS'
@@ -3044,20 +3286,33 @@ echo "${info}" | format 'USE'
 echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 echo "${info}" | format 'PYTHON_TARGETS'
 echo "MAKEOPTS            = $( # <- Syntax
-	echo "${info}" | grep -- '^MAKEOPTS=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^MAKEOPTS=' |
+			cut -d'=' -f 2- |
+			uniq
+	)"
 echo
 echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
 echo
 echo "DISTDIR             = $( # <- Syntax
-	echo "${info}" | grep -- '^DISTDIR=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^DISTDIR=' |
+			cut -d'=' -f 2- |
+			uniq
+	)"
 echo "PKGDIR              = $( # <- Syntax
-	echo "${info}" | grep -- '^PKGDIR=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^PKGDIR=' |
+			cut -d'=' -f 2- |
+			uniq |
+			head -n 1
+	)"
 echo "PORTAGE_LOGDIR      = $( # <- Syntax
-	echo "${info}" | grep -- '^PORTAGE_LOGDIR=' | cut -d'=' -f 2-
-)"
+		echo "${info}" |
+			grep -- '^PORTAGE_LOGDIR=' |
+			cut -d'=' -f 2- |
+			uniq
+	)"
 echo
 unset info
 
@@ -3093,8 +3348,8 @@ test -s "${ROOT}${environment_file}" ||
 grep -- ' ROOT=' "${ROOT}${environment_file}" &&
 	die "Invalid 'ROOT' directive in '${ROOT%"/"}${environment_file}'"
 #printf ' * Initial propagated environment:\n\n%s\n\n' "$( # <- Syntax
-#	cat "${ROOT}${environment_file}"
-#)"
+#		cat "${ROOT}${environment_file}"
+#	)"
 
 case "${1:-}" in
 	'')
@@ -3103,12 +3358,13 @@ case "${1:-}" in
 		echo
 
 		(
-			for ROOT in $( # <- Syntax
-					echo "${extra_root:-}" "${ROOT}" |
-						xargs -rn 1 |
-						sort -u |
-						xargs -r
-			); do
+			for ROOT in $(
+						echo "${extra_root:-}" "${ROOT}" |
+							xargs -rn 1 |
+							sort -u |
+							xargs -r
+					)
+			do
 				export ROOT
 				export SYSROOT="${ROOT}"
 				export PORTAGE_CONFIGROOT="${SYSROOT}"
@@ -3142,18 +3398,19 @@ case "${1:-}" in
 	*)
 		echo
 		echo " * Building requested '$( # <- Syntax
-			printf '%s' "${*}" |
-				sed 's/--[^ ]\+ \?//g'
-		)' packages ${post_pkgs:+"(with post-package list) "}..."
+				printf '%s' "${*}" |
+					sed 's/--[^ ]\+ \?//g'
+			)' packages ${post_pkgs:+"(with post-package list) "}..."
 		echo
 
 		(
-			for ROOT in $( # <- Syntax
-					echo "${extra_root:-}" "${ROOT}" |
-						xargs -rn 1 |
-						sort -u |
-						xargs -r
-			); do
+			for ROOT in $(
+						echo "${extra_root:-}" "${ROOT}" |
+							xargs -rn 1 |
+							sort -u |
+							xargs -r
+					)
+			do
 				export ROOT
 				export SYSROOT="${ROOT}"
 				export PORTAGE_CONFIGROOT="${SYSROOT}"
@@ -3181,11 +3438,11 @@ case "${1:-}" in
 
 		[ -n "${post_use:-}" ] && export USE="${post_use}"
 		eval "$( # <- Syntax
-			resolve_python_flags \
-				"${USE:-}" \
-				"${PYTHON_SINGLE_TARGET:-}" \
-				"${PYTHON_TARGETS:-}"
-		)"
+				resolve_python_flags \
+					"${USE:-}" \
+					"${PYTHON_SINGLE_TARGET:-}" \
+					"${PYTHON_TARGETS:-}"
+			)"
 		export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
 		info="$( LC_ALL='C' emerge --info --verbose=y 2>&1 )"
@@ -3223,12 +3480,13 @@ case "${1:-}" in
 							"from '${post_pkgs}' ..."
 						echo
 						(
-							for ROOT in $( # <- Syntax
-									echo "${extra_root:-}" "${ROOT}" |
-										xargs -rn 1 |
-										sort -u |
-										xargs -r
-							); do
+							for ROOT in $(
+										echo "${extra_root:-}" "${ROOT}" |
+											xargs -rn 1 |
+											sort -u |
+											xargs -r
+									)
+							do
 								export ROOT
 								export SYSROOT="${ROOT}"
 								export PORTAGE_CONFIGROOT="${SYSROOT}"
@@ -3249,12 +3507,13 @@ case "${1:-}" in
 
 		else # ! grep -Eq -- ' --single(-post)? ' <<<" ${EMERGE_OPTS} "
 			(
-				for ROOT in $( # <- Syntax
-						echo "${extra_root:-}" "${ROOT}" |
-							xargs -rn 1 |
-							sort -u |
-							xargs -r
-				); do
+				for ROOT in $(
+							echo "${extra_root:-}" "${ROOT}" |
+								xargs -rn 1 |
+								sort -u |
+								xargs -r
+						)
+				do
 					export ROOT
 					export SYSROOT="${ROOT}"
 					export PORTAGE_CONFIGROOT="${SYSROOT}"
@@ -3320,68 +3579,70 @@ case "${1:-}" in
 		BUILD_PYTHON_SINGLE_TARGET="${python_targets:+"${python_targets%%" "*}"}"
 		BUILD_PYTHON_TARGETS="${python_targets:-}"
 		eval "$( # <- Syntax
-			resolve_python_flags \
-					"${BUILD_USE}" \
-					"${BUILD_PYTHON_SINGLE_TARGET}" \
-					"${BUILD_PYTHON_TARGETS}" |
-				sed 's/^/BUILD_/'
-		)"
+				resolve_python_flags \
+						"${BUILD_USE}" \
+						"${BUILD_PYTHON_SINGLE_TARGET}" \
+						"${BUILD_PYTHON_TARGETS}" |
+					sed 's/^/BUILD_/'
+			)"
 		export BUILD_USE BUILD_PYTHON_SINGLE_TARGET BUILD_PYTHON_TARGETS
 
 		ROOT_USE="${USE:+"${USE} "}$( get_stage3 --values-only USE )"
 		ROOT_PYTHON_SINGLE_TARGET="${PYTHON_SINGLE_TARGET:+"${PYTHON_SINGLE_TARGET} "}$( get_stage3 --values-only PYTHON_SINGLE_TARGET )"
 		ROOT_PYTHON_TARGETS="${PYTHON_TARGETS:+"${PYTHON_TARGETS} "}$( get_stage3 --values-only PYTHON_TARGETS )"
 		eval "$( # <- Syntax
-			resolve_python_flags \
-					"${ROOT_USE}" \
-					"${ROOT_PYTHON_SINGLE_TARGET}" \
-					"${ROOT_PYTHON_TARGETS}" |
-				sed 's/^/ROOT_/'
-		)"
+				resolve_python_flags \
+						"${ROOT_USE}" \
+						"${ROOT_PYTHON_SINGLE_TARGET}" \
+						"${ROOT_PYTHON_TARGETS}" |
+					sed 's/^/ROOT_/'
+			)"
 		# FIXME: ROOT_PYTHON_SINGLE_TARGET, ROOT_PYTHON_TARGETS unused
 		export ROOT_USE ROOT_PYTHON_SINGLE_TARGET ROOT_PYTHON_TARGETS
 
 		print "Checking for multiple 'python_target'(s) in USE ('${ROOT_USE}') ..."
-		if [ $(( $( # <- Syntax
-				echo "${ROOT_USE}" |
-					xargs -rn 1 |
-					grep -c -e 'python_single_target_' -e 'python_targets_'
-		) )) -gt 2 ]
+		if [ $(( $(
+					echo "${ROOT_USE}" |
+						xargs -rn 1 |
+						grep -c \
+							-e 'python_single_target_' \
+							-e 'python_targets_'
+				) )) -gt 2 ]
 		then
 			target='' targetpkg='' targets='' remove=''
 			target="$( # <- Syntax
-				echo "${ROOT_USE}" |
-					xargs -rn 1 |
-					grep -- 'python_single_target_python' |
-					sed 's/python_single_target_//' |
-					sort |
-					tail -n 1
-			)"
+					echo "${ROOT_USE}" |
+						xargs -rn 1 |
+						grep -- 'python_single_target_python' |
+						sed 's/python_single_target_//' |
+						sort |
+						tail -n 1
+				)"
 			# python3_12 -> dev-lang/python-3.12
 			targetpkg="dev-lang/$( # <- Syntax
-				echo "${target}" | sed 's/^python/python-/ ; s/_/./'
-			)"
+					echo "${target}" | sed 's/^python/python-/ ; s/_/./'
+				)"
 			print "python target '${target}', package '${targetpkg}'"
 
 			targets="$( # <- Syntax
-				echo "${ROOT_USE}" |
-					grep -o -- 'python_targets_python[^ ]\+' |
-					sed 's/python_targets_//'
-			)"
+					echo "${ROOT_USE}" |
+						grep -o -- 'python_targets_python[^ ]\+' |
+						sed 's/python_targets_//'
+				)"
 			print "targets: '${targets}'"
 
 			remove="$( # <- Syntax
-				echo "${targets}" |
-					xargs -rn 1 |
-					grep -vx -- "${target}"
-			)"
+					echo "${targets}" |
+						xargs -rn 1 |
+						grep -vx -- "${target}"
+				)"
 			print "remove: '${remove}'"
 
 			if [ -n "${remove:-}" ]; then
 				echo
 				echo " * Cleaning old python targets '$( # <- Syntax
-					echo "${remove}" | xargs -r
-				)' ..."
+						echo "${remove}" | xargs -r
+					)' ..."
 				echo
 				(
 					arg='' use='' pkgs=''
@@ -3394,12 +3655,13 @@ case "${1:-}" in
 
 					# loop to allow 'break'...
 					# shellcheck disable=SC2066
-					for ROOT in $( # <- Syntax
-							echo '/' "${ROOT}" |
-								xargs -rn 1 |
-								sort -u |
-								xargs -r
-					); do
+					for ROOT in $(
+								echo '/' "${ROOT}" |
+									xargs -rn 1 |
+									sort -u |
+									xargs -r
+							)
+					do
 						SYSROOT="${ROOT}"
 						PORTAGE_CONFIGROOT="${SYSROOT}"
 						export ROOT SYSROOT PORTAGE_CONFIGROOT
@@ -3410,21 +3672,21 @@ case "${1:-}" in
 							PYTHON_TARGETS="$( get_stage3 --values-only PYTHON_TARGETS )"
 							export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 							eval "$( # <- Syntax
-								resolve_python_flags \
-									"${USE}" \
-									"${PYTHON_SINGLE_TARGET}" \
-									"${PYTHON_TARGETS}"
-							)"
+									resolve_python_flags \
+										"${USE}" \
+										"${PYTHON_SINGLE_TARGET}" \
+										"${PYTHON_TARGETS}"
+								)"
 						else
 							USE="${BUILD_USE}"
 							PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
 							export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 							eval "$( # <- Syntax
-								resolve_python_flags \
-									"${USE}" \
-									"${PYTHON_SINGLE_TARGET}" \
-									"${PYTHON_TARGETS}"
-							)"
+									resolve_python_flags \
+										"${USE}" \
+										"${PYTHON_SINGLE_TARGET}" \
+										"${PYTHON_TARGETS}"
+								)"
 						fi
 
 						use=''
@@ -3436,22 +3698,22 @@ case "${1:-}" in
 								print "Matched - 'use' is now '${use}'"
 
 								pkgs="${pkgs:-} $( # <- Syntax
-									find "${ROOT%"/"}/var/db/pkg/" \
-											-mindepth 3 \
-											-maxdepth 3 \
-											-type f \
-											-name 'IUSE' \
-											-print0 |
-										xargs -r0 grep -Flw -- "${arg}" |
-										sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||' |
-										xargs -r
-								)"
+										find "${ROOT%"/"}/var/db/pkg/" \
+												-mindepth 3 \
+												-maxdepth 3 \
+												-type f \
+												-name 'IUSE' \
+												-print0 |
+											xargs -r0 grep -Flw -- "${arg}" |
+											sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||' |
+											xargs -r
+									)"
 								pkgs="$(
-									echo "${pkgs}" |
-										xargs -rn 1 |
-										sort -V |
-										uniq
-								)"
+										echo "${pkgs}" |
+											xargs -rn 1 |
+											sort -V |
+											uniq
+									)"
 								print "'pkgs' is now '${pkgs}'"
 							else
 								print "No match"
@@ -3468,35 +3730,35 @@ case "${1:-}" in
 						print "use: '${use}'"
 
 						USE="$( # <- Syntax
-							echo "${use:-} python_single_target_${PYTHON_SINGLE_TARGET}" |
-								xargs -rn 1 |
-								sort |
-								uniq |
-								xargs -r
-						)"
+								echo "${use:-} python_single_target_${PYTHON_SINGLE_TARGET}" |
+									xargs -rn 1 |
+									sort |
+									uniq |
+									xargs -r
+							)"
 						eval "$( # <- Syntax
-							resolve_python_flags \
-								"${USE}" \
-								"${PYTHON_SINGLE_TARGET}" \
-								"${PYTHON_TARGETS}"
-						)"
+								resolve_python_flags \
+									"${USE}" \
+									"${PYTHON_SINGLE_TARGET}" \
+									"${PYTHON_TARGETS}"
+							)"
 						pkgs="${pkgs:-} $( # <- Syntax
-							find "${ROOT%"/"}/var/db/pkg/dev-python/" \
-									-mindepth 1 \
-									-maxdepth 1 \
-									-type d \
-									-print |
-								sed 's|^.*/var/db/pkg/|>=| ; s|/$||'
-						)"
+								find "${ROOT%"/"}/var/db/pkg/dev-python/" \
+										-mindepth 1 \
+										-maxdepth 1 \
+										-type d \
+										-print |
+									sed 's|^.*/var/db/pkg/|>=| ; s|/$||'
+							)"
 
 						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
 						info="$( # <- Syntax
-								LC_ALL='C' \
-								SYSROOT="${ROOT}" \
-								PORTAGE_CONFIGROOT="${ROOT}" \
-							emerge --info --verbose=y 2>&1
-						)"
+									LC_ALL='C' \
+									SYSROOT="${ROOT}" \
+									PORTAGE_CONFIGROOT="${ROOT}" \
+								emerge --info --verbose=y 2>&1
+							)"
 						echo
 						echo "Resolved build variables for python cleanup stage 1 in ROOT '${ROOT}':"
 						echo '---------------------------------------------------'
@@ -3505,14 +3767,25 @@ case "${1:-}" in
 						echo "${info}" | format 'LDFLAGS'
 						echo
 						echo "ROOT                = $( # <- Syntax
-							echo "${info}" | grep -- '^ROOT=' | cut -d'=' -f 2-
-						)"
+								echo "${info}" |
+									grep -- '^ROOT=' |
+									cut -d'=' -f 2- |
+									uniq |
+									head -n 1
+							)"
 						echo "SYSROOT             = $( # <- Syntax
-							echo "${info}" | grep -- '^SYSROOT=' | cut -d'=' -f 2-
-						)"
+								echo "${info}" |
+									grep -- '^SYSROOT=' |
+									cut -d'=' -f 2- |
+									uniq |
+									head -n 1
+							)"
 						echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-							echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' | cut -d'=' -f 2-
-						)"
+								echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' |
+									cut -d'=' -f 2- |
+									uniq |
+									head -n 1
+							)"
 						echo
 						echo "${info}" | format 'USE'
 						echo "${info}" | format 'PYTHON_SINGLE_TARGET'
@@ -3521,12 +3794,12 @@ case "${1:-}" in
 
 						# shellcheck disable=SC2015,SC2086
 							USE="$( # <- Syntax
-								echo " ${USE} " |
-									sed -r \
-										-e 's/ python_targets_[^ ]+ / /g' \
-										-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
-										-e 's/ \+/ /g ; s/^ \+// ; s/ \+$//'
-							) openmp" \
+									echo " ${USE} " |
+										sed -r \
+											-e 's/ python_targets_[^ ]+ / /g' \
+											-e 's/ python_single_target_([^ ]+) / python_single_target_\1 python_targets_\1 /g' \
+											-e 's/ \+/ /g ; s/^ \+// ; s/ \+$//'
+								) openmp" \
 							PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
 						do_emerge --rebuild-defaults ${pkgs} ||
 							rc=${?}
@@ -3540,11 +3813,11 @@ case "${1:-}" in
 						export PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
 
 						info="$( # <- Syntax
-								LC_ALL='C' \
-								SYSROOT="${ROOT}" \
-								PORTAGE_CONFIGROOT="${ROOT}" \
-							emerge --info --verbose=y 2>&1
-						)"
+									LC_ALL='C' \
+									SYSROOT="${ROOT}" \
+									PORTAGE_CONFIGROOT="${ROOT}" \
+								emerge --info --verbose=y 2>&1
+							)"
 						echo
 						echo "Resolved build variables for python cleanup stage 2 in ROOT '${ROOT}':"
 						echo '---------------------------------------------------'
@@ -3567,33 +3840,33 @@ case "${1:-}" in
 
 							if echo "${remove}" | grep -qw -- "${arg}"; then
 								pkgs="${pkgs:-} $( # <- Syntax
-									find "${ROOT%"/"}/var/db/pkg/" \
-											-mindepth 3 \
-											-maxdepth 3 \
-											-type f \
-											-name 'IUSE' \
-											-print0 |
-										grep -Flw -- "${arg}" |
-										sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||' |
-										xargs -r
-								)"
+										find "${ROOT%"/"}/var/db/pkg/" \
+												-mindepth 3 \
+												-maxdepth 3 \
+												-type f \
+												-name 'IUSE' \
+												-print0 |
+											grep -Flw -- "${arg}" |
+											sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||' |
+											xargs -r
+									)"
 								pkgs="$(
-									echo "${pkgs}" |
-										xargs -rn 1 |
-										sort -V |
-										uniq
-								)"
+										echo "${pkgs}" |
+											xargs -rn 1 |
+											sort -V |
+											uniq
+									)"
 								print "'pkgs' is now '${pkgs}'"
 							fi
 						done
 						pkgs="${pkgs:-} $( # <- Syntax
-							find "${ROOT%"/"}/var/db/pkg/dev-python/" \
-									-mindepth 1 \
-									-maxdepth 1 \
-									-type d \
-									-print |
-								sed 's|^.*/var/db/pkg/|>=| ; s|/$||'
-						)"
+								find "${ROOT%"/"}/var/db/pkg/dev-python/" \
+										-mindepth 1 \
+										-maxdepth 1 \
+										-type d \
+										-print |
+									sed 's|^.*/var/db/pkg/|>=| ; s|/$||'
+							)"
 						if
 									ROOT='/' \
 									SYSROOT='/' \
@@ -3614,12 +3887,13 @@ case "${1:-}" in
 						fi
 
 						if [ $(( $(
-							resolve_python_flags |
-								grep -- '^PYTHON_TARGETS=' |
-								cut -d'=' -f 2- |
-								xargs -rn 1 |
-								wc -l
-						) )) -gt 1 ]; then
+									resolve_python_flags |
+										grep -- '^PYTHON_TARGETS=' |
+										cut -d'=' -f 2- |
+										xargs -rn 1 |
+										wc -l
+								) )) -gt 1 ]
+						then
 							do_emerge --depclean-defaults "<${targetpkg}" ||
 								rc=${?}
 							if [ $(( rc )) -ne 0 ]; then
@@ -3661,7 +3935,7 @@ case "${1:-}" in
 			cut -d'/' -f 1-2 |
 			rev |
 			sed 's/^/>=/' |
-			grep -v 'pypy3'
+			grep -Fv -e 'dev-python/pypy3' -e 'dev-python/gentoo-common'
 		)
 		if [ -n "${*:-}" ]; then
 			do_emerge --depclean-defaults "${@:-}" || :
