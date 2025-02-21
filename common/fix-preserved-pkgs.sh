@@ -21,8 +21,21 @@ test -n "${list:-}" || exit 0
 echo "${list}" | while read -r p; do
 	pn="$( basename "${p}" )"
 
-	sudo rm -fv "${pkgdir}/${p}.tbz2"
-	sudo find "${pkgdir}/" -mindepth 3 -maxdepth 3 -type f -name "${pn}-[0-9].xpak" -exec rm -v {} +
+	rm -fv "${pkgdir}/${p}.tbz2" 2>/dev/null ||
+		sudo rm -fv "${pkgdir}/${p}.tbz2"
+	find "${pkgdir}/" \
+		-mindepth 3 \
+		-maxdepth 3 \
+		-name "${pn}-[0-9].xpak" \
+		-type f \
+		\( \
+				-exec \
+					rm -v {} + \
+			-or \
+				-exec \
+					sudo rm -v {} + \
+		\)
+
 done
 
 # shellcheck disable=SC2046

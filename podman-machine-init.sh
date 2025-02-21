@@ -8,6 +8,17 @@ declare -i trace=${TRACE:-}
 declare -r REPO='https://github.com/srcshelton/docker-gentoo-build.git'
 declare -r INIT='gentoo-init.docker'
 
+# Provide a wrapper to try to run mkdir/rm/etc. as the current user, and then
+# via the 'sudo' binary if this fails.  Note that this is intended for atomic
+# operations without side-effects, rather than as a universal 'sudo'
+# replacement...
+#
+sudo() {
+	"${@:-}" ||
+		"$( type -pf sudo )" "${@:-}"
+}
+export -f sudo
+
 (( trace )) && set -o xtrace
 
 export LANG=C
@@ -30,10 +41,10 @@ declare -i run_on_vm=-1 need_explicit_mount=0
 declare -i create_vm=0
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
-	type -pf jq || {
+	if ! type -pf jq; then
 		echo >&2 "FATAL: 'jq' binary is required on Darwin"
 		exit 1
-	}
+	fi
 
 	# Darwin/BSD lacks GNU readlink - either realpath or perl's Cwd module
 	# will do at a pinch, although both lack the additional options of GNU
@@ -97,9 +108,9 @@ readonly ARCH
 if [[ "$( uname -s )" == 'Darwin' ]]; then
 	declare -i total=${cores}
 	total=$(( $( # <- Syntax
-		sysctl -n machdep.cpu.core_count ||
-			sysctl -n machdep.cpu.core_total
-	) ))
+			sysctl -n machdep.cpu.core_count ||
+				sysctl -n machdep.cpu.core_total
+		) ))
 
 	case "$( sysctl -n machdep.cpu.brand_string )" in
 		'Apple M1'|'Apple M2'|'Apple M3')
@@ -168,11 +179,10 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 	esac
 	unset total
 else
-	cores="$( # <- Syntax
-			nproc ||
-				grep 'cpu cores' /proc/cpuinfo |
-					tail -n 1 |
-					awk -F': ' '{ print $2 }'
+	cores="$( nproc ||
+			grep 'cpu cores' /proc/cpuinfo |
+				tail -n 1 |
+				awk -F': ' '{ print $2 }'
 		)"
 fi
 
@@ -265,17 +275,18 @@ else
 	#       filesystem?
 	#
 	declare version=''
-	version="$( # <- Syntax
-		podman --version |
+	version="$( podman --version |
 			grep -o 'version.*$' |
 			cut -d' ' -f 2-
-	)"
+		)"
 	if (( run_on_vm == -1 )); then
-		if [[ "$( # <- Syntax
-			xargs -n 1 printf '4.0.3\n%s\n' <<<"${version}" |
-				sort -V |
-				head -n 1
-		)" == '4.0.3' ]]; then
+		if [[ '4.0.3' == "$( # <- Syntax
+					xargs -n 1 printf '4.0.3\n%s\n' \
+							<<<"${version}" |
+						sort -V |
+						head -n 1
+				)" ]]
+		then
 			# podman version is prior to 4.0.3
 			run_on_vm=1
 		else
@@ -285,11 +296,13 @@ else
 	fi
 
 	if (( run_on_vm == 1 )); then
-		if [[ "$( # <- Syntax
-			xargs -n 1 printf '4.1.0\n%s\n' <<<"${version}" |
-				sort -V |
-				head -n 1
-		)" == '4.1.0' ]]; then
+		if [[ '4.1.0' == "$( # <- Syntax
+					xargs -n 1 printf '4.1.0\n%s\n' \
+							<<<"${version}" |
+						sort -V |
+						head -n 1
+				)" ]]
+		then
 			# podman version is prior to 4.1.0
 			need_explicit_mount=1
 		fi
@@ -346,10 +359,10 @@ else
 	# Check that our `podman machine` is actually usable...
 	echo -n "Waiting for running 'podman machine' named '${MACHINE}' ..."
 	until [[ "$( # <- Syntax
-			podman machine list --noheading \
-					--format '{{.Name}} {{.LastUp}}' |
-				grep "^${MACHINE}[* ]"
-		)" =~ ^${MACHINE}\*?\ Currently\ running$ ]]
+				podman machine list --noheading \
+						--format '{{.Name}} {{.LastUp}}' |
+					grep "^${MACHINE}[* ]"
+			)" =~ ^${MACHINE}\*?\ Currently\ running$ ]]
 	do
 		printf '.'
 		sleep 0.1
@@ -363,13 +376,13 @@ else
 	echo ; echo
 
 	MACHINE_SOCKET="$( # <- Syntax
-		podman machine inspect |
-			jq -Mr '.[].ConnectionInfo.PodmanSocket.Path'
-	)"
+			podman machine inspect |
+				jq -Mr '.[].ConnectionInfo.PodmanSocket.Path'
+		)"
 	MACHINE_KEY="$( # <- Syntax
-		podman machine inspect |
-			jq -Mr '.[].SSHConfig.IdentityPath'
-	)"
+			podman machine inspect |
+				jq -Mr '.[].SSHConfig.IdentityPath'
+		)"
 
 	if ! (( run_on_vm )); then
 		if [[ -s ~/.ssh/authorized_keys ]] &&
@@ -384,35 +397,36 @@ else
 			chmod 0600 ~/.ssh/authorized_keys
 		fi
 
-		podman-remote system connection \
+		if ! podman-remote system connection \
 				add "$( id -un )" \
 				--identity ~/.ssh/${LOCAL_SSH_KEY} \
-				"${MACHINE_SOCKET}" ||
-		{
+				"${MACHINE_SOCKET}"
+		then
 			echo >&2 "FATAL: Could not update system connection" \
 				"($?): is there a podman machine running?"
 			exit 1
-		}
+		fi
 
 		podman machine ssh "${MACHINE}" <<-EOF
 			cat - > ~/.ssh/id_${MACHINE_KEY_TYPE} &&
-			chmod 0600 ~/.ssh/id_${MACHINE_KEY_TYPE}" \
-				< "${MACHINE_KEY}"
+				chmod 0600 ~/.ssh/id_${MACHINE_KEY_TYPE}" \
+					< "${MACHINE_KEY}"
 		EOF
 		podman machine ssh "${MACHINE}" <<-EOF
 			cat - > ~/.ssh/id_${MACHINE_KEY_TYPE}.pub &&
-			chmod 0600 ~/.ssh/id_${MACHINE_KEY_TYPE}.pub" \
-				< "${MACHINE_KEY}.pub"
+				chmod 0600 ~/.ssh/id_${MACHINE_KEY_TYPE}.pub" \
+					< "${MACHINE_KEY}.pub"
 		EOF
 
 		podman machine ssh "${MACHINE}" <<-EOF
-			test -d src/podman-gentoo-build || {
+			if ! test -d src/podman-gentoo-build; then
 				mkdir -p src &&
-				cd src &&
-				git clone "${REPO}" podman-gentoo-build ;
-			} ;
+					cd src &&
+					git clone "${REPO}" podman-gentoo-build ;
+			fi ;
 			git config --system --replace-all safe.directory '*' ;
-			cd ~/src/podman-gentoo-build && git pull --all
+			cd ~/src/podman-gentoo-build &&
+				git pull --all
 		EOF
 
 		for f in 'make.conf' 'local.sh' 'portage-cache.tar'; do
@@ -427,9 +441,9 @@ else
 				esac
 				podman machine ssh "${MACHINE}" <<-EOF
 					sudo mkdir -p '${dest}' &&
-					sudo scp -i ~/.ssh/${LOCAL_SSH_KEY} \
-						-o StrictHostKeyChecking=no \
-						'$( id -nu )@host.containers.internal:$( pwd )/${f}' '${dest}'"
+						sudo scp -i ~/.ssh/${LOCAL_SSH_KEY} \
+							-o StrictHostKeyChecking=no \
+							'$( id -nu )@host.containers.internal:$( pwd )/${f}' '${dest}'"
 				EOF
 			fi
 		done
@@ -437,12 +451,12 @@ else
 		podman machine ssh "${MACHINE}" <<-EOF
 			sudo mkdir -p /var/cache ;
 			test -s ${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar &&
-			sudo tar -xp \
-				-f ${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar \
-				-C /var/cache/ ||
+				sudo tar -xp \
+					-f ${REMOTE_HOME}/${REMOTE_USER}/portage-cache.tar \
+					-C /var/cache/ ||
 				sudo mkdir -p /var/cache/portage ;
 			sudo chown ${REMOTE_USER}:root /var/cache/portage &&
-			sudo chmod ug+rwX /var/cache/portage
+				sudo chmod ug+rwX /var/cache/portage
 		EOF
 
 		# Allow the host user to see/use 'core'-owned images from the
@@ -452,8 +466,8 @@ else
 					/usr/share/containers/storage.conf
 			then
 				sudo mount /usr -o remount,rw,noatime &&
-				sed -i /usr/share/containers/storage.conf \
-					-e '0,/"/usr/lib/containers/storage",/a "/var/home/core/.local/share/containers/storage"'
+					sed -i /usr/share/containers/storage.conf \
+						-e '0,/"/usr/lib/containers/storage",/a "/var/home/core/.local/share/containers/storage"'
 			fi
 		EOF
 
@@ -468,11 +482,11 @@ else
 			if (( xfer )); then
 				podman machine ssh "${MACHINE}" <<-EOF
 					cd /var/cache &&
-					tar -cvpf - portage' > portage-cache.tar
+						tar -cvpf - portage' > portage-cache.tar
 				EOF
 			fi
 		fi
 	fi
 fi
 
-# vi: set syntax=bash:
+# vi: set syntax=bash sw=8 ts=8:
