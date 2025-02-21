@@ -2,7 +2,7 @@
 # First release not to require 'libressl' for 'constraints'...
 #
 #							~amd64 ~arm ~arm64 ~x86
-#~container/openntpd-6.8_p1::container			~amd64 ~arm ~arm64 ~x86
+#~container-services/openntpd-6.8_p1::container		~amd64 ~arm ~arm64 ~x86
 #~net-misc/openntpd-6.8_p1				~amd64 ~arm ~arm64 ~x86
 #
 # ... which is broken :(

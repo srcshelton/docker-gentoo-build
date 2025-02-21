@@ -39,8 +39,8 @@
 #
 #~dev-db/mariadb-10.5.12
 #~dev-db/mariadb-10.5.13
-#~container/mariadb-10.5.12::container
-#~container/mariadb-10.5.13::container
+#~container-services/mariadb-10.5.12::container
+#~container-services/mariadb-10.5.13::container
 
 # Having migrated to mariadb, block mysql
 #

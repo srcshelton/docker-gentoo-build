@@ -21,6 +21,9 @@
 
 */*					-dbus -gui
 
+#acct-group/*				 compat
+#acct-user/*				 compat
+
 # We need the 'milter' USE flag on postfix acct-* packages so that the
 # permissions in the postfix container (if deployed) are correct...
 acct-user/postfix			 milter opendkim
@@ -29,9 +32,11 @@ acct-user/postfix			 milter opendkim
 # app-containers/podman et al.:
 #
 #app-containers/buildah			 btrfs
+#app-containers/containers-common	 fuse rootless
 #app-containers/containers-storage	 btrfs tool
-#app-containers/podman			 btrfs
-#app-containers/skopeo			 btrfs
+#app-containers/podman			 btrfs composefs fuse rootless
+#app-containers/skopeo			 btrfs rootless
+#sys-fs/composefs			 fuse
 
 # "Use dev-libs/libnatspec to correctly decode non-ascii file names archived in
 # Windows" ...
@@ -45,12 +50,15 @@ app-arch/unzip				-natspec
 virtual/mta::container			-ssmtp postfix
 virtual/mta::srcshelton			-postfix ssmtp
 
-container/dovecot			 managesieve sieve
-container/opendmarc			 milter
+# move container/dovecot container-services/dovecot
+container-services/dovecot		 managesieve sieve
+# move container/opendmarc container-services/opendmarc
+container-services/opendmarc		 milter
 
 # Avoid sys-libs/binutils-libs dependency
 dev-db/mariadb				-* bindist
-container/mariadb			 server
+# move container/mariadb container-services/mariadb
+container-services/mariadb		 server
 #					+backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl
 
 # Avoid additional perl dependencies

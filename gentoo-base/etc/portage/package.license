@@ -22,15 +22,17 @@ app-alternatives/*			 CC0-1.0
 
 app-arch/xz-utils			 0BSD
 app-crypt/rhash				 0BSD
+app-containers/netavark			 0BSD Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boost-1.0 Unicode-DFS-2016 Unlicense ZLIB
 dev-util/cargo-ebuild			 Apache-2.0-with-LLVM-exceptions Boost-1.0 MPL-2.0 Unicode-DFS-2016 Unlicense ZLIB
 app-containers/aardvark-dns		 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Unlicense ZLIB
-app-containers/netavark			 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boost-1.0 Unicode-DFS-2016 Unlicense ZLIB
 #dev-libs/libbsd			 BSD-4
 #app-arch/libarchive			 BSD-4 public-domain
 #sys-apps/util-linux			 BSD-4 public-domain
 net-libs/libpcap			 BSD-with-attribution
 app-arch/bzip2				 BZIP2
 app-crypt/mit-krb5			 CC-BY-SA-3.0 HPND openafs-krb5-a OPENLDAP RSA
+app-containers/buildah			 CC-BY-SA-4.0 MPL-2.0
+app-containers/podman			 CC-BY-SA-4.0 MPL-2.0
 app-crypt/libb2				 CC0-1.0
 dev-python/certifi			 CC0-1.0 MPL-2.0
 net-misc/curl				 curl
@@ -161,7 +163,7 @@ app-vim/ntp-syntax			 vim
 #app-vim/vim-spell-en			 public-domain
 
 # required by service dev-lang/php
-container/php				 PHP-3.01 Zend-2.0
+container-services/php			 PHP-3.01 Zend-2.0
 dev-php/Masterminds-HTML5		 HTML5-PHP
 dev-php/pecl-memcache			 PHP-3
 dev-php/pecl-redis			 PHP-3.01
@@ -235,9 +237,6 @@ net-analyzer/gvmd			 AGPL-3+
 net-analyzer/ospd-openvas		 AGPL-3+
 
 # required by net-analyzer/netdata
-app-containers/aardvark-dns		 0BSD Unicode-DFS-2016
-app-containers/netavark			 0BSD
-app-containers/podman			 CC-BY-SA-4.0 MPL-2.0
 app-misc/jq				 CC-BY-3.0
 dev-libs/libbsd				 BEER-WARE
 dev-python/python-ldap			 PSF-2
@@ -251,7 +250,7 @@ dev-python/rpds-py			 Apache-2.0-with-LLVM-exceptions MPL-2.0 Unicode-DFS-2016
 dev-python/versioneer			 Unlicense
 
 # required by service net-dns/bind
-container/bind				 HPND MPL-2.0
+container-services/bind			 HPND MPL-2.0
 dev-db/lmdb				 OPENLDAP
 net-dns/bind				 HPND MPL-2.0
 
@@ -263,7 +262,7 @@ net-misc/dhcp				 MPL-2.0 SSLeay
 
 # required by service net-misc/unifi-controller-bin
 app-arch/zip				 Info-ZIP
-container/unifi-controller		 UBNT
+container-services/unifi-controller	 UBNT
 dev-build/cmake				 CMake
 dev-db/mongodb				 SSPL-1
 dev-java/openjdk-bin			 GPL-2-with-classpath-exception
@@ -275,7 +274,7 @@ dev-util/boost-build			 Boost-1.0
 net-misc/unifi-controller-bin		 UBNT
 
 # required by service net-misc/zxtm
-container/zxtm				 Pulse
+container-services/zxtm			 Pulse
 
 # required by service sys-apps/fwupd
 app-text/docbook-sgml-dtd		 docbook

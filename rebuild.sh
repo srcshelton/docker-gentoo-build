@@ -710,7 +710,7 @@ if [ "${update:-"0"}" = '1' ]; then
 	#	$( # <- Syntax
 	#		for pkg in /var/db/pkg/*/*; do
 	#			pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
-	#			if echo "${pkg}" | grep -Eq '^container/|/pkgconfig-'; then
+	#			if echo "${pkg}" | grep -Eq '^container-services/|/pkgconfig-'; then
 	#				continue
 	#			fi
 	#			echo ">=${pkg}"
@@ -816,7 +816,7 @@ if [ "${update:-"0"}" = '1' ]; then
 							# namesakes providing actual binaries, so exclude
 							# them also
 							#
-							if echo "${pkg}" | grep -Eq '^app-admin/(fam|gamin)-|^container/|/pkgconfig-|/-MERGING-'; then
+							if echo "${pkg}" | grep -Eq '^app-admin/(fam|gamin)-|^container-services/|/pkgconfig-|/-MERGING-'; then
 								continue
 							fi
 							# Specify python packages at the level of, e.g.

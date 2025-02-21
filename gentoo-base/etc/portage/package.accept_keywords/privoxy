@@ -1,6 +1,6 @@
 
 #							~amd64 ~arm ~arm64 ~x86
 ~net-proxy/privoxy-3.0.34				            ~arm64
-~container/privoxy-3.0.34::container			            ~arm64
+~container-services/privoxy-3.0.34::container		            ~arm64
 
 # vi: set colorcolumn=56 syntax=gentoo-package-keywords:

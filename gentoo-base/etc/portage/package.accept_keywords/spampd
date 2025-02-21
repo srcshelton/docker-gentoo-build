@@ -2,7 +2,7 @@
 #							~amd64 ~arm ~arm64 ~x86
 
 ~mail-filter/spampd-2.61				~amd64 ~arm ~arm64
-~container/spampd-2.61::container			~amd64 ~arm ~arm64
+~container-services/spampd-2.61::container		~amd64 ~arm ~arm64
 
 # Only remaining version is masked :(
 ~dev-perl/Crypt-OpenSSL-ECDSA-0.100.0			~amd64 ~arm ~arm64 ~x86
