@@ -19,7 +19,7 @@
 
 # Clear Linux is up to date with linux-6.13.3
 # Latest is gentoo-sources-6.13.3-r1
-~sys-kernel/vanilla-sources-6.13.3			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.13.3			~amd64 ~arm ~arm64 ~x86
 ~sys-kernel/vanilla-sources-6.13.3			~amd64 ~arm ~arm64 ~x86
 
 # Required for rust modules...
