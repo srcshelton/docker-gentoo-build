@@ -1578,13 +1578,15 @@ _docker_run() {
 		# FIXME: crun errors when rootless due to lack of write support into
 		#        /etc/portage...
 		if [[ -s "gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]; then
-			if [[ -w /etc/portage/package.accept_keywords ]]; then
+			if [[ -w /etc/portage/package.accept_keywords && ! -e "/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]; then
 				mountpointsro["${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/package.accept_keywords/${ARCH:-"${arch}"}"
 			else
 				warn "Cannot mount" \
 					"'${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
 					"due to lack of write permission for '$( id -nu )' on" \
-					"'/etc/portage/package.accept_keywords'"
+					"'/etc/portage/package.accept_keywords', or" \
+					"'/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
+					"already exists (due to another running container?)"
 			fi
 		fi
 
