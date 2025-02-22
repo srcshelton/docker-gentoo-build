@@ -18,6 +18,9 @@
 # Allow easier saving of defaults
 /.kbuild_opt
 
+# Roadmap
+/TODO
+
 # Make host-specific changes to these files as necessary...
 #
 /gentoo-base/etc/portage/package.use.build/package.use.local
