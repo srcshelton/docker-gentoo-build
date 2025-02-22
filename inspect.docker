@@ -76,6 +76,8 @@ if [[ -n "${*:-}" ]]; then
 			'[--name=<name>] [--remove] [--mount=<...>]' \
 			'[--memory-reservation=<size>] [--memory-limit=<size>]' \
 			'[--swap-limit=<size>] [--device=<...>] [commands]'
+		output >&2 ''
+		output >&2 "       e.g. '--mount type=bind,source=/tmp/host-dir,destination=/container-dir,ro'"
 		exit 0
 	fi
 fi
