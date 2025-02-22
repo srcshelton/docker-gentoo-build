@@ -5,6 +5,7 @@
 # move app-arch/upx-ucl app-arch/upx
 ~app-arch/upx-4.2.4					       ~arm        ~x86
 ~app-misc/linux-logo-6.01				       ~arm ~arm64
+~app-misc/zellij-0.41.2					~amd64 ~arm ~arm64 ~x86
 ~app-portage/pycargoebuild-0.13.4			       ~arm ~arm64 ~x86
 ~app-vim/vim-nftables-0_pre20200629			~amd64 ~arm ~arm64 ~x86
 ~dev-perl/Net-MAC-Vendor-1.268::srcshelton		~amd64 ~arm ~arm64 ~x86
