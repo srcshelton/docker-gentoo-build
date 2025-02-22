@@ -171,7 +171,7 @@ export -f output die error warn note info print
 #
 sudo() {
 	"${@:-}" ||
-		"$( type -pf "${0}" )" "${@:-}"
+		"$( type -pf "${FUNCNAME[0]}" )" "${@:-}"
 }  # sudo
 
 replace_flags() {
@@ -1485,7 +1485,15 @@ _docker_run() {
 				default_repo_path='/var/db/repo/gentoo /var/db/repo/srcshelton'
 			fi
 
-			if [[ -s "${EROOT:-}"/etc/portage/repos.conf/srcshelton.conf ]]
+			if [[ -s "${EROOT:-}"/etc/portage/repos.conf/srcshelton.conf ]] ||
+					[[ "$( type -pf portageq 2>/dev/null )" == *portageq &&
+							"$( # <- Syntax
+									portageq get_repos "${EROOT:-"/"}"
+								)" == *srcshelton* && -s "$( # <- Syntax
+									portageq get_repo_path "${EROOT:-"/"}" \
+										srcshelton
+								)"/eclass/linux-info.eclass
+						]]
 			then
 				# /var/lib/portage/eclass/linux-info is used by the
 				# ::srcshelton repo to record kernel configuration
@@ -1496,21 +1504,16 @@ _docker_run() {
 				# as a build-dependency) is also able to persistently record
 				# its requirements.
 				#
-				# (Due to the lack of portageq, we'll assume that this repo has
-				#  the linux-info.eclass override, rather than laboriously
-				#  constructing the path to the from the conf file to verify)
+				# (Due to the potential lack of portageq, we'll assume that
+				#  this repo has the linux-info.eclass override, rather than
+				#  laboriously constructing the path to the from the conf file
+				#  to verify manually...)
 				#
 				sudo mkdir -p /var/lib/portage/eclass/linux-info
-				sudo touch -a /var/lib/portage/eclass/linux-info/.keep
-			fi
-		else
-			if [[ "$( portageq get_repos "${EROOT:-"/"}" )" == *srcshelton* ]] &&
-				[[ -s "$( portageq get_repo_path "${EROOT:-"/"}" srcshelton )"/eclass/linux-info.eclass ]]
-			then
-				# See above.
-				#
-				sudo mkdir -p /var/lib/portage/eclass/linux-info
-				sudo touch -a /var/lib/portage/eclass/linux-info/.keep
+				sudo chown "${EUID:-"$( id -u )"}:root" \
+					/var/lib/portage/eclass/linux-info
+				sudo chmod ug+rwX /var/lib/portage/eclass/linux-info
+				touch -a /var/lib/portage/eclass/linux-info/.keep
 			fi
 		fi
 		if [[ -n "${PKGDIR_OVERRIDE:-}" ]]; then

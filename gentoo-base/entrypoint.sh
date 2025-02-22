@@ -923,9 +923,9 @@ do_emerge() {
 	done
 
 	if ! [ -f /srv/host/var/lib/portage/eclass/linux-info/.keep ]; then
-		warn "Running emerge with ROOT='${ROOT}' without 'eclass/linux-info'" \
-			"mounted into '/srv/host/var/lib/portage' - kernel configuration" \
-			"dependencies will not be recorded"
+		warn "Running emerge with ROOT='${ROOT:-"/"}' without" \
+			"'eclass/linux-info' mounted into '/srv/host/var/lib/portage' -" \
+			"kernel configuration dependencies will not be recorded"
 		warn
 		warn "Mounts:"
 		mount | sort -V | sed 's/ (.*$//' | while read -r line; do
