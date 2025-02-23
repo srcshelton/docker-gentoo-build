@@ -170,7 +170,7 @@ export -f output die error warn note info print
 # replacement...
 #
 sudo() {
-	"${@:-}" ||
+	"${@:-}" 2>/dev/null ||
 		"$( type -pf "${FUNCNAME[0]}" )" "${@:-}"
 }  # sudo
 
@@ -260,7 +260,7 @@ replace_flags() {
 			esac
 		done
 
-		# ... and then add '(-)flag' to the start or end of the list
+		# ... and then add '(-)flag' to the start or end of the list
 		#
 		case "${flag}" in
 			'')
@@ -657,7 +657,7 @@ _docker_resolve() {
 		# that an appropriate image will exist, and even then the container has
 		# to have run in order to use '--volumes-from', and that means
 		# executing at least a placeholder binary ('/bin/sh -c /bin/true') from
-		# a 'linux/amd64' image.
+		# a 'linux/amd64' image.
 		#
 		# Without a linkage between this repo and the custom overlay repo, we
 		# can only find the appropriate tag for this image from the latest

@@ -106,7 +106,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
         mv "${pe}/USE-ignore" "${pe}/USE" || : ; \
     fi
 
-# Restore separate /lib* and /usr/lib* directories...
+# Restore separate /lib* and /usr/lib* directories...
 #
 # Update: It's worse - /usr/sbin is a symlink to /usr/bin, and packages such
 #         as autotools are now hard-coding /usr/sbin/perl despite this not

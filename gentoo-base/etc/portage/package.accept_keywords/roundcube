@@ -15,7 +15,7 @@ mail-client/roundcube					~amd64 ~arm ~arm64 ~x86
 ~dev-php/PEAR-Crypt_GPG-1.6.9				            ~arm64
 ~dev-php/PEAR-Console_CommandLine-1.2.6			            ~arm64
 
-# ... see package.accept_keywords/php
+# ... see package.accept_keywords/php
 #~dev-php/pecl-memcache-8.0				~amd64 ~arm ~arm64 ~x86
 #~dev-php/pecl-memcache-8.2				~amd64 ~arm ~arm64 ~x86
 

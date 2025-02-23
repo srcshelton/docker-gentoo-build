@@ -1860,7 +1860,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	output " -> ${?}"
 	trap - INT
 
-	# This is a potentially expensive additional step, but it ensures that
+	# This is a potentially expensive additional step, but it ensures that
 	# portage doesn't complain noisily if the repos which exist on-disk when
 	# a build-container is run are fewer or different than those which existed
 	# when the build-image was assembled...

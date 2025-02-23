@@ -492,7 +492,7 @@ filter_portage_flags() {
 				*)
 					ftcf_match='(-)?' ;;
 			esac
-			ftcf_val="$( # <- Syntax
+			ftcf_val="$( # <- Syntax
 					echo "${ftcf_val}" |
 						xargs -rn 1 |
 						grep -Ev -- "^${ftcf_match:-}(${ftcf_flags})$" |
@@ -986,7 +986,7 @@ do_emerge() {
 					fi
 				done
 				unset do_emerge_s2 do_emerge_s1 do_emerge_f do_emerge_li
-			fi  # [ -d "/srv/host/${do_emerge_dir}" ]
+			fi  # [ -d "/srv/host/${do_emerge_dir}" ]
 		fi  # [ -d "${ROOT:-}/${do_emerge_dir}/" ]
 
 		[ -f /etc/._cfg0000_hosts ] && rm -f /etc/._cfg0000_hosts

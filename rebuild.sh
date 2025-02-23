@@ -50,8 +50,8 @@ if [ -z "${kbuild_opt:-}" ]; then
 		kbuild_opt="--config-from=config.gz --keep-build --no-patch --clang --llvm-unwind"
 fi
 all=0
-alt_use='bison flex gnu http2'  # http2 targeting curl for rust packages...
-#alt_use='flex gnu http2'  # http2 targeting curl for rust packages...
+alt_use='bison flex gnu http2'  # http2 targeting curl for rust packages...
+#alt_use='flex gnu http2'  # http2 targeting curl for rust packages...
 arg=''
 exclude=''
 force=0
@@ -673,7 +673,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 			echo >&2 "ERROR: ${failures}"
 		fi
 
-		unset USE ARCH failures  # rc
+		unset USE ARCH failures  # rc
 
 		# shellcheck disable=SC2031
 		exit ${rc}

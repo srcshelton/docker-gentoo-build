@@ -671,7 +671,7 @@ applyworkarounds() {
 					grep -Eo -- " ([<>]?=|~)?(${aw_list})(-[^ ]+)? "
 			)" && [ -n "${aw_pkg:-}" ]
 	then
-		if [ $(( aw_mode )) -eq 1 ]; then  # post_pkgs
+		if [ $(( aw_mode )) -eq 1 ]; then  # post_pkgs
 			aw_pkg="$( echo "${aw_pkg}" | xargs -r )"
 			warn >&2 "Adding post-package entry 'net-misc/curl'" \
 				"due to presence of ${aw_pkg} ..."
@@ -1139,7 +1139,7 @@ do_emerge() {
 					fi
 				done
 				unset do_emerge_s2 do_emerge_s1 do_emerge_f do_emerge_li
-			fi  # [ -d "/srv/host/${do_emerge_dir}" ]
+			fi  # [ -d "/srv/host/${do_emerge_dir}" ]
 		fi  # [ -d "${ROOT:-}/${do_emerge_dir}/" ]
 	fi  # [ $(( do_emerge_rc )) -eq 0 ]
 

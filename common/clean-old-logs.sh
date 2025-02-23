@@ -57,4 +57,4 @@ done |
 	done |
 	xargs -r ${guard:-} rm -v
 
-# vi: set colorcolumn=80:
+# vi: set colorcolumn=80:

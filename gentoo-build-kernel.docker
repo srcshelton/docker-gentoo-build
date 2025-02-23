@@ -50,7 +50,7 @@ fi
 readonly package_default
 
 declare binutils_min_ver='2.25.0'
-declare gcc_min_ver='5.1.0'  # 12.0.0 on PA-RISC
+declare gcc_min_ver='5.1.0'  # 12.0.0 on PA-RISC
 declare llvm_min_ver='13.0.1'  # 11.0.0 before 6.9.0, 15.0.0 on S390, 18.0.0 on loongarch
 
 declare firmware=''
@@ -286,7 +286,7 @@ if [[ -n "${kbuild_opt:-}" ]]; then
 fi
 unset kbuild_opt
 
-# Process --menuconfig and --nconfig first, as --config-from refers to them...
+# Process --menuconfig and --nconfig first, as --config-from refers to them...
 #
 if echo " ${*:-} " | grep -Fq -- ' --menuconfig '; then
 	menuconfig='menuconfig'  # Just has to be set...
@@ -405,7 +405,7 @@ fi
 
 # --menuconfig: see above
 
-# --nconfig: see above
+# --nconfig: see above
 
 if echo " ${*:-} " | grep -Fq -- ' --package'; then
 	if echo " ${*:-} " | grep -Eq -- ' --package=[^ ]+ '; then
@@ -542,7 +542,7 @@ if echo " ${*:-} " | grep -Fq -- ' --debug '; then
 	raise_mem=1
 fi
 
-# --(no-)install: see below
+# --(no-)install: see below
 if echo " ${*:-} " | grep -Eq -- ' --bundle[= ]'; then
 	if echo " ${*:-} " | grep -Eq -- ' --bundle=[^ ]+ '; then
 		bundle_dir="$( # <- Syntax
@@ -551,7 +551,7 @@ if echo " ${*:-} " | grep -Eq -- ' --bundle[= ]'; then
 				cut -d'=' -f 2- | sed 's/ $//'
 		)"
 	elif echo " ${*:-} " | grep -Eq -- ' --bundle [^ -][^ ]* '; then
-		bundle_dir="$( # <- Syntax
+		bundle_dir="$( # <- Syntax
 			echo " ${*} " |
 				grep -Eo -- '--bundle [^ ]+ ' |
 				cut -d' ' -f 2- |
@@ -1784,7 +1784,7 @@ esac
 
 			if (( initramfs )); then
 				export DOCKER_PRIVILEGED='--privileged'
-				INSTALL_MASK="$( # <- Syntax
+				INSTALL_MASK="$( # <- Syntax
 					if type -pf emerge >/dev/null 2>&1; then
 						emerge --info 2>&1 | grep -- '^INSTALL_MASK=' | cut -d'"' -f 2
 					elif type -pf jq >/dev/null 2>&1; then
@@ -2061,7 +2061,7 @@ esac
 	)
 	modargs="${container_LLVM:+"LLVM=1 LLVM_IAS=1"}"
 	RUST_VERBOSE=''
-	RUSTFLAGS="$( # <- Syntax
+	RUSTFLAGS="$( # <- Syntax
 		if type -pf emerge >/dev/null 2>&1; then
 			emerge --info 2>&1 | grep -- '^RUSTFLAGS=' | cut -d'"' -f 2
 		elif type -pf jq >/dev/null 2>&1; then

@@ -213,7 +213,7 @@ else
 			xargs -0rn 1
 	)
 	unset file extra_mask
-fi # [[ -d /etc/portage/package.mask ]]
+fi # [[ -d /etc/portage/package.mask ]]
 
 # Use host package.unmask (if present), overriding the container build-time
 # default...
