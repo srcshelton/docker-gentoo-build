@@ -438,7 +438,7 @@
 #~app-containers/catatonit-0.1.6			~amd64 ~arm ~arm64 ~x86
 ~app-containers/catatonit-0.1.7				       ~arm        ~x86
 #~app-containers/catatonit-0.2.0			       ~arm        ~x86
-~app-containers/catatonit-0.2.1				       ~arm        ~x86
+~app-containers/catatonit-0.2.1				~amd64 ~arm ~arm64 ~x86
 
 #~app-containers/netavark-1.0.2				~amd64 ~arm ~arm64 ~x86
 #~app-containers/netavark-1.0.3				~amd64 ~arm ~arm64 ~x86
