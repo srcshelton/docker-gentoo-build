@@ -33,6 +33,7 @@ sys-apps/smartmontools			-caps  # ... or +daemon
 sys-apps/util-linux			 logger tty-helpers
 sys-libs/glibc				-timezone-tools
 sys-libs/libnvme			 json
+sys-power/apcupsd			 net
 
 #virtual/mta				 postfix
 virtual/mta				 no-mta
