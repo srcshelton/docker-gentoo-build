@@ -928,9 +928,12 @@ do_emerge() {
 			"kernel configuration dependencies will not be recorded"
 		warn
 		warn "Mounts:"
-		mount | sort -V | sed 's/ (.*$//' | while read -r line; do
-			warn "  ${line}"
-		done
+		findmnt --real --pairs |
+			sort -V |
+			awk -F '"' '{print $4 " on " $2 " type " $6}' |
+			while read -r line; do
+				warn "  ${line}"
+			done
 		unset line
 	fi
 
@@ -949,7 +952,7 @@ do_emerge() {
 			else
 				do_emerge_li='' do_emerge_f='' do_emerge_s1=0 do_emerge_s2=0
 
-				info "Looking for kernel configuration hints in" \
+				print "Looking for kernel configuration hints in" \
 					"'${ROOT:-}/${do_emerge_dir}/' ..."
 
 				for do_emerge_li in "${ROOT:-}/${do_emerge_dir}"/*; do
@@ -958,11 +961,11 @@ do_emerge() {
 					[ "${do_emerge_f}" = '.keep' ] &&
 						continue
 
-					info ".. found file '${do_emerge_f}'"
+					print ".. found file '${do_emerge_f}'"
 
 					do_emerge_s1="$( stat -c '%s' "${do_emerge_li}" )"
 					if [ -s "/srv/host/${do_emerge_dir}/${do_emerge_f}" ]; then
-						info ".... comparing to exisiting file" \
+						print ".... comparing to exisiting file" \
 							"'/srv/host/${do_emerge_dir}/${do_emerge_f}'"
 
 						do_emerge_s2="$(
@@ -973,7 +976,7 @@ do_emerge() {
 						do_emerge_s2=0
 					fi
 					if [ $(( do_emerge_s1 )) -ne $(( do_emerge_s2 )) ]; then
-						info ".... file size has changed, saving" \
+						print ".... file size has changed, saving" \
 							"'${do_emerge_f}'"
 
 						cp -a "${do_emerge_li}" \
@@ -982,7 +985,7 @@ do_emerge() {
 								"'/srv/host/${do_emerge_dir}/${do_emerge_f}':" \
 								"${?}"
 					else
-						info ".... discarding identical file"
+						print "...... discarding identical file"
 					fi
 				done
 				unset do_emerge_s2 do_emerge_s1 do_emerge_f do_emerge_li
