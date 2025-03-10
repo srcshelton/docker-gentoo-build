@@ -23,8 +23,8 @@ app-alternatives/*			 CC0-1.0
 app-arch/xz-utils			 0BSD
 app-crypt/rhash				 0BSD
 app-containers/netavark			 0BSD Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boost-1.0 Unicode-DFS-2016 Unlicense ZLIB
+app-containers/aardvark-dns		 0BSD Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Unicode-DFS-2016 Unlicense ZLIB
 dev-util/cargo-ebuild			 Apache-2.0-with-LLVM-exceptions Boost-1.0 MPL-2.0 Unicode-DFS-2016 Unlicense ZLIB
-app-containers/aardvark-dns		 Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Unlicense ZLIB
 #dev-libs/libbsd			 BSD-4
 #app-arch/libarchive			 BSD-4 public-domain
 #sys-apps/util-linux			 BSD-4 public-domain
