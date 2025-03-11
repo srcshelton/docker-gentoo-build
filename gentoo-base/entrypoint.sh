@@ -1564,9 +1564,10 @@ fi
 	if LC_ALL='C' portageq get_repos '/' | grep -Fq -- 'srcshelton'; then
 		list="${list:-} sys-apps/systemd-utils"
 	fi
-	if echo " ${use_essential}" | grep -q -- ' rpi[0-9-]'; then
+	if echo "${ARCH:-"${arch:-}"}" | grep -Fiq 'arm'; then
 		# Give virtual/os-headers a chance to pull-in
-		# sys-kernel/raspberrypi-headers by removing all headers packages...
+		# sys-kernel/raspberrypi-headers or sys-kernel/rockchip-headers by
+		# removing all preinstalled headers packages...
 		list="${list:-} virtual/os-headers sys-kernel/linux-headers"
 	fi
 
