@@ -1052,12 +1052,13 @@ do_emerge() {
 	[ -n "${do_emerge_args:-}" ] || return 1
 
 	if [ $(( $(
-				localedef --list-archive |
+				localedef --list-archive 2>/dev/null |
 					grep -cF -e 'utf8' -e 'UTF-8'
 			) )) -eq 0 ]
 	then
 		mkdir -p /usr/lib/locale
-		localedef --replace -f UTF-8 -i C C.UTF-8 --force
+		mkdir -p /var/cache/locale
+		localedef --replace -f UTF-8 -i C C.UTF-8 --force 2>/dev/null
 	fi
 
 	export USE
