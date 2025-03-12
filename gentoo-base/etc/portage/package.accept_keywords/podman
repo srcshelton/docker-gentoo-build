@@ -128,7 +128,8 @@
 #~app-containers/podman-5.4.0_rc1			 **
 #~app-containers/podman-5.4.0_rc2			 **
 #~app-containers/podman-5.4.0_rc3			 **
-~app-containers/podman-5.4.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-5.4.0				~amd64 ~arm ~arm64 ~x86
+~app-containers/podman-5.4.1				~amd64 ~arm ~arm64 ~x86
 
 #~app-containers/podman-tui-0.14.0			~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-tui-0.17.0			~amd64 ~arm ~arm64 ~x86
