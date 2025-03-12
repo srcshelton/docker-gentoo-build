@@ -1678,7 +1678,7 @@ then
 				sed 's/_/./' )/lib-dynload/_uuid.cpython-*.so
 		}
 
-		if command -v qatom >/dev/null; then
+		if command -v qatom >/dev/null 2>&1; then
 			# shellcheck disable=SC2046,SC2086
 			do_emerge --once-defaults $(
 					P=''
@@ -2060,14 +2060,17 @@ echo
 	# up being linked to /usr/lib64/libpam.so.0 which then (correctly) triggers
 	# a QA violation.
 	#
-	do_emerge --unmerge-defaults sys-libs/pam
+	# We also want to get a version of sys-libs/libxcrypt with libraries on the
+	# root filesystem.
+	#
+	do_emerge --unmerge-defaults sys-libs/pam sys-libs/libxcrypt
 	rmdir -p --ignore-fail-on-non-empty /usr/lib*/security/pam_filter || :
 
 	# shellcheck disable=SC2046
 	(
 		export USE='-gmp -nls ssl'
-		do_emerge --single-defaults dev-build/libtool sys-libs/libxcrypt \
-			sys-libs/pam $(
+		do_emerge --single-defaults sys-libs/libxcrypt
+		do_emerge --single-defaults dev-build/libtool sys-libs/pam $(
 				# sys-devel/gcc is a special case with a conditional
 				# gen_usr_ldscript call...
 				# N.B. Using 'grep -lm 1' and so not having to read the whole
@@ -2284,6 +2287,20 @@ rm "${stage3_flags_file}"
 # (ARCH should now be safe)
 export ARCH="${arch}"
 unset -v arch
+
+# Since sys-apps/portage-3.0.67, portage commands are much more strict about
+# handling of ROOT != '/' ...
+#
+repo_name='' repo_path=''
+if command -v portageq >/dev/null 2>&1; then
+	for repo_name in $( portageq get_repos '/' ); do
+		for repo_path in "$( portageq get_repo_path '/' "${repo_name}" )"; do
+			mkdir -p "${service_root}/$( dirname "${repo_path}" )"
+			ln -s "${repo_path}" "${service_root}/${repo_path}"
+		done
+	done
+fi
+unset repo_path repo_name
 
 export ROOT="${service_root}"
 export SYSROOT="${ROOT}"
@@ -3176,7 +3193,7 @@ fix_sh_symlink "${ROOT}" '@system'
 if [ -s /etc/bash/bashrc.patch ]; then
 	if [ -s "${ROOT}"/etc/bash/bashrc ]; then
 		if grep -q -- 'PS1=' "${ROOT}"/etc/bash/bashrc; then
-			if ! command -v patch >/dev/null; then
+			if ! command -v patch >/dev/null 2>&1; then
 				warn "@system build has not installed package" \
 					"'sys-devel/patch'"
 			else
