@@ -654,7 +654,7 @@ applyworkarounds() {
 		"parameters '${*:-}'"
 
 	# N.B. virtual/rust is now deprecated
-	aw_pkgs='app-containers/podman app-containers/netavark app-containers/aardvark-dns dev-lang/rust dev-util/bindgen'  # virtual/rust
+	aw_pkgs='app-containers/podman app-containers/netavark app-containers/aardvark-dns dev-lang/rust dev-lang/rust-bin dev-util/bindgen'  # virtual/rust
 	[ $(( aw_mode )) -ne 2 ] &&
 		info >&2 "Checking for ${aw_pkgs} work-arounds ..."  # ! post_use
 	aw_list=''
