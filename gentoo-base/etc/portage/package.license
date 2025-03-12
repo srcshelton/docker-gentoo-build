@@ -134,6 +134,8 @@ dev-ruby/test-unit			 PSF-2
 # Service packages:
 #
 
+app-admin/monit				 AGPL-3
+
 dev-db/redis				 Boost-1.0 SSPL-1
 
 dev-perl/Unicode-EastAsianWidth		 CC0-1.0
