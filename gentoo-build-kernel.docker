@@ -2115,6 +2115,17 @@ esac
 	#		;;
 	#esac
 
+	tar_extra_args='' ;
+	if findmnt -ln /boot | grep -q -- 'boot.*,gid=' ;then
+		tar_extra_args="--group=$( # <- Syntax
+				findmnt -ln /boot |
+					grep 'boot.*,gid=' |
+					grep -o 'gid=[0-9]\+,' |
+					cut -d'=' -f 2 |
+					cut -d',' -f 1
+			)"
+	fi
+
 	# Confirm line-endings, highlight:
 	#   ^.*\()\|\s\(;\|;;\|\$( # <- Syntax\|then\|else\|do\|in\|&&\||\|||\|{\|\\\|\$(\|\\\$(\)\)$
 	#
@@ -2287,7 +2298,7 @@ esac
 				if [ -n '${rpi_model:-}' ]; then
 					echo "NOTE:  Will build devicetree files for Raspberry Pi ARM64 platforms ..." ;
 					dtb='1' ;
-				fi;
+				fi ;
 				;;
 			'arm'*)
 				kernel='Image.gz' ;
@@ -2295,7 +2306,7 @@ esac
 				if [ -n '${rpi_model:-}' ]; then
 					echo "NOTE:  Will build devicetree files for Raspberry Pi ARM platforms ..." ;
 					dtb='1' ;
-				fi;
+				fi ;
 				;;
 		esac ;
 		${container_CC} --version ;
@@ -2409,7 +2420,7 @@ esac
 			localversion="LOCALVERSION=_\$( echo '${package_version#*_}' | cut -d'_' -f 2- )" ;
 			if [ -f ../build/.config ]; then
 				if grep -qm 1 -- '^CONFIG_LOCALVERSION=' ../build/.config &&
-						! grep -qm 1 -- '^CONFIG_LOCALVERSION=""$' ../build/.config
+						! grep -qm 1 -- '^CONFIG_LOCALVERSION=""$' ../build/.config ;
 				then
 					echo >&2 "WARN:  \$(
 						grep -m 1 -- '^CONFIG_LOCALVERSION=' ../build/.config ;
@@ -2432,7 +2443,7 @@ esac
 		make ${kernel_make_opts[@]} O=../build \${localversion} ${deforoldconfig} \
 				prepare \
 				${menuconfig:+"menuconfig"} \
-				${nconfig:+"nconfig"}
+				${nconfig:+"nconfig"} ;
 		time make ${kernel_make_opts[@]} O=../build \${localversion} ${deforoldconfig} \
 				vmlinux \
 				modules \
@@ -2452,7 +2463,7 @@ esac
 			exit 1 ;
 		fi ;
 		if [ '${initramfs}' = '1' ]; then
-			dracut "/boot/initramfs.img-\${kernel_version}" "\${kernel_version}"
+			dracut "/boot/initramfs.img-\${kernel_version}" "\${kernel_version}" ;
 		fi ;
 		if [ -s /host/boot/boot.config ]; then
 			cp /host/boot/boot.config /boot/boot.config ;
@@ -2541,12 +2552,13 @@ esac
 			fi ;
 		fi ;
 		if [ '${install}' = '1' ]; then
-			if ! tar -C / -cpf - /boot/ /lib/modules/ | tar -C /host/ -xpf - ; then
+			if ! tar --no-same-owner ${tar_extra_args:-} -C / -cpf - /boot/ /lib/modules/ | tar -C /host/ -xpf - ; then
 				echo >&2 "ERROR: Build artefact extraction failed: \${?}" ;
 				exit 1 ;
 			else
 				echo "INFO:  Linux kernel-\${kernel_version} successfully installed - please update your bootloader" ;
 			fi ;
+			unset tar_extra_args ;
 		elif [ '${bundle}' = '0' ]; then
 			echo >&2 "WARN:  Linux kernel-\${kernel_version} successfully built (but not installed due to '--no-install' argument)" ;
 		fi ;
