@@ -42,10 +42,18 @@ declare -ir build_space_reqiured=750
 declare -ir temp_space_required=2800
 declare -ir graph_space_required=8500
 
+declare pre_remove=''
 declare package_default='sys-kernel/gentoo-sources'
 if [ -n "${rpi_model:-}" ] || grep -q -- 'Model.*Raspberry Pi' /proc/cpuinfo
 then
 	package_default='sys-kernel/raspberrypi-sources'
+	USE="${USE:+"${USE} "}raspberrypi"
+	pre_remove="${pre_remove:+"${pre_remove} "}sys-kernel/linux-headers virtual/os-headers"
+elif grep -q -- 'cpu model.*Rockchip RK3588' /proc/cpuinfo
+then
+	package_default='sys-kernel/mixtile-sources'
+	USE="${USE:+"${USE} "}rockchip"
+	pre_remove="${pre_remove:+"${pre_remove} "}sys-kernel/linux-headers virtual/os-headers"
 fi
 readonly package_default
 
@@ -516,6 +524,7 @@ if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 			(( llvm_slot_override = $( # <- Syntax
 				cut -d'.' -f 1 <<<"${llvm_sub_slot_override}"
 			) ))
+			print "Override llvm_slot is '${llvm_slot_override}'"
 			rust_llvm_use='-system-llvm'
 		fi
 	fi
@@ -1217,9 +1226,8 @@ fi
 [ -d log ] || mkdir log
 
 declare openmp='openmp'
-declare pre_remove=''
 declare pre_pkgs=''
-declare pre_use=''
+declare pre_use="${USE:-}"
 declare post_use=''
 declare -a compiler_pkgs=()
 declare compiler_USE="${rust_llvm_use:-}"
@@ -1230,7 +1238,7 @@ declare container_KCFLAGS=''
 if (( opt_o3 )); then
 	case "${arch:-"${ARCH:-}"}" in
 		amd64)	declare add_flags='-O3 -mno-avx2 -fno-tree-vectorize' ;;
-		*)		declare add_flags='-O3 -fno-tree-vectorize' ;;
+		*)	declare add_flags='-O3 -fno-tree-vectorize' ;;
 	esac
 	if [[ -e /proc/cpuinfo && -r /proc/cpuinfo ]]; then
 		# FIXME: Only valid when the build-host is of similar architecture to
@@ -1309,6 +1317,7 @@ case "${compiler}" in
 		if (( llvm_slot > 15 )); then
 			inconsistent_slot="${llvm_slot}"
 		fi
+		#print "Using slot '${inconsistent_slot}' for LLVM ${llvm_slot} ($( pkgslot llvm-runtimes/compiler-rt ":${inconsistent_slot}" ))"
 
 		case "${bindgen_ver:-}" in
 			'0.56.0'*)
@@ -1367,9 +1376,9 @@ case "${compiler}" in
 				# python3_10, so patching the older bindgen source seems to
 				# make more sense...
 				#
-				USE+='  python_single_target_python3_10  python_targets_python3_10'
-				USE+=' -python_single_target_python3_11 -python_targets_python3_11'
-				USE+=' -python_single_target_python3_12 -python_targets_python3_12'
+				compiler_USE+='  python_single_target_python3_10  python_targets_python3_10'
+				compiler_USE+=' -python_single_target_python3_11 -python_targets_python3_11'
+				compiler_USE+=' -python_single_target_python3_12 -python_targets_python3_12'
 				force_python=1
 				;;
 			*)
@@ -1622,6 +1631,7 @@ esac
 			fi
 			# shellcheck disable=SC2206
 			use+=( # <- Syntax
+				${USE:-}
 				'extra-filters'
 				${rustext:+"http2"}
 				'lzma'
@@ -1826,7 +1836,7 @@ esac
 						git diff --no-index --word-diff --color=always \
 								"${ofile}" "${file}" |
 							tail -n +6 |
-							fold -s -w $(( COLUMNS - 6 )) |
+							fold -s -w $(( ${COLUMNS:-"80"} - 6 )) |
 							sed 's/^/       /' >&2 || :
 						rm "${ofile}" "${file}"
 						[[ -e "${ofile}" || -e "${file}" ]] &&
