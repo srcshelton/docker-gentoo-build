@@ -323,13 +323,14 @@ if (( installed )); then
 		# Build list based on installed packages... (useful if the local image
 		# cache has been cleared!)
 		#
-		[[ -d /var/db/pkg/container ]] && find /var/db/pkg/container/ \
-				-mindepth 2 -maxdepth 2 -type f -name CONTENTS -print |
-			awk -F '/' 'NF-1 { print $(NF-1) }' |
-			sed \
-				-e 's/^php-\([0-9]\).\([0-9]\)\(.*\)$/php\1\2-\1.\2\3/g' \
-				-e 's/^unifi\(-controller\(-bin\)\?\)\?-\([0-9]\).\([0-9]\)\(.*\)$/unifi\3\4-\3.\4\5/g' |
-			sed -r 's/-[0-9][0-9.]*(_p[0-9]+)?(-r[0-9]+)?//'
+		[[ -d /var/db/pkg/container-services ]] &&
+			find /var/db/pkg/container-services/ \
+					-mindepth 2 -maxdepth 2 -type f -name CONTENTS -print |
+				awk -F '/' 'NF-1 { print $(NF-1) }' |
+				sed \
+					-e 's/^php-\([0-9]\).\([0-9]\)\(.*\)$/php\1\2-\1.\2\3/g' \
+					-e 's/^unifi\(-controller\(-bin\)\?\)\?-\([0-9]\).\([0-9]\)\(.*\)$/unifi\3\4-\3.\4\5/g' |
+				sed -r 's/-[0-9][0-9.]*(_p[0-9]+)?(-r[0-9]+)?//'
 
 		# Build list based on present images...
 		#
@@ -1003,7 +1004,7 @@ case "${package_name}" in
 		# 'compile-locales' forces 'minimal', which breaks sys-apps/iproute2
 		# dependency for net-firewall/firehol...
 		#
-		with_use='-timezone-tools' # compile-locales
+		with_use='-timezone-tools' # compile-locales
 		extra_pkgs='sys-apps/util-linux'
 		# portage sometimes struggles to resolve apparently obvious
 		# dependencies :(
@@ -1211,7 +1212,7 @@ case "${package_name}" in
 			output "Setting build variables for package 'spamassassin-update' ..."
 			# 'srcshelton' repo relocates gawk to /bin/
 			impl='::srcshelton'
-			with_use='gawk'
+			with_use='gawk sa-update'
 			extra_pkgs="
 				>=dev-perl/Crypt-OpenSSL-DSA-0.150.0
 				>=dev-perl/Crypt-OpenSSL-EC-1.10.0
@@ -1226,6 +1227,7 @@ case "${package_name}" in
 				dev-lang/python-exec
 				dev-libs/isl
 				dev-perl/GeoIP2
+				net-misc/curl
 				net-misc/geoipupdate
 				sys-apps/baselayout
 				sys-apps/busybox
@@ -1908,7 +1910,7 @@ then
 fi
 if (( ${#package_use_svc_name_extras[@]} )); then
 	for package_use_svc_name_extra in "${package_use_svc_name_extras[@]}"; do
-		if docker_extra_mounts+=( $( # <- Syntax
+		if docker_extra_mounts+=( $( # <- Syntax
 					add_mount --print \
 						"%base%/etc/portage/package.use.svc/${package_use_svc_name_extra}" \
 						"/etc/portage/package.use.override/${package_use_svc_name_extra}"
