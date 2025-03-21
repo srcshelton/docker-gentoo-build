@@ -46,11 +46,17 @@ declare pre_remove=''
 declare package_default='sys-kernel/gentoo-sources'
 if [ -n "${rpi_model:-}" ] || grep -q -- 'Model.*Raspberry Pi' /proc/cpuinfo
 then
+	echo "NOTE:  Building for Raspberry Pi platforms ..." ;
+	if [ -z "${rpi_model:-}" ]; then
+		echo "WARN:  Raspberry Pi detected but 'rpi_model' not set"
+		rpi_model='rpiX'
+	fi
 	package_default='sys-kernel/raspberrypi-sources'
 	USE="${USE:+"${USE} "}raspberrypi"
 	pre_remove="${pre_remove:+"${pre_remove} "}sys-kernel/linux-headers virtual/os-headers"
 elif grep -q -- 'cpu model.*Rockchip RK3588' /proc/cpuinfo
 then
+	echo "NOTE:  Building for Mixtile Rockchip RK3588 platform ..." ;
 	package_default='sys-kernel/mixtile-sources'
 	USE="${USE:+"${USE} "}rockchip"
 	pre_remove="${pre_remove:+"${pre_remove} "}sys-kernel/linux-headers virtual/os-headers"
@@ -2151,12 +2157,12 @@ esac
 			if ! [ -e /usr/src/build/.config ] || ! [ -f /usr/src/build/.config ] || ! [ -s /usr/src/build/.config ]; then
 				echo >&2 "WARN: No existing configuration found in '/usr/src/build/.config'" ;
 			else
-				echo "INFO: \$(
+				echo "INFO:  \$(
 					head -n 4 /usr/src/build/.config |
 							grep -- 'Configuration' ||
 						echo 'No kernel version declaration found' ;
 				)" ;
-				echo "INFO: Existing configuration file contains \$(
+				echo "INFO:  Existing configuration file contains \$(
 					grep -c '^CONFIG_' -- /usr/src/build/.config ;
 				) configuration directives" ;
 			fi ;
@@ -2318,7 +2324,16 @@ esac
 					dtb='1' ;
 				fi ;
 				;;
+			'')
+				echo >&2 "FATAL: No architecture specified" ;
+				exit 1 ;
+				;;
+			*)
+				echo >&2 "FATAL: Unknown architecture '${arch:-"${ARCH:-}"}'" ;
+				exit 1 ;
+				;;
 		esac ;
+		echo ;
 		${container_CC} --version ;
 		set -x ;
 		cd /usr/src/linux ;
@@ -2400,8 +2415,6 @@ esac
 			unset config ;
 		fi ;
 		if [ $(( rust )) -ne 0 ]; then
-			clang --version ;
-			echo ;
 			rustc --version ;
 			echo ;
 			export RUST_BACKTRACE=1 ;
@@ -2425,23 +2438,29 @@ esac
 				export RUSTFLAGS ;
 			fi ;
 		fi ;
+		pkg_version='' ;
+		pkg_localversion='' ;
+		cfg_localversion='' ;
+		new_localversion='' ;
 		localversion='' ;
 		if echo '${package_version}' | grep -Fq -- '_'; then
-			localversion="LOCALVERSION=_\$( echo '${package_version#*_}' | cut -d'_' -f 2- )" ;
+			pkg_version='${package_version%"_"*}' ;
+			pkg_localversion='_${package_version#*"_"}' ;
+			localversion="LOCALVERSION=\${pkg_localversion}" ;
 			if [ -f ../build/.config ]; then
 				if grep -qm 1 -- '^CONFIG_LOCALVERSION=' ../build/.config &&
 						! grep -qm 1 -- '^CONFIG_LOCALVERSION=""$' ../build/.config ;
 				then
-					echo >&2 "WARN:  \$(
-						grep -m 1 -- '^CONFIG_LOCALVERSION=' ../build/.config ;
-					) is already set, package version '\${localversion}' will be appended to this text" ;
+					cfg_localversion="\$( grep -m 1 -- '^CONFIG_LOCALVERSION="' ../build/.config | cut -d'"' -f 2 )" ;
+					echo >&2 "WARN:  CONFIG_LOCALVERSION=\${cfg_localversion} is already set," \
+						"package version '\${pkg_localversion}' will be appended to this text" ;
 				fi ;
 			fi ;
 		fi ;
-		kernel_version='${package_version}${distro:-}' ;
+		kernel_version="\${pkg_version}\${cfg_localversion:-}\${pkg_localversion:-}${distro:-}" ;
 		if echo '${package_version}' | grep -Eq -- '-r[0-9]+$'; then
 			kernel_version="$( echo "${package_version}" | grep -Eo -- '-r[0-9]+$' )" ;
-			kernel_version="$( echo "${package_version}" | sed -r 's/-r[0-9]+$//' )${distro:-}\${kernel_version}" ;
+			kernel_version="$( echo "\${pkg_version}" | sed -r 's/-r[0-9]+$//' )\${cfg_localversion:-}\${pkg_localversion:-}${distro:-}\${kernel_version}" ;
 		fi ;
 		echo "INFO:  Kernel version is '\${kernel_version}'" ;
 		if [ -e .config ]; then
@@ -2454,6 +2473,22 @@ esac
 				prepare \
 				${menuconfig:+"menuconfig"} \
 				${nconfig:+"nconfig"} ;
+		set +x ;
+		if [ -f ../build/.config ] && grep -Fqm 1 -- 'CONFIG_LOCALVERSION="' ../build/.config; then
+			new_localversion="\$( grep -m 1 -- '^CONFIG_LOCALVERSION="' ../build/.config | cut -d'"' -f 2 )" ;
+			if [ "\${cfg_localversion:-}" != "\${new_localversion:-}" ]; then
+				echo "INFO:  Kernel configuration local version updated from '\${cfg_localversion}' to '\${new_localversion}'" ;
+				cfg_localversion="\${new_localversion:-}" ;
+				kernel_version="\${pkg_version}\${cfg_localversion:-}\${pkg_localversion:-}${distro:-}" ;
+				if echo '${package_version}' | grep -Eq -- '-r[0-9]+$'; then
+					kernel_version="$( echo "${package_version}" | grep -Eo -- '-r[0-9]+$' )" ;
+					kernel_version="$( echo "\${pkg_version}" | sed -r 's/-r[0-9]+$//' )\${cfg_localversion:-}\${pkg_localversion:-}${distro:-}\${kernel_version}" ;
+				fi ;
+				echo "INFO:  Updated kernel version is '\${kernel_version}'" ;
+			fi ;
+		fi ;
+		unset new_localversion ;
+		set -x ;
 		time make ${kernel_make_opts[@]} O=../build \${localversion} ${deforoldconfig} \
 				vmlinux \
 				modules \
@@ -2496,6 +2531,7 @@ esac
 		unset localversion ;
 		if command -v kernel-hardening-checker >/dev/null 2>&1; then
 			kernel-hardening-checker -m show_fail -c ../build/.config ;
+			echo ;
 		fi ;
 		if [ -f ../build/vmlinux ]; then
 			mkdir -pv "/lib/modules/\${kernel_version}" &&
@@ -2549,7 +2585,7 @@ esac
 						exit 1 ;
 					fi ;
 				fi ;
-				echo >&2 "NOTE:  Remember to set 'os_prefix = \${kernel_version}' in config.txt" ;
+				echo >&2 "NOTE:  Remember to set 'os_prefix = \${kernel_version}/' in config.txt" ;
 			fi ;
 			if ! [ -d /host/bundle ]; then
 				echo >&2 "ERROR: Directory '${bundle_dir}' does not exist - cannot save bundle 'linux-\${kernel_version}.tar.xz'" ;
@@ -2627,7 +2663,7 @@ if (( raise_mem )); then
 #	export PODMAN_SWAP_LIMIT="${PODMAN_MEMORY_LIMIT}"
 fi
 
-#time {
+time {
 	#set -x
 		#DOCKER_DEVICES='--device=/dev/tty --device=/dev/tty0' \
 		TERM="${TERM:-}" \
@@ -2640,7 +2676,7 @@ fi
 	rc=${?}
 	#set +x
 	output " -> ${rc}"
-#}
+}
 
 if [[ -d /boot/dtbs ]] &&
 		[[ "$( find /boot/dtbs -maxdepth 0 -empty )" == '/boot/dtbs' ]]
