@@ -1,4 +1,4 @@
-*/*					 asm bzip2 caps cxx eselect-ldso fortran gmp lz4 lzma openmp openssl readline seccomp ssl unicode zstd # zlib
+*/*					 asm bzip2 caps cxx eselect-ldso fortran gmp lapack lz4 lzma openmp openssl readline seccomp ssl unicode zstd # zlib
 
 dev-debug/strace			 aio elfutils
 net-misc/openssh			 pie ssl
@@ -13,6 +13,7 @@ dev-db/sqlite				 icu secure-delete
 dev-libs/libevent			 clock-gettime
 dev-libs/libpcre2			 jit
 net-fs/nfs-utils			 junction libmount nfsv3 nfsv4 uuid
+sci-libs/lapack				 lapacke
 sys-apps/hwloc				 cpuid pci xml
 sys-apps/pciutils			 dns kmod
 sys-apps/util-linux			 hardlink logger magic ncurses suid

@@ -1,5 +1,5 @@
 
-*/*					 caps filecaps http2 ipv6 ssl zlib
+*/*					 caps eselect-ldso filecaps http2 ipv6 lapack ssl zlib
 */*					 PERL_FEATURES: ithreads
 
 # If postfix is included here then netdata tries to run a postfix server, which
@@ -31,6 +31,7 @@ sys-apps/iproute2			-minimal
 sys-apps/nvme-cli			 json
 sys-apps/smartmontools			-caps  # ... or +daemon
 sys-apps/util-linux			 logger tty-helpers
+sys-devel/gcc				 fortran
 sys-libs/glibc				-timezone-tools
 sys-libs/libnvme			 json
 sys-power/apcupsd			 net

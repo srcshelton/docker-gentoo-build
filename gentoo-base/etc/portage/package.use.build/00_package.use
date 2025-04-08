@@ -311,8 +311,6 @@ www-servers/lighttpd			-memcached fastcgi libev memcache uploadprogress webdav
 x11-libs/cairo				-X cleartype lcdfilter
 virtual/mta				 ssmtp
 
-#virtual/rust				 rustfmt  # required by dev-util/bindgen
-
 app-shells/stdlib			 colour
 mail-client/roundcube::srcshelton	 plugins zxcvbn
 
