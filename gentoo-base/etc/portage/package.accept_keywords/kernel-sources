@@ -2,27 +2,26 @@
 #							~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-5.10.233
-~sys-kernel/gentoo-sources-5.10.234			~amd64             ~x86
+~sys-kernel/gentoo-sources-5.10.235			~amd64             ~x86
 
 # Current stable package is gentoo-sources-5.15.177
-~sys-kernel/gentoo-sources-5.15.178			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-5.15.179			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.1.129
-~sys-kernel/gentoo-sources-6.1.130			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.1.131			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.6.79
-~sys-kernel/gentoo-sources-6.6.82			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.6.84			~amd64 ~arm ~arm64 ~x86
 
-# Clear Linux is up to date with linux-6.12.11
-~sys-kernel/gentoo-sources-6.12.11			~amd64 ~arm ~arm64 ~x86
 # Current stable package is gentoo-sources-6.12.16
-~sys-kernel/gentoo-sources-6.12.18			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.12.20			~amd64 ~arm ~arm64 ~x86
 
-# Clear Linux is up to date with linux-6.13.4
-~sys-kernel/gentoo-sources-6.13.4			~amd64 ~arm ~arm64 ~x86
-# Latest is gentoo-sources-6.13.6
-~sys-kernel/gentoo-sources-6.13.6			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/vanilla-sources-6.13.6			~amd64 ~arm ~arm64 ~x86
+# Clear Linux is up to date with linux-6.13.8
+~sys-kernel/gentoo-sources-6.13.8			~amd64 ~arm ~arm64 ~x86
+
+# Latest is gentoo-sources-6.14.0
+~sys-kernel/gentoo-sources-6.14.0			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-6.14.0			~amd64 ~arm ~arm64 ~x86
 
 # Required for rust modules...
 #
