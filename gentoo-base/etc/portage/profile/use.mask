@@ -1,4 +1,8 @@
 
+# This file is gentoo-base/etc/portage/profile/use.mask from the host
+# filesystem - other architectures are expected to install provide an override
+# to specify platform-specific defaults...
+
 # Michał Górny <mgorny@gentoo.org> (2021-11-04)
 # Enable all LLVM targets unconditionally.  Unfortunately, disabling
 # targets tend to break reverse dependencies (e.g. Rust) and we are yet

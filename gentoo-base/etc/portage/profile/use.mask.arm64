@@ -1,4 +1,8 @@
 
+# This file is gentoo-base/etc/portage/profile/use.mask.arm64 from the host
+# filesystem - other architectures are expected to install provide an override
+# to specify platform-specific defaults...
+
 # Michał Górny <mgorny@gentoo.org> (2021-11-04)
 # Enable all LLVM targets unconditionally.  Unfortunately, disabling
 # targets tend to break reverse dependencies (e.g. Rust) and we are yet
@@ -39,7 +43,7 @@ python_targets_python3_6
 python_targets_python3_7
 python_targets_python3_8
 python_targets_python3_9
-python_targets_python3_10
+#python_targets_python3_10
 #python_targets_python3_11
 #python_targets_python3_12
 python_targets_python3_13
@@ -50,7 +54,7 @@ python_targets_python3_13
 #
 php_targets_php7-4
 php_targets_php8-0
-#php_targets_php8-1
+php_targets_php8-1
 #php_targets_php8-2
 php_targets_php8-3
 

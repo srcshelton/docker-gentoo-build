@@ -1,14 +1,39 @@
 
+# Georgy Yakovlev <gyakovlev@gentoo.org> (2021-10-07)
+# parallel-compiler feature is not tested by upstream
+# and is not recommended for general usage and may silently
+# miscompile code if used (unlikely, but not impossible)
+# feel free to unmask, but be prepared to deal with possible bugs
+# https://bugs.gentoo.org/813954
+# https://github.com/rust-lang/rust/issues/89108
+#
+# N.B. Requires USE='nightly' prior to 1.85, dropped entirely afterwards
+#
+#dev-lang/rust -parallel-compiler
+#
+# Sam James <sam@gentoo.org> (2025-03-07)
+# Gradually unmask for newer Rust to avoid making users recompile for
+# the change. See bug #735154.
+#
+# Update: Fails for rust-1.8[45].*, so not ready yet...
+#
+#dev-lang/rust -system-llvm
+
+# Pacho Ramos <pacho@gentoo.org> (2020-08-21)
+# app-text/pandoc is hard to stabilize #737612
+#
+# Update: It's now stable...
+#
+sys-apps/earlyoom -docs
+sys-apps/earlyoom -man
+
 # Sam James <sam@gentoo.org> (2022-02-11)
 # Needs glibc-2.35(?) (or <2.34) which is not yet even keyworded but
 # won't be stable for a while. Can be unmasked then.
 # bug #806079
-# glibc-2.36 is now stable: unmasking
+#
+# Update: glibc-2.36 is now stable: unmasking
+#
 sys-apps/nvme-cli -hugepages
-
-# Pacho Ramos <pacho@gentoo.org> (2020-08-21)
-# app-text/pandoc is hard to stabilize #737612
-sys-apps/earlyoom -docs
-sys-apps/earlyoom -man
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
