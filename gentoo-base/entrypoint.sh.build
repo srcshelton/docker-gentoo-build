@@ -82,7 +82,7 @@ parse_opt() {
 	# The only way to get emerge to show most(*) valid options is to give it an
 	# intentionally unrecognised argument :o
 	#
-	# (*) It seems that short-options such as '-k' for '--usepkg=y' aren't
+	# N.B.: It seems that short-options such as '-k' for '--usepkg=y' aren't
 	# listed even then...
 	#
 	po_var="po_emerge_$( echo "${ROOT:-"/root"}" | cut -d'/' -f 2 )_opts"
@@ -654,7 +654,7 @@ applyworkarounds() {
 		"parameters '${*:-}'"
 
 	# N.B. virtual/rust is now deprecated
-	aw_pkgs='app-containers/podman app-containers/netavark app-containers/aardvark-dns dev-lang/rust dev-lang/rust-bin dev-util/bindgen'  # virtual/rust
+	aw_pkgs='app-containers/aardvark-dns app-containers/containers-storage app-containers/netavark app-containers/podman app-containers/runc dev-lang/rust dev-lang/rust-bin dev-util/bindgen'  # virtual/rust
 	[ $(( aw_mode )) -ne 2 ] &&
 		info >&2 "Checking for ${aw_pkgs} work-arounds ..."  # ! post_use
 	aw_list=''
@@ -838,6 +838,7 @@ applyworkarounds() {
 				warn >&2 "Adding USE flag 'openmp' due to CFLAG '-fopenmp'"
 				aw_gcc_use="${aw_gcc_use:+"${aw_gcc_use} "}openmp"
 			fi
+			# FIXME: Why are we adding 'nls' here?  Is it actually necessary?
 			aw_USE="${aw_USE:+"$( # <- Syntax
 					echo " ${aw_USE} " |
 						sed 's/ lib-only / / ; s/^ //'
@@ -1088,12 +1089,24 @@ do_emerge() {
 	export LC_ALL='C' FEATURES='-fail-clean'
 	# shellcheck disable=SC2116
 	do_emerge_str="$( echo "LC_ALL='${LC_ALL}'" \
-		" FEATURES='${FEATURES}'" \
-		" USE='${USE}'" \
-		" ${busybox_disclaimer:-} ;" \
-		" emerge" \
-			" ${opts:+"${opts} "}${do_emerge_args}"
-	)"
+			"FEATURES='${FEATURES}'" \
+			"USE='${USE}'" \
+			"${busybox_disclaimer:-} ;"
+		)"
+	# shellcheck disable=SC2116
+	if [ $(( buildonly )) -eq 1 ]; then
+		do_emerge_str="$( echo "${do_emerge_str}" \
+				"emerge" \
+					"${opts:+"${opts} "}${do_emerge_args} --onlydeps --with-bdeps=y &&"
+				"emerge" \
+					"${opts:+"${opts} "}${do_emerge_args} --buildpkgonly"
+			)"
+	else
+		do_emerge_str="$( echo "${do_emerge_str}" \
+				"emerge" \
+					"${opts:+"${opts} "}${do_emerge_args}"
+			)"
+	fi
 	eval "${do_emerge_str}" ||
 		do_emerge_rc=${?}
 
@@ -1403,12 +1416,16 @@ force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
 post_pkgs='' post_use='' post_remove=''
 rebuild='' depclean_extra='' depclean_exclude='' intent='keep'
-depclean=0 change_sysroot=0 pkg_use=0 pkg_mask=0 no_use=0 rc=0
+buildonly=0 depclean=0 change_sysroot=0 pkg_use=0 pkg_mask=0 no_use=0 rc=0
 for arg in "${@}"; do
 	#print "Read argument '${arg}'"
 
 	shift
 	case "${arg}" in
+		--buildonly|--build-only|--buildpkgonly|--build-pkg-only)
+			buildonly=1
+			continue
+			;;
 		--force-python=*)
 			force_python="$( # <- Syntax
 					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
