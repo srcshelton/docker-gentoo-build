@@ -63,9 +63,10 @@ then
 fi
 readonly package_default
 
+# TODO: Auto-detect minimum versions from scripts/min-tool-version.sh?
 declare binutils_min_ver='2.25.0'
-declare gcc_min_ver='5.1.0'  # 12.0.0 on PA-RISC
-declare llvm_min_ver='13.0.1'  # 11.0.0 before 6.9.0, 15.0.0 on S390, 18.0.0 on loongarch
+declare gcc_min_ver='5.1.0'  # 8.1.0 on x86, 12.0.0 on PA-RISC
+declare llvm_min_ver='13.0.1'  # 11.0.0 before 6.9.0, 15.0.0 on S390 and x86, 18.0.0 on loongarch
 
 declare firmware=''
 declare microcode=''
@@ -415,6 +416,9 @@ if echo " ${*:-} " | grep -Fq -- ' --clear-linux '; then
 		warn "Disabling '--clear-linux' since app-misc/jq and net-misc/curl" \
 			"are not both installed"
 	fi
+fi
+if echo " ${*:-} " | grep -Fq -- ' --no-clear-linux '; then
+	intel_patch=0
 fi
 
 # --menuconfig: see above
@@ -849,6 +853,7 @@ fi
 # End of argument handling
 
 # scripts/min-tool-version.sh first appeared in Linux v5.12
+# TODO: Auto-detect minimum versions from scripts/min-tool-version.sh?
 case "${package_version}" in
 	[01234].*|5.[0123456789].*|5.1[01].*)
 		die "Minimum supported kernel version is 5.12.0, found" \
@@ -974,8 +979,7 @@ case "${package_version}" in
 				;;
 		esac
 		;;
-	#6.8.*)
-	*)
+	6.[89].*|6.1[01234].*)
 		binutils_min_ver='2.25.0'
 		case "${arch:-"${ARCH:-}"}" in
 			hppa)
@@ -990,6 +994,32 @@ case "${package_version}" in
 				llvm_min_ver='18.0.0'
 				;;
 			s390)
+				llvm_min_ver='15.0.0'
+				;;
+			*)
+				llvm_min_ver='13.0.1'
+				;;
+		esac
+		;;
+	#6.15.*)
+	*)
+		binutils_min_ver='2.25.0'
+		case "${arch:-"${ARCH:-}"}" in
+			hppa)
+				gcc_min_ver='12.0.0'
+				;;
+			amd64|x86)
+				gcc_min_ver='8.1.0'
+				;;
+			*)
+				gcc_min_ver='5.1.0'
+				;;
+		esac
+		case "${arch:-"${ARCH:-}"}" in
+			loong)
+				llvm_min_ver='18.0.0'
+				;;
+			amd64|s390|x86)
 				llvm_min_ver='15.0.0'
 				;;
 			*)
@@ -1045,7 +1075,7 @@ if [[ "${compiler}" == 'clang' ]]; then
 			bindgen_ver='0.65.1'
 			(( llvm_default_slot = 17 ))
 			;;
-		6.1[0-9].*)
+		6.[1-9][0-9].*)
 			# Gentoo skipped rust-1.78.0 and jumped straight from rust-1.77.1
 			# to rust-1.79.0 ...
 			#rust_slot='1.78.0'
@@ -1062,30 +1092,30 @@ if [[ "${compiler}" == 'clang' ]]; then
 			;;
 	esac
 
-	if ! (( llvm_slot_override )); then
-		# No command-line override...
-		(( llvm_slot = llvm_default_slot ))
-		unset llvm_default_slot llvm_sub_slot_override llvm_slot_override
-	else
-		# Overrides in llvm_sub_slot_override & llvm_slot_override...
-		declare last_bad_llvm_ver=''
-		for last_bad_llvm_ver in \
-			"$(( llvm_default_slot - 1 )).999.999" \
-			"$(( llvm_min_slot - 1 )).999.999"
-		do
-			if [[ "$( # <- Syntax
-					printf '%s\n%s\n' \
-							"${llvm_sub_slot_override}" \
-							"${last_bad_llvm_ver}" |
-						sort -V |
-						tail -n 1
-					)" == "${last_bad_llvm_ver}" ]]
-			then
-				die "Specified LLVM version '${llvm_sub_slot_override}' is" \
-					"below minimum required version '${llvm_default_slot}'"
-			fi
-		done
-		unset last_bad_llvm_ver
+	(( llvm_slot = $(
+			printf '%s\n%s\n' \
+					"${llvm_default_slot}" \
+					"${llvm_min_slot}" |
+				sort -V |
+				tail -n 1
+		) ))
+	unset llvm_default_slot
+
+	if (( llvm_slot_override )); then
+		# Command-line overrides in llvm_sub_slot_override & llvm_slot_override...
+		declare last_unsuitable_llvm_ver="$(( llvm_slot - 1 )).9999.9999"
+		if [[ "$( # <- Syntax
+				printf '%s\n%s\n' \
+						"${llvm_sub_slot_override}" \
+						"${last_unsuitable_llvm_ver}" |
+					sort -V |
+					tail -n 1
+				)" == "${last_unsuitable_llvm_ver}" ]]
+		then
+			die "Specified LLVM version '${llvm_sub_slot_override}' is" \
+				"below minimum required version '${llvm_slot}'"
+		fi
+		unset last_unsuitable_llvm_ver
 		if [[ "${llvm_sub_slot_override}" == *.* ]]; then
 			llvm_sub_slot="${llvm_sub_slot_override}"
 			llvm_slot="${llvm_sub_slot%%.*}"
@@ -1094,14 +1124,16 @@ if [[ "${compiler}" == 'clang' ]]; then
 	unset llvm_sub_slot_override llvm_slot_override
 
 	if [[ -z "${llvm_sub_slot:-}" ]]; then
-		case ${llvm_slot} in
+		case $(( llvm_slot )) in
 			0)
 				die "'llvm_slot' is required for clang builds" ;;
 			[1-9]|10) : ;;
 			11|12|13)
 				llvm_sub_slot="${llvm_slot}.0.1" ;;
-			15)
+			15|19)
 				llvm_sub_slot="${llvm_slot}.0.7" ;;
+			18)
+				llvm_sub_slot="${llvm_slot}.0.8" ;;
 			*)
 				llvm_sub_slot="${llvm_slot}.0.6" ;;
 		esac
@@ -1115,17 +1147,19 @@ $_command image list "${IMAGE%":"*}" |
 		grep -Eq -- "^(localhost/)?${IMAGE%":"*}" ||
 	die "docker image '${IMAGE%":"*}' not found"
 
-if mount | grep ' on /boot ' | grep -Eq '(\(ro,|,ro,|,ro\))'; then
-	output >&2
-	output >&2 '*****'
-	output >&2 '*'
-	output >&2 '* WARNING: Your /boot partition is mounted read-only'
-	output >&2 '*'
-	output >&2 '*          Please remount read/write and retry'
-	output >&2 '*'
-	output >&2 '*****'
-	output >&2
-	sleep 5
+if (( install )); then
+	if mount | grep ' on /boot ' | grep -Eq '(\(ro,|,ro,|,ro\))'; then
+		output >&2
+		output >&2 '*****'
+		output >&2 '*'
+		output >&2 '* WARNING: Your /boot partition is mounted read-only'
+		output >&2 '*'
+		output >&2 '*          Please remount read/write and retry'
+		output >&2 '*'
+		output >&2 '*****'
+		output >&2
+		sleep 5
+	fi
 fi
 
 declare build_version=''
@@ -1303,7 +1337,7 @@ fi
 compiler_USE+=" -fortran -lib-only ${use_essential_gcc}"
 case "${compiler}" in
 	gcc)
-		compiler_pkgs=(
+		compiler_pkgs+=(
 			$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )
 			$( pkgslot sys-devel/gcc "${gcc_min_ver:-}" )
 		)
@@ -1331,7 +1365,7 @@ case "${compiler}" in
 				;;
 		esac
 		# shellcheck disable=SC2086
-		compiler_pkgs=(
+		compiler_pkgs+=(
 			$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )
 			sys-devel/binutils-config
 
@@ -1358,13 +1392,15 @@ case "${compiler}" in
 			$( pkgslot llvm-core/clang-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
 		)
 		if [[ "${unwind:-}" == 'llvm' ]]; then
+			pre_use="$( replace_flags '-clang' '-llvm-libunwind' -- "${pre_use}" )"
+			pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}llvm-runtimes/libunwind"
 			# shellcheck disable=SC2086
-			compiler_pkgs=(
+			compiler_pkgs+=(
 				$( pkgslot llvm-runtimes/libunwind ${llvm_slot} ${limit:-} ) # SLOT=0
 			)
 			compiler_USE="$( replace_flags 'llvm-libunwind' -- "${compiler_USE}" )"
 		else
-			compiler_pkgs=(
+			compiler_pkgs+=(
 				sys-libs/libunwind
 			)
 			compiler_USE="$( replace_flags '-llvm-libunwind' -- "${compiler_USE}" )"
@@ -1769,6 +1805,27 @@ esac
 							--with-pkg-mask=>=llvm-runtimes/openmp-${llvm_next}
 							--with-pkg-mask=>=llvm-runtimes/libunwind-${llvm_next}
 						EOF
+
+						# We need llvm-runtimes/libunwind[static-libs], but if
+						# we rely on portage alone to pull this package in then
+						# the build process for this package fails with an
+						# error that the 'libunwind' library is missing.
+						#
+						#warn >&2
+						#warn "Separately building working llvm-runtimes/libunwind ..." >&2
+						#warn >&2
+						#buildpkg='gentoo-build-pkg.docker'
+						#if buildpkg="$( dirname "$( # <- Syntax
+						#				realpath -e "${0}"
+						#			)" )/${buildpkg}" &&
+						#		[[ -x "${buildpkg}" ]]
+						#then
+						#	# shellcheck disable=SC2086
+						#	env -u USE "${buildpkg}" >&2 \
+						#		"$( pkgslot llvm-runtimes/libunwind ${llvm_slot} ${limit:-} )" \
+						#		"--with-pkg-mask=>=llvm-runtimes/libunwind-${llvm_next}"
+						#fi
+						#
 						unset llvm_next_slot llvm_next
 					fi
 				)
@@ -2088,7 +2145,7 @@ esac
 		else
 			false
 		fi
-	)" || RUSTFLAGS='-C target-cpu=native -C strip=debuginfo -C opt-level=3 -C link-arg=-Wl,-O1 -C link-arg=-Wl,--as-needed'
+	)" || RUSTFLAGS='-C target-cpu=native -C strip=debuginfo -C opt-level=3 -C link-arg=-Wl,-O2 -C link-arg=-Wl,--as-needed'
 	_LLVM_RUSTC_LTO="$( # <- Syntax
 		if type -pf emerge >/dev/null 2>&1; then
 			emerge --info 2>&1 | grep -- '^_LLVM_RUSTC_LTO=' | cut -d'"' -f 2
@@ -2438,7 +2495,7 @@ esac
 				export RUSTFLAGS ;
 			fi ;
 		fi ;
-		pkg_version='' ;
+		pkg_version='${package_version}' ;
 		pkg_localversion='' ;
 		cfg_localversion='' ;
 		new_localversion='' ;
