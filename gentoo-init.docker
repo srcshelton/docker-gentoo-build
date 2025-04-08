@@ -855,6 +855,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		#--build-arg CGO_FFLAGS
 		#--build-arg LDFLAGS
 		#--build-arg CGO_LDFLAGS
+		#--build-arg GOFLAGS
 		#--build-arg RUSTFLAGS
 
 		--compress
@@ -878,11 +879,11 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 	[[ -z "${rust_target_opt:-}" ]] || build_args+=( # <- Syntax
 		--build-arg RUST_TARGET_OPT="${rust_target_opt}"
 	)
-	declare cppflags='' cflags='' cxxflags='' fflags='' \
-		ldflags='' \
+	declare cppflags='' cflags='' cxxflags='' ldflags='' \
 		cgo_cppflags='' cgo_cflags='' cgo_cxxflags='' cgo_fflags='' \
-		cgo_ldflags='' \
-		fcflags='' flflags='' rustflags=''
+		cgo_ldflags='' goflags='' \
+		fflags='' fcflags='' flflags='' \
+		rustflags=''
 	if type -pf emerge >/dev/null 2>&1; then
 		cppflags="$( # <- Syntax
 				emerge --info 2>&1 |
@@ -944,6 +945,11 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 					grep -- '^CGO_LDFLAGS=' |
 					awk -F'"' '{print $2}' || :
 			)"
+		goflags="$( # <- Syntax
+				emerge --info 2>&1 |
+					grep -- '^GOFLAGS=' |
+					awk -F'"' '{print $2}' || :
+			)"
 		rustflags="$( # <- Syntax
 				emerge --info 2>&1 |
 					grep -- '^RUSTFLAGS=' |
@@ -951,7 +957,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 			)"
 	else
 		# shellcheck disable=SC1091,SC2030
-		eval "$(
+		eval "$( # <- Syntax
 			# shellcheck disable=SC2034
 			[[ -n "${LDFLAGS:-}" ]] || case "${arch:-"$( uname -m )"}" in
 				amd64|ppc64|x86)
@@ -1027,10 +1033,12 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		--build-arg CGO_CXXFLAGS="${cgo_cxxflags:-}"
 		--build-arg CGO_FFLAGS="${cgo_fflags:-}"
 		--build-arg CGO_LDFLAGS="${cgo_ldflags:-}"
+		--build-arg GOFLAGS="${goflags:-}"
 		--build-arg RUSTFLAGS="${rustflags:-}"
 	)
 	unset cppflags cflags cxxflags fflags fcflags flflags ldflags \
-		cgo_cppflags cgo_cflags cgo_cxxflags cgo_fflags cgo_ldflags rustflags
+		cgo_cppflags cgo_cflags cgo_cxxflags cgo_fflags cgo_ldflags goflags \
+		rustflags
 	# shellcheck disable=SC2206
 	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
 		--loglevel 3
