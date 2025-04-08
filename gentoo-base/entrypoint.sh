@@ -2294,10 +2294,12 @@ unset -v arch
 repo_name='' repo_path=''
 if command -v portageq >/dev/null 2>&1; then
 	for repo_name in $( portageq get_repos '/' ); do
-		for repo_path in "$( portageq get_repo_path '/' "${repo_name}" )"; do
+		if repo_path="$( portageq get_repo_path '/' "${repo_name}" )"; then
 			mkdir -p "${service_root}/$( dirname "${repo_path}" )"
 			ln -s "${repo_path}" "${service_root}/${repo_path}"
-		done
+		else
+			die "Could not get path for repo '${repo_name}' in root '/': ${?}"
+		fi
 	done
 fi
 unset repo_path repo_name
@@ -2823,13 +2825,14 @@ if [ -n "${pkg_initial:-}" ]; then
 						#      still be the ROOT='/' one!
 						#
 						(
-							eval "$( filter_toolchain_flags \
-								-fgraphite \
-								-fgraphite-identity \
-								-floop-nest-optimize \
-								-floop-parallelize-all \
-								-fopenmp
-							)" || :
+							eval "$( # <- Syntax
+									filter_toolchain_flags \
+										-fgraphite \
+										-fgraphite-identity \
+										-floop-nest-optimize \
+										-floop-parallelize-all \
+										-fopenmp
+								)" || :
 							do_emerge --build-defaults \
 								dev-libs/isl \
 								sys-devel/gcc
@@ -2895,10 +2898,66 @@ if [ -n "${pkg_initial:-}" ]; then
 										sed 's/^/>=/' |
 										xargs -r
 								) \
-							${pkg} # || :
+							"${pkg}" # || :
 								#--emptytree \
 					)
-				else  # [ "${pkg}" != 'sys-apps/help2man' ] && [ "${pkg}" != 'dev-perl/Locale-gettext' ]
+				elif [ "${pkg}" = 'sys-apps/util-linux' ]; then  # [ "${pkg}" != 'dev-perl/Locale-gettext' ] && [ "${pkg}" != 'sys-apps/help2man' ]
+
+					# It's unclear whether we hit a one-time problem with a bad
+					# package or a new build issue, but we had a circular
+					# dependency when building sys-apps/util-linux of
+					# libidn2 -> libunistring -> glibc -> libidn2
+					echo
+					echo " * Building initial package '${pkg:-}' into ROOT" \
+						"'${ROOT:-"/"}'" \
+						"${pkg_exclude:+"excluding packages with '${pkg_exclude}' "}..."
+					echo
+
+					case "${ROOT:-}" in
+						''|'/')
+							die "Unexpected value '${ROOT:-}' for ROOT" \
+								"prior to buildling initial package '${pkg:-}'"
+							;;
+						*)
+							:
+							;;
+					esac
+
+					# shellcheck disable=SC2086
+					if ! do_emerge --initial-defaults "${pkg}" ${pkg_exclude:-}
+					then
+						pkg_dep=''
+						for pkg_dep in sys-libs/glibc dev-libs/libunistring \
+								net-dns/libidn2
+						do
+							echo
+							echo " * Building dependencies for initial" \
+								"package '${pkg_dep:-}' for ROOT '${ROOT:-"/"}'"
+							echo
+
+							# shellcheck disable=SC2086
+							do_emerge --initial-defaults --onlydeps \
+								--with-bdeps=y "${pkg_dep}"
+
+							echo
+							echo " * Rebuilding initial package" \
+								"'${pkg_dep:-}' without merging for ROOT" \
+								"'${ROOT:-"/"}'"
+							echo
+
+							do_emerge --initial-defaults --buildpkgonly \
+								"${pkg_dep}"
+						done
+						unset pkg_dep
+
+						echo
+						echo " * Building initial package '${pkg:-}' into" \
+							"ROOT '${ROOT:-"/"}'" \
+							"${pkg_exclude:+"excluding packages with '${pkg_exclude}' "}..."
+						echo
+						do_emerge --initial-defaults "${pkg}" ${pkg_exclude:-}
+					fi
+				else  # [ "${pkg}" != 'sys-libs/glibc' ] && [ "${pkg}" != 'dev-perl/Locale-gettext' ] && [ "${pkg}" != 'sys-apps/help2man' ]
 
 					echo
 					echo " * Building initial package '${pkg:-}' into ROOT" \
@@ -2917,7 +2976,7 @@ if [ -n "${pkg_initial:-}" ]; then
 					esac
 
 					# shellcheck disable=SC2086
-					do_emerge --initial-defaults ${pkg} ${pkg_exclude:-} # || :
+					do_emerge --initial-defaults "${pkg}" ${pkg_exclude:-} # || :
 				fi  # [ "${pkg}" = 'sys-apps/help2man' ]
 
 				# For some reason, after dealing with /usr/sbin being a symlink
