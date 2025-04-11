@@ -295,7 +295,12 @@ docker_run() {
 
 		/etc/locale.gen  # FIXME: Commented in common/run.sh?
 
-		/usr/src  # Used to affect kernel-builds, now seems fine?
+		# Used to affect kernel-builds, now seems fine?
+		#
+		# Update: If mounted (ro), gives an error stating that a package
+		#         installation is trying to overwrite /var/run/podman-init(!)
+		#
+		#/usr/src
 	)
 	# shellcheck disable=SC2206
 	mirrormountpoints=(
@@ -304,8 +309,11 @@ docker_run() {
 		${rw_repo_path:-}
 		'/var/log/portage'
 	)
+	if [[ -d /usr/src ]]; then
+		mountpoints['/usr/src']='/srv/host/usr/src'
+	fi
 	if [[ -d /var/lib/portage/eclass/linux-info ]]; then
-		mountpoints['/var/lib/portage/eclass/linux-info']="/srv/host/var/lib/portage/eclass/linux-info"
+		mountpoints['/var/lib/portage/eclass/linux-info']='/srv/host/var/lib/portage/eclass/linux-info'
 	fi
 
 	#ENV PKGDIR="${PKGCACHE:-"/var/cache/portage/pkg"}/${ARCH:-"amd64"}/${PKGHOST:-"docker"}"
