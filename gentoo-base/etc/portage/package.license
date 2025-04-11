@@ -151,6 +151,8 @@ sys-apps/tcp-wrappers			 tcp_wrappers_license
 sys-cluster/hpl				 HPL
 sys-cluster/mpich			 mpich2
 
+sys-devel/mold				 CC0-1.0
+
 sys-firmware/intel-microcode		 intel-ucode
 sys-kernel/linux-firmware		 linux-fw-redistributable no-source-code # BSD-4
 
