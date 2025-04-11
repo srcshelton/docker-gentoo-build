@@ -2558,7 +2558,7 @@ esac
 		if [ "\${success}" = '1' ] && [ "\{extract}" = '1' ]; then
 			set -x ;
 			sh scripts/extract-vmlinux ../build/arch/\${dir}/boot/\${kernel} > vmlinux &&
-				[ -f vmlinux ] && mv vmlinux ../build/ || success=0 ;
+				[ -f vmlinux ] && mv -v vmlinux ../build/ || success=0 ;
 			set +x ;
 		fi ;
 		if [ "\${success}" = '0' ]; then
@@ -2599,7 +2599,7 @@ esac
 				find /lib/modules/${package_version}${distro:-}/ -type f -print |
 						while read -r file; do
 					echo >&2 "WARN:  '\${file}' is incorrectly installed to '/lib/modules/${package_version}${distro:-}' ..." ;
-					mv "\${file}" "/lib/modules/\${kernel_version}/" ;
+					mv -v "\${file}" "/lib/modules/\${kernel_version}/" ;
 				done ;
 				unset file ;
 				rmdir '/lib/modules/${package_version}${distro:-}' ;
@@ -2678,7 +2678,7 @@ esac
 			[ -n '${modargs:-}' ] &&
 				export modargs='${modargs}' BUILD_FIXES='${modargs}' ;
 			tar -C /usr/src/build/ -cpf - --exclude Makefile . |
-					tar -C /usr/src/linux/ -xvpf - &&
+					tar -C /usr/src/linux/ -xpf - &&
 				emerge -kv --buildpkg=y ${extra_packages} ;
 		fi ;
 	EOF
