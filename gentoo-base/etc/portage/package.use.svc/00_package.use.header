@@ -3,7 +3,7 @@
 # 00_package.use - USE-flags for service builds
 
 # Keep the following in sync with common/vars.sh
-*/*					-* asm ipv6 ktls mdev multiarch native-extensions nptl split-usr ssp threads # ${use_cpu_flags}  # from 'use-essential'
+*/*					-* asm ipv6 ktls mdev native-extensions nptl split-usr ssp threads # ${use_cpu_flags}  # from 'use-essential'
 #
 # 'nptl' has now been removed, and 'pch' is masked by default due to build failures...
 #
@@ -30,4 +30,4 @@ dev-util/pkgconf			 pkg-config
 sys-apps/busybox			-savedconfig
 sys-apps/portage			-rsync-verify
 sys-devel/gcc				-cet -nls default-stack-clash-protection default-znow lto pgo ssp zstd
-sys-libs/glibc				 clone3 compile-locales minimal ssp timezone-tools
+sys-libs/glibc				 clone3 compile-locales minimal multiarch ssp timezone-tools
