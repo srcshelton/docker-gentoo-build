@@ -38,8 +38,8 @@ if [[ "$( type -t 'die' )" != 'function' ]]; then
 fi
 
 if [[ "$( uname -s )" == 'Darwin' ]]; then
-	# Darwin/BSD lacks GNU readlink - either realpath or perl's Cwd module
-	# will do at a pinch, although both lack the additional options of GNU
+	# Darwin/BSD lacks GNU readlink - either realpath or perl's Cwd module will
+	# do at a pinch, although both lack the additional options of GNU
 	# binaries...
 	#
 	readlink() {
@@ -221,6 +221,14 @@ docker_run() {
 					$_command info 2>&1 |
 						grep -q -- 'cpuset'
 			then
+				# Pending a cleverer heuristic (... given *strange* CPU
+				# configurations such as are found on the Radxa Orion O6, or
+				# even more conventional big.LITTLE designs), let's avoid the
+				# first CPU (0), on the basis that this may have boot/tick/irq
+				# responsibillities...
+				#
+				# N.B. CPUs are indexed from 0 to `nproc`-1
+				#
 				echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))"
 			fi
 		)

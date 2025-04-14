@@ -893,12 +893,13 @@ _docker_resolve() {
 							if [[ -s "${repopath}/${cat}/${pkg}/${eb}" ]]; then
 								# Some SLOT definitions reference other
 								# variables, such as LLVM_MAJOR :(
-								export LLVM_MAJOR=0
+								export LLVM_MAJOR=0 PV=0
+								export LLVM_SOABI="${LLVM_MAJOR}"
 								eval "$( # <- Syntax
 										grep 'SLOT=' \
 											"${repopath}/${cat}/${pkg}/${eb}"
-									)"
-								unset LLVM_MAJOR
+									)" 2>/dev/null
+								unset LLVM_SOABI PV LLVM_MAJOR
 								slot="${SLOT:-"${slot}"}"
 								if grep -Eq -- "~${arch}([^-]|$)" \
 										"${repopath}/${cat}/${pkg}/${eb}"
@@ -1154,6 +1155,14 @@ _docker_run() {
 							docker info 2>&1 |
 								grep -q -- 'cpuset'
 					then
+						# Pending a cleverer heuristic (... given *strange* CPU
+						# configurations such as are found on the Radxa Orion
+						# O6, or even more conventional big.LITTLE designs),
+						# let's avoid the first CPU (0), on the basis that this
+						# may have boot/tick/irq responsibillities...
+						#
+						# N.B. CPUs are indexed from 0 to `nproc`-1
+						#
 						echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))"
 					fi
 				fi
