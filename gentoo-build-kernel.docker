@@ -42,6 +42,7 @@ declare -ir build_space_reqiured=750
 declare -ir temp_space_required=2800
 declare -ir graph_space_required=8500
 
+declare pkg_use=''
 declare pre_remove=''
 declare package_default='sys-kernel/gentoo-sources'
 if [ -n "${rpi_model:-}" ] || grep -q -- 'Model.*Raspberry Pi' /proc/cpuinfo
@@ -1266,6 +1267,7 @@ fi
 [ -d log ] || mkdir log
 
 declare openmp='openmp'
+declare pkg_mask=''
 declare pre_pkgs=''
 declare pre_use="${USE:-}"
 declare post_use=''
@@ -1330,6 +1332,14 @@ if (( opt_o3 )); then
 	unset add_flags
 fi
 
+compiler_pkgs=(
+	$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )
+	sys-devel/binutils-config
+)
+# Up to at least sys-devel/binutils-2.44, 'pgo' and 'xxhash' are
+# mutually-exclusive USE flags...
+compiler_USE+=" -xxhash"
+
 # Unconditionally add sys-devel/gcc USE flags, in case we need to rebuild it
 # even when we are primarily using clang/LLVM...
 #
@@ -1338,7 +1348,6 @@ compiler_USE+=" -fortran -lib-only ${use_essential_gcc}"
 case "${compiler}" in
 	gcc)
 		compiler_pkgs+=(
-			$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )
 			$( pkgslot sys-devel/gcc "${gcc_min_ver:-}" )
 		)
 		;;
@@ -1418,9 +1427,10 @@ case "${compiler}" in
 				# python3_10, so patching the older bindgen source seems to
 				# make more sense...
 				#
-				compiler_USE+='  python_single_target_python3_10  python_targets_python3_10'
-				compiler_USE+=' -python_single_target_python3_11 -python_targets_python3_11'
-				compiler_USE+=' -python_single_target_python3_12 -python_targets_python3_12'
+				USE+='  python_single_target_python3_10  python_targets_python3_10'
+				USE+=' -python_single_target_python3_11 -python_targets_python3_11'
+				USE+=' -python_single_target_python3_12 -python_targets_python3_12'
+				USE+=' -python_single_target_python3_13 -python_targets_python3_13'
 				force_python=1
 				;;
 			*)
@@ -1428,9 +1438,7 @@ case "${compiler}" in
 					# llvm-runtimes/libunwind-14* also depends on python3_10
 					#
 					case $(( llvm_slot )) in
-						'14')
-							force_python=1
-							;;
+						'14') force_python=1 ;;
 					esac
 				fi
 				;;
@@ -1450,6 +1458,8 @@ case "${compiler}" in
 			compiler_USE+='  python_single_target_python3_10  python_targets_python3_10'
 			compiler_USE+=' -python_single_target_python3_11 -python_targets_python3_11'
 			compiler_USE+=' -python_single_target_python3_12 -python_targets_python3_12'
+			compiler_USE+=' -python_single_target_python3_13 -python_targets_python3_13'
+			pkg_mask="${pkg_mask:+"${pkg_mask} "}--with-pkg-mask=>dev-lang/python-3.10.9999"
 		fi
 		unset force_python
 
@@ -1702,6 +1712,8 @@ esac
 
 				# Prevent cryptsetup -> tmpfiles -> systemd -> cryptsetup
 				# circular-dependency...
+				# ... also pam[systemd] -> systemd -> pam :(
+				pkg_use='sys-libs/pam -systemd'
 				pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}sys-apps/kmod sys-apps/systemd sys-fs/cryptsetup virtual/libudev virtual/udev"
 				pre_use="$( replace_flags '-cryptsetup' '-lvm' 'systemd' '-tmpfiles' 'udev' -- "${pre_use:-}" )"
 			fi
@@ -1830,6 +1842,7 @@ esac
 					fi
 				)
 				--with-pkg-mask=">${package}"
+				${pkg_mask:-}
 				--changed-use
 				--update
 				--usepkg=y
@@ -1841,6 +1854,7 @@ esac
 				#$( add_arg pre_use '--pre-use=##' )
 				#$( add_arg openmp '--post-pkgs=sys-devel/gcc' )
 				#$( add_arg post_use '--post-use=##' )
+				${pkg_use:+"--with-pkg-use=${pkg_use}"}
 				${pre_remove:+"--pre-remove=${pre_remove}"}
 				${pre_pkgs:+"--pre-pkgs=${pre_pkgs}"}
 				${pre_use:+"--pre-use=${pre_use}"}
@@ -2394,7 +2408,7 @@ esac
 		${container_CC} --version ;
 		set -x ;
 		cd /usr/src/linux ;
-		make ${kernel_make_opts[@]} mrproper ;
+		make ${kernel_make_opts[@]} mrproper 2>/dev/null ;
 		set +x ;
 		if [ -n '${patch:-}' ]; then
 			for p in ${patch}; do
