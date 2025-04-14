@@ -47,6 +47,7 @@ python_targets_python3_9
 #python_targets_python3_11
 #python_targets_python3_12
 python_targets_python3_13
+python_targets_python3_13t
 
 # Prevent old PHP implementations from being pulled-in
 #

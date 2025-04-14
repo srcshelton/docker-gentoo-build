@@ -10,7 +10,7 @@
 # potential, the increase of build time is a minor problem.  Users who
 # really insist of building a smaller system can un-force the flags
 # at their own responsibility. See bug #767700.
-llvm_targets_AArch64
+#llvm_targets_AArch64
 llvm_targets_AMDGPU
 llvm_targets_ARM
 llvm_targets_AVR
@@ -27,7 +27,7 @@ llvm_targets_Sparc
 llvm_targets_SystemZ
 llvm_targets_VE
 llvm_targets_WebAssembly
-#llvm_targets_X86
+llvm_targets_X86
 llvm_targets_XCore
 
 # Prevent other Python implementations being pulled-in
@@ -43,10 +43,11 @@ python_targets_python3_6
 python_targets_python3_7
 python_targets_python3_8
 python_targets_python3_9
-python_targets_python3_10
+#python_targets_python3_10
 python_targets_python3_11
 #python_targets_python3_12
 python_targets_python3_13
+python_targets_python3_13t
 
 # Prevent old PHP implementations from being pulled-in
 #
