@@ -791,7 +791,7 @@ do_emerge() {
 					--depclean
 				;;
 
-			'--defaults'|--*-defaults)
+			'--defaults'|'--'*'-defaults')
 				# shellcheck disable=SC2086
 				set -- "${@}" \
 					--backtrack=100 \
@@ -2063,6 +2063,17 @@ echo
 	# We also want to get a version of sys-libs/libxcrypt with libraries on the
 	# root filesystem.
 	#
+	# Update: ... but on a fresh ARM64 system, removing sys-libs/libxcrypt as
+	#         below without a pre-built alternative prevents perl from being
+	#         able to be used, which in turn prevents the building of the
+	#         replacement sys-libs/libxcrypt - so let's build a binary package
+	#         first.
+	#
+	# shellcheck disable=SC2046
+	(
+		export USE='-gmp -nls ssl'
+		do_emerge --single-defaults sys-libs/libxcrypt
+	)
 	do_emerge --unmerge-defaults sys-libs/pam sys-libs/libxcrypt
 	rmdir -p --ignore-fail-on-non-empty /usr/lib*/security/pam_filter || :
 
