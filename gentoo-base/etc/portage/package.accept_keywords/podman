@@ -568,11 +568,12 @@
 #~app-containers/containers-common-0.60.3		       ~arm        ~x86
 #~app-containers/containers-common-0.60.4		       ~arm        ~x86
 #~app-containers/containers-common-0.61.0		~amd64 ~arm ~arm64 ~x86
-~app-containers/containers-common-0.61.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.61.1		~amd64 ~arm ~arm64 ~x86
 #~app-containers/containers-common-0.62.0		~amd64 ~arm ~arm64 ~x86
 #~app-containers/containers-common-0.62.1		~amd64 ~arm ~arm64 ~x86
 #~app-containers/containers-common-0.62.2		~amd64 ~arm ~arm64 ~x86
 ~app-containers/containers-common-0.62.3		~amd64 ~arm ~arm64 ~x86
+~app-containers/containers-common-0.63.0		~amd64 ~arm ~arm64 ~x86
 
 ~app-containers/containers-image-5.30.0			       ~arm        ~x86
 ~app-containers/containers-image-5.32.2			       ~arm        ~x86
@@ -660,10 +661,11 @@
 #~app-containers/containers-storage-1.55.1		       ~arm        ~x86
 #~app-containers/containers-storage-1.55.2		~amd64 ~arm ~arm64 ~x86
 #~app-containers/containers-storage-1.56.0		~amd64 ~arm ~arm64 ~x86
-~app-containers/containers-storage-1.56.1		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-storage-1.56.1		~amd64 ~arm ~arm64 ~x86
 #~app-containers/containers-storage-1.57.0		~amd64 ~arm ~arm64 ~x86
 #~app-containers/containers-storage-1.57.1		~amd64 ~arm ~arm64 ~x86
 ~app-containers/containers-storage-1.57.2		~amd64 ~arm ~arm64 ~x86
+~app-containers/containers-storage-1.58.0		~amd64 ~arm ~arm64 ~x86
 
 # rust build dependencies for netavark/aardvark-dns
 # deprecated for app-portage/pycargoebuild
