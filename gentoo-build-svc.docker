@@ -94,6 +94,7 @@ services=(
 	powertop
 	privoxy
 	redis
+	rpi-monitor
 	spamassassin
 	spamassassin-update
 	spampd
@@ -565,6 +566,8 @@ case "${service:-}" in
 		service='net-proxy/privoxy' ;;
 	redis)
 		service='dev-db/redis' ;;
+	rpimonitor|rpi-monitor)
+		service='www-apps/rpi-monitor' ;;
 	spamassassin|spamd)
 		service='>=mail-filter/spamassassin-3.4.4-r1::srcshelton' ;;
 	spamassassin-update|sa-update)
@@ -1205,6 +1208,14 @@ case "${package_name}" in
 		container_cmd='/usr/sbin/redis-server'
 		container_cwd='/var/lib/redis'
 		etcdir='redis'
+		;;
+	*.rpi-monitor)
+		output "Setting build variables for package 'rpi-monitor' ..."
+
+		ports='8888/tcp'
+		container_cmd='/usr/sbin/rpimonitord'
+		container_cwd='/var/lib/rpi-monitor'
+		etcdir='rpimonitord'
 		;;
 	*.spamassassin|*.spamassassin-update)
 		pre_pkgs='sys-apps/help2man acct-group/spamd acct-user/spamd'

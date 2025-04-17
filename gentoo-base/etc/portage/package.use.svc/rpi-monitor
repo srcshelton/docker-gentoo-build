@@ -1,0 +1,8 @@
+
+*/*					 LUA_TARGETS: luajit
+
+#www-apps/rpi-monitor			 httpd tools
+
+net-analyzer/rrdtool			 graph perl rrdcgi
+
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
