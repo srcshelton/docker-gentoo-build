@@ -1139,12 +1139,13 @@ for repo_name in $( portageq get_repos '/' ); do
 			warn "location '${repo_path}' from '${repo_name}.conf' doesn't" \
 				"exist"
 		elif ! [ "${repo_path#"/var/db/repo/"}" = "${repo_name}" ]; then
-			if [ -d "/var/db/repo/${repo_name}" ]; then
+			if [ -e "/var/db/repo/${repo_name}" ]; then
 				warn "location '${repo_path}' is not in a default location," \
 					"but '/var/db/repo/${repo_name}' already exists"
 			else
-				warn "Creating compatibility symlink from '${repo_path}' to" \
-					"'/var/db/repo/${repo_name}' ..."
+				warn "Creating compatibility symlink" \
+					"'/var/db/repo/${repo_name}' with target '${repo_path}'" \
+					"..."
 				mkdir -p /var/db/repo
 				ln -s "${repo_path}" "/var/db/repo/${repo_name}"
 				: $(( created = 1 )) || :
@@ -3466,7 +3467,7 @@ case "${1:-}" in
 					break
 				fi
 			done
-			exit ${rc}
+			exit ${rc}  # from subshell
 		) || rc=${?}
 
 		check ${rc} "${package}"
@@ -3512,7 +3513,7 @@ case "${1:-}" in
 					break
 				fi
 			done
-			exit ${rc}
+			exit ${rc}  # from subshell
 		) || rc=${?}
 
 		check ${rc} "${@}"
@@ -3590,7 +3591,7 @@ case "${1:-}" in
 									break
 								fi
 							done
-							exit ${rc}
+							exit ${rc}  # from subshell
 						) || rc=${?}
 						;;
 				esac
@@ -3653,7 +3654,7 @@ case "${1:-}" in
 						break
 					fi
 				done
-				exit ${rc}
+				exit ${rc}  # from subshell
 			) || rc=${?}
 		fi
 
@@ -4000,7 +4001,7 @@ case "${1:-}" in
 						fi
 					done  # for ROOT in $(...)
 
-					exit ${rc}
+					exit ${rc}  # from subshell
 				) || rc=${?}
 				if [ $(( rc )) -ne 0 ]; then
 					echo "ERROR: Old python targets: ${rc}"
