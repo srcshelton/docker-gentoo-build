@@ -800,9 +800,9 @@ if (( intel_patch )); then
 			done=1
 		else
 			clear_commit="$( # <- Syntax
-				jq -r "map_values(select(.name | startswith(\"${package_version%-r*}\")))[].commit.sha" 2>/dev/null <<<"${response:-}" |
+				jq -r "map_values(select(.name | startswith(\"${package_version%[_-][pr]*}\")))[].commit.sha" 2>/dev/null <<<"${response:-}" |
 				head -n 1 ||
-				jq -r "map_values(select(.name | tostring | startswith(\"${package_version%-r*}\")))[].commit.sha" 2>/dev/null <<<"${response:-}"|
+				jq -r "map_values(select(.name | tostring | startswith(\"${package_version%[_-][pr]*}\")))[].commit.sha" 2>/dev/null <<<"${response:-}"|
 				head -n 1
 			)"
 			if [[ -n "${clear_commit:-}" ]]; then
@@ -814,10 +814,10 @@ if (( intel_patch )); then
 	done
 	if [[ -z "${clear_commit:-}" ]]; then
 		error "Intel Clear Linux has no patches for kernel" \
-			"${package_version%-r*}"
+			"${package_version%[_-][pr]*}"
 		intel_patch=0
 	else
-		info >&2 "Clear Linux patches for kernel ${package_version%-r*} are" \
+		info >&2 "Clear Linux patches for kernel ${package_version%[_-][pr]*} are" \
 			"commit '${clear_commit}'"
 		while read -r clear_patch; do
 			patch="${patch:+"${patch} "}https://raw.githubusercontent.com/clearlinux-pkgs/linux/${clear_commit}/${clear_patch}"
@@ -1401,8 +1401,8 @@ case "${compiler}" in
 			$( pkgslot llvm-core/clang-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
 		)
 		if [[ "${unwind:-}" == 'llvm' ]]; then
-			pre_use="$( replace_flags '-clang' '-llvm-libunwind' -- "${pre_use}" )"
-			pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}llvm-runtimes/libunwind"
+			pre_use="$( replace_flags '-clang' '-llvm-libunwind' 'static-libs' -- "${pre_use}" )"
+			#pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}llvm-runtimes/libunwind"
 			# shellcheck disable=SC2086
 			compiler_pkgs+=(
 				$( pkgslot llvm-runtimes/libunwind ${llvm_slot} ${limit:-} ) # SLOT=0
@@ -1690,6 +1690,7 @@ esac
 				${rustext:+"http2"}
 				'lzma'
 				${openmp:+"openmp"}
+				${rpi_model:+"raspberrypi"}
 				${rustext:+"rust-src"}
 				'symlink'
 				'threads'
