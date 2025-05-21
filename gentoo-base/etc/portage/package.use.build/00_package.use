@@ -290,7 +290,7 @@ sys-libs/cracklib			-python
 sys-libs/gdbm				 berkdb
 sys-libs/glibc				-gd clone3 compile-locales nscd ssp
 #sys-libs/libcap-ng			-python  # requires dev-lang/swig, but only as a DEPEND
-sys-libs/libnvme			 keyutils
+sys-libs/libnvme			-ssl  # keyutils
 sys-libs/libseccomp			-python  # requires static-libs
 sys-libs/ncurses			 trace unicode
 sys-libs/pam				-debug
