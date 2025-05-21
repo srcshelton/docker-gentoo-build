@@ -564,6 +564,30 @@ filter_features_flags() (
 	echo "${FEATURES:-}"
 )  # filter_features_flags
 
+map_p_to_pn() {
+	arg=''
+
+	if [ -z "${*:-}" ] || [ "${*:-}" = '-' ]; then
+		# shellcheck disable=SC2046
+		set -- $( cat - )
+	fi
+
+	[ -n "${*:-}" ] || return 1
+
+	if command -v qatom >/dev/null 2>&1; then
+		for arg in "${@}"; do
+			qatom -CF '%{CATEGORY}/%{PN}' "${arg}"
+		done
+	else
+		for arg in "${@}"; do
+			echo "${arg}" |
+				sed -r 's|^(.*)-[0-9].*$|\1|'
+		done
+	fi
+
+	unset arg
+}  # map_p_to_pn
+
 resolve_python_flags() {
 	# Ensure that USE, PYTHON_SINGLE_TARGET, and PYTHON_TARGETS are all in sync
 	# with each other...
@@ -783,6 +807,12 @@ do_emerge() {
 				;;
 
 			'--depclean-defaults')
+				# With '--verbose=n', if there's nothing to remove then we're
+				# prompted to run again in reverse mode to see further
+				# dependencies - but with '--verbose=y', if there *is* anything
+				# to remove then every removed filesystem object is listed
+				# individually... really, these options should be controlled by
+				# two separate parameters :(
 				set -- "${@}" \
 					--implicit-system-deps=n \
 					--verbose=n \
@@ -1037,6 +1067,55 @@ do_emerge() {
 
 	return ${do_emerge_rc}
 }  # do_emerge
+
+validate_python_installation() {
+	vpi_stage="${*:-}"
+
+	# shellcheck disable=SC2046
+	if ! test -d $(
+				printf '%s/var/db/pkg/dev-lang/%s*/.' \
+					"${ROOT:+"${ROOT%"/"}"}" \
+					"$( # <- Syntax
+						echo "${python_default_targets%%" "*}" |
+							sed 's/3_/-3./'
+					)"
+			)
+	then
+		warn "No installed package found for python_default_target" \
+			"'${python_default_targets%%" "*}' in ROOT '${ROOT:-"/"}'"
+	else
+		for python_path in "${ROOT:+"${ROOT%"/"}"}/usr/lib/$( # <- Syntax
+				echo "${python_default_targets%%" "*}" |
+					sed 's/_/./'
+			)" \
+			"${ROOT:+"${ROOT%"/"}"}/usr/include/$( # <- Syntax
+				echo "${python_default_targets%%" "*}" |
+					sed 's/_/./'
+			)"
+		do
+			if ! test -d "${python_path}"; then
+				warn "python component path '${python_path}' not found"
+			else
+				if [ $(( $(
+						find "${python_path}" -xtype f -perm 0 -print |
+							wc -l
+					) )) -gt 0 ]
+				then
+					echo >&2 "ERROR: Unreadable python files found in root" \
+						"'${ROOT:-"/"}':"
+					find "${python_path}" -xtype f -perm 0 -exec ls -l {} + |
+						sed 's/^/ERROR:   /' >&2
+					warn "python installation at '${python_path}' is" \
+						"broken${vpi_stage:+" at stage '${vpi_stage}'"}"
+					warn "Attempting in-place fix ..."
+					find "${python_path}" -type f -perm 0 -exec chmod 0644 {} +
+					find "${python_path}" -type d -perm 0 -exec chmod 0755 {} +
+				fi
+			fi
+		done
+		unset python_path
+	fi
+}  # validate_python_installation
 
 fix_sh_symlink() {
 	symlink_root="${1:-"${ROOT:-}"}"
@@ -1533,6 +1612,10 @@ if portageq get_repos '/' | grep -Fq -- 'srcshelton'; then
 	)
 fi
 
+# pre-removal python sanity-checks
+#
+validate_python_installation "pre-remove"
+
 (
 	mkdir -p /var/lib/portage
 	echo 'virtual/libc' > /var/lib/portage/world
@@ -1615,6 +1698,10 @@ fi
 	do_emerge --depclean-defaults ${list} || :
 )
 
+# pre-rebuild python sanity-checks
+#
+validate_python_installation "pre-rebuild"
+
 if [ $(( $(
 			find /var/db/pkg/dev-lang/ \
 					-mindepth 1 -maxdepth 1 \
@@ -1625,11 +1712,11 @@ if [ $(( $(
 		) )) -gt 1 ]
 then
 	echo
-	echo " * Multiple python interpreters present, attempting to" \
-		"rebuild for '${python_default_targets%%" "*}' ..."
+	echo " * Multiple python interpreters present, attempting rebuild for" \
+		"'${python_default_targets%%" "*}' ..."
 	echo
 	(
-		# First, let's try to get a working 'qatom' from
+		# First, let's try to get a working 'qatom' for map_p_to_pn from
 		# app-portage/portage-utils...
 		export QA_XLINK_ALLOWED='*'
 		FEATURES="$( # <- Syntax
@@ -1676,106 +1763,61 @@ then
 		# shellcheck disable=SC2046
 		{
 			rm -f /usr/lib64/libuuid.so.1*
-			rm -f /usr/lib/$( echo "${python_default_targets%%" "*}" |
-				sed 's/_/./' )/lib-dynload/_uuid.cpython-*.so
+			rm -f /usr/lib/$(
+					echo "${python_default_targets%%" "*}" | sed 's/_/./'
+				)/lib-dynload/_uuid.cpython-*.so
 		}
 
-		if command -v qatom >/dev/null 2>&1; then
-			# shellcheck disable=SC2046,SC2086
-			do_emerge --once-defaults $(
-					P=''
+		# python3_13 -> dev-lang/python:3.13
+		python_pkg="dev-lang/$( # <- Syntax
+				echo "${python_default_targets%%" "*}" |
+					sed 's/3_/:3./'
+			)"
+		# shellcheck disable=SC2046,SC2086
+		#	debug=1 \
+		do_emerge --once-defaults "${python_pkg}" $(
+				# The 20240605 arm64 stage3 image contains several outdated
+				# pakages which no longer exist in the portage tree :(
+				#
+				grep 'python_[^ ]*target' \
+						"${ROOT:-}"/var/db/pkg/*/*/USE |
+					grep -v "_${python_default_targets%%" "*}" |
+					grep '_python3_' |
+					grep -v 'backports' |
+					cut -d':' -f 1 |
+					rev |
+					cut -d'/' -f 2-3 |
+					rev |
+					map_p_to_pn |
+					xargs -r
+			)
+		unset python_pkg
 
-					# The 20240605 arm64 stage3 image contains several outdated
-					# pakages which no longer exist in the portage tree :(
-					#
+		list="$( # <- Syntax
+				{
+					echo "<dev-lang/$(
+						echo "${python_default_targets}" |
+							sed 's/3_/-3./' |
+							sort -V |
+							tail -n 1
+					)"
 					grep 'python_[^ ]*target' \
 							"${ROOT:-}"/var/db/pkg/*/*/USE |
 						grep -v "_${python_default_targets%%" "*}" |
 						grep '_python3_' |
-						grep -v 'backports' |
+						grep 'backports' |
 						cut -d':' -f 1 |
 						rev |
 						cut -d'/' -f 2-3 |
 						rev |
-						while read -r P; do
-							qatom -CF '%{CATEGORY}/%{PN}' "${P}"
-						done |
+						map_p_to_pn |
 						xargs -r
-				)
+				} |
+					grep -Fv -- '::' |
+					sort -V |
+					xargs -r
+			)"
 
-			list="$( # <- Syntax
-					{
-						P=''
-
-						echo "<dev-lang/$(
-							echo "${python_default_targets}" |
-								sed 's/3_/-3./' |
-								sort -V |
-								tail -n 1
-						)"
-						grep 'python_[^ ]*target' \
-								"${ROOT:-}"/var/db/pkg/*/*/USE |
-							grep -v "_${python_default_targets%%" "*}" |
-							grep '_python3_' |
-							grep 'backports' |
-							cut -d':' -f 1 |
-							rev |
-							cut -d'/' -f 2-3 |
-							rev |
-							while read -r P; do
-								qatom -CF '%{CATEGORY}/%{PN}' "${P}"
-							done |
-							xargs -r
-					} |
-						grep -Fv -- '::' |
-						sort -V |
-						xargs -r
-				)"
-		else
-			# shellcheck disable=SC2046,SC2086
-			#	debug=1 \
-			do_emerge --once-defaults $(
-					# The 20240605 arm64 stage3 image contains several outdated
-					# pakages which no longer exist in the portage tree :(
-					#
-					grep 'python_[^ ]*target' \
-							"${ROOT:-}"/var/db/pkg/*/*/USE |
-						grep -v "_${python_default_targets%%" "*}" |
-						grep '_python3_' |
-						grep -v 'backports' |
-						cut -d':' -f 1 |
-						rev |
-						cut -d'/' -f 2-3 |
-						rev |
-						sed -r 's|^(.*)-[0-9].*$|\1|' |
-						xargs -r
-				)
-
-			list="$( # <- Syntax
-					{
-						echo "<dev-lang/$(
-							echo "${python_default_targets}" |
-								sed 's/3_/-3./' |
-								sort -V |
-								tail -n 1
-						)"
-						grep 'python_[^ ]*target' \
-								"${ROOT:-}"/var/db/pkg/*/*/USE |
-							grep -v "_${python_default_targets%%" "*}" |
-							grep '_python3_' |
-							grep 'backports' |
-							cut -d':' -f 1 |
-							rev |
-							cut -d'/' -f 2-3 |
-							rev |
-							sed -r 's|^(.*)-[0-9].*$|\1|' |
-							xargs -r
-					} |
-						grep -Fv -- '::' |
-						sort -V |
-						xargs -r
-				)"
-		fi
 		echo "Package list: ${list}"
 		echo
 		# shellcheck disable=SC2086
@@ -1784,17 +1826,10 @@ then
 		do_emerge --preserved-defaults '@preserved-rebuild'
 	)
 fi
-# shellcheck disable=SC2046
-if ! test -d $(
-			printf '/var/db/pkg/dev-lang/%s*/.' "$( # <- Syntax
-					echo "${python_default_targets%%" "*}" |
-						sed 's/3_/-3./'
-				)"
-		)
-then
-	die "No installed package found for python_default_target" \
-		"'${python_default_targets%%" "*}'"
-fi
+
+# post-rebuild python sanity-checks
+#
+validate_python_installation "post-rebuild"
 
 echo
 echo " * Building 'sys-apps/fakeroot' package for stage3 ..."
@@ -2046,6 +2081,8 @@ if ! [ -d "/usr/${CHOST}" ]; then
 							head -n 1
 					)" '@preserved-rebuild'
 	)
+	validate_python_installation "CHOST change"
+
 	#if LC_ALL='C' eselect --colour=yes news read new |
 	#		grep -Fv -- 'No news is good news.'
 	#then
@@ -2793,14 +2830,24 @@ if [ -n "${pkg_initial:-}" ]; then
 						# by the time it's needed again, this problem has been
 						# resolved :(
 						#
+						# This process now seems to be pulling-in
+						# dev-libs/libxml2[-python] which has flag-conflicts
+						# with dev-libs/libxslt which requires
+						# dev-libs/libxml2[python] - let's see whether adding
+						# both resolves this issue...
+						#
 						do_emerge --build-defaults --emptytree \
 							app-crypt/libb2 \
 							app-crypt/libmd \
 							dev-libs/isl \
 							dev-libs/libbsd \
+							dev-libs/libxml2 \
+							dev-libs/libxslt \
 							dev-python/hatchling \
 							dev-python/setuptools \
 							sys-devel/gcc # || :
+
+						validate_python_installation "python pre-requisites"
 					)
 
 					# Install same dependencies again within our build ROOT...
@@ -2887,6 +2934,8 @@ if [ -n "${pkg_initial:-}" ]; then
 							dev-python/setuptools \
 							sys-devel/gettext \
 							sys-libs/libxcrypt # || :
+
+						validate_python_installation "python pre-requisites"
 					)
 				elif [ "${pkg}" = 'dev-perl/Locale-gettext' ]; then  # [ "${pkg}" != 'sys-apps/help2man' ]
 					(
@@ -3236,6 +3285,8 @@ echo
 			dev-lang/perl \
 			sys-libs/gdbm \
 
+		validate_python_installation "preserved-library avoidance"
+
 		root_use='' arm64_use=''
 		if [ -z "${ROOT:-}" ] || [ "${ROOT}" = '/' ]; then
 			root_use='-acl compat -bzip2 -e2fsprogs -expat -iconv -lzma -lzo -nettle -xattr -zstd'
@@ -3267,6 +3318,8 @@ echo
 				sys-libs/libxcrypt
 		unset root_use
 
+		validate_python_installation "system packages"
+
 		echo
 		echo " * Rebuilding any preserved dependencies ..."
 		echo
@@ -3274,6 +3327,8 @@ echo
 		#	debug=1 \
 			USE="asm openssl${USE:+" ${USE}"}-ensurepip -gdbm -ncurses -readline -sqlite -zstd" \
 		do_emerge --preserved-defaults '@preserved-rebuild'
+
+		validate_python_installation "preserved dependencies"
 	done  # for ROOT in $(...)
 )  # @system
 
@@ -4062,6 +4117,8 @@ case "${1:-}" in
 		if [ -n "${*:-}" ]; then
 			do_emerge --depclean-defaults "${@:-}" || :
 		fi
+
+		validate_python_installation "final cleanup"
 
 		if [ $(( rc )) -ne 0 ]; then
 			echo "ERROR: Final package cleanup: ${rc}"
