@@ -181,6 +181,7 @@
 =dev-util/ltrace-0.7.91_p195				~arm64
 ~net-analyzer/arpwatch-3.5				 **
 ~net-analyzer/darkstat-3.0.721				 **
+~net-analyzer/mping-2.01				 **
 ~net-dns/bind-9.18.29					~arm64
 ~net-dns/bind-tools-9.18.0				~arm64
 ~net-misc/autossh-1.4g					~arm64
