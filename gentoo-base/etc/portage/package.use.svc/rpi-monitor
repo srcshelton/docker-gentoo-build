@@ -3,6 +3,9 @@
 
 #www-apps/rpi-monitor			 httpd tools
 
+dev-libs/libpcre2			 unicode
+media-libs/freetype			 png
+media-libs/harfbuzz			 glib truetype
 net-analyzer/rrdtool			 graph perl rrdcgi
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
