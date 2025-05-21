@@ -3,8 +3,8 @@
 #*/*					-* asm ipv6 ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
 */*					-* pie split-usr
 
-*/*					 PYTHON_SINGLE_TARGET: -* python3_12
-*/*					 PYTHON_TARGETS: -* python3_12
+*/*					 PYTHON_SINGLE_TARGET: -* python3_13
+*/*					 PYTHON_TARGETS: -* python3_13
 
 net-misc/curl				 CURL_SSL: openssl
 # Packages outside of dev-perl and perl-core also reference these flags..

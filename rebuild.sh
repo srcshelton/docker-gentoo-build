@@ -560,7 +560,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 				failures="${failures:+"${failures} "}gentoo-build-pkg;1:${err}"
 			fi
 
-			if ! USE="-* ${use} perl_features_ithreads python_targets_${python_default_target:-"python3_12"}" \
+			if ! USE="-* ${use} perl_features_ithreads python_targets_${python_default_target:-"python3_13"}" \
 					PERL_FEATURES='ithreads' \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
@@ -653,7 +653,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 			#if [ "${ARCH}" = 'arm64' ]; then
 			#	USE='gold'
 			#fi
-			if ! USE="-* ${alt_use} ${USE} python_targets_${python_default_target:-"python3_12"} pam tools" \
+			if ! USE="-* ${alt_use} ${USE} python_targets_${python_default_target:-"python3_13"} pam tools" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -865,7 +865,7 @@ if [ "${update:-"0"}" = '1' ]; then
 			# sys-devel/gcc also requires USE='reference' (or 'samurai')...
 			#
 			# shellcheck disable=SC2031
-			export USE="${gcc_use} ${alt_use} reference python_targets_${python_default_target:-"python3_12"}"
+			export USE="${gcc_use} ${alt_use} reference python_targets_${python_default_target:-"python3_13"}"
 			{
 				./gentoo-build-pkg.docker \
 							--buildpkg=y \

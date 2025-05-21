@@ -666,7 +666,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#fi
 	#unset store
 
-	python_default_target='python3_12'
+	python_default_target='python3_13'
 	export python_default_target
 
 	php_default_target='php8-2'

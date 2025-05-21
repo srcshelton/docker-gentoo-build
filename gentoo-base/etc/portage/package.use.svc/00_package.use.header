@@ -17,8 +17,8 @@
 */*					 LUA_SINGLE_TARGET: luajit
 */*					 LUA_TARGETS: luajit
 */*					 PERL_FEATURES: ithreads
-*/*					 PYTHON_SINGLE_TARGET: -* python3_12
-*/*					 PYTHON_TARGETS: -* python3_12
+*/*					 PYTHON_SINGLE_TARGET: -* python3_13
+*/*					 PYTHON_TARGETS: -* python3_13
 
 # Set individually...
 #*/*					 PHP_TARGETS: php8-2

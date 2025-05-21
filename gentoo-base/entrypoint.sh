@@ -19,7 +19,7 @@ environment_filter="${environment_filter:-"__ENVFILTER__"}"
 
 # N.B. If multiple python_default_targets are required, the primary version
 #      must be listed *first*:
-python_default_targets='python3_12'
+python_default_targets='python3_13'
 stage3_flags=''
 
 export arch="${ARCH}"
@@ -1481,7 +1481,7 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 
 # Until we're rebuilt sys-devel/gcc ourselves, we can't rely on having
 # 'graphite' functionality - therefore, we need to strip these flags to prevent
-# built failures up to that point.
+# build failures up to that point.
 #
 _o_CFLAGS='' _o_CXXFLAGS=''
 _o_CGO_CFLAGS='' _o_CGO_CXXFLAGS=''
@@ -1502,7 +1502,8 @@ if [ -n "${CFLAGS:-}${CXXFLAGS:-}" ]; then
 		_o_CGO_LDFLAGS="${CGO_LDFLAGS:-}"
 		_o_FLFLAGS="${FLFLAGS:-}"
 		eval "$( # <- Syntax
-				filter_toolchain_flags -fgraphite -fgraphite-identity \
+				filter_toolchain_flags --env-only \
+					-fgraphite -fgraphite-identity \
 					-floop-nest-optimize -floop-parallelize-all
 			)" || :
 	fi
@@ -1639,7 +1640,7 @@ then
 		export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/python"
 		unset pkgdir
 		export USE='-clang -openmp -qmanifest -static'
-		eval "$( filter_toolchain_flags -fopenmp )" || :
+		eval "$( filter_toolchain_flags --env-only -fopenmp )" || :
 		do_emerge --once-defaults \
 			app-portage/portage-utils || :
 	)
@@ -2230,7 +2231,7 @@ do
 				#
 				# FIXME: Remove hard-coding of previous python targets
 				#
-				USE="${USE} -lzma -python_targets_python3_10 -python_targets_python3_11"
+				USE="${USE} -lzma -python_targets_python3_10 -python_targets_python3_11 -python_targets_python3_12"
 				;;
 			sys-devel/gcc)
 				USE="${USE} -nls"
@@ -2476,13 +2477,14 @@ if [ -n "${pkg_initial:-}" ]; then
 		fi
 
 		if eval "$( # <- Syntax
-				filter_toolchain_flags -fgraphite -fgraphite-identity \
+				filter_toolchain_flags --env-only \
+					-fgraphite -fgraphite-identity \
 					-floop-nest-optimize -floop-parallelize-all
 			)"
 		then
 			warn "Disabling graphite toolchain flags for stage3 build ..."
 		fi
-		if eval "$( filter_toolchain_flags -fopenmp )"; then
+		if eval "$( filter_toolchain_flags --env-only -fopenmp )"; then
 			warn "Disabling openmp toolchain flags for stage3 build ..."
 		fi
 
@@ -2625,7 +2627,7 @@ if [ -n "${pkg_initial:-}" ]; then
 
 						eval "$( # <- Syntax
 								resolve_python_flags \
-										"${USE:-} ${use_essential} ${use_essential_gcc}" \
+										"${USE:-} ${use_essential} ${use_essential_gcc} python" \
 										"${PYTHON_SINGLE_TARGET}" \
 										"${PYTHON_TARGETS}"
 							)"
@@ -2838,7 +2840,7 @@ if [ -n "${pkg_initial:-}" ]; then
 						#
 						(
 							eval "$( # <- Syntax
-									filter_toolchain_flags \
+									filter_toolchain_flags --env-only \
 										-fgraphite \
 										-fgraphite-identity \
 										-floop-nest-optimize \
@@ -3045,13 +3047,14 @@ echo
 	export USE
 
 	if eval "$( # <- Syntax
-			filter_toolchain_flags -fgraphite -fgraphite-identity \
+			filter_toolchain_flags --env-only \
+				-fgraphite -fgraphite-identity \
 				-floop-nest-optimize -floop-parallelize-all
 		)"
 	then
 		warn "Disabling graphite toolchain flags for system build ..."
 	fi
-	if eval "$( filter_toolchain_flags -fopenmp )"; then
+	if eval "$( filter_toolchain_flags --env-only -fopenmp )"; then
 		warn "Disabling openmp toolchain flags for system build ..."
 	fi
 
@@ -3710,7 +3713,7 @@ case "${1:-}" in
 						sort |
 						tail -n 1
 				)"
-			# python3_12 -> dev-lang/python-3.12
+			# python3_13 -> dev-lang/python-3.13
 			targetpkg="dev-lang/$( # <- Syntax
 					echo "${target}" | sed 's/^python/python-/ ; s/_/./'
 				)"
