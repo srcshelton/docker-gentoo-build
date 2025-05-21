@@ -2119,6 +2119,11 @@ fi
 	exclude=''
 	if [ -n "${pre_remove}" ]; then
 		for pkg in ${pre_remove}; do
+			# If we want to pre_remove sys-kernel/linux-headers and
+			# virtual/os-headers in order to use a platform-specific
+			# alternative then we don't want to fail dependency resolution at
+			# this stage...
+			echo "${pkg}" | grep -q -- '^virtual/' && continue
 			exclude="${exclude:+"${exclude} "}--exclude ${pkg}"
 		done
 		unset pkg
