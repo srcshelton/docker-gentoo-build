@@ -1432,6 +1432,7 @@ case "${compiler}" in
 				USE+=' -python_single_target_python3_12 -python_targets_python3_12'
 				USE+=' -python_single_target_python3_13 -python_targets_python3_13'
 				USE+=' -python_single_target_python3_13t -python_targets_python3_13t'
+				USE+=' -python_single_target_python3_14 -python_targets_python3_14'
 				force_python=1
 				;;
 			*)
@@ -1461,6 +1462,7 @@ case "${compiler}" in
 			compiler_USE+=' -python_single_target_python3_12 -python_targets_python3_12'
 			compiler_USE+=' -python_single_target_python3_13 -python_targets_python3_13'
 			compiler_USE+=' -python_single_target_python3_13t -python_targets_python3_13t'
+			compiler_USE+=' -python_single_target_python3_14 -python_targets_python3_14'
 			pkg_mask="${pkg_mask:+"${pkg_mask} "}--with-pkg-mask=>dev-lang/python-3.10.9999"
 		fi
 		unset force_python
