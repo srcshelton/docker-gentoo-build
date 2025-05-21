@@ -1826,6 +1826,23 @@ export FEATURES
 
 export QA_XLINK_ALLOWED='*'
 
+echo
+echo " * Building 'sys-apps/portage' package for stage3 (in case of" \
+	"downgrades) ..."
+echo
+(
+	USE="-* $( get_stage3 --values-only USE ) ${use_essential}"
+	export USE
+	pkgdir="$( LC_ALL='C' portageq pkgdir )"
+	export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+	unset pkgdir
+	PYTHON_TARGETS="${python_default_targets}"
+	PYTHON_SINGLE_TARGET="${python_default_targets%%" "*}"
+	export PYTHON_TARGETS PYTHON_SINGLE_TARGET
+
+	do_emerge --single-defaults 'sys-apps/portage'
+)
+
 usex() {
 	usex_var="${1:-}"
 	usex_true="${2:-}"
@@ -2063,7 +2080,10 @@ echo
 	# a QA violation.
 	#
 	# We also want to get a version of sys-libs/libxcrypt with libraries on the
-	# root filesystem.
+	# root filesystem, but can't remove it entirely without a binpkg already
+	# existing, as sys-libs/libxcrypt requires dev-lang/perl to build, whilst
+	# perl is dynamically linked to libcrypt.so, and so won't start without
+	# the library being present.
 	#
 	# Update: ... but on a fresh ARM64 system, removing sys-libs/libxcrypt as
 	#         below without a pre-built alternative prevents perl from being
@@ -2083,7 +2103,14 @@ echo
 	(
 		export USE='-gmp -nls ssl'
 		do_emerge --single-defaults sys-libs/libxcrypt
-		do_emerge --single-defaults dev-build/libtool sys-libs/pam $(
+
+		# app-arch/zstd is failing here because it can't find dev-build/ninja,
+		# which does indeed not appear to be being pulled-in, despite being
+		# explicitly required in the inherited eclasses and even when added
+		# explicitly in the ebuild...
+		#
+		do_emerge --single-defaults dev-build/libtool dev-build/ninja \
+			sys-libs/pam $(
 				# sys-devel/gcc is a special case with a conditional
 				# gen_usr_ldscript call...
 				# N.B. Using 'grep -lm 1' and so not having to read the whole
