@@ -1,7 +1,11 @@
 
 #							~amd64 ~arm ~arm64 ~x86
-~sys-apps/fwupd-1.9.24					       ~arm ~arm64
-#~sys-apps/fwupd-2.0.1					~amd64 ~arm ~arm64 ~x86
-#~sys-apps/fwupd-2.0.3					~amd64 ~arm ~arm64 ~x86
+~sys-apps/fwupd-2.0.3					       ~arm ~arm64
+
+~dev-libs/libjcat-0.2.2					       ~arm ~arm64
+~sys-apps/flashrom-1.4.0				~amd64 ~arm ~arm64 ~x86
+~sys-apps/flashrom-1.5.0				~amd64 ~arm ~arm64 ~x86
+~sys-apps/fwupd-efi-1.7					       ~arm ~arm64
+~sys-apps/uswid-0.4.7					       ~arm ~arm64
 
 # vi: set syntax=gentoo-package-keywords:

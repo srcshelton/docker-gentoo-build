@@ -165,6 +165,8 @@
 #
 # $ ACCEPT_KEYWORDS='~arm64' emerge --ignore-default-opts -p --nodeps app-misc/colordiff app-misc/splitvt app-text/lesspipe app-text/pinfo app-vim/help-extra-syntax app-vim/info app-vim/json app-vim/vim-spell-en dev-perl/Net-OAuth dev-python/pypy3 dev-util/ltrace net-analyzer/arpwatch net-analyzer/darkstat net-misc/linuxptp net-misc/usbip sys-apps/haveged sys-apps/kexec-tools sys-apps/memtester sys-apps/watchdog sys-auth/pam_mobile_otp sys-power/powertop sys-process/incron dev-libs/log4cplus
 
+~app-benchmarks/stress-1.0.7				~arm64
+~app-benchmarks/stress-ng-0.18.12			~arm64
 =app-misc/colordiff-1.0.21				~arm64
 =app-misc/splitvt-1.6.6_p7				 **
 =app-text/lesspipe-2.13					~arm64
@@ -173,6 +175,7 @@
 =app-vim/info-1.7-r3					 **
 =app-vim/json-20150511					 **
 ~app-vim/vim-spell-en-20060123				~arm64
+~dev-debug/bpftrace-0.21.3				~arm64
 #=dev-perl/Net-Twitter-Lite-0.12008			 **
 ~dev-python/pypy3-7.3.17				~arm64
 =dev-util/ltrace-0.7.91_p195				~arm64
@@ -184,7 +187,10 @@
 ~net-misc/linuxptp-4.2					~arm64
 ~net-misc/usbip-6.4					 **
 =sci-libs/blis-1.0					~arm64
+~sys-apps/cracklib-words-2.10.3				 **
+~sys-apps/dtc-1.7.2					~arm64
 ~sys-apps/haveged-1.9.18				~arm64
+~sys-apps/ifplugd-0.28					~arm64
 ~sys-apps/kexec-tools-2.0.29				~arm64
 =sys-apps/memtester-4.6.0				~arm64
 ~sys-apps/watchdog-5.16					~arm64
