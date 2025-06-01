@@ -12,29 +12,33 @@ rc=0
 sa-update --checkonly || rc=${?}
 
 if [ $(( rc )) -ge 4 ]; then
-	echo >&2 "sa-update flagged error - aborting"
+	echo >&2 "sa-update flagged error (${rc}) - aborting"
 	exit ${rc}
 
 elif [ $(( rc )) -ge 2 ]; then
-	echo >&2 "sa-update flagged partial success - attemping to update ..."
+	echo >&2 "sa-update flagged partial success (${rc}) - attemping to update ..."
 	sa-update -v || :
 	updated=1
 
 elif [ $(( rc )) -eq 1 ]; then
 	if [ -e /.force-update ]; then
-		echo >&2 "sa-update flagged no updates available, but update forced ..."
+		echo >&2 "sa-update flagged no updates available (${rc}), but update forced ..."
 		updated=1
 	else
-		echo >&2 "sa-update flagged no updates available, skipping ..."
+		echo >&2 "sa-update flagged no updates available (${rc}), skipping ..."
 	fi
 
 else # [ $(( rc )) -eq 0 ]; then
-	sa-update -v || exit 1
+	echo >&2 "sa-update flagged updates available (${rc}), running update ..."
+	if ! sa-update -v; then
+		echo >&2 "sa-update process failed (${?}) - aborting"
+		exit 1
+	fi
 	updated=1
 fi
 
 if [ $(( updated )) -eq 1 ]; then
-	echo >&2 ' * Setting environment ...'
+	echo >&2 ' * Update succeeded, setting environment for build ...'
 
 	if [ -e /etc/portage/repos.conf ]; then
 		if [ -d /etc/portage/repos.conf ]; then
@@ -47,8 +51,8 @@ if [ $(( updated )) -eq 1 ]; then
 	fi
 	mkdir -p /var/db/repos/gentoo
 
-	# Dockerfile.service needs to inherit from 'gentoo-env' rather than
-	# 'scratch' if we want to inherit this value automagically...
+	# FIXME: Dockerfile.service needs to inherit from 'gentoo-env' rather than
+	#        'scratch' if we want to inherit this value automagically...
 	export CHOST="${CHOST:-"x86_64-pc-linux-gnu"}"
 
 	# Superseded by app-alternatives/awk...
