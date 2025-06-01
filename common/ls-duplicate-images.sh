@@ -46,10 +46,17 @@ if echo " ${*:-} " | grep -Fq -- ' --latest '; then
 	latest=''
 fi
 
+#                1                               2    3        4      5
 php_pattern_1='^(localhost/service.dev-lang.php)(\s+)([0-9])\.([0-9])(\..*)$'
-php_replacement_1='\1\3\4\2\3.\4\5'
-php_pattern_2='^(localhost/service.dev-lang.php)([0-9]{2})(.*)$'
-php_replacement_2='\1\3'
+php_replacement_1='\1\3\4 \3.\4\5'
+#                localhost/service.dev-lang.php          8   .    2    .28-r1
+#                localhost/service.dev-lang.php82 8.2.28-r1
+#
+#                1                               2            3
+php_pattern_2='^(localhost/service.dev-lang.php)([0-9]{2})\s+(.*)$'
+php_replacement_2='\1-\3'
+#                localhost/service.dev-lang.php82 8.2.28-r1
+#                localhost/service.dev-lang.php-8.2.28-r1
 
 images="$(
 	eval "${_command} image list --noheading ${all:+" ${all}"}"		|
