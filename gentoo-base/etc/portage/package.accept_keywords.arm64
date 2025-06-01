@@ -27,17 +27,6 @@
 #=sys-apps/raspberrypi-utilities-armv6-1.20230106	~arm
 #=sys-apps/raspberrypi-utilities-armv6-1.20230306	~arm
 #=sys-apps/raspberrypi-utilities-armv6-1.20230317	~arm
-#=sys-apps/raspberrypi-utilities-armv6-1.20230405	~arm
-#=sys-apps/raspberrypi-utilities-armv6-1.20240306	~arm
-#=sys-apps/raspberrypi-utilities-armv6-1.20240424	~arm
-#=sys-apps/raspberrypi-utilities-armv6-1.20240529	~arm
-#=sys-apps/raspberrypi-utilities-armv6-1.20240902	~arm
-#=sys-apps/raspberrypi-utilities-armv6-1.20240924	~arm
-#=sys-apps/raspberrypi-utilities-armv6-1.20240926	~arm
-#=sys-apps/raspberrypi-utilities-armv6-1.20241001	~arm
-#=sys-apps/raspberrypi-utilities-armv6-1.20241008	~arm
-#=sys-apps/raspberrypi-utilities-armv6-1.20241125	~arm
-#=sys-apps/raspberrypi-utilities-armv6-1.20241126	~arm
 
 =sys-apps/raspberrypi-tools-1.20230424			~arm64
 =sys-apps/raspberrypi-tools-1.20240201			~arm64
@@ -47,6 +36,12 @@
 =sys-apps/raspberrypi-tools-1.20241004			~arm64
 =sys-apps/raspberrypi-tools-1.20241009			~arm64
 =sys-apps/raspberrypi-tools-1.20241121			~arm64
+=sys-apps/raspberrypi-tools-1.20241126			~arm64
+=sys-apps/raspberrypi-tools-1.20250106			~arm64
+=sys-apps/raspberrypi-tools-1.20250131			~arm64
+=sys-apps/raspberrypi-tools-1.20250304			~arm64
+=sys-apps/raspberrypi-tools-1.20250318			~arm64
+=sys-apps/raspberrypi-tools-1.20250428			~arm64
 
 =sys-boot/raspberrypi-firmware-1.20210303		~arm64
 =sys-boot/raspberrypi-firmware-1.20210430		~arm64
@@ -81,11 +76,16 @@
 =sys-boot/raspberrypi-firmware-1.20241008		~arm64
 =sys-boot/raspberrypi-firmware-1.20241125		~arm64
 =sys-boot/raspberrypi-firmware-1.20241126		~arm64
+=sys-boot/raspberrypi-firmware-1.20250127		~arm64
+=sys-boot/raspberrypi-firmware-1.20250305		~arm64
+=sys-boot/raspberrypi-firmware-1.20250326		~arm64
+=sys-boot/raspberrypi-firmware-1.20250430		~arm64
 
 #=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p9	~arm64
 #=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p10	~arm64
 =sys-firmware/raspberrypi-wifi-ucode-20190114.1_p11	~arm64
 =sys-firmware/raspberrypi-wifi-ucode-20221012.1_p1	~arm64
+=sys-firmware/raspberrypi-wifi-ucode-20240709.2_p3	~arm64
 
 =sys-kernel/raspberrypi-image-5.10.17_p20210303-r1	~arm64
 =sys-kernel/raspberrypi-image-5.10.17_p20210430-r1	~arm64
@@ -117,9 +117,12 @@
 #=sys-kernel/raspberrypi-image-6.6.51_p20240924-r1	~arm64
 #=sys-kernel/raspberrypi-image-6.6.51_p20240926-r1	~arm64
 =sys-kernel/raspberrypi-image-6.6.51_p20241001-r1	~arm64
-=sys-kernel/raspberrypi-image-6.6.56_p20241008-r1	~arm64
+=sys-kernel/raspberrypi-image-6.6.51_p20241008-r1	~arm64
 =sys-kernel/raspberrypi-image-6.6.62_p20241125-r1	~arm64
 =sys-kernel/raspberrypi-image-6.6.62_p20241126-r1	~arm64
+=sys-kernel/raspberrypi-image-6.6.74_p20250127-r1	~arm64
+=sys-kernel/raspberrypi-image-6.12.20_p20250326-r1	~arm64
+=sys-kernel/raspberrypi-image-6.12.25_p20250430-r1	~arm64
 
 =sys-kernel/raspberrypi-sources-5.10.17_p20210303-r1	~arm64
 =sys-kernel/raspberrypi-sources-5.10.17_p20210430-r1	~arm64
@@ -154,9 +157,12 @@
 #=sys-kernel/raspberrypi-sources-6.6.51_p20240924	~arm64
 #=sys-kernel/raspberrypi-sources-6.6.51_p20240926	~arm64
 =sys-kernel/raspberrypi-sources-6.6.51_p20241001	~arm64
-=sys-kernel/raspberrypi-sources-6.6.56_p20241008	~arm64
+=sys-kernel/raspberrypi-sources-6.6.51_p20241008	~arm64
 =sys-kernel/raspberrypi-sources-6.6.62_p20241125	~arm64
 =sys-kernel/raspberrypi-sources-6.6.62_p20241126	~arm64
+=sys-kernel/raspberrypi-sources-6.6.74_p20250127	~arm64
+=sys-kernel/raspberrypi-sources-6.12.20_p20250326	~arm64
+=sys-kernel/raspberrypi-sources-6.12.25_p20250430	~arm64
 
 # arm64 is currently not well-keyworded, so match specific 'arm' stable
 # packages in order to build an equivalent base-system, with the intent that
@@ -203,16 +209,16 @@
 # required by net-misc/kea-2.4.0-r1
 ~dev-libs/log4cplus-2.0.7				~arm64
 
-~container-services/bind-9.18.29			~arm ~arm64
+~container-services/bind-9.18.31			~arm ~arm64
 ~container-services/bitlbee-3.6				~arm ~arm64
 ~container-services/dovecot-2.3.21.1			~arm ~arm64
 ~container-services/imapproxy-1.2.8_p14637		 **
-~container-services/lighttpd-1.4.76			~arm ~arm64
+~container-services/lighttpd-1.4.78			~arm ~arm64
 ~container-services/opendkim-2.10.3			~arm ~arm64
 ~container-services/opendmarc-1.4.1.1			~arm ~arm64
 ~container-services/postgrey-1.37_p20230714		~arm ~arm64
-~container-services/pound-4.8				 **
+~container-services/pound-4.10				 **
 ~container-services/privoxy-3.0.34			~arm ~arm64
-~container-services/unifi-controller-8.4.62		~arm ~arm64
+~container-services/unifi-controller-9.1.120		~arm ~arm64
 
 # vi: set colorcolumn=56,80 syntax=gentoo-package-keywords sw=8 ts=8:
