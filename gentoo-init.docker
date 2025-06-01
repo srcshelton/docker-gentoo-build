@@ -637,7 +637,7 @@ if ! type -pf portageq >/dev/null 2>&1; then
             emerge --info 2>&1 |
                 grep -E -- '^PORT(AGE)?_LOGDIR=' |
                 head -n 1 |
-                cut -d'"' -f 2
+                cut -d'"' -f 2 || :
         )"}"}"
 	for dir in /var/cache/portage/dist \
 			"${portage_log_dir:-"/var/log/portage"}" \

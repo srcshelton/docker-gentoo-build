@@ -177,7 +177,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			emerge --info 2>&1 |
 				grep -E -- '^PORT(AGE)?_LOGDIR=' |
 				head -n 1 |
-				cut -d'"' -f 2
+				cut -d'"' -f 2 || :
 		)"}"}"
 	log_dir="${portage_log_dir:-"/var/log/portage"}/containers"
 	unset portage_log_dir

@@ -1579,7 +1579,7 @@ _docker_run() {
 					emerge --info 2>&1 |
 						grep -E -- '^PORT(AGE)?_LOGDIR=' |
 						head -n 1 |
-						cut -d'"' -f 2
+						cut -d'"' -f 2 || :
 				)"}"}"
 			mirrormountpoints=(
 				#/var/cache/portage/dist
@@ -1587,6 +1587,7 @@ _docker_run() {
 				'/etc/portage/savedconfig'
 				"${portage_log_dir:-"/var/log/portage"}"
 			)
+			unset portage_log_dir
 
 			if [[ -z "${arch:-}" ]]; then
 				_docker_setup

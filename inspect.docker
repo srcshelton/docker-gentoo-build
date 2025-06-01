@@ -315,7 +315,7 @@ docker_run() {
 			emerge --info 2>&1 |
 				grep -E -- '^PORT(AGE)?_LOGDIR=' |
 				head -n 1 |
-				cut -d'"' -f 2
+				cut -d'"' -f 2 || :
 		)"}"}"
 	# shellcheck disable=SC2206
 	mirrormountpoints=(
@@ -324,6 +324,7 @@ docker_run() {
 		${rw_repo_path:-}
 		"${portage_log_dir:-"/var/log/portage"}"
 	)
+	unset portage_log_dir
 	if [[ -d /usr/src ]]; then
 		mountpoints['/usr/src']='/srv/host/usr/src'
 	fi
