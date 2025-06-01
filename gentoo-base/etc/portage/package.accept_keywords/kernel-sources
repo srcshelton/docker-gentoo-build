@@ -2,28 +2,24 @@
 #							~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-5.10.233
-~sys-kernel/gentoo-sources-5.10.236			~amd64             ~x86
+~sys-kernel/gentoo-sources-5.10.237			~amd64             ~x86
 
 # Current stable package is gentoo-sources-5.15.177
-~sys-kernel/gentoo-sources-5.15.180			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-5.15.183			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.1.132
-~sys-kernel/gentoo-sources-6.1.134			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.1.139			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.6.85
-~sys-kernel/gentoo-sources-6.6.87			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.6.91			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.12.21
-~sys-kernel/gentoo-sources-6.12.23			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.12.29			~amd64 ~arm ~arm64 ~x86
 
-# Clear Linux is up to date with linux-6.13.8
-~sys-kernel/gentoo-sources-6.13.8			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/gentoo-sources-6.13.9			~amd64 ~arm ~arm64 ~x86
-
-# Clear Linux is up to date with linux-6.14.2
-# Latest is gentoo-sources-6.14.2
-~sys-kernel/gentoo-sources-6.14.2			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/vanilla-sources-6.14.2			~amd64 ~arm ~arm64 ~x86
+# Clear Linux is up to date with linux-6.14.8
+# Latest is gentoo-sources-6.14.8
+~sys-kernel/gentoo-sources-6.14.8			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-6.14.8			~amd64 ~arm ~arm64 ~x86
 
 # Required for rust modules...
 #
@@ -37,46 +33,27 @@
 #      has been reasonably fragile/specific to date...
 #
 # 6.1.x to 6.4.x
-#~virtual/rust-1.62.0					~amd64
-#~dev-lang/rust-1.62.0					~amd64
+#dev-lang/rust:1.62.0					~amd64
 ~dev-util/bindgen-0.56.0				~amd64
 ~llvm-core/clang-toolchain-symlinks-14			~amd64
 ~llvm-core/lld-toolchain-symlinks-14			~amd64
 ~llvm-core/llvm-toolchain-symlinks-14			~amd64
 # 6.5.x
-#~virtual/rust-1.68.2					~amd64
-#~dev-lang/rust-1.68.2					~amd64
+#dev-lang/rust:1.68.2					~amd64
 # 6.6.x
-#~virtual/rust-1.71.1					~amd64
-#~dev-lang/rust-1.71.1					~amd64
 dev-lang/rust:1.71.1					~amd64
 ~dev-util/bindgen-0.65.1				~amd64
 # 6.7.x
-#~virtual/rust-1.73.0					~amd64
-#~dev-lang/rust-1.73.0					~amd64
-#~dev-lang/rust-bin-1.73.0				~amd64
 dev-lang/rust:1.73.0					~amd64
 dev-lang/rust-bin:1.73.0				~amd64
 # 6.8.x
-#~virtual/rust-1.74.1					~amd64
-#~dev-lang/rust-1.74.1					~amd64
-#~dev-lang/rust-bin-1.74.1				~amd64
 dev-lang/rust:1.74.1					~amd64
 dev-lang/rust-bin:1.74.1				~amd64
 # 6.9.x
-#~virtual/rust-1.76.0					~amd64
-#~dev-lang/rust-1.76.0					~amd64
-#~dev-lang/rust-bin-1.76.0				~amd64
 dev-lang/rust:1.76.0					~amd64
 dev-lang/rust-bin:1.76.0				~amd64
-# 6.10.x/6.11.x
-#~virtual/rust-1.78.0					~amd64
-#~dev-lang/rust-1.78.0					~amd64
-#~dev-lang/rust-bin-1.78.0				~amd64
+# 6.10.x+
 # Gentoo skipped 1.78.0, and went straight from 1.77.1 to 1.79.0...
-#~virtual/rust-1.79.0					~amd64
-#~dev-lang/rust-1.79.0					~amd64
-#~dev-lang/rust-bin-1.79.0				~amd64
 dev-lang/rust:1.79.0					~amd64
 dev-lang/rust-bin:1.79.0				~amd64
 
