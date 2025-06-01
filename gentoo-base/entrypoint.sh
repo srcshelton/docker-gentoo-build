@@ -956,15 +956,18 @@ do_emerge() {
 		warn "Running emerge with ROOT='${ROOT:-"/"}' without" \
 			"'eclass/linux-info' mounted into '/srv/host/var/lib/portage' -" \
 			"kernel configuration dependencies will not be recorded"
-		warn
-		warn "Mounts:"
-		findmnt --real --pairs |
-			sort -V |
-			awk -F '"' '{print $4 " on " $2 " type " $6}' |
-			while read -r line; do
-				warn "  ${line}"
-			done
-		unset line
+		if [ -n "${DEBUG:-}" ]; then
+			warn
+			warn "Mounts:"
+			line=''
+			findmnt --real --pairs |
+				sort -V |
+				awk -F '"' '{print $4 " on " $2 " type " $6}' |
+				while read -r line; do
+					warn "  ${line}"
+				done
+			unset line
+		fi
 	fi
 
 	print "Running \"emerge ${*}\"${USE:+" with USE='${USE}'"}" \
