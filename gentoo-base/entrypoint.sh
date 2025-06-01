@@ -4079,6 +4079,17 @@ case "${1:-}" in
 							fi
 						fi
 
+						# Running 'do_emerge --depclean-defaults' now complains
+						# that app-crypt/libmd is a dependency of
+						# net-misc/openssh, for ROOT '/build' - we could ignore
+						# this, try to hide the message, or run the above
+						# command twice...
+						#
+						if [ "${ROOT:-"/"}" = "${service_root:-}" ]; then
+							do_emerge --depclean-defaults net-misc/openssh \
+								app-crypt/libmd
+						fi
+
 						do_emerge --depclean-defaults || rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
 							echo "ERROR: Stage 2 world depclean: ${rc}"
