@@ -207,6 +207,7 @@ docker_run() {
 	local mp='' src=''  # cwd=''
 	local default_repo_path='' rw_repo_path=''
 	local default_distdir_path='' default_pkgdir_path=''
+	local portage_log_dir=''
 
 	#${arr[@]+"${arr[@]}"}
 	(( 0 == ${#args[@]} )) && args=( 'sh' )
@@ -310,12 +311,18 @@ docker_run() {
 		#
 		#/usr/src
 	)
+	portage_log_dir="${PORTAGE_LOGDIR:-"${PORT_LOGDIR:-"$( # <- Syntax
+			emerge --info 2>&1 |
+				grep -E -- '^PORT(AGE)?_LOGDIR=' |
+				head -n 1 |
+				cut -d'"' -f 2
+		)"}"}"
 	# shellcheck disable=SC2206
 	mirrormountpoints=(
 		#/var/cache/portage/dist
 		"${default_distdir_path:-"$( portageq distdir )"}"
 		${rw_repo_path:-}
-		'/var/log/portage'
+		"${portage_log_dir:-"/var/log/portage"}"
 	)
 	if [[ -d /usr/src ]]; then
 		mountpoints['/usr/src']='/srv/host/usr/src'
@@ -479,7 +486,7 @@ docker_run() {
 
 	(
 		if (( debug )); then
-			local arg=''
+			local arg='' bn=''
 			print "Starting container with command '$_command container run \\"
 			for arg in "${runargs[@]}"; do
 				case "${arg}" in
@@ -493,28 +500,37 @@ docker_run() {
 			done
 			print "'"
 			unset arg
-			if touch inspect.docker.debug.log; then
-				cat >inspect.docker.debug.log <<-EOF
+			bn="$( basename "${0}" )"
+			if mkdir -p "${log_dir:="log"}" &&
+					touch "${log_dir}/debug.${bn}.log"
+			then
+				cat > "${log_dir}/debug.${bn}.log" <<-EOF
 					#! /bin/sh
 
 					set -eux
 
 				EOF
-				printf >>inspect.docker.debug.log '%s container run \\\n' "${_command}"
+				printf >> "${log_dir}/debug.${bn}.log" \
+					'%s container run \\\n' "${_command}"
 				for arg in "${runargs[@]}"; do
-					printf >>inspect.docker.debug.log '        %s \\\n' "${arg}"
+					printf >> "${log_dir}/debug.${bn}.log" \
+						'        %s \\\n' "${arg}"
 				done
 				unset arg
-				printf >>inspect.docker.debug.log '    %s \\\n' "${image}"
+				printf >> "${log_dir}/debug.${bn}.log" \
+					'    %s \\\n' "${image}"
 				# Start at $1 as $0 is the command itself...
 				local -i i=1
 				for (( ; i < ${#} ; i++ )); do
-					printf >>inspect.docker.debug.log '        %s \\\n' "${!i:-}"
+					printf >> "${log_dir}/debug.${bn}.log" \
+						'        %s \\\n' "${!i:-}"
 				done
 				# At this point i == ${#}...
-				printf >>inspect.docker.debug.log '        %s\n' "${!i:-}"
+				printf >> "${log_dir}/debug.${bn}.log" \
+					'        %s\n' "${!i:-}"
 				unset i
 			fi
+			unset bn
 		fi
 		# shellcheck disable=SC2086
 		$_command \

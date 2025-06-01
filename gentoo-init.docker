@@ -108,9 +108,10 @@ declare -i NOTIFY_MKDIR=0
 [[ ! -s common/vars.sh ]] || . common/vars.sh
 # shellcheck disable=SC2034  # Set from common/vars.sh
 [[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
-	echo >&2 "FATAL: Inclusion of common defaults from '${PWD}/common/vars.sh' failed"
-	exit 1
-}
+		echo >&2 "FATAL: Inclusion of common defaults from" \
+			"'${PWD}/common/vars.sh' failed"
+		exit 1
+	}
 
 [[ -n "${base_dir:-}" ]]
 [[ -d "${base_dir}" ]]
@@ -482,8 +483,6 @@ makedir() {
 
 declare repo_path_srcshelton=''
 
-[[ -d ../log ]] || makedir ../log
-
 # Check for environment sanity...
 if ! type -pf portageq >/dev/null 2>&1; then
 	warn "Not running on Gentoo host system, not checking eclass overrides"
@@ -632,13 +631,21 @@ if ! type -pf portageq >/dev/null 2>&1; then
 	fi
 	unset ref
 
+	portage_log_dir="${PORTAGE_LOGDIR:-"${PORT_LOGDIR:-"$( # <- Syntax
+			# We don't have portageq so are unlikely to have emerge either, but
+			# it's worth a shot...
+            emerge --info 2>&1 |
+                grep -E -- '^PORT(AGE)?_LOGDIR=' |
+                head -n 1 |
+                cut -d'"' -f 2
+        )"}"}"
 	for dir in /var/cache/portage/dist \
-			/var/log/portage \
+			"${portage_log_dir:-"/var/log/portage"}" \
 			/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}
 	do
 		[[ -d "${dir}" ]] || makedir "${dir}"
 	done
-	unset dir
+	unset dir portage_log_dir
 
 	unset private_gentoo_clone repo_path_gentoo
 
@@ -803,6 +810,9 @@ local_stage3_id="$( docker image ls --noheading \
 		--format='{{.ID}}' \
 	"${stage3_name}:latest"
 )" || die "Could not determine local stage3 image name"
+
+mkdir -p "${log_dir:="log"}" ||
+	die "Could not create log directory '${log_dir}': ${?}"
 
 [[ -z "${trace:-}" ]] || set -o xtrace
 
@@ -1045,7 +1055,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		${DEBUG_EXTRA_ARGS:-}
 	)
 	docker image build "${build_args[@]}" . 2>&1 |
-		tee ../log/"docker.${env_name#*"/"}.log"
+		tee "${log_dir}/${env_name#*"/"}.log"
 	output " -> ${?}"
 	unset build_args
 
@@ -1264,7 +1274,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 		${DEBUG_EXTRA_ARGS:-}
 	)
 	docker image build "${build_args[@]}" . 2>&1 |
-		tee ../log/"docker.${stage3_name#*"/"}.log"
+		tee "${log_dir}/${stage3_name#*"/"}.log"
 	output " -> ${?}"
 	unset container_file build_args
 
@@ -1431,7 +1441,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 		${DEBUG_EXTRA_ARGS:-}
 	)
 	docker image build "${build_args[@]}" . 2>&1 |
-		tee ../log/"docker.${init_name#*"/"}.log"
+		tee "${log_dir}/${init_name#*"/"}.log"
 	output " -> ${?}"
 	unset container_file build_args
 
@@ -1622,7 +1632,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		)
 		# shellcheck disable=SC2086
 		_docker_run "${docker_run_args[@]}" virtual/libc ${python_pkgs:-} 2>&1 |
-			tee ../log/"docker.${base_name#*"/"}.log"
+			tee "${log_dir}/${base_name#*"/"}.log"
 	)
 	output " -> ${?}"
 
@@ -1637,15 +1647,15 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		docker container commit \
 					--squash \
 				"${base_name#*"/"}" "${base_name}:latest" 2>&1 |
-			tee -a ../log/"docker.${base_name#*"/"}.log"
+			tee -a "${log_dir}/${base_name#*"/"}.log"
 	else
 		buildah commit \
 					--squash \
 				"${base_name#*"/"}" "${base_name}:latest" 2>&1 |
-			tee -a ../log/"docker.${base_name#*"/"}.log"
+			tee -a "${log_dir}/${base_name#*"/"}.log"
 	fi
 	docker container rm --volumes "${base_name#*"/"}" 2>&1 |
-		tee -a ../log/"docker.${base_name#*"/"}.log"
+		tee -a "${log_dir}/${base_name#*"/"}.log"
 	trap - INT
 	output " -> ${?}"
 
@@ -1741,7 +1751,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		${DEBUG_EXTRA_ARGS:-}
 	)
 	docker "${container_args[@]}" image build "${build_args[@]}" . 2>&1 |
-		tee ../log/"docker.${build_name#*"/"}.log"
+		tee "${log_dir}/${build_name#*"/"}.log"
 	unset container_file build_args
 
 	(
@@ -1837,7 +1847,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 				sys-apps/locale-gen sys-apps/sed sys-apps/util-linux \
 				sys-devel/gcc ${eudev} @system \
 				${pkg_pypy:+"sys-apps/portage"} ${pkg_pypy:-} 2>&1 |
-			tee -a ../log/"docker.${build_name#*"/"}.log"
+			tee -a "${log_dir}/${build_name#*"/"}.log"
 		unset build_args
 	)
 	output " -> ${?}"
@@ -1852,19 +1862,19 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		docker "${container_args[@]}" container commit \
 					--squash \
 				"${build_name#*"/"}" "${build_name}-finalise:latest" |
-			tee -a ../log/"docker.${build_name#*"/"}.log"
+			tee -a "${log_dir}/${build_name#*"/"}.log"
 	else
 		buildah "${container_args[@]}" commit \
 					--squash \
 				"${build_name#*"/"}" "${build_name}-finalise:latest" |
-			tee -a ../log/"docker.${build_name#*"/"}.log"
+			tee -a "${log_dir}/${build_name#*"/"}.log"
 	fi
 	# shellcheck disable=SC2031,SC2086,SC2140
 	docker "${container_args[@]}" container rm --volumes "${build_name#*"/"}" |
-		tee -a ../log/"docker.${build_name#*"/"}.log"
+		tee -a "${log_dir}/${build_name#*"/"}.log"
 	# shellcheck disable=SC2031,SC2086,SC2140
 	docker "${container_args[@]}" image rm "${build_name}-root:latest" |
-		tee -a ../log/"docker.${build_name#*"/"}.log"
+		tee -a "${log_dir}/${build_name#*"/"}.log"
 	output " -> ${?}"
 	trap - INT
 
@@ -1882,7 +1892,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 				--name "${build_name#*"/"}-finalise" \
 				--net none \
 			"${build_name}-finalise:latest" --finalise-container |
-		tee -a ../log/"docker.${build_name#*"/"}.log"
+		tee -a "${log_dir}/${build_name#*"/"}.log"
 	output " -> ${?}"
 	trap - INT
 
@@ -1896,20 +1906,20 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		docker "${container_args[@]}" container commit \
 					--squash \
 				"${build_name#*"/"}-finalise" "${build_name}:latest" |
-			tee -a ../log/"docker.${build_name#*"/"}.log"
+			tee -a "${log_dir}/${build_name#*"/"}.log"
 	else
 		buildah "${container_args[@]}" commit \
 					--squash \
 				"${build_name#*"/"}-finalise" "${build_name}:latest" |
-			tee -a ../log/"docker.${build_name#*"/"}.log"
+			tee -a "${log_dir}/${build_name#*"/"}.log"
 	fi
 	# shellcheck disable=SC2031,SC2086,SC2140
 	docker "${container_args[@]}" container rm --volumes \
 			"${build_name#*"/"}-finalise" |
-		tee -a ../log/"docker.${build_name#*"/"}.log"
+		tee -a "${log_dir}/${build_name#*"/"}.log"
 	# shellcheck disable=SC2031,SC2086,SC2140
 	docker "${container_args[@]}" image rm "${build_name}-finalise:latest" |
-		tee -a ../log/"docker.${build_name#*"/"}.log"
+		tee -a "${log_dir}/${build_name#*"/"}.log"
 	output " -> ${?}"
 	trap - INT
 

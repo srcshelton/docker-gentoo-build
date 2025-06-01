@@ -13,11 +13,12 @@ trace=${TRACE:-}
 
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
-basedir='.'
+utils_basedir='.'
 # FIXME: Don't hard-code directory name...
-if [ -d ../docker-gentoo-build ]; then
-	basedir='..'
+if [ -d ../docker-dell ]; then
+	utils_basedir='..'
 fi
+
 for script in \
 	gentoo-build-kernel \
 	gentoo-build-pkg \
@@ -37,7 +38,12 @@ if command -v podman >/dev/null 2>&1; then
 fi
 
 # Allow a separate image directory for persistent images...
-#tmp="$( ${_command} system info | grep 'imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
+#tmp="$( # <- Syntax
+#	${_command} system info |
+#		grep 'imagestore:' |
+#		cut -d':' -f 2- |
+#		awk '{print $1}'
+#	)"
 #if [ -n "${tmp}" ]; then
 #	export IMAGE_ROOT="${tmp}"
 #fi
@@ -51,7 +57,6 @@ if [ -z "${kbuild_opt:-}" ]; then
 fi
 all=0
 alt_use='bison flex gnu http2'  # http2 targeting curl for rust packages...
-#alt_use='flex gnu http2'  # http2 targeting curl for rust packages...
 arg=''
 exclude=''
 force=0
@@ -70,7 +75,7 @@ update=0
 case " ${*:-} " in
 	*' -h '*|*' --help '*)
 		printf >&2 'Usage: %s ' "$( basename "${0}" )"
-		if [ -d "${basedir}/docker-dell" ]; then
+		if [ -d "${utils_basedir}/docker-dell" ]; then
 			printf >&2 '[--rebuild-utilities] '
 		fi
 		echo >&2 '[--rebuild-images [--skip-build] [--no-tools] [--force] [--all]] [--init-pkg-cache] [--update-pkgs [--exclude="<pkg ...>"]] [--update-system [--pretend] [--exclude="<pkg ...>"]]'
@@ -191,30 +196,40 @@ if [ $(( update )) -ne 1 ] && [ $(( system )) -ne 1 ] && [ -n "${exclude:-}" ]; 
 	unset exclude
 fi
 
+# We should now include common/vars.sh unconditionally - it might slow startup,
+# but for the most part, this script will be doing significant heavy-lifting in
+# any case...
+#
+# shellcheck disable=SC1091
+. ./common/vars.sh
+
 [ -z "${trace:-}" ] || set -o xtrace
 
 export TRACE="${CTRACE:-}" # Optinally enable child tracing
 
 if [ "${rebuildutils:-"0"}" = '1' ]; then
-	if ! [ -d "${basedir}/docker-dell" ]; then
+	if ! [ -d "${utils_basedir}/docker-dell" ]; then
 		if [ $(( haveargs )) -ne 0 ]; then
 			echo >&2 'FATAL: docker-dell tools not found on this system'
 			exit 1
 		fi
 	else
-		mkdir -p log
+		if ! mkdir -p "${log_dir:="log"}"; then
+			echo >&2 "FATAL: Could not create log directory '${log_dir}': ${?}"
+			exit 1
+		fi
 
 		if [ "$( "${_command}" image ls -n 'localhost/dell-dsu' | wc -l )" = '0' ]; then
-			"${basedir}"/docker-dell/dell.docker --dsu \
+			"${utils_basedir}"/docker-dell/dell.docker --dsu \
 					${IMAGE_ROOT:+"--root"} ${IMAGE_ROOT:+"${IMAGE_ROOT}"} \
-				>> log/dell.docker.dsu.log 2>&1 &
+				>> "${log_dir}"/dell.dsu.log 2>&1 &
 			# shellcheck disable=SC3044
 			disown 2>/dev/null || :  # doesn't exist in POSIX sh :(
 		fi
 		if [ "$( "${_command}" image ls -n 'localhost/dell-ism' | wc -l )" = '0' ]; then
-			"${basedir}"/docker-dell/dell.docker --ism \
+			"${utils_basedir}"/docker-dell/dell.docker --ism \
 					${IMAGE_ROOT:+"--root"} ${IMAGE_ROOT:+"${IMAGE_ROOT}"} \
-				>> log/dell.docker.ism.log 2>&1 &
+				>> "${log_dir}"/dell.ism.log 2>&1 &
 			# shellcheck disable=SC3044
 			disown 2>/dev/null || :  # doesn't exist in POSIX sh :(
 		fi
@@ -222,8 +237,8 @@ if [ "${rebuildutils:-"0"}" = '1' ]; then
 fi
 
 if [ "${rebuildimgs:-"0"}" = '1' ]; then
-	if ! mkdir -p log; then
-		echo >&2 "FATAL: Could not create directory $( pwd )/log: ${?}"
+	if ! mkdir -p "${log_dir:="log"}"; then
+		echo >&2 "FATAL: Could not create log directory '${log_dir}': ${?}"
 		exit 1
 	fi
 
@@ -296,16 +311,16 @@ if [ "${rebuildimgs:-"0"}" = '1' ]; then
 fi
 
 if [ "${pkgcache:-"0"}" = '1' ]; then
+	if ! mkdir -p "${log_dir:="log"}"; then
+		echo >&2 "FATAL: Could not create log directory '${log_dir}': ${?}"
+		exit 1
+	fi
+
 	# Build binary packages for 'init' stage installations (which aren't built
 	# with --buildpkgs=y because at this stage we've not built our own compiler
 	# or libraries)...
 
 	(
-		#stage3_flags_file=''
-		#python_default_target=''
-		# shellcheck disable=SC1091
-		. ./common/vars.sh
-
 		[ -n "${python_default_target:-}" ] ||
 			die "No valid python default target set"
 
@@ -352,7 +367,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 		# Cache packages with minimal USE-flags, as used during the base-image
 		# build...
 		{
-			# shellcheck disable=SC2030,SC2086
+			# shellcheck disable=SC2030,SC2086,SC2154
 			if { ! USE="$( # <- Syntax
 					echo " -* -asm ${alt_use} ${use_cpu_flags:-} compat" \
 							"embedded ftp getentropy gmp ipv6 ninja nls" \
@@ -460,7 +475,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 				: $(( rc = rc + err ))
 				failures="${failures:+"${failures} "}gentoo-build-pkg;0:${err}"
 			fi
-		} | tee log/buildpkg.init.log
+		} | tee "${log_dir}"/buildpkg.init.log
 
 		for image in 'localhost/gentoo-stage3' 'localhost/gentoo-init'; do
 			if [ "$( "${_command}" image ls -n "${image}" | wc -l )" = '0' ]; then
@@ -498,11 +513,6 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 			fi
 		done
 		if [ -z "${USE:-}" ]; then
-			# shellcheck disable=SC2030
-			#python_default_target=''
-			# shellcheck disable=SC1091
-			. ./common/vars.sh
-
 			# Assume that python_default_target has the most recent/primary
 			# version first...
 			python_single_target="${python_default_target%%" "*}"
@@ -666,7 +676,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 				: $(( rc = rc + err ))
 				failures="${failures:+"${failures} "}gentoo-build-pkg;7:${err}"
 			fi
-		} | tee log/buildpkg.cache.log
+		} | tee "${log_dir}"/buildpkg.cache.log
 
 		# shellcheck disable=SC2031
 		if [ $(( err )) -ne 0 ]; then
@@ -689,6 +699,11 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 fi
 
 if [ "${update:-"0"}" = '1' ]; then
+	if ! mkdir -p "${log_dir:="log"}"; then
+		echo >&2 "FATAL: Could not create log directory '${log_dir}': ${?}"
+		exit 1
+	fi
+
 	# Rebuild packages for host installation...
 
 	# (unzip[natspec] depends on libnatspec, which depends on python:2.7,
@@ -717,16 +732,12 @@ if [ "${update:-"0"}" = '1' ]; then
 	#		done
 	#	) --name 'buildpkg.hostpkgs.update' 2>&1 |
 	#stdbuf -i0 -o0 awk 'BEGIN { RS = null ; ORS = "\n\n" } 1' |
-	#tee log/buildpkg.hostpkgs.update.log
+	#tee "${log_dir}"/buildpkg.hostpkgs.update.log
 
 	# Look for "build" gcc USE-flags in package.use only (or use defaults
 	# above) ...
 	#
 	if ! [ -s /etc/portage/package.use/00_package.use ]; then
-		if [ -z "${use_essential_gcc:-}" ]; then
-			# shellcheck disable=SC1091
-			. ./common/vars.sh
-		fi
 		if ! echo "${CFLAGS:-} ${CXXFLAGS:-}" |
 				grep -Fqw \
 					-e '-fgraphite' \
@@ -831,7 +842,7 @@ if [ "${update:-"0"}" = '1' ]; then
 						done
 					) --name 'buildpkg.hostpkgs.update' 2>&1 ||
 				exit ${?}
-		} | tee log/buildpkg.hostpkgs.update.log
+		} | tee "${log_dir}"/buildpkg.hostpkgs.update.log
 	)
 	: $(( err = ${?} ))
 	: $(( rc = rc + err ))
@@ -876,7 +887,7 @@ if [ "${update:-"0"}" = '1' ]; then
 							${exclude:+"--exclude=${exclude}"} \
 						sys-devel/gcc 2>&1 ||
 					exit ${?}
-			} | tee log/buildpkg.hostpkgs.gcc.update.log
+			} | tee "${log_dir}"/buildpkg.hostpkgs.gcc.update.log
 		)
 		: $(( err = ${?} ))
 		: $(( rc = rc + err ))
@@ -921,6 +932,7 @@ if [ "${system:-"0"}" = '1' ]; then
 				@world $(
 						 [ -d /var/db/pkg ] &&
 							find /var/db/pkg/ -mindepth 2 -maxdepth 2 -type d |
+								grep -Fv -- '-MERGING-' |
 								cut -d'/' -f 5-6 |
 								sed 's/^/>=/'
 					)

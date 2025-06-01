@@ -17,6 +17,7 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 #declare build_name=''
 #declare _command='docker'
 #declare use_essential_gcc=''
+#delcare log_dir=''
 
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
@@ -563,6 +564,7 @@ if echo " ${*:-} " | grep -Fq -- ' --debug '; then
 fi
 
 # --(no-)install: see below
+
 if echo " ${*:-} " | grep -Eq -- ' --bundle[= ]'; then
 	if echo " ${*:-} " | grep -Eq -- ' --bundle=[^ ]+ '; then
 		bundle_dir="$( # <- Syntax
@@ -1412,7 +1414,7 @@ case "${compiler}" in
 			compiler_pkgs+=(
 				sys-libs/libunwind
 			)
-			compiler_USE="$( replace_flags '-llvm-libunwind' -- "${compiler_USE}" )"
+			compiler_USE="$( replace_flags '-llvm-libunwind' 'static-libs' -- "${compiler_USE}" )"
 		fi
 		unset limit
 		unset inconsistent_slot
@@ -1478,6 +1480,9 @@ case "${compiler}" in
 		die "Unknown compiler '${compiler}'"
 		;;
 esac
+
+mkdir -p "${log_dir:="log"}" ||
+	die "Could not create log directory '${log_dir}': ${?}"
 
 # FIXME: shellcheck seems to want:
 #
@@ -1939,7 +1944,7 @@ esac
 						"${_docker_run_arguments[@]:-}" \
 						"=${package}" \
 						"${pkgs[@]:-}" \
-					2>&1 | tee "log/docker.${log_name}.log"
+					2>&1 | tee "${log_dir}/${log_name}.log"
 				output " -> ${?}"
 			}
 
@@ -1990,11 +1995,11 @@ esac
 									"${image_name}:${package_version}" 2>&1
 						exit ${?}
 					fi
-				) | tee -a "log/docker.${log_name}.log"
+				) | tee -a "${log_dir}/${log_name}.log"
 				rc=${?}
 				output " -> ${rc}"
 				$_command container rm --volumes "${name}" 2>&1 |
-					tee -a "log/docker.${log_name}.log"
+					tee -a "${log_dir}/${log_name}.log"
 				trap - INT
 			}
 		)
@@ -2577,7 +2582,7 @@ esac
 		if [ "\${success}" = '1' ] && [ "\{extract}" = '1' ]; then
 			set -x ;
 			sh scripts/extract-vmlinux ../build/arch/\${dir}/boot/\${kernel} > vmlinux &&
-				[ -f vmlinux ] && mv -v vmlinux ../build/ || success=0 ;
+				[ -f vmlinux ] && mv vmlinux ../build/ || success=0 ;
 			set +x ;
 		fi ;
 		if [ "\${success}" = '0' ]; then
@@ -2618,7 +2623,7 @@ esac
 				find /lib/modules/${package_version}${distro:-}/ -type f -print |
 						while read -r file; do
 					echo >&2 "WARN:  '\${file}' is incorrectly installed to '/lib/modules/${package_version}${distro:-}' ..." ;
-					mv -v "\${file}" "/lib/modules/\${kernel_version}/" ;
+					mv "\${file}" "/lib/modules/\${kernel_version}/" ;
 				done ;
 				unset file ;
 				rmdir '/lib/modules/${package_version}${distro:-}' ;
@@ -2639,8 +2644,8 @@ esac
 				cp -v ../build/System.map "/boot/\${kernel_version}/System.map" ;
 				cp -v ../build/arch/\${dir}/boot/\${kernel} "/boot/\${kernel_version}/kernel8.img" ;
 				if [ -d "/boot/dtbs/\${kernel_version}/broadcom" ]; then
-					mv -v "/boot/dtbs/\${kernel_version}/broadcom"/*.dtb "/boot/\${kernel_version}/" ;
-					if ! rmdir -v "/boot/dtbs/\${kernel_version}/broadcom" ; then
+					mv "/boot/dtbs/\${kernel_version}/broadcom"/*.dtb "/boot/\${kernel_version}/" ;
+					if ! rmdir "/boot/dtbs/\${kernel_version}/broadcom" ; then
 						echo >&2 "ERROR: Failed to remove "/boot/dtbs/\${kernel_version}/broadcom": \${?}" ;
 						: echo >&2 "       Directory content:" ;
 						: ls -1AR "/boot/dtbs/\${kernel_version}/broadcom" >&2 ;
@@ -2649,11 +2654,11 @@ esac
 					fi ;
 				fi ;
 				if [ -d "/boot/dtbs/\${kernel_version}/overlays" ]; then
-					mv -v "/boot/dtbs/\${kernel_version}/overlays" "/boot/\${kernel_version}/" ;
+					mv "/boot/dtbs/\${kernel_version}/overlays" "/boot/\${kernel_version}/" ;
 					touch "/boot/\${kernel_version}/overlays/README" ;
 				fi ;
 				if [ -d /boot/dtbs ]; then
-					if ! rmdir -v "/boot/dtbs/\${kernel_version}" /boot/dtbs ; then
+					if ! rmdir "/boot/dtbs/\${kernel_version}" /boot/dtbs ; then
 						: echo >&2 "ERROR: Failed to remove "/boot/dtbs/\${kernel_version}" or "/boot/dtbs": \${?}" ;
 						: echo >&2 "       Directory content:" ;
 						ls -1AR "/boot/dtbs/" >&2 ;
@@ -2739,20 +2744,36 @@ if (( raise_mem )); then
 #	export PODMAN_SWAP_LIMIT="${PODMAN_MEMORY_LIMIT}"
 fi
 
-time {
-	#set -x
-		#DOCKER_DEVICES='--device=/dev/tty --device=/dev/tty0' \
-		TERM="${TERM:-}" \
-		DOCKER_HOSTNAME="$( hostname )-build" \
-		image="${image_name}:${package_version}" \
-		_common_run_show_command=0 \
-	_docker_run \
-			-c "${DOCKER_SCRIPT}" \
-		2>&1 | tee -a "log/docker.${log_name}.log"
-	rc=${?}
-	#set +x
-	output " -> ${rc}"
-}
+if [[ -n "${menuconfig:-}${nconfig:-}" ]]; then
+	# Don't log interactive kernel configuration...
+	warn "Not logging interactive kernel configuration ..."
+	time {
+		#set -x
+			#DOCKER_DEVICES='--device=/dev/tty --device=/dev/tty0' \
+			TERM="${TERM:-}" \
+			DOCKER_HOSTNAME="$( hostname )-build" \
+			image="${image_name}:${package_version}" \
+			_common_run_show_command=0 \
+		_docker_run -c "${DOCKER_SCRIPT}" 2>&1
+		rc=${?}
+		#set +x
+		output " -> ${rc}"
+	}
+else
+	time {
+		#set -x
+			#DOCKER_DEVICES='--device=/dev/tty --device=/dev/tty0' \
+			TERM="${TERM:-}" \
+			DOCKER_HOSTNAME="$( hostname )-build" \
+			image="${image_name}:${package_version}" \
+			_common_run_show_command=0 \
+		_docker_run -c "${DOCKER_SCRIPT}" 2>&1 |
+			tee -a "${log_dir}/${log_name}.log"
+		rc=${?}
+		#set +x
+		output " -> ${rc}"
+	}
+fi
 
 if [[ -d /boot/dtbs ]] &&
 		[[ "$( find /boot/dtbs -maxdepth 0 -empty )" == '/boot/dtbs' ]]

@@ -2,7 +2,7 @@
 
 declare trace="${TRACE:-}"
 # shellcheck disable=SC2034
-#declare debug="${DEBUG:-}"
+declare debug="${DEBUG:-}"
 
 set -eu
 set -o pipefail
@@ -18,6 +18,7 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 #declare use_essential=''
 #declare use_essential_gcc=''
 #declare python_default_target=''
+#declare log_dir=''
 
 # Set in run.sh
 #
@@ -36,11 +37,15 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
 # shellcheck disable=SC1091
 [[ ! -s common/vars.sh ]] || . common/vars.sh
+declare -i rc=${?}
 # shellcheck disable=SC2034 # Set from common/vars.sh
-[[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
-	echo >&2 'FATAL: Inclusion of common defaults failed'
+if (( rc )) || [[ -z "${__COMMON_VARS_INCLUDED:-}" ]]; then
+	echo >&2 "FATAL: Inclusion of common defaults failed$( # <- Syntax
+			(( rc )) && echo ": ${rc}"
+		)"
 	exit 1
-}
+fi
+unset rc
 
 # shellcheck disable=SC2154
 declare IMAGE="${build_name}:latest"
@@ -101,16 +106,6 @@ services=(
 	subversion
 	syslog-ng
 	unifi
-	unifi60
-	unifi61
-	unifi62
-	unifi64
-	unifi65
-	unifi70
-	unifi71
-	unifi72
-	unifi73
-	unifi74
 	unifi75
 	unifi80
 	unifi81
@@ -120,6 +115,7 @@ services=(
 	unifi85
 	unifi86
 	unifi90
+	unifi91
 	vim
 	watchdog
 	xmrig
@@ -580,26 +576,6 @@ case "${service:-}" in
 		service='app-admin/syslog-ng' ;;
 	unifi|unifi-controller|unifi-controller-bin)
 		service='net-misc/unifi-controller-bin' ;;
-	unifi60|unifi-controller60|unifi-controller-60|unifi-controller-bin60|unifi-controller-bin-60)
-		service='=net-misc/unifi-controller-bin-6.0*' ;;
-	unifi61|unifi-controller61|unifi-controller-61|unifi-controller-bin61|unifi-controller-bin-61)
-		service='=net-misc/unifi-controller-bin-6.1*' ;;
-	unifi62|unifi-controller62|unifi-controller-62|unifi-controller-bin62|unifi-controller-bin-62)
-		service='=net-misc/unifi-controller-bin-6.2*' ;;
-	unifi64|unifi-controller64|unifi-controller-64|unifi-controller-bin64|unifi-controller-bin-64)
-		service='=net-misc/unifi-controller-bin-6.4*' ;;
-	unifi65|unifi-controller65|unifi-controller-65|unifi-controller-bin65|unifi-controller-bin-65)
-		service='=net-misc/unifi-controller-bin-6.5*' ;;
-	unifi70|unifi-controller70|unifi-controller-70|unifi-controller-bin70|unifi-controller-bin-70)
-		service='=net-misc/unifi-controller-bin-7.0*' ;;
-	unifi71|unifi-controller71|unifi-controller-71|unifi-controller-bin71|unifi-controller-bin-71)
-		service='=net-misc/unifi-controller-bin-7.1*' ;;
-	unifi72|unifi-controller72|unifi-controller-72|unifi-controller-bin72|unifi-controller-bin-72)
-		service='=net-misc/unifi-controller-bin-7.2*' ;;
-	unifi73|unifi-controller73|unifi-controller-73|unifi-controller-bin73|unifi-controller-bin-73)
-		service='=net-misc/unifi-controller-bin-7.3*' ;;
-	unifi74|unifi-controller74|unifi-controller-74|unifi-controller-bin74|unifi-controller-bin-74)
-		service='=net-misc/unifi-controller-bin-7.4*' ;;
 	unifi75|unifi-controller75|unifi-controller-75|unifi-controller-bin75|unifi-controller-bin-75)
 		service='=net-misc/unifi-controller-bin-7.5*' ;;
 	unifi80|unifi-controller80|unifi-controller-80|unifi-controller-bin80|unifi-controller-bin-80)
@@ -618,6 +594,8 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-8.6*' ;;
 	unifi90|unifi-controller90|unifi-controller-90|unifi-controller-bin90|unifi-controller-bin-90)
 		service='=net-misc/unifi-controller-bin-9.0*' ;;
+	unifi91|unifi-controller91|unifi-controller-91|unifi-controller-bin91|unifi-controller-bin-91)
+		service='=net-misc/unifi-controller-bin-9.1*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
@@ -862,7 +840,7 @@ case "${package_name}" in
 			sys-kernel/linux-headers
 			virtual/openssh
 		"
-		post_use="${pre_use} -lib-only graphite -nls"
+		post_use="-lib-only -nls ${pre_use}"
 
 		container_cmd='__wait__'
 		;;
@@ -1012,9 +990,9 @@ case "${package_name}" in
 		# portage sometimes struggles to resolve apparently obvious
 		# dependencies :(
 		#
-		pre_use='-timezone-tools'
-		pre_pkgs+=' sys-libs/glibc'
-		with_use+=' ncurses unicode zlib'
+		pre_use='-timezone-tools fortran'
+		pre_pkgs+=' sys-libs/glibc sys-devel/gcc'
+		with_use+=' fortran ncurses unicode zlib'
 		extra_pkgs+=' dev-lang/python dev-libs/libpcre2 sys-libs/glibc'
 		# nodejs links to libatomic, and so has an RDEPEND on sys-devel/gcc
 		extra_pkgs+=' sys-devel/gcc'
@@ -1223,7 +1201,8 @@ case "${package_name}" in
 			output "Setting build variables for package 'spamassassin-update' ..."
 			# 'srcshelton' repo relocates gawk to /bin/
 			impl='::srcshelton'
-			with_use='gawk sa-update'
+			with_use='-lib-only gawk sa-update'
+			post_use="-nls ${with_use} graphite openmp"
 			extra_pkgs="
 				>=dev-perl/Crypt-OpenSSL-DSA-0.150.0
 				>=dev-perl/Crypt-OpenSSL-EC-1.10.0
@@ -1354,12 +1333,6 @@ case "${package_name}" in
 
 		export L10N='en'
 		case "${package_version}" in
-			5.*|6.*|7.0.*|7.1.*|7.2.*)
-				extra_pkgs='dev-java/openjdk-bin:8'
-				;;
-			7.3.*|7.4.*)
-				extra_pkgs='dev-java/openjdk:11'
-				;;
 			7.5.*|8.*)
 				pre_pkgs='dev-java/openjdk-bin:17 dev-java/openjdk:17 sys-devel/gcc'
 				extra_pkgs='dev-java/openjdk:17'
@@ -1369,52 +1342,8 @@ case "${package_name}" in
 				extra_pkgs='dev-java/openjdk:21'
 				;;
 		esac
-
-		case "${service:-}" in
-			*unifi-controller-bin-6.*|*unifi-controller-bin-7.[01234]*)
-				warn 'This build will fail with a python exception if any new package'
-				warn 'has to be built from source. So long as all necessary packages'
-				warn 'are available for installation as binaries (which should be the'
-				warn 'case for subsequent builds without other changes) then the'
-				warn 'process should succeed.'
-				output
-				#EMERGE_OPTS='--single --swap'  # Merge packages one at a time, for debug purposes
-
-				# shellcheck disable=SC2034
-				ECLASS_OVERRIDE='unifi'  # consumed in common/run.sh
-				# shellcheck disable=SC2034
-				NO_REPO_MASKS='no_repo_masks'  # ... any value will do
-
-				# shellcheck disable=SC2154
-				gcc_use="$( replace_flags '-graphite' -- "${use_essential_gcc}" )"
-				# Look for "build" gcc USE-flags in package.use only (or use defaults above) ...
-				if [ -s /etc/portage/package.use/00_package.use ]; then
-					gcc_use="$( # <- Syntax
-						sed 's/#.*$//' /etc/portage/package.use/00_package.use |
-							tr -s '[:space:]' |
-							grep -E -- '^\s?([<>=~]=?)?sys-devel/gcc' |
-							cut -f 2- |
-							xargs -n 1 echo |
-							sort |
-							uniq
-					)"
-				fi
-
-				masked_packages='dev-python/setuptools::unifi sys-apps/sandbox::unifi sys-apps/util-linux::unifi' # sys-apps/file sys-apps/portage
-				export CFLAGS="${CFLAGS:+"${CFLAGS} "}${cflags:+"${cflags} "}-w"  # mongodb is *really* noisy...
-				pre_use="$( replace_flags 'headless-awt' -- "${gcc_use}" )"
-				force_python='python2_7'
-				pre_pkgs="${masked_packages} <sys-devel/gcc-11 acct-group/mongodb acct-group/unifi acct-user/mongodb acct-user/unifi"
-				extra_pkgs="${extra_pkgs} <dev-db/mongodb-4.2 dev-lang/python:2.7" # app-admin/eselect app-eselect/eselect-python'
-				extra_pkgs="${extra_pkgs} app-misc/ca-certificates${ECLASS_OVERRIDE:+"::${ECLASS_OVERRIDE}"}"
-				extra_pkgs="${extra_pkgs} ${masked_packages} <sys-devel/gcc-11"
-				with_use="lib-only openmp zstd python_single_target_${force_python} python_targets_${force_python}"
-				;;
-			*)
-				pre_pkgs="${pre_pkgs} acct-group/mongodb acct-group/unifi acct-user/mongodb acct-user/unifi"
-				extra_pkgs="${extra_pkgs} app-misc/ca-certificates${ECLASS_OVERRIDE:+"::${ECLASS_OVERRIDE}"}"
-				;;
-		esac
+		pre_pkgs="${pre_pkgs} acct-group/mongodb acct-group/unifi acct-user/mongodb acct-user/unifi"
+		extra_pkgs="${extra_pkgs} app-misc/ca-certificates${ECLASS_OVERRIDE:+"::${ECLASS_OVERRIDE}"}"
 
 		ports='3478/udp 5514/udp 8080/tcp 8443/tcp 8880/tcp 8843/tcp 6789/tcp 27117/tcp 10001/udp 1900/udp 5656-5699/udp'
 		user='unifi'
@@ -1552,23 +1481,11 @@ case " ${pre_pkgs} " in
 			)"
 		fi
 		pre_use="$( replace_flags "${use_essential_gcc:-}" "${gcc_extra_use_flags:-}" -- "${pre_use:-}" )" || :
-		if ! [[ " ${extra_pkgs:-} " == *' sys-devel/gcc '* ]]; then
-			print "Applying settings for containers which don't require a" \
-				"functional toolchain ..."
-			with_use="$( replace_flags '-lib-only' -- "${with_use}" )"
-			pre_use="$( replace_flags 'graphite' '-lib-only' '-openmp' 'zstd' -- "${pre_use:-}" )"
-			post_use="$( replace_flags '-graphite' 'lib-only' '-openmp' '-zstd' -- "${post_use:-}" )"
-			if [[ " ${gcc_extra_use_flags:-} " == *' openmp '* ]]; then
-				pre_use="$( replace_flags 'openmp' -- "${pre_use:-}" )"
-				post_use="$( replace_flags 'openmp' -- "${post_use:-}" )"
-			fi
-		else
+		if [[ " ${extra_pkgs:-} " == *' sys-devel/gcc '* ]]; then
 			# spamassassin updates require perl and a functioning compiler
-			# in the container...
-			#if [ "${original_service}" != 'spamassassin-update' ] && [ "${original_service}" != 'sa-update' ] && [ "${original_service}" != 'hpl' ]; then
+			# in the container, hpl requires a compiler...
 			print "Applying settings for containers which require a" \
 				"functional toolchain ..."
-			post_use="$( replace_flags 'lib-only' -- "${post_use}" )"
 			if [ -n "${post_pkgs:-}" ]; then
 				warn "sys-devel/gcc needs to be rebuilt (without" \
 					"dependencies) but 'post_pkgs' is non-empty... suggest" \
@@ -1578,7 +1495,7 @@ case " ${pre_pkgs} " in
 				warning=1
 			fi
 			post_pkgs="${post_pkgs:+"${post_pkgs} "}sys-devel/gcc sys-libs/zlib virtual/libiconv --nodeps"
-			#fi
+			with_use="$( replace_flags '-lib-only' -- "${with_use}" )"
 			pre_use="$( replace_flags 'graphite' '-lib-only' '-openmp' -- "${pre_use:-}" )"
 			post_use="$( replace_flags '-graphite' '-lib-only' '-openmp' -- "${post_use:-}" )"
 			if [[ " ${gcc_extra_use_flags} " == *' openmp '* ]]; then
@@ -1587,6 +1504,17 @@ case " ${pre_pkgs} " in
 			fi
 			if [[ " ${gcc_extra_use_flags} " == *' graphite '* ]]; then
 				post_use="$( replace_flags 'graphite' -- "${post_use:-}" )"
+				post_pkgs="dev-libs/isl${post_pkgs:+" ${post_pkgs}"}"
+			fi
+		else # [[ " ${extra_pkgs:-} " != *' sys-devel/gcc '* ]]; then
+			print "Applying settings for containers which don't require a" \
+				"functional toolchain ..."
+			with_use="$( replace_flags '-lib-only' -- "${with_use}" )"
+			pre_use="$( replace_flags 'graphite' '-lib-only' '-openmp' 'zstd' -- "${pre_use:-}" )"
+			post_use="$( replace_flags '-graphite' 'lib-only' '-openmp' '-zstd' -- "${post_use:-}" )"
+			if [[ " ${gcc_extra_use_flags:-} " == *' openmp '* ]]; then
+				pre_use="$( replace_flags 'openmp' -- "${pre_use:-}" )"
+				post_use="$( replace_flags 'openmp' -- "${post_use:-}" )"
 			fi
 		fi
 		# app-portage/portage-utils includes the 'openmp' USE flag, and
@@ -1594,7 +1522,7 @@ case " ${pre_pkgs} " in
 		# packages with the same flag :(
 		#
 		pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}app-alternatives/yacc app-crypt/libb2 app-portage/portage-utils"
-		post_pkgs="${post_pkgs:+"${post_pkgs} "}app-crypt/libb2 app-portage/portage-utils"
+		post_pkgs="app-crypt/libb2 app-portage/portage-utils${post_pkgs:+" ${post_pkgs}"}"
 
 		# *If* we really need app-portage/portage-utils, USE='qmanifest' pulls
 		# in app-crypt/gpgme, which we're not handling with the --nodeps final
@@ -1614,14 +1542,22 @@ case " ${pre_pkgs} " in
 		then
 			print "Adding post-installation package 'app-arch/zstd' due to" \
 				"presence of 'zstd' USE flag"
-			post_pkgs="${post_pkgs:+"${post_pkgs} "}app-arch/zstd"
+			post_pkgs="app-arch/zstd${post_pkgs:+" ${post_pkgs}"}"
+		fi
+		;;
+	*)
+		if grep -Fq -e ' graphite ' -e ' -lib-only ' -e ' openmp ' \
+				<<<" ${pre_use:-} ${with_use:-} ${post_use:-} "
+		then
+			die "USE contains compiler flags but 'sys-devel/gcc' is not in" \
+				"'pre_pkgs' (${pre_pkgs:-})"
 		fi
 		;;
 esac
 (( warning )) && sleep 5
 
 if ! grep -Fq ' sys-devel/gcc ' <<<" ${post_pkgs} "; then
-	post_pkgs="${post_pkgs:+"${post_pkgs} "}sys-libs/zlib --nodeps --with-bdeps=n"
+	post_pkgs="sys-libs/zlib${post_pkgs:+" ${post_pkgs}"} --nodeps --with-bdeps=n"
 	# FIXME: What packages require these updated flags?
 	post_use="$( replace_flags '-minizip' 'xml' -- "${post_use}" )"
 fi
@@ -1973,6 +1909,21 @@ export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 unset docker_extra_mounts
 }
 
+if [[ -z "${log_dir:-}" ]]; then
+	warn "log_dir not set - using 'log' in repo directory '$( # <- Syntax
+			dirname "$( realpath -e "${0}" )"
+		)'"
+elif ! [[ -d "${log_dir}" ]]; then
+	warn "Creating new log_dir '${log_dir}' ..."
+fi
+mkdir -p "${log_dir:="log"}" ||
+	die "Could not create log directory '${log_dir}': ${?}"
+
+[[ "${log_dir}" == 'log' ]] &&
+	warn "Using default '${log_dir}' for log_dir"
+
+export log_dir
+
 images="$( docker image list --noheading "${container_prefix}-${package_name}:${package_version}" 2>&1 )"
 if echo "${images:-}" | grep -q -- "${container_prefix}-${package_name}\s\+${package_version}\s"; then
 	output >&2
@@ -2032,7 +1983,7 @@ else
 			image="${IMAGE}" \
 			DOCKER_CMD_VARS="${container_caps[*]:-}" \
 	_docker_run "${args[@]}" 2>&1 |
-		tee "log/docker.${container_prefix}.${alt_log:-"${container_name}"}.log"
+		tee "${log_dir}/${container_prefix}.${alt_log:-"${container_name}"}.log"
 	rc=${?}
 	output " -> ${rc}"
 
@@ -2048,7 +1999,7 @@ else
 				"${container_prefix}-${container_name}" \
 				"${container_prefix}-${package_name}:${package_version}" \
 			2>&1 |
-		tee -a "log/docker.${container_prefix}.${alt_log:-"${container_name}"}.log"
+		tee -a "${log_dir}/${container_prefix}.${alt_log:-"${container_name}"}.log"
 	rc=${?}
 	trap - INT
 	output " -> ${rc}"
@@ -2138,7 +2089,7 @@ fi
 # shellcheck disable=SC2001  # POSIX sh compatibility
 docker ${IMAGE_ROOT:+"--storage-opt='' --root '${IMAGE_ROOT}'"} \
 		image build "${args[@]}" . 2>&1 |
-	tee "../log/docker.service.${alt_log:-"${container_name}"}.log"
+	tee "${log_dir}/service.${alt_log:-"${container_name}"}.log"
 rc=${?}
 rm "${dockerfile_tmp}"
 unset dockerfile_tmp

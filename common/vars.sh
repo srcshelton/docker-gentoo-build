@@ -162,6 +162,27 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 		unset base_dir
 	fi
 
+	# Historically, 'log_dir' would have been simply "log" to create logs in
+	# a subdirectory of the location the repo was checked-out to (or
+	# potentially "${base_dir:+"${base_dir}/../"}log" if data had been
+	# relocated), but this was becoming self-limiting and prevents builds
+	# occurring from read-only repo checkouts.  Plus, the data being stored is
+	# mostly portage build-logs (by volume).
+	#
+	# To retain previous functionality, uncomment:
+	#
+	#log_dir=''
+	#
+	portage_log_dir="${PORTAGE_LOGDIR:-"${PORT_LOGDIR:-"$( # <- Syntax
+			emerge --info 2>&1 |
+				grep -E -- '^PORT(AGE)?_LOGDIR=' |
+				head -n 1 |
+				cut -d'"' -f 2
+		)"}"}"
+	log_dir="${portage_log_dir:-"/var/log/portage"}/containers"
+	unset portage_log_dir
+	export log_dir
+
 	use_cpu_arch='' use_cpu_flags='' use_cpu_flags_raw=''
 	gcc_target_opts='-march=native' description='' vendor='' sub_cpu_arch=''
 	# rpi-cm rpi-cm2 rpi-cm3 rpi-cm4s
@@ -560,7 +581,8 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			fi
 			;;
 	esac
-	export use_cpu_arch use_cpu_flags gcc_target_opts rust_target_opts
+	export use_cpu_arch use_cpu_flags_raw use_cpu_flags \
+		gcc_target_opts rust_target_opts
 
 	# Define essential USE flags
 	#

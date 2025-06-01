@@ -13,6 +13,7 @@ trace=${TRACE:-}
 DEFAULT_JOBS="${DEFAULT_JOBS:-"__JOBS__"}"
 DEFAULT_MAXLOAD="${DEFAULT_MAXLOAD:-"__MAXLOAD__"}"
 environment_file="${environment_file:-"__ENVFILE__"}"
+log_dir="${log_dir:-"/var/log/portage/containers"}"
 
 die() {
 	printf >&2 'FATAL: %s\n' "${*:-"Unknown error"}"
@@ -1377,8 +1378,11 @@ service_root='/service'
 
 if [ -n "${DEBUG:-}" ]; then
 	# shellcheck disable=SC2013
-	for f in $( grep -Rl -- 'collision' log/docker.*.log 2>/dev/null ); do
-		sed '\x1b\[[0-9;]*m//g' "${f}" |
+	for f in $( # <- Syntax
+				grep -Rl -- 'collision' "${log_dir}"/*.log 2>/dev/null
+			)
+	do
+		sed 's/\x1b\[[0-9;]*m//g' "${f}" |
 			awk --assign p=0 '
 				/Detected file collision\(s\):$/ { p = 2 } ;
 				/^ \* $/ { p = p - 1 } ;
