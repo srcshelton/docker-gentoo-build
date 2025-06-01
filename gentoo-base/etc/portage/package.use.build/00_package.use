@@ -261,7 +261,7 @@ sys-apps/portage			-rsync-verify
 sys-apps/shadow				-su  # conflicts sys-apps/util-linux[su]
 sys-apps/smartmontools			 update_drivedb update-drivedb
 sys-apps/usbutils			 experimental
-sys-apps/util-linux			 magic pam su tty-helpers  # conflicts sys-apps/shadow[su]
+sys-apps/util-linux			-cramfs magic pam su tty-helpers  # conflicts sys-apps/shadow[su]
 sys-auth/opie				-server
 #sys-auth/pambase			-debug -passwdqc -sha512 pwquality yescrypt  # mktemp
 sys-auth/pambase			-debug -passwdqc -sha512 mktemp pwquality yescrypt
@@ -270,7 +270,7 @@ sys-block/parted			 device-mapper
 sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
 sys-cluster/galera			 garbd
 #sys-devel/bc				-libedit
-=sys-devel/binutils-2.44		-xxhash pgo  # mutually exclusive
+~sys-devel/binutils-2.44		-xxhash pgo  # mutually exclusive
 #sys-devel/gcc				 go mudflap
 # gccgo from gcc-6.4.0 tries to include a deprecated glibc header, ustat.h, and fails.
 #~sys-devel/gcc-6.4.0			-go
