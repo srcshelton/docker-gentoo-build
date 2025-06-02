@@ -2,7 +2,7 @@
 */*					 threads
 */*					 L10N: en
 #*/*					 PYTHON_SINGLE_TARGET: python2_7
-#*/*					 PYTHON_TARGETS: -* python2_7
+#*/*					 PYTHON_TARGETS: python2_7
 
 #net-misc/unifi-controller-bin		 nls rpi1 systemd +tools
 net-misc/unifi-controller-bin		 nls tools
@@ -74,7 +74,7 @@ net-print/cups				 openssl ssl
 # required by app-portage/getuto-1.9.1 <-
 # required by app-crypt/gnupg-2.2.41
 # required by net-libs/gnutls-3.8.0
-#dev-libs/nettle				 gmp
+#dev-libs/nettle			 gmp
 
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

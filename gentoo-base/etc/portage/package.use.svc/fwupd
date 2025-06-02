@@ -72,6 +72,6 @@ dev-libs/libusb				 udev
 # required by dev-lang/spidermonkey-78.6.0
 # required by virtual/rust-1.47.0
 # required by dev-lang/rust-1.47.0-r2
-net-misc/curl				 http2
+net-misc/curl				-httpsrr http2
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

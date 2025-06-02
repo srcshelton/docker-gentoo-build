@@ -26,24 +26,24 @@
 */*					 L10N: en-GB en
 
 # See profiles/desc/video_cards.desc
-*/*					 VIDEO_CARDS: -* dummy
-#*/*					 VIDEO_CARDS: -* vesa matrox  # x86 embedded graphics
-#*/*					 VIDEO_CARDS: -* vc4          # Raspberry Pi VideoCore IV
-#*/*					 VIDEO_CARDS: -* lima         # Mali 200/400
-#*/*					 VIDEO_CARDS: -* panfrost     # Mali 600/700/800
+*/*					 VIDEO_CARDS: dummy
+#*/*					 VIDEO_CARDS: vesa matrox  # x86 embedded graphics
+#*/*					 VIDEO_CARDS: vc4          # Raspberry Pi VideoCore IV
+#*/*					 VIDEO_CARDS: lima         # Mali 200/400
+#*/*					 VIDEO_CARDS: panfrost     # Mali 600/700/800
 
 # See profiles/desc/llvm_targets.desc
 #
 #  AArch64 AMDGPU ARC ARM AVR BPF CSKY DirectX Hexagon Lanai LoongArch M68k
 #  Mips MSP430 NVPTX PowerPC RISCV Sparc SPIRV SystemZ VE WebAssembly X86 XCore
 #  Xtensa
-#*/*					 LLVM_TARGETS: -* BPF X86
-#*/*					 LLVM_TARGETS: -* BPF ARM
-#*/*					 LLVM_TARGETS: -* BPF AArch64
+#*/*					 LLVM_TARGETS: BPF X86
+#*/*					 LLVM_TARGETS: BPF ARM
+#*/*					 LLVM_TARGETS: BPF AArch64
 
 # See profiles/desc/grub_platforms.desc
-#sys-boot/grub				 GRUB_PLATFORMS: -* efi-64
-#sys-boot/grub				 GRUB_PLATFORMS: -* pc
-#sys-boot/grub				 GRUB_PLATFORMS: -* coreboot
+#sys-boot/grub				 GRUB_PLATFORMS: efi-64
+#sys-boot/grub				 GRUB_PLATFORMS: pc
+#sys-boot/grub				 GRUB_PLATFORMS: coreboot
 
 # vi: set colorcolumn=41,80 nowrap syntax=gentoo-package-use sw=8 ts=8:
