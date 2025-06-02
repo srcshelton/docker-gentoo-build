@@ -65,11 +65,6 @@ then
 fi
 readonly package_default
 
-# TODO: Auto-detect minimum versions from scripts/min-tool-version.sh?
-declare binutils_min_ver='2.25.0'
-declare gcc_min_ver='5.1.0'  # 8.1.0 on x86, 12.0.0 on PA-RISC
-declare llvm_min_ver='13.0.1'  # 11.0.0 before 6.9.0, 15.0.0 on S390 and x86, 18.0.0 on loongarch
-
 declare firmware=''
 declare microcode=''
 declare microcode_blob=''
@@ -855,6 +850,12 @@ fi
 
 # End of argument handling
 
+
+#declare binutils_min_ver='2.25.0'  # 2.30.0 from 6.16.0
+#declare gcc_min_ver='5.1.0'  # 8.1.0 on x86 and from 6.16.0, 12.0.0 on PA-RISC
+#declare llvm_min_ver='13.0.1'  # 11.0.0 before 6.9.0, 15.0.0 on S390 and x86, 18.0.0 on loongarch
+declare binutils_min_ver='' gcc_min_ver='' llvm_min_ver=''
+
 # scripts/min-tool-version.sh first appeared in Linux v5.12
 # TODO: Auto-detect minimum versions from scripts/min-tool-version.sh?
 case "${package_version}" in
@@ -1004,8 +1005,7 @@ case "${package_version}" in
 				;;
 		esac
 		;;
-	#6.15.*)
-	*)
+	6.15.*)
 		binutils_min_ver='2.25.0'
 		case "${arch:-"${ARCH:-}"}" in
 			hppa)
@@ -1030,7 +1030,39 @@ case "${package_version}" in
 				;;
 		esac
 		;;
+	#6.16.*)
+	*)
+		binutils_min_ver='2.30.0'
+		case "${arch:-"${ARCH:-}"}" in
+			hppa)
+				gcc_min_ver='12.0.0'
+				;;
+			*)
+				gcc_min_ver='8.1.0'
+				;;
+		esac
+		case "${arch:-"${ARCH:-}"}" in
+			loong)
+				llvm_min_ver='18.0.0'
+				;;
+			amd64|s390|x86)
+				llvm_min_ver='15.0.0'
+				;;
+			*)
+				llvm_min_ver='13.0.1'
+				;;
+		esac
+		;;
 esac
+if [[
+			-z "${binutils_min_ver:-}" ||
+			-z "${gcc_min_ver:-}" ||
+			-z "${llvm_min_ver:-}"
+		]]
+then
+	die "Unable to determine minimum tool versions for kernel" \
+		"'${package_version}'"
+fi
 
 if [[ "${compiler}" == 'clang' ]]; then
 	declare rust_slot=''
@@ -1103,6 +1135,39 @@ if [[ "${compiler}" == 'clang' ]]; then
 				tail -n 1
 		) ))
 	unset llvm_default_slot
+
+	if (( ! llvm_slot_override )) && type -pf portageq >/dev/null 2>&1; then
+		# Compatibillity:
+		# clang:14 python3_{9..10} *
+		# clang:15 python3_{10..12}
+		# clang:16 python3_{10..12}
+		# clang:17 python3_{10..12}
+		# clang:18 python3_{10..13}
+		# clang:19 python3_{10..13}
+		#
+		# * python3_9 is no longer supported, so not offered by portage
+		declare python_taget=''
+		python_taget="$( portageq envvar PYTHON_SINGLE_TARGET )" || :
+		case "${python_taget:-}" in
+			'python3_9')
+				die "python target ${python_taget} no longer supported," \
+					"building with clang is not possible"
+				;;
+			#'python3_10') : ;;
+			'python3_11') llvm_slot_override=15 ;;
+			'python3_12') llvm_slot_override=15 ;;
+			'python3_13') llvm_slot_override=18 ;;
+			*)
+				warn "Unknown python target '${python_taget:-}' when" \
+					"checking LLVM version compatibility"
+				;;
+		esac
+		unset python_taget
+		if (( llvm_slot_override )); then
+			warn "Upgrading LLVM slot to ${llvm_slot_override} due to" \
+				"minimum python versions"
+		fi
+	fi
 
 	if (( llvm_slot_override )); then
 		# Command-line overrides in llvm_sub_slot_override & llvm_slot_override...
@@ -1335,7 +1400,7 @@ if (( opt_o3 )); then
 fi
 
 compiler_pkgs=(
-	$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )
+	$( pkgslot sys-devel/binutils "${binutils_min_ver}" )
 	sys-devel/binutils-config
 )
 # Up to at least sys-devel/binutils-2.44, 'pgo' and 'xxhash' are
@@ -1350,7 +1415,7 @@ compiler_USE+=" -fortran -lib-only ${use_essential_gcc}"
 case "${compiler}" in
 	gcc)
 		compiler_pkgs+=(
-			$( pkgslot sys-devel/gcc "${gcc_min_ver:-}" )
+			$( pkgslot sys-devel/gcc "${gcc_min_ver}" )
 		)
 		;;
 	clang|llvm)
@@ -1377,7 +1442,7 @@ case "${compiler}" in
 		esac
 		# shellcheck disable=SC2086
 		compiler_pkgs+=(
-			$( pkgslot sys-devel/binutils "${binutils_min_ver:-}" )
+			$( pkgslot sys-devel/binutils "${binutils_min_ver}" )
 			sys-devel/binutils-config
 
 			$( pkgslot llvm-runtimes/compiler-rt ":${inconsistent_slot}" ) # SLOT=14.0.6, 16
@@ -1782,6 +1847,7 @@ mkdir -p "${log_dir:="log"}" ||
 				virtual/os-headers
 				virtual/linux-sources
 			)
+			# shellcheck disable=SC2206
 			declare -a _docker_run_arguments=( # <- Syntax
 				--with-use="$( # <- Syntax
 					if (( initramfs )); then
