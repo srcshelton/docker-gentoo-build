@@ -19,13 +19,16 @@
 #
 
 # See profiles/desc/cpu_flags_*.desc and app-portage/cpuid2cpuflags
+#
 #*/*					 CPU_FLAGS_X86:
 #*/*					 CPU_FLAGS_ARM:
 
 # See profiles/desc/l10n.desc
+#
 */*					 L10N: en-GB en
 
 # See profiles/desc/video_cards.desc
+#
 */*					 VIDEO_CARDS: dummy
 #*/*					 VIDEO_CARDS: vesa matrox  # x86 embedded graphics
 #*/*					 VIDEO_CARDS: vc4          # Raspberry Pi VideoCore IV
@@ -37,11 +40,13 @@
 #  AArch64 AMDGPU ARC ARM AVR BPF CSKY DirectX Hexagon Lanai LoongArch M68k
 #  Mips MSP430 NVPTX PowerPC RISCV Sparc SPIRV SystemZ VE WebAssembly X86 XCore
 #  Xtensa
-#*/*					 LLVM_TARGETS: BPF X86
-#*/*					 LLVM_TARGETS: BPF ARM
+#
 #*/*					 LLVM_TARGETS: BPF AArch64
+#*/*					 LLVM_TARGETS: BPF ARM
+#*/*					 LLVM_TARGETS: BPF X86
 
 # See profiles/desc/grub_platforms.desc
+#
 #sys-boot/grub				 GRUB_PLATFORMS: efi-64
 #sys-boot/grub				 GRUB_PLATFORMS: pc
 #sys-boot/grub				 GRUB_PLATFORMS: coreboot
