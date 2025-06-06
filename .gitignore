@@ -1,12 +1,10 @@
-# See https://github.com/srcshelton/docker-gentoo-web
-/gentoo-web
-
-# Don't archive logs
-#/log/*
 /.backup/
-#/common.run.sh.debug.log
-#/gentoo-base/common.run.sh.debug.log
-#/inspect.docker.debug.log
+
+# Don't archive logs, if log_dir is unset
+/log/*
+/common.run.sh.debug.log
+/gentoo-base/common.run.sh.debug.log
+/inspect.docker.debug.log
 
 # Exclude vim swapfiles
 **/.*.sw[a-p]
@@ -15,24 +13,33 @@
 /make.conf
 /portage-cache.tar
 
-# Allow easier saving of defaults
+# Allow easier setting of kernel-build defaults
 /.kbuild_opt
 
-# Roadmap
+# Exclude developer reminders!
 /TODO
 
+# UPDATE: Don't do this!
+#
+#         Keep these files as unchanged templates and instead make local
+#         configuration changes in the host directories such as
+#         /etc/portage/package.use/01_package.use.local
+#
 # Make host-specific changes to these files as necessary...
 #
-/gentoo-base/etc/portage/package.use.build/package.use.local
-/gentoo-base/etc/portage/package.use.build/01_package.use.local
-/common/local.sh
+#/gentoo-base/etc/portage/package.use.build/package.use.local
+#/gentoo-base/etc/portage/package.use.build/01_package.use.local
+#/common/local.sh
 #
 # ... and then execute
 #
-#  git update-index --skip-worktree gentoo-base/etc/portage/package.use.build/01_package.use.local \
-#	gentoo-base/etc/portage/package.use.build/package.use.local \
-#	common/local.sh
+#  git update-index --skip-worktree \
+#       gentoo-base/etc/portage/package.use.build/01_package.use.local \
+#       gentoo-base/etc/portage/package.use.build/package.use.local \
+#       common/local.sh
 #
 # ... in order to cause git to ignore further changes.
+#
+# (Use 'git update-index --no-skip-worktree' to reverse this if needed...)
 
-# vi: set syntax=cfg:
+# vi: set colorcolumn=80 syntax=cfg:
