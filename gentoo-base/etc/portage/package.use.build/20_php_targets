@@ -2,7 +2,6 @@
 # See $( portageq get_repo_path / gentoo )/profiles/desc/php_targets.desc
 #
 #*/*					 PHP_TARGETS: php8-1 php8-2 php8-3 php8-4
-
 */*					 PHP_TARGETS: php8-2
 
 # vi: set nowrap syntax=gentoo-package-use:

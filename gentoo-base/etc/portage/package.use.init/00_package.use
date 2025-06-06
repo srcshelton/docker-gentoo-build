@@ -5,8 +5,22 @@
 
 */*					 PYTHON_SINGLE_TARGET: python3_13
 */*					 PYTHON_TARGETS: python3_13
+*/*					 LUA_SINGLE_TARGET: luajit
+*/*					 LUA_TARGETS: luajit
+#*/*					 GUILE_SINGLE_TARGET: 3-0
+#*/*					 GUILE_TARGETS: 3-0
+#*/*					 ADA_TARGET: gcc_14
+#*/*					 LLVM_TARGETS: BPF AArch64
+#*/*					 LLVM_TARGETS: BPF ARM
+#*/*					 LLVM_TARGETS: BPF X86
+*/*					 PHP_TARGETS: php8-2
+#*/*					 POSTGRES_TARGETS: postgres17
+*/*					 RUBY_TARGETS: ruby33
 
 net-misc/curl				 CURL_SSL: openssl
+#net-misc/curl				 CURL_QUIC: -ngtcp2 -openssl
+net-misc/curl				-curl_quic_ngtcp2 -curl_quic_openssl
+
 # Packages outside of dev-perl and perl-core also reference these flags..
 #
 # ... but don't enable them for base builds, as the stage3 image has this flag

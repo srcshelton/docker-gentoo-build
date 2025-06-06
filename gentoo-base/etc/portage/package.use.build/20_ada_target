@@ -1,0 +1,6 @@
+
+# See $( portageq get_repo_path / gentoo )/profiles/desc/ada_target.desc
+#
+#*/*					 ADA_TARGET: gcc_12 gcc_13 gcc_14 gcc_15
+
+# vi: set nowrap syntax=gentoo-package-use:

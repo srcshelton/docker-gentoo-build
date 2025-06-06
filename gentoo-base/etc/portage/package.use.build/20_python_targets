@@ -1,5 +1,12 @@
 
+# See $( portageq get_repo_path / gentoo )/profiles/desc/python_targets.desc
+#
+#*/*					 PYTHON_TARGETS: python3_11 python3_12 python3_13 python3_13t python3_14 python3_14t pypy3_11
 */*					 PYTHON_TARGETS: python3_13
+
+# See $( portageq get_repo_path / gentoo )/profiles/desc/python_single_target.desc
+#
+#*/*					 PYTHON_SINGLE_TARGET: python3_11 python3_12 python3_13 python3_13t python3_14 python3_14t pypy3_11
 */*					 PYTHON_SINGLE_TARGET: python3_13
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

@@ -1,0 +1,10 @@
+
+# See $( portageq get_repo_path / gentoo )/profiles/desc/guile_targets.desc
+#
+#*/*					 GUILE_TARGETS: 2-2 3-0
+
+# See $( portageq get_repo_path / gentoo )/profiles/desc/guile_single_target.desc
+#
+#*/*					 GUILE_SINGLE_TARGET: 1-8 2-2 3-0
+
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

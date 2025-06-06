@@ -1,3 +1,6 @@
-#*/*					 POSTGRES_TARGETS: postgres10 postgres11
+
+# See $( portageq get_repo_path / gentoo )/profiles/desc/postgres_targets.desc
+#
+#*/*					 POSTGRES_TARGETS: postgres12 postgres13 postgres14 postgres15 postgres16 postgres17
 
 # vi: set nowrap syntax=gentoo-package-use:

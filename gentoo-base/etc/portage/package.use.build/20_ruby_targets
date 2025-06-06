@@ -1,4 +1,7 @@
-#*/*					 RUBY_TARGETS: ruby31 ruby32
-*/*					 RUBY_TARGETS: ruby32
+
+# See $( portageq get_repo_path / gentoo )/profiles/desc/ruby_targets.desc
+#
+#*/*					 RUBY_TARGETS: ruby30 ruby31 ruby32 ruby33 ruby34
+*/*					 RUBY_TARGETS: ruby33
 
 # vi: set nowrap syntax=gentoo-package-use:
