@@ -20,40 +20,11 @@ if [ -z "${_command:-}" ]; then
 		docker_readonly='readonly'
 	else
 		echo >&2 "FATAL: Cannot find 'docker' or 'podman' executable in path" \
-			"in common/vars.sh"
+			"while sourcing common/vars.sh"
 		exit 1
 	fi
 	export _command docker_readonly
 fi
-
-# Since we're now using '${_command} system info' to determine the graphRoot
-# directory, we need to be root solely to setup the environment
-# appropriately :(
-#
-_output=''
-rc=0
-if ! [ -x "$( command -v "${_command}" )" ]; then
-	echo >&2 "FATAL: Cannot locate binary '${_command}'"
-	exit 1
-elif ! _output="$( "${_command}" info 2>&1 )"; then
-	"${_command}" info 2>&1 || rc=${?}
-	if [ "${_command}" = 'podman' ]; then
-		echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
-			"(${rc}) - do you need to run '${_command} machine start' or" \
-			"re-run '$( basename "${0}" )' as 'root'?"
-	else
-		echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
-			"(${rc}) - do you need to re-run '$( basename "${0}" )' as 'root'?"
-	fi
-	exit 1
-elif [ "$( uname -s )" != 'Darwin' ] &&
-		[ $(( $( id -u ) )) -ne 0 ] &&
-		echo "${_output}" | grep -Fq -- 'rootless: false'
-then
-	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
-	exit 1
-fi
-unset _output
 
 # Guard to ensure that we don't accidentally reset the values below through
 # multiple inclusion - 'unset __COMMON_VARS_INCLUDED' if this is explcitly
@@ -62,6 +33,42 @@ unset _output
 if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	export __COMMON_VARS_INCLUDED=1
 
+	# Since we're now using '${_command} system info' to determine the graphRoot
+	# directory, we need to be root solely to setup the environment
+	# appropriately :(
+	#
+	_graphroot=''
+	_output=''
+	_rc=0
+	if ! [ -x "$( command -v "${_command}" )" ]; then
+		echo >&2 "FATAL: Cannot locate binary '${_command}'"
+		exit 1
+	elif ! _output="$( "${_command}" system info 2>&1 )"; then
+		_rc=${?}
+		echo >&2 "${_output:-"FATAL: Unknown error"}"
+		if [ "${_command}" = 'podman' ]; then
+			echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
+				"(${_rc}) - do you need to run '${_command} machine start' or" \
+				"re-run '$( basename "${0}" )' as 'root'?"
+		else
+			echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
+				"(${_rc}) - do you need to re-run '$( basename "${0}" )' as 'root'?"
+		fi
+		exit 1
+	elif [ "$( uname -s )" != 'Darwin' ] &&
+			[ $(( $( id -u ) )) -ne 0 ] &&
+			echo "${_output}" | grep -Fq -- 'rootless: false'
+	then
+		echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
+		exit 1
+	fi
+	_graphroot="$( # <- Syntax
+			echo "${_output}" |
+				grep -E -- '(graphRoot|Docker Root Dir):' |
+				cut -d':' -f 2- |
+				awk '{ print $1 }'
+		)" || :
+
 	# Optional override to specify alternative build-only temporary
 	# directory...
 	#
@@ -69,58 +76,24 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#      and 'TMPDIR' in the environment.
 	#
 	if [ "$( uname -s )" != 'Darwin' ]; then
-		graphroot=''
-
 		if [ -n "${PODMAN_TMPDIR:-}" ]; then
 			[[ -z "${debug:-}" ]] ||
 				echo >&2 "DEBUG: Setting PODMAN_TMPDIR ('${PODMAN_TMPDIR}')" \
 					"as temporary directory ..."
 		else
-			# Since we're now using '${_command} system info' to determine the
-			# graphRoot directory, we need to be rootless or root solely to setup
-			# the environment appropriately :(
-			#
-			_output=''
-			if ! [ -x "$( command -v "${_command}" )" ]; then
-				echo >&2 "FATAL: Cannot locate binary '${_command}'"
-				exit 1
-			elif ! _output="$( "${_command}" system info 2>&1 )"; then
-				if [ "${_command}" = 'podman' ]; then
-					echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
-						"you need to run '${_command} machine start' or re-run" \
-						"'$( basename "${0}" )' as 'root'?"
-				else
-					echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
-						"you need to re-run '$( basename "${0}" )' as 'root'?"
-				fi
-				exit 1
-			elif [ $(( $( id -u ) )) -ne 0 ] &&
-					echo "${_output}" | grep -Fq -- 'rootless: false'
-			then
-				echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
-				exit 1
-			fi
-
-			graphroot="$( # <- Syntax
-					echo "${_output}" |
-						grep -E -- '(graphRoot|Docker Root Dir):' |
-						cut -d':' -f 2- |
-						awk '{ print $1 }'
-				)" || :
-			if [ -z "${graphroot:-}" ]; then
+			if [ -z "${_graphroot:-}" ]; then
 				echo >&2 "FATAL: Cannot determine ${_command} root directory"
 				exit 1
 			fi
-
-			unset _output
 		fi
 
-		tmp="${PODMAN_TMPDIR:-"${graphroot}"}/tmp"
-		mkdir -p "${tmp:="/var/lib/containers/storage/tmp"}"
-		export TMPDIR="${tmp}"
-		export TMP="${tmp}"
-		unset tmp graphroot
+		_tmp="${PODMAN_TMPDIR:-"${_graphroot}"}/tmp"
+		mkdir -p "${_tmp:="/var/lib/containers/storage/tmp"}"
+		export TMPDIR="${_tmp}"
+		export TMP="${_tmp}"
+		unset _tmp
 	fi
+	unset _rc _output _graphroot
 
 	# Alerting options...
 	#
@@ -169,10 +142,6 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	# occurring from read-only repo checkouts.  Plus, the data being stored is
 	# mostly portage build-logs (by volume).
 	#
-	# To retain previous functionality, uncomment:
-	#
-	#log_dir=''
-	#
 	portage_log_dir="${PORTAGE_LOGDIR:-"${PORT_LOGDIR:-"$( # <- Syntax
 			emerge --info 2>&1 |
 				grep -E -- '^PORT(AGE)?_LOGDIR=' |
@@ -181,8 +150,95 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 		)"}"}"
 	log_dir="${portage_log_dir:-"/var/log/portage"}/containers"
 	unset portage_log_dir
+	#
+	# To retain previous functionality, uncomment:
+	#
+	#log_dir=''
 	export log_dir
 
+	# Set kernel build options - see https://docs.kernel.org/kbuild/kbuild.html
+	# and 'make help'...
+	#
+	# Compiler (Pre-processor, Assembler, Linker, Rust) Flags
+	#
+	#KCPPFLAGS
+	#KAFLAGS
+	#KCFLAGS
+	#KDOCFLAGS
+	#AFLAGS_KERNEL
+	#CFLAGS_KERNEL
+	#AFLAGS_MODULE
+	#CFLAGS_MODULE
+	#LDFLAGS_MODULE
+	#KRUSTFLAGS
+	#RUSTFLAGS_KERNEL
+	#RUSTFLAGS_MODULE
+	#PROCMACROLDFLAGS
+	#
+	#HOSTCFLAGS
+	#HOSTCXXFLAGS
+	#HOSTLDLIBS
+	#HOSTLDFLAGS
+	#HOSTRUSTFLAGS
+	#
+	#USERCFLAGS
+	#USERLDFLAGS
+	#
+	# Build-system Flags
+	#
+	#KBUILD_KCONFIG="Kconfig"
+	#KBUILD_VERBOSE
+	#KBUILD_EXTMOD
+	#KBUILD_OUTPUT
+	#KBUILD_EXTMOD_OUTPUT
+	#KBUILD_EXTRA_WARN
+	#KBUILD_ABS_SRCTREE
+	#KBUILD_SIGN_PIN
+	#KBUILD_MODPOST_WARN
+	#KBUILD_MODPOST_NOFINAL
+	#KBUILD_EXTRA_SYMBOLS
+	#INSTALL_MOD_STRIP
+	#IGNORE_DIRS
+	#
+	# Host Architecture and (Cross-)Compilation
+	#
+	#ARCH
+	#KBUILD_DEBARCH
+	#ALLSOURCE_ARCHS
+	#CROSS_COMPILE
+	#CF
+	#LLVM
+	#
+	# Kernel Paths
+	#
+	#INSTALL_PATH="/boot"
+	#INSTALLKERNEL="installkernel"
+	#MODLIB="${INSTALL_MOD_PATH}/lib/modules/${KERNELRELEASE}"
+	#INSTALL_MOD_PATH
+	#INSTALL_HDR_PATH="${KBUILD_OUTPUT}/usr"
+	#INSTALL_DTBS_PATH
+	#
+	# Settings for Repeatable Builds
+	#
+	#KBUILD_BUILD_TIMESTAMP="$(date -u)"
+	#KBUILD_BUILD_USER="$(whoami)"
+	#KBUILD_BUILD_HOST="$(hostname)"
+	#
+	export KCPPFLAGS KAFLAGS KCFLAGS KDOCFLAGS AFLAGS_KERNEL CFLAGS_KERNEL \
+		AFLAGS_MODULE CFLAGS_MODULE LDFLAGS_MODULE KRUSTFLAGS \
+		RUSTFLAGS_KERNEL RUSTFLAGS_MODULE PROCMACROLDFLAGS HOSTCFLAGS \
+		HOSTCXXFLAGS HOSTLDLIBS HOSTLDFLAGS HOSTRUSTFLAGS USERCFLAGS \
+		USERLDFLAGS KBUILD_KCONFIG KBUILD_VERBOSE KBUILD_EXTMOD KBUILD_OUTPUT \
+		KBUILD_EXTMOD_OUTPUT KBUILD_EXTRA_WARN KBUILD_ABS_SRCTREE \
+		KBUILD_SIGN_PIN KBUILD_MODPOST_WARN KBUILD_MODPOST_NOFINAL \
+		KBUILD_EXTRA_SYMBOLS INSTALL_MOD_STRIP IGNORE_DIRS ARCH \
+		KBUILD_DEBARCH ALLSOURCE_ARCHS CROSS_COMPILE CF LLVM INSTALL_PATH \
+		INSTALLKERNEL MODLIB INSTALL_MOD_PATH INSTALL_HDR_PATH \
+		INSTALL_DTBS_PATH KBUILD_BUILD_TIMESTAMP KBUILD_BUILD_USER \
+		KBUILD_BUILD_HOST
+
+	# Set platform-specific variables...
+	#
 	use_cpu_arch='' use_cpu_flags='' use_cpu_flags_raw=''
 	gcc_target_opts='-march=native' description='' vendor='' sub_cpu_arch=''
 	# rpi-cm rpi-cm2 rpi-cm3 rpi-cm4s
@@ -584,6 +640,9 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	export use_cpu_arch use_cpu_flags_raw use_cpu_flags \
 		gcc_target_opts rust_target_opts
 
+	#
+	# End platform-specific variables
+
 	# Define essential USE flags
 	#
 	# WARNING: Any values defined here will be written into container
@@ -606,9 +665,11 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#  sys-libs/glibc	    multiarch ssp
 	# (General:			    ipv6 ~openssl~ split-usr ~ssl~ threads)
 	#
-	use_essential="${rpi_model:+"${rpi_model} "}asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
+	use_essential="${rpi_model:+"raspberrypi ${rpi_model} "}asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
 	export use_essential
-	unset rpi_model
+	# gentoo-build-kernel.docker uses '${rpi_model}'...
+	#unset rpi_model
+	export rpi_model
 
 	# Even though we often want a minimal set of flags, gcc's flags are
 	# significant since they may affect the compiler facilities available to
@@ -622,6 +683,19 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	use_essential_gcc="default-stack-clash-protection default-znow graphite -jit nptl openmp pch pie -sanitize ssp -vtv zstd"
 	export use_essential_gcc
 
+	# Use pypy on supported platforms with sufficient memory...
+	#
+	# N.B. There are three versions of pypy in the current portage tree:
+	#
+	#        2.7  - dev-python/pypy-exe,
+	#               dev-python/pypy-exe-bin;
+	#        3.10 - dev-python/pypy3,
+	#               dev-python/pypy3_10-exe,
+	#               dev-python/pypy3_10-exe-bin;
+	#        3.11 - dev-lang/pypy,
+	#               dev-lang/pypy3-exe,
+	#               dev-lang/pypy3-exe-bin
+	#
 	case "$( uname -m )" in
 		x86_64|i686)
 			: $(( memtotal = $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
@@ -634,13 +708,15 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				# Update: dev-python/pypy3_10-exe-7.3.12_p2 now requires 10GB
 				#         RAM in order to build successfully :(
 				if [ $(( memtotal )) -gt 9 ]; then
-					pkg_pypy="${pkg_pypy} dev-python/pypy3_10-exe"
+					#pkg_pypy="${pkg_pypy} dev-python/pypy3_10-exe"
+					pkg_pypy="${pkg_pypy} dev-lang/pypy3-exe"
 				else
 					# On a system with 4GB of memory and python3.11, the
 					# install process for dev-python/pypy3-7.3.11_p1 now hangs
 					# indefinitely after issuing a message reading:
 					#concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
-					pkg_pypy="${pkg_pypy} dev-python/pypy3_10-exe-bin"
+					#pkg_pypy="${pkg_pypy} dev-python/pypy3_10-exe-bin"
+					pkg_pypy="${pkg_pypy} dev-lang/pypy3-exe-bin"
 					pkg_pypy_use="${pkg_pypy_use} low-memory"
 				fi
 				export pkg_pypy pkg_pypy_use pkg_pypy_post_remove
@@ -688,15 +764,22 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#fi
 	#unset store
 
+	# Set build targets for multi-SLOT packages...
+	#
 	python_default_target='python3_13'
 	export python_default_target
 
 	php_default_target='php8-2'
 	export php_default_target
 
-	if [ -f common/local.sh ]; then
+	# Finally, execute any user-overrides which might exist!
+	#
+	if [ -s ./local.sh ]; then
 		# shellcheck disable=SC1091
-		. common/local.sh
+		. ./local.sh
+	elif [ -s ./common/local.sh ]; then
+		# shellcheck disable=SC1091
+		. ./common/local.sh
 	fi
 fi
 

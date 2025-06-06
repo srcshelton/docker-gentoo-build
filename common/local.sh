@@ -1,4 +1,5 @@
 #! /bin/sh
+# shellcheck disable=SC2034
 
 # Local site-specific overrides for settings defined in common/vars.sh...
 
