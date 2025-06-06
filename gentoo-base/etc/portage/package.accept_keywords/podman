@@ -132,7 +132,8 @@
 ~app-containers/podman-5.4.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-5.5.0_rc1			 **
 #~app-containers/podman-5.5.0_rc2			 **
-~app-containers/podman-5.5.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-5.5.0				~amd64 ~arm ~arm64 ~x86
+~app-containers/podman-5.5.1				~amd64 ~arm ~arm64 ~x86
 
 #~app-containers/podman-tui-0.14.0			~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-tui-0.17.0			~amd64 ~arm ~arm64 ~x86
@@ -265,7 +266,8 @@
 #~app-containers/buildah-1.39.2				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.39.3				~amd64 ~arm ~arm64 ~x86
 ~app-containers/buildah-1.39.4				~amd64 ~arm ~arm64 ~x86
-~app-containers/buildah-1.40.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.40.0				~amd64 ~arm ~arm64 ~x86
+~app-containers/buildah-1.40.1				~amd64 ~arm ~arm64 ~x86
 
 # originally required by app-emulation/buildah-1.15.0
 # move app-emulation/skopeo app-containers/skopeo
@@ -478,7 +480,8 @@
 #~app-containers/netavark-1.14.0			~amd64 ~arm ~arm64 ~x86
 ~app-containers/netavark-1.14.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/netavark-1.15.0			~amd64 ~arm ~arm64 ~x86
-~app-containers/netavark-1.15.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.15.1				~amd64 ~arm ~arm64 ~x86
+~app-containers/netavark-1.15.2				~amd64 ~arm ~arm64 ~x86
 
 #~app-containers/aardvark-dns-1.0.2			~amd64 ~arm ~arm64 ~x86
 #~app-containers/aardvark-dns-1.0.3			~amd64 ~arm ~arm64 ~x86
@@ -584,7 +587,8 @@
 #~app-containers/containers-common-0.62.1		~amd64 ~arm ~arm64 ~x86
 #~app-containers/containers-common-0.62.2		~amd64 ~arm ~arm64 ~x86
 ~app-containers/containers-common-0.62.3		~amd64 ~arm ~arm64 ~x86
-~app-containers/containers-common-0.63.0		~amd64 ~arm ~arm64 ~x86
+#~app-containers/containers-common-0.63.0		~amd64 ~arm ~arm64 ~x86
+~app-containers/containers-common-0.63.1		~amd64 ~arm ~arm64 ~x86
 
 ~app-containers/containers-image-5.30.0			       ~arm        ~x86
 ~app-containers/containers-image-5.32.2			       ~arm        ~x86
