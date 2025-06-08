@@ -1411,7 +1411,7 @@ compiler_USE+=" -xxhash"
 # even when we are primarily using clang/LLVM...
 #
 # shellcheck disable=SC2154
-compiler_USE+=" -fortran -lib-only ${use_essential_gcc}"
+compiler_USE+=" -fortran -lib-only -nls ${use_essential_gcc}"
 case "${compiler}" in
 	gcc)
 		compiler_pkgs+=(
@@ -1467,6 +1467,19 @@ case "${compiler}" in
 			$( pkgslot llvm-core/clang ":${llvm_slot}" ) # SLOT=14, 16/16
 			$( pkgslot llvm-core/clang-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
 		)
+
+		# Try to prevent circular dependencies and build failures...
+		pre_use="$( # <- Syntax
+				replace_flags \
+					'-compiler-rt' \
+					'-default-compiler-rt' \
+					'-default-libcxx' \
+					'-default-lld' \
+					'-libcxx' \
+					'static-libs' -- "${pre_use}"
+			)"
+		pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}llvm-core/clang-common llvm-core/clang-runtime llvm-runtimes/libcxx"
+
 		if [[ "${unwind:-}" == 'llvm' ]]; then
 			pre_use="$( replace_flags '-clang' '-llvm-libunwind' 'static-libs' -- "${pre_use}" )"
 			#pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}llvm-runtimes/libunwind"
@@ -1483,7 +1496,7 @@ case "${compiler}" in
 		fi
 		unset limit
 		unset inconsistent_slot
-		compiler_USE+=' clang default-compiler-rt default-libcxx default-lld' # gold
+		compiler_USE+=' clang compiler-rt default-compiler-rt default-libcxx default-lld libcxx'
 
 		declare -i force_python=0
 		case "${bindgen_ver:-}" in
