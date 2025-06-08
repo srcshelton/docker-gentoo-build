@@ -7,8 +7,18 @@
 
 set -e
 
-[ -e /etc/ssl/cert.pem ] ||
-	ln -s certs/ca-certificates.crt /etc/ssl/cert.pem
+if ! [ -e /etc/ssl/cert.pem ]; then
+	if [ -d /etc/ssl ] &&
+			[ -w /etc/ssl ] &&
+			touch -ac /etc/ssl/certs/ca-certificates.crt 2>/dev/null
+	then
+		ln -s certs/ca-certificates.crt /etc/ssl/cert.pem ||
+			echo >&2 "FATAL: Linking 'certs/ca-certificates.crt' to" \
+				"'cert.pem' in /etc/ssl failed: ${?}"
+	else
+		echo >&2 "FATAL: Unable to write to '/etc/ssl/cert.pem': ${?}"
+	fi
+fi
 test -s /etc/ssl/cert.pem
 
 # vi: set syntax=sh:
