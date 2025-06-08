@@ -22,10 +22,11 @@
 ~sys-kernel/gentoo-sources-6.14.9			~amd64 ~arm ~arm64 ~x86
 ~sys-kernel/vanilla-sources-6.14.9			~amd64 ~arm ~arm64 ~x86
 
-# Latest is gentoo-sources-6.15.0
 # See https://www.phoronix.com/news/Linux-6.15-nosmt-Power-Regress
-#~sys-kernel/gentoo-sources-6.15.0			~amd64 ~arm ~arm64 ~x86
-#~sys-kernel/vanilla-sources-6.15.0			~amd64 ~arm ~arm64 ~x86
+# Latest is gentoo-sources-6.15.1
+# Clear Linux is up to date with linux-6.15.1
+~sys-kernel/gentoo-sources-6.15.1			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-6.15.1			~amd64 ~arm ~arm64 ~x86
 
 # Required for rust modules...
 #
