@@ -1,20 +1,22 @@
 
 # General USE flags:
+#
+
 #*/*					-* asm ipv6 ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
 */*					-* pie split-usr
 
-*/*					 PYTHON_SINGLE_TARGET: python3_13
-*/*					 PYTHON_TARGETS: python3_13
-*/*					 LUA_SINGLE_TARGET: luajit
-*/*					 LUA_TARGETS: luajit
+#*/*					 ADA_TARGET: gcc_14
 #*/*					 GUILE_SINGLE_TARGET: 3-0
 #*/*					 GUILE_TARGETS: 3-0
-#*/*					 ADA_TARGET: gcc_14
 #*/*					 LLVM_TARGETS: BPF AArch64
 #*/*					 LLVM_TARGETS: BPF ARM
 #*/*					 LLVM_TARGETS: BPF X86
+*/*					 LUA_SINGLE_TARGET: luajit
+*/*					 LUA_TARGETS: luajit
 */*					 PHP_TARGETS: php8-2
 #*/*					 POSTGRES_TARGETS: postgres17
+*/*					 PYTHON_SINGLE_TARGET: python3_13
+*/*					 PYTHON_TARGETS: python3_13
 */*					 RUBY_TARGETS: ruby33
 
 net-misc/curl				 CURL_SSL: openssl

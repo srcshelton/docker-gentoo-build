@@ -5,7 +5,8 @@
 # 01_package.use.local - Build-image overrides;
 # 05_host.use          - Package-build & install-time overrides;
 # 10_alternatives      - Global app-alternatives/* flags;
-# 20_ada_targets       - ADA_TARGETS;
+# 20_ada_target        - ADA_TARGET;
+# 20_guile_targets     - GUILE_TARGETS / GUILE_SINGLE_TARGET;
 # 20_lua_targets       - LUA_TARGETS / LUA_SINGLE_TARGET;
 # 20_php_targets       - PHP_TARGETS;
 # 20_postgres_targets  - POSTGRES_TARGETS;
@@ -16,6 +17,8 @@
 #
 
 # General USE flags:
+#
+
 #*/*					-* asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
 */*					-apache2 -awt acpi adns aio ao asm audit
 */*					-berkdb bash-completion bzip2

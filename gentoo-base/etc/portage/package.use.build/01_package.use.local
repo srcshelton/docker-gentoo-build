@@ -5,7 +5,8 @@
 # 01_package.use.local - Build-image overrides;
 # 05_host.use          - Package-build & install-time overrides;
 # 10_alternatives      - Global app-alternatives/* flags;
-# 20_ada_targets       - ADA_TARGETS;
+# 20_ada_target        - ADA_TARGET;
+# 20_guile_targets     - GUILE_TARGETS / GUILE_SINGLE_TARGET;
 # 20_lua_targets       - LUA_TARGETS / LUA_SINGLE_TARGET;
 # 20_php_targets       - PHP_TARGETS;
 # 20_postgres_targets  - POSTGRES_TARGETS;
@@ -20,8 +21,8 @@
 
 # See profiles/desc/cpu_flags_*.desc and app-portage/cpuid2cpuflags
 #
-#*/*					 CPU_FLAGS_X86:
 #*/*					 CPU_FLAGS_ARM:
+#*/*					 CPU_FLAGS_X86:
 
 # See profiles/desc/l10n.desc
 #
@@ -30,10 +31,10 @@
 # See profiles/desc/video_cards.desc
 #
 */*					 VIDEO_CARDS: dummy
-#*/*					 VIDEO_CARDS: vesa matrox  # x86 embedded graphics
-#*/*					 VIDEO_CARDS: vc4          # Raspberry Pi VideoCore IV
 #*/*					 VIDEO_CARDS: lima         # Mali 200/400
 #*/*					 VIDEO_CARDS: panfrost     # Mali 600/700/800
+#*/*					 VIDEO_CARDS: vc4          # Raspberry Pi VideoCore IV
+#*/*					 VIDEO_CARDS: vesa matrox  # x86 embedded graphics
 
 # See profiles/desc/llvm_targets.desc
 #
@@ -47,8 +48,8 @@
 
 # See profiles/desc/grub_platforms.desc
 #
+#sys-boot/grub				 GRUB_PLATFORMS: coreboot
 #sys-boot/grub				 GRUB_PLATFORMS: efi-64
 #sys-boot/grub				 GRUB_PLATFORMS: pc
-#sys-boot/grub				 GRUB_PLATFORMS: coreboot
 
 # vi: set colorcolumn=41,80 nowrap syntax=gentoo-package-use sw=8 ts=8:
