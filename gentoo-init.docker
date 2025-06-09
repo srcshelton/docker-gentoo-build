@@ -1809,7 +1809,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 			--with-bdeps=n
 			--with-use="-* $( replace_flags \
 					'-lib-only' 'openmp' \
-					'pkg-config' \
+					'flex' 'pkg-config' \
 					'curl_ssl_openssl' 'openssl' 'ssl' \
 					"python_single_target_${python_single_target}" \
 					$( # <- Syntax
