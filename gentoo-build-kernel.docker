@@ -726,8 +726,10 @@ if ! echo " ${*:-} " | grep -q -- ' --no-patch'; then
 		#	kpatch="${kpatchprefix}/more-ISA-levels-and-uarches-for-kernel-6.1.79%2B.patch" ;;
 		#6.[89].*|6.1[0-9].*)
 		#	kpatch="${kpatchprefix}/lite-more-x86-64-ISA-levels-for-kernel-6.8-rc4%2B.patch" ;;
-		6.1.79*|6.1.[89][0-9]*|6.1.[1-9][0-9][0-9]|6.[2-9].*|6.[1-9][0-9].*)
+		6.1.79*|6.1.[89][0-9]*|6.1.[1-9][0-9][0-9]*|6.[2-9].*|6.1[0-4].*)
 			kpatch="${kpatchprefix}/more-ISA-levels-and-uarches-for-kernel-6.1.79%2B.patch" ;;
+		6.1[5-9].*|6.[2-9][0-9].*)
+			kpatch="${kpatchprefix}/more-ISA-levels-and-uarches-for-kernel-6.15-rc1%2B.patch" ;;
 		'')
 			: ;;
 		*)
