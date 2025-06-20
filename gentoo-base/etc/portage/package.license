@@ -291,6 +291,7 @@ app-text/docbook-sgml-dtd		 docbook
 app-text/docbook-xml-simple-dtd		 docbook
 app-text/xhtml1				 W3C
 dev-python/pillow			 HPND
+sys-apps/dbus				 tcltk
 sys-apps/miscfiles			 unicode
 #sys-fs/udisks				 LGPL-2+
 sys-libs/libsmbios			 Boost-1.0 OSL-2.0
