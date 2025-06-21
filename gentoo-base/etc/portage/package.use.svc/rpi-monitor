@@ -8,4 +8,6 @@ media-libs/freetype			 png
 media-libs/harfbuzz			 glib truetype
 net-analyzer/rrdtool			 graph perl rrdcgi
 
+app-admin/webapp-config			 lighttpd
+
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
