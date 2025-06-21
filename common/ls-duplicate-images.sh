@@ -61,7 +61,7 @@ php_replacement_2='\1-\3'
 images="$(
 	eval "${_command} image list --noheading ${all:+" ${all}"}"		|
 		sed -r "s|${php_pattern_1}|${php_replacement_1}|"		|
-		awk '{ print $1 }'						|
+		awk '{print $1}'						|
 		grep -v '<none>'						|
 		sort								|
 		uniq -c								|

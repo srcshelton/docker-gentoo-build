@@ -20,33 +20,33 @@ $_command container ps -a |
 	rev |
 	cut -d' ' -f 1 |
 	rev |
-	grep '^[a-z]\+_[a-z]\+$' |
+	grep -- '^[a-z]\+_[a-z]\+$' |
 	xargs -r $_command container rm --volumes
 
 # Remove images classed as 'dangling'...
 #
 $_command image ls --filter 'dangling=true' |
 	tail -n +2 |
-	awk '{ print $3 }' |
+	awk '{print $3}' |
 	xargs -r $_command image rm || :
 
 # Try to remove remaining untagged images...
 #
 $_command image ls |
-	grep '^<none>\s\+<none>' |
-	awk '{ print $3 }' |
+	grep -- '^<none>\s\+<none>' |
+	awk '{print $3}' |
 	xargs -r $_command image rm || :
 $_command image ls |
-	grep '^<none>\s\+<none>' |
-	awk '{ print $3 }' |
+	grep -- '^<none>\s\+<none>' |
+	awk '{print $3}' |
 	xargs -r buildah rmi || :
 
 # Forcing image removal leads to greater problems :(
 #
 #while $_command image ls | grep -q '^<none>\s\+<none>'; do
 #	$_command image ls |
-#		grep '^<none>\s\+<none>' |
-#		awk '{ print $3 }' |
+#		grep -- '^<none>\s\+<none>' |
+#		awk '{print $3}' |
 #		xargs -r $_command image rm -f || :
 #done
 
@@ -61,14 +61,14 @@ $_command image ls |
 		# other - as above - can lead to corruption of the internal image
 		# registry...
 #		$_command image ls |
-#			grep '^<none>\s\+<none>' |
-#			awk '{ print $3 }' |
+#			grep -- '^<none>\s\+<none>' |
+#			awk '{print $3}' |
 #			xargs -rn 1 --  $_command image rm ||
 #		$_command image ls |
-#			grep '^<none>\s\+<none>' |
-#			awk '{ print $3 }' |
+#			grep -- '^<none>\s\+<none>' |
+#			awk '{print $3}' |
 #			xargs -rn 1 -- $_command image rm -f
-		$_command image ls | grep '^<none>\s\+<none>' | awk '{ print $3 }' | xargs -r buildah rmi || :
+		$_command image ls | grep -- '^<none>\s\+<none>' | awk '{print $3}' | xargs -r buildah rmi || :
 	}
 #done
 

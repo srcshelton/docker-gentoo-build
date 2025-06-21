@@ -199,14 +199,14 @@ if docker system info | grep -qw -- 'crun'; then
 					python3 -c "$( echo 'import sys, yaml, json;' \
 						'print(json.dumps(yaml.safe_load(sys.stdin)))' )" |
 					jq -r '.host.ociRuntime.version' |
-					grep '^crun version' |
+					grep -- '^crun version' |
 					awk '{print $3}'
 			)"
 		fi
 	else
 		crun_version="$(
 			docker system info |
-				grep 'crun version' |
+				grep -- 'crun version' |
 				awk '{print $3}'
 		)"
 	fi
@@ -435,7 +435,7 @@ checkids() {
 			then
 				stage3_src_id="$( # <- Syntax
 					echo "${stage3_src_id:-}" |
-					awk -F':' '{ print $NF }'
+					awk -F':' '{print $NF}'
 				)"
 
 				# Does our upstream stage3 match the ID encoded in our current
@@ -641,7 +641,7 @@ if ! type -pf portageq >/dev/null 2>&1; then
         )"}"}"
 	for dir in /var/cache/portage/dist \
 			"${portage_log_dir:-"/var/log/portage"}" \
-			/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}
+			/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"container"}
 	do
 		[[ -d "${dir}" ]] || makedir "${dir}"
 	done
@@ -679,7 +679,7 @@ else # type -pf portageq >/dev/null 2>&1; then
 			if [[ -d "${dir}"/eclass ]]; then
 				grep -hR eclass /etc/portage/repos.conf |
 						sed 's/#.*//' |
-						grep '^eclass-overrides' |
+						grep -- '^eclass-overrides' |
 						cut -d '=' -f 2- |
 						grep -Fqw -- "${repo}" &&
 					continue
@@ -1200,7 +1200,7 @@ if [[ -n "${ref:-}" ]]; then
 	gentoo_stage3_id="$( docker image ls --noheading --digests \
 			--format='{{.Digest}} {{.ID}}' 2>/dev/null |
 		grep -F -- "${ref}" |
-		awk '{ print $2 }'
+		awk '{print $2}'
 	)" || :
 else
 	gentoo_stage3_id="$( docker image ls --noheading \

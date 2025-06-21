@@ -67,14 +67,14 @@ unset package package_version package_name container_name
 
 if (( $( # <- Syntax
 		docker volume ls -n |
-			awk '{ print $2 }' |
+			awk '{print $2}' |
 			grep -c -- "^${original_page_volume}"
 	) > 1 ))
 then
 	print "Removing old '${original_page_volume}'* volumes ..."
 	# shellcheck disable=SC2154
 	docker volume ls -n |
-		awk '{ print $2 }' |
+		awk '{print $2}' |
 		grep -- "^${original_page_volume}" |
 		xargs -r -- "${_command}" volume rm >/dev/null
 fi

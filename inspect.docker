@@ -61,7 +61,7 @@ fi
 # Useful use-cases:
 #for s in $(
 #	podman image ls |
-#		grep '^localhost.*service' |
+#		grep -- '^localhost.*service' |
 #		cut -d'/' -f 2- |
 #		sed 's/\s\+/:/g' |
 #		cut -d':' -f 1-2
@@ -279,7 +279,7 @@ docker_run() {
 		default_repo_path='/var/db/repos/gentoo'
 		rw_repo_path='/var/db/repos/srcshelton'
 		default_distdir_path='/var/cache/portage/dist'
-		default_pkgdir_path="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
+		default_pkgdir_path="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"container"}"
 		if [ ! -d /var/db/repos/gentoo ] && [ -d /var/db/repo/gentoo ]; then
 			default_repo_path='/var/db/repo/gentoo'
 			rw_repo_path='/var/db/repo/srcshelton'
@@ -332,14 +332,14 @@ docker_run() {
 		mountpoints['/var/lib/portage/eclass/linux-info']='/srv/host/var/lib/portage/eclass/linux-info'
 	fi
 
-	#ENV PKGDIR="${PKGCACHE:-"/var/cache/portage/pkg"}/${ARCH:-"amd64"}/${PKGHOST:-"docker"}"
+	#ENV PKGDIR="${PKGCACHE:-"/var/cache/portage/pkg"}/${ARCH:-"amd64"}/${PKGHOST:-"container"}"
 	#local PKGCACHE="${PKGCACHE:="/var/cache/portage/pkg"}"
-	#local PKGHOST="${PKGHOST:="docker"}"
+	#local PKGHOST="${PKGHOST:="container"}"
 	local PKGDIR="${PKGDIR:="${default_pkgdir_path:-"$( portageq pkgdir )"}"}"
 
 	# Allow use of 'ARCH' variable as an override...
 	print "Using architecture '${ARCH:-"${arch}"}' ..."
-	mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
+	mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"container"}"
 	mountpointsro['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
 	[ -S /var/run/syslog-ng/log ] && mountpoints['/var/run/syslog-ng/log']='/dev/log'
 
@@ -667,9 +667,9 @@ main() {
 		esac
 		if [[ -n "${unit:-}" ]]; then
 			# shellcheck disable=SC2004
-			eval swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{ print $2 }' ) + 16 ) / ${divider} ))
+			eval swp=$(( ( $( grep -m 1 'SwapTotal:' /proc/meminfo | awk '{print $2}' ) + 16 ) / ${divider} ))
 			# shellcheck disable=SC2004
-			eval ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / ${divider} ))
+			eval ram=$(( $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{print $2}' ) / ${divider} ))
 			# shellcheck disable=SC2295
 			if (( ram < ${PODMAN_MEMORY_LIMIT%[${unit,,}${unit^^}]} )) || (( ( ram + swp ) < ${PODMAN_SWAP_LIMIT%[${unit,,}${unit^^}]} )); then
 				output >&2 "INFO:  Host resources (rounded down to nearest 1${unit^^}iB):"

@@ -2036,7 +2036,7 @@ done
 unset port
 
 if [[ -n "${exposedports:-}" ]]; then
-	awk -v p="${exposedports}" '{ gsub( "^EXPOSE .*$", p ) ; print ; }' <"${file}" >"${dockerfile_tmp}"
+	awk -v p="${exposedports}" '{gsub("^EXPOSE .*$", p); print}' <"${file}" >"${dockerfile_tmp}"
 else
 	grep -Fv 'EXPOSE' "${file}" >"${dockerfile_tmp}"
 fi

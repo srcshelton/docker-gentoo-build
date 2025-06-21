@@ -180,9 +180,9 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 	unset total
 else
 	cores="$( nproc ||
-			grep 'cpu cores' /proc/cpuinfo |
+			grep -- 'cpu cores' /proc/cpuinfo |
 				tail -n 1 |
-				awk -F': ' '{ print $2 }'
+				awk -F': ' '{print $2}'
 		)"
 fi
 
@@ -247,11 +247,11 @@ if (( local_install )); then
 		sudo chown "${REMOTE_USER}:root" /var/cache/portage &&
 		sudo chmod ug+rwX /var/cache/portage
 
-	sudo mkdir -p "/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}" &&
+	sudo mkdir -p "/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"container"}" &&
 		sudo chown "${REMOTE_USER}:root" \
-			"/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}" &&
+			"/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"container"}" &&
 		sudo chmod ug+rwX \
-			"/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
+			"/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"container"}"
 
 	if ! [[ -x sync-portage.sh ]]; then
 		echo >&2 "WARN:  Cannot locate 'sync-portage.sh' - please" \
@@ -361,7 +361,7 @@ else
 	until [[ "$( # <- Syntax
 				podman machine list --noheading \
 						--format '{{.Name}} {{.LastUp}}' |
-					grep "^${MACHINE}[* ]"
+					grep -- "^${MACHINE}[* ]"
 			)" =~ ^${MACHINE}\*?\ Currently\ running$ ]]
 	do
 		printf '.'

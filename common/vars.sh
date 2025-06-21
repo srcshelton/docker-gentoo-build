@@ -66,7 +66,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			echo "${_output}" |
 				grep -E -- '(graphRoot|Docker Root Dir):' |
 				cut -d':' -f 2- |
-				awk '{ print $1 }'
+				awk '{print $1}'
 		)" || :
 
 	# Optional override to specify alternative build-only temporary
@@ -535,7 +535,13 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				# so let's see whether this is enough of a differentiator
 				# before having to parse the output of 'lscpu'...
 				#
-				case "$( grep 'CPU revision' /proc/cpuinfo | sort | uniq | cut -d':' -f 2 | awk '{print $1}' )" in
+				case "$( # <- Syntax
+							grep -- 'CPU revision' /proc/cpuinfo |
+								sort |
+								uniq |
+								cut -d':' -f 2 |
+								awk '{print $1}'
+						)" in
 					'0')
 						# "Grace" GH200 (via qemu)
 						use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 sm4 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2' # v9
@@ -557,13 +563,13 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				vendor="$( # <- Syntax
 					grep -- '^vendor_id' /proc/cpuinfo |
 						tail -n 1 |
-						awk -F': ' '{ print $2 }'
+						awk -F': ' '{print $2}'
 				)" || :
 				if [ -z "${vendor:-}" ]; then
 					vendor="$( # <- Syntax
 						grep -- '^CPU implementer' /proc/cpuinfo |
 							tail -n 1 |
-							awk -F': ' '{ print $2 }'
+							awk -F': ' '{print $2}'
 					)"
 				fi
 				if [ -r /proc/cpuinfo ]; then
@@ -580,17 +586,26 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 
 								# FIXME: Hard-coded /var/db/repo/gentoo...
 								while read -r line; do
-									echo "${line}" | grep -q -- ' - ' || continue
+									echo "${line}" |
+											grep -q -- ' - ' ||
+										continue
 
-									flag="$( echo "${line}" | awk -F' - ' '{ print $1 }' )"
-									if echo "${line}" | grep "^${flag} - " | grep -Fq -- '[' ; then
+									flag="$( # <- Syntax
+											echo "${line}" |
+												awk -F' - ' '{print $1}'
+										)"
+									if echo "${line}" |
+											grep -- "^${flag} - " |
+											grep -Fq -- '['
+									then
 										count=2
 										while true; do
 											extra="$( # <- Syntax
-												echo "${line}" |
-													awk -F'[' "{ print \$${count} }" |
-													cut -d']' -f 1
-											)"
+													echo "${line}" |
+														awk -F'[' \
+															"{print \$${count}}" |
+														cut -d']' -f 1
+												)"
 											if [ -n "${extra:-}" ]; then
 												flag="${flag}|${extra}"
 											else
@@ -601,23 +616,28 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 										unset extra count
 									fi
 									use_cpu_flags="${use_cpu_flags:-}$( # <- Syntax
-										grep -E -- '^(Features|flags)' /proc/cpuinfo |
-												tail -n 1 |
-												awk -F': ' '{ print $2 }' |
-												grep -Eq -- "${flag}" &&
-											echo " ${flag}" | cut -d'|' -f 1
-									)"
+											grep -E -- '^(Features|flags)' \
+														/proc/cpuinfo |
+													tail -n 1 |
+													awk -F': ' '{print $2}' |
+													grep -Eq -- "${flag}" &&
+												echo " ${flag}" |
+													cut -d'|' -f 1
+										)"
 								done < /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc
 
 								use_cpu_flags="${use_cpu_flags#" "}"
-								echo >&2 "Auto-discovered CPU feature-flags '${use_cpu_flags}'"
+								echo >&2 "Auto-discovered CPU feature-flags" \
+									"'${use_cpu_flags}'"
 							fi
 							;;
 					esac
 				fi
 
 				if [ -z "${use_cpu_flags:-}" ]; then
-					echo >&2 "Unknown CPU '${description}' and 'cpuid2cpuflags' not installed - not enabling model-specific CPU flags"
+					echo >&2 "Unknown CPU '${description}' and" \
+						"'cpuid2cpuflags' not installed - not enabling" \
+						"model-specific CPU flags"
 				fi
 				;;
 		esac
@@ -698,7 +718,10 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#
 	case "$( uname -m )" in
 		x86_64|i686)
-			: $(( memtotal = $( grep -m 1 'MemTotal:' /proc/meminfo | awk '{ print $2 }' ) / 1024 / 1024 ))
+			: $(( memtotal = $( # <- Syntax
+					grep -m 1 'MemTotal:' /proc/meminfo |
+						awk '{print $2}'
+				) / 1024 / 1024 ))
 			# memtotal is rounded-down, so 4GB systems have a memtotal of 3...
 			if [ $(( memtotal )) -ge 4 ]; then
 				# Enable pypy support for Portage accleration of ~35%!
@@ -754,10 +777,10 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	unset load jobs
 
 	# Allow a separate image directory for persistent images...
-	#store="$( $_command system info | grep -F 'overlay.imagestore:' | cut -d':' -f 2- | awk '{ print $1 }' )"
+	#store="$( $_command system info | grep -F 'overlay.imagestore:' | cut -d':' -f 2- | awk '{print $1}' )"
 	#if [ -n "${store}" ]; then
 	#	export IMAGE_ROOT="${store}"
-	#	store="$( $_command system info | grep 'graphRoot:' | cut -d':' -f 2- | awk '{ print $1 }' )"
+	#	store="$( $_command system info | grep -- 'graphRoot:' | cut -d':' -f 2- | awk '{print $1}' )"
 	#	if [ -n "${store}" ]; then
 	#		export GRAPH_ROOT="${store}"
 	#	fi

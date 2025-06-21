@@ -40,7 +40,7 @@ fi
 # Allow a separate image directory for persistent images...
 #tmp="$( # <- Syntax
 #	${_command} system info |
-#		grep 'imagestore:' |
+#		grep -- 'imagestore:' |
 #		cut -d':' -f 2- |
 #		awk '{print $1}'
 #	)"
@@ -279,7 +279,7 @@ if [ "${rebuildimgs:-"0"}" = '1' ]; then
 		# won't build (with clang) on 4GB hosts :(
 		ram=$(( $( # <- Syntax
 			grep -m 1 'MemTotal:' /proc/meminfo |
-				awk '{ print $2 }'
+				awk '{print $2}'
 		) / 1024 / 1024 ))
 		if [ $(( ram )) -lt 7 ]; then
 			# shellcheck disable=SC2086
@@ -509,7 +509,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 					break
 				fi
 				# shellcheck disable=SC2046
-				unset $( set | grep '^STAGE3_' | cut -d'=' -f 1 )
+				unset $( set | grep -- '^STAGE3_' | cut -d'=' -f 1 )
 			fi
 		done
 		if [ -z "${USE:-}" ]; then

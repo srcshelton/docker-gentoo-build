@@ -834,7 +834,7 @@ _docker_resolve() {
 						)" )"
 				elif [[ -d /etc/portage/repos.conf ]]; then
 					repopaths="$( # <- Syntax
-							grep '^\s*location\s*=\s*' /etc/portage/repos.conf/*.conf |
+							grep -- '^\s*location\s*=\s*' /etc/portage/repos.conf/*.conf |
 								cut -d'=' -f 2- |
 								awk '{print $NF}'
 						)"
@@ -902,7 +902,7 @@ _docker_resolve() {
 								export LLVM_MAJOR=0 PV=0
 								export LLVM_SOABI="${LLVM_MAJOR}"
 								eval "$( # <- Syntax
-										grep 'SLOT=' \
+										grep -- 'SLOT=' \
 											"${repopath}/${cat}/${pkg}/${eb}"
 									)" 2>/dev/null
 								unset LLVM_SOABI PV LLVM_MAJOR
@@ -1064,7 +1064,7 @@ _docker_image_exists() {
 	# shellcheck disable=SC2086
 	docker ${DOCKER_VARS:-} image ls "${image}:${version}" |
 		grep -E -- "^(localhost/)?([^.]+\.)?${image}" |
-		awk '{ print $3 }'
+		awk '{print $3}'
 
 	return 0
 }  # _docker_image_exists
@@ -1219,8 +1219,8 @@ _docker_run() {
 		local name='' ext=''
 		name="$( # <- Syntax
 				docker image ls |
-					grep "${image/:/\\s*}" |
-					awk '{ print $1 ":" $2 }'
+					grep -- "${image/:/\\s*}" |
+					awk '{print $1 ":" $2}'
 			)" || :
 		[[ -n "${name:-}" ]] && name="${name#*"/"}"
 		case "${name}" in
@@ -1369,12 +1369,12 @@ _docker_run() {
 				# shellcheck disable=SC2004
 				eval swp=$(( ( $(
 					grep -m 1 'SwapTotal:' /proc/meminfo |
-						awk '{ print $2 }'
+						awk '{print $2}'
 				) + 16 ) / ${divider} ))
 				# shellcheck disable=SC2004
 				eval ram=$(( $(
 					grep -m 1 'MemTotal:' /proc/meminfo |
-						awk '{ print $2 }'
+						awk '{print $2}'
 				) / ${divider} ))
 				# shellcheck disable=SC2295
 				if (( ram < ${PODMAN_MEMORY_LIMIT%[${unit,,}${unit^^}]} )) ||
@@ -1497,7 +1497,7 @@ _docker_run() {
 			warn "Using hard-coded defaults on non-Gentoo host system ..."
 			default_repo_path='/var/db/repos/gentoo /var/db/repos/srcshelton'
 			default_distdir_path='/var/cache/portage/dist'
-			default_pkgdir_path="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
+			default_pkgdir_path="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"container"}"
 			if ! [[ -d /var/db/repos/gentoo || -L /var/db/repos/gentoo ]] &&
 					[[ -d /var/db/repo/gentoo || -L /var/db/repo/gentoo ]]
 			then
@@ -1593,14 +1593,14 @@ _docker_run() {
 				_docker_setup
 			fi
 
-			#ENV PKGDIR="${PKGCACHE:-"/var/cache/portage/pkg"}/${ARCH:-"amd64"}/${PKGHOST:-"docker"}"
+			#ENV PKGDIR="${PKGCACHE:-"/var/cache/portage/pkg"}/${ARCH:-"amd64"}/${PKGHOST:-"container"}"
 			#local PKGCACHE="${PKGCACHE:="/var/cache/portage/pkg"}"
-			#local PKGHOST="${PKGHOST:="docker"}"
+			#local PKGHOST="${PKGHOST:="container"}"
 			local PKGDIR="${PKGDIR:="${default_pkgdir_path:-"$( portageq pkgdir )"}"}"
 
 			# Allow use of 'ARCH' variable as an override...
 			print "Using architecture '${ARCH:-"${arch}"}' ..."
-			mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"docker"}"
+			mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"container"}"
 			unset PKGDIR
 		fi
 		mountpointsro['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
@@ -1860,7 +1860,7 @@ _docker_run() {
 							grep -B 1 -- "\s${name:-"${container_name}"}$" |
 							grep -E '^[[:xdigit:]]{12}\s' |
 							tail -n 1 |
-							awk '{ print $1 }'
+							awk '{print $1}'
 				)" &&
 			[[ -n "${dr_id:-}" ]]
 	then
@@ -1941,7 +1941,7 @@ _docker_prune() {
 	# shellcheck disable=SC2031,SC2086
 	docker ${DOCKER_VARS:-} image ls |
 		grep -- '^<none>\s\+<none>' |
-		awk '{ print $3 }' |
+		awk '{print $3}' |
 		xargs -r /bin/sh -c docker ${DOCKER_VARS:-} image rm
 	trap - INT
 

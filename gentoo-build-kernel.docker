@@ -68,21 +68,21 @@ readonly package_default
 declare firmware=''
 declare microcode=''
 declare microcode_blob=''
-if grep 'vendor_id' /proc/cpuinfo |
-		awk '{ print $3 }' |
+if grep -- 'vendor_id' /proc/cpuinfo |
+		awk '{print $3}' |
 		grep -iqm 1 'intel'
 then
 	microcode='sys-firmware/intel-microcode'
 	microcode_blob='intel'
-elif grep 'vendor_id' /proc/cpuinfo |
-		awk '{ print $3 }' |
+elif grep -- 'vendor_id' /proc/cpuinfo |
+		awk '{print $3}' |
 		grep -iqm 1 'amd'
 then
 	firmware='sys-kernel/linux-firmware'
 	case "$( # <- Syntax
 				grep -Fm 1 'cpu family' /proc/cpuinfo |
 					cut -d':' -f 2- |
-					awk '{ print $1 }'
+					awk '{print $1}'
 			)" in
 		16|17|18|20)
 			microcode_blob='amd-ucode/microcode_amd.bin'
@@ -746,7 +746,7 @@ case "${arch:-"${ARCH:-}"}" in
 		#        this...
 		if [[ "$( # <- Syntax
 				emerge --info 2>/dev/null |
-					grep '^USE=' |
+					grep -- '^USE=' |
 					cut -d'"' -f 2
 				)" =~ pi4 ]]
 		then
@@ -1218,7 +1218,7 @@ $_command image list "${IMAGE%":"*}" |
 	die "docker image '${IMAGE%":"*}' not found"
 
 if (( install )); then
-	if mount | grep ' on /boot ' | grep -Eq '(\(ro,|,ro,|,ro\))'; then
+	if mount | grep -- ' on /boot ' | grep -Eq '(\(ro,|,ro,|,ro\))'; then
 		output >&2
 		output >&2 '*****'
 		output >&2 '*'
@@ -1968,7 +1968,7 @@ mkdir -p "${log_dir:="log"}" ||
 					elif type -pf jq >/dev/null 2>&1; then
 						docker inspect localhost/gentoo-env:latest |
 							jq -M '.[].Config.Env[]' |
-							grep '^"INSTALL_MASK=' |
+							grep -- '^"INSTALL_MASK=' |
 							sed 's/^[^=]\+=// ; s/"$//'
 					else
 						false
@@ -2132,7 +2132,7 @@ mkdir -p "${log_dir:="log"}" ||
 
 	declare -i rc=0
 	declare graphroot=''
-	if graphroot="$( docker info | grep 'graphRoot:' | sed 's/^.*: //' )" &&
+	if graphroot="$( docker info | grep -- 'graphRoot:' | sed 's/^.*: //' )" &&
 			[[ -d "${graphroot}" ]]
 	then
 		if (( $( # <- Syntax
@@ -2245,7 +2245,7 @@ mkdir -p "${log_dir:="log"}" ||
 		elif type -pf jq >/dev/null 2>&1; then
 			docker inspect localhost/gentoo-env:latest |
 				jq -M '.[].Config.Env[]' |
-				grep '^"RUSTFLAGS=' |
+				grep -- '^"RUSTFLAGS=' |
 				sed 's/^[^=]\+=// ; s/"$//'
 		else
 			false
@@ -2257,7 +2257,7 @@ mkdir -p "${log_dir:="log"}" ||
 		elif type -pf jq >/dev/null 2>&1; then
 			docker inspect localhost/gentoo-env:latest |
 				jq -M '.[].Config.Env[]' |
-				grep '^"_LLVM_RUSTC_LTO=' |
+				grep -- '^"_LLVM_RUSTC_LTO=' |
 				sed 's/^[^=]\+=// ; s/"$//'
 		else
 			false
@@ -2297,7 +2297,7 @@ mkdir -p "${log_dir:="log"}" ||
 	if findmnt -ln /boot | grep -q -- 'boot.*,gid=' ;then
 		tar_extra_args="--group=$( # <- Syntax
 				findmnt -ln /boot |
-					grep 'boot.*,gid=' |
+					grep -- 'boot.*,gid=' |
 					grep -o 'gid=[0-9]\+,' |
 					cut -d'=' -f 2 |
 					cut -d',' -f 1
@@ -2356,7 +2356,7 @@ mkdir -p "${log_dir:="log"}" ||
 		if [ $(( $( # <- Syntax
 				head /proc/meminfo |
 				grep -m 1 '^MemAvailable:' |
-				awk '{ print $2 }' ;
+				awk '{print $2}' ;
 			) / ( 1024 * 1024 ) )) -lt ${PARALLEL_MEMORY_MIN} ] ;
 		then
 			echo >&2 "WARN: Instructing 'ld' to use less memory ..." ;
@@ -2419,7 +2419,7 @@ mkdir -p "${log_dir:="log"}" ||
 			case '${arch:-"${ARCH:-}"}' in
 				'arm'*)
 					LDFLAGS="\$( echo "\${_LLVM_LD:-"\${LDFLAGS:-}"} \${_LD_LTO:-} \${_LD_EXTRA:-}" | xargs -rn 1 | sed '/-Wl,-O1/s/-O1/-O2/' | sort | uniq | xargs -r )" ;
-					mcpu="\$( echo "\${good_flags:-}" | xargs -rn 1 | grep '^-mcpu=' || : )" ;
+					mcpu="\$( echo "\${good_flags:-}" | xargs -rn 1 | grep -- '^-mcpu=' || : )" ;
 					good_flags="\$( { echo "\${good_flags:-}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${mcpu:-"-mcpu=native"}" ; } | sort -V | xargs -r )" ;
 					unset mcpu ;
 					;;
@@ -2432,7 +2432,7 @@ mkdir -p "${log_dir:="log"}" ||
 							LDFLAGS="\$( echo "\${_LLVM_LD:-"\${LDFLAGS:-}"} \${_LD_LTO:-} \${_LD_EXTRA:-}" | xargs -rn 1 | sed '/-Wl,-O1/s/-O1/-O2/' | sort | uniq | xargs -r )" ;
 							;;
 					esac ;
-					: march="\$( echo "\${good_flags:-}" | xargs -rn 1 | grep '^-march=' || : )" ;
+					: march="\$( echo "\${good_flags:-}" | xargs -rn 1 | grep -- '^-march=' || : )" ;
 					good_flags="\$( { echo "\${good_flags:-}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${march:-"-march=native"}" ; } | sort -V | xargs -r )" ;
 					unset march ;
 					;;
@@ -2627,7 +2627,7 @@ mkdir -p "${log_dir:="log"}" ||
 		echo "INFO:  Kernel version is '\${kernel_version}'" ;
 		if [ -e .config ]; then
 			echo "INFO:  Configuration changes from '.config':" ;
-			make ${kernel_make_opts[@]} O=../build \${localversion} listnewconfig 2>/dev/null | grep '^CONFIG' || echo '<none>' ;
+			make ${kernel_make_opts[@]} O=../build \${localversion} listnewconfig 2>/dev/null | grep -- '^CONFIG' || echo '<none>' ;
 		fi ;
 		success=0 ;
 		set -x ;

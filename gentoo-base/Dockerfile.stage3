@@ -89,7 +89,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
         xargs -rn 1 echo | \
         sort | \
         uniq | \
-        grep '^python_single_target_' | \
+        grep -- '^python_single_target_' | \
         sed 's/^python_single_target_//' | \
         xargs -r echo -n \
     )\"" >>"${stage3_flags_file}" 2>/dev/null && \
@@ -98,7 +98,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
         xargs -rn 1 echo | \
         sort | \
         uniq | \
-        grep '^python_targets_' | \
+        grep -- '^python_targets_' | \
         sed 's/^python_targets_//' | \
         xargs -r echo -n \
     )\"" >>"${stage3_flags_file}" 2>/dev/null ; \
@@ -149,7 +149,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
     done ; \
     : ; \
     grep -E 'obj /(s?bin/|lib)' /var/db/pkg/*/*/CONTENTS | \
-        awk '{ print $2 }' | \
+        awk '{print $2}' | \
         while read -r f; do \
             if [ -f "/${new_root_name}/usr${f}" ]; then \
                 mkdir -p "/${new_root_name}$( dirname "${f}" )" ; \
@@ -162,7 +162,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             fi ; \
         done ; \
     grep -E 'obj /usr/sbin/' /var/db/pkg/*/*/CONTENTS | \
-        awk '{ print $2 }' | \
+        awk '{print $2}' | \
         while read -r f; do \
             r="$( echo "${f}" | sed 's|/sbin/|/bin/|' )" ; \
             if [ -f "/${new_root_name}${r}" ]; then \
@@ -177,12 +177,12 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
             fi ; \
         done ; \
     grep -E 'sym /(s?bin/|lib)' /var/db/pkg/*/*/CONTENTS | \
-        awk '{ print $2, $4 }' | \
+        awk '{print $2, $4}' | \
         while read -r l t; do \
             ln -s "${t}" "/${new_root_name}${l}" ; \
         done ; \
     grep -E 'sym /usr/sbin/' /var/db/pkg/*/*/CONTENTS | \
-        awk '{ print $2, $4 }' | \
+        awk '{print $2, $4}' | \
         while read -r l t; do \
             ln -s "${t}" "/${new_root_name}${l}" ; \
         done ; \

@@ -12,7 +12,7 @@ test -x gentoo-build-pkg.docker || exit 1
 
 list="$( emerge -p @preserved-rebuild --with-bdeps=n |
 	grep -w 'R' |
-	awk '{ print $4 }' |
+	awk '{print $4}' |
 	cut -d':' -f 1
 )"
 
