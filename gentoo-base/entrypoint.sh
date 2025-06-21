@@ -674,7 +674,7 @@ resolve_python_flags() {
 	return 0
 }  # resolve_python_flags
 
-savefailed() {
+save_failed() {
 	#extern PORTAGE_LOGDIR PORTAGE_LOGDIR
 	sf_rc=0
 
@@ -769,7 +769,7 @@ savefailed() {
 	#[ -n "${trace:-}" ] || set +o xtrace
 
 	return ${sf_rc}
-}  # savefailed
+}  # save_failed
 
 do_emerge() {
 	do_emerge_arg=''
@@ -1059,7 +1059,7 @@ do_emerge() {
 				warn "$( echo "${de_f}" | sed "s|^${de_d}/||" ):"
 				cat "${de_f}"
 			done
-			savefailed
+			save_failed
 			#ls -lR "${de_d}/portage"
 			unset de_f
 		fi
@@ -1070,6 +1070,96 @@ do_emerge() {
 
 	return ${do_emerge_rc}
 }  # do_emerge
+
+# Modified from sys-apps/portage phase-helpers.sh:
+get_libdir() {
+	libdir_data="$( # <- Syntax
+			LC_ALL='C' emerge --info --verbose=y 2>&1 |
+				grep -e 'ABI=' -e '^LIBDIR'
+		)"
+	libdir_ABI="${ABI:-}"
+	if [ -z "${libdir_ABI:-}" ]; then
+		libdir_ABI="$( # <- Syntax
+				echo "${libdir_data}" |
+					grep -- '^ABI=' |
+					cut -d'"' -f 2
+			)"
+	fi
+	libdir="lib"
+
+	if [ -n "${libdir_ABI}" ] &&
+			echo "${libdir_data}" |
+				grep -q "^LIBDIR_${libdir_ABI}="
+	then
+		libdir="$( # <- Syntax
+				echo "${libdir_data}" |
+					grep -- "^LIBDIR_${libdir_ABI}=" |
+					cut -d'"' -f 2
+			)"
+	fi
+
+	echo "${libdir}"
+}  # get_libdir
+
+# shellcheck disable=SC2120
+validate_libgcc() {
+	# With the 2025-06-09T01:12:14.538737447Z
+	# docker.io/gentoo/stage3:arm64-openrc (807068a219e9) and
+	# 2025-06-09T01:09:39.348232494Z
+	# docker.io/gentoo/stage3:amd64-nomultilib-openrc (fbd632d5b57a) images
+	# we're getting failures early in gentoo-base.log when trying to /unpack/
+	# sys-devel/gcc due to libgcc_s.so apparently being missing - so let's
+	# validate that we have the appropriate library and potentially also copy
+	# it to a standard location...
+
+	# Thinking about it, I wonder whether this is due to gcc-14.2 -> gcc-14.3,
+	# and so env-update/ldconfig needing to be run in order to pick up the new
+	# paths?  But why, then, is this happening in the sys-devel/gcc 'unpack'
+	# stage?!
+	#
+	env-update >/dev/null 2>&1
+	# shellcheck disable=SC1091
+	. /etc/profile >/dev/null 2>&1 || :
+
+	# sys-apps/sandbox is a dependency of sys-apps/portage, and also links
+	# against libgcc_s...
+	if [ -s "/usr/$(get_libdir)/libsandbox.so" ] &&
+			ldd "/usr/$(get_libdir)/libsandbox.so" 2>&1 |
+				grep -q -- 'libgcc_s.*not found'
+	then
+		warn 'libgcc_s.so.1 breakage encountered - attempting to relocate' \
+			'library ...'
+
+		libgcc_root='' libgcc_dir=''
+		for libgcc_root in $(
+					if [ -n "${*:-}" ]; then
+						echo "${*}"
+					else
+						echo "${extra_root:-}" "${ROOT:-"/"}" "${SYSROOT:-}" \
+								"${service_root:-}" |
+							xargs -rn 1 |
+							sort -u
+					fi
+				)
+		do
+			[ -d "${libgcc_root:-}" ] || continue
+
+			if libgcc_dir="$( #
+					find "${libgcc_root%"/"}/usr/lib/gcc/" \
+							-mindepth 2 \
+							-maxdepth 2 \
+							-type d |
+						sort -V |
+						tail -n 1
+				)" && [ -d "${libgcc_dir:-}" ]
+			then
+				cp -a "${libgcc_dir}"/libgcc_s.so* \
+					"${libgcc_root%"/"}/usr/$(get_libdir)"/
+			fi
+		done
+		unset libgcc_dir libgcc_root
+	fi
+}  # validate_libgcc
 
 validate_python_installation() {
 	vpi_stage="${*:-}"
@@ -1146,6 +1236,7 @@ if [ -n "${DEV_MODE:-}" ]; then
 
 EOF
 fi
+info "Starting 'gentoo-base/entrypoint.sh' ..."
 
 [ -n "${trace:-}" ] && set -o xtrace
 
@@ -1252,12 +1343,12 @@ print "Initial portage CFLAGS are \"$( get_portage_flags 'CFLAGS' )\""
 
 if [ -f /etc/env.d/50baselayout ] && [ -s /etc/env.d/50baselayout ]; then
 	changed=0
-	if ! grep 'PATH.*[":]/sbin[":]' /etc/env.d/50baselayout; then
+	if ! grep -q -- 'PATH.*[":]/sbin[":]' /etc/env.d/50baselayout; then
 		sed -e '/PATH/s|:/opt/bin"|:/sbin:/opt/bin"|' \
 			-i /etc/env.d/50baselayout
 		changed=1
 	fi
-	if ! grep 'PATH.*[":]/bin[":]' /etc/env.d/50baselayout; then
+	if ! grep -q -- 'PATH.*[":]/bin[":]' /etc/env.d/50baselayout; then
 		sed -e '/PATH/s|:/opt/bin"|:/bin:/opt/bin"|' \
 			-i /etc/env.d/50baselayout
 		changed=1
@@ -1542,7 +1633,7 @@ if printf ' %s ' "${*}" | grep -Fq -- ' --nodeps '; then
 	opts=''
 fi
 
-LC_ALL='C' eselect --colour=yes profile list | grep 'stable'
+LC_ALL='C' eselect --colour=yes profile list | grep -- 'stable'
 LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" # 2>/dev/null
 info "Selected profile '$( # <- Syntax
 		LC_ALL='C' eselect --colour=yes profile show |
@@ -1638,7 +1729,7 @@ validate_python_installation "pre-remove"
 
 	# 'dhcpcd' is now built with USE='udev', and libmd needs 'split-usr'...
 	#
-	# ... and /usr/lib64/libmd.so is being preserved :(
+	# ... and /usr/$(get_libdir)/libmd.so is being preserved :(
 	#
 	(
 		FEATURES="$( # <- Syntax
@@ -1765,7 +1856,7 @@ then
 		# FIXME: Nasty hack to avoid preserved libraries...
 		# shellcheck disable=SC2046
 		{
-			rm -f /usr/lib64/libuuid.so.1*
+			rm -f /usr/"$(get_libdir)"/libuuid.so.1*
 			rm -f /usr/lib/$(
 					echo "${python_default_targets%%" "*}" | sed 's/_/./'
 				)/lib-dynload/_uuid.cpython-*.so
@@ -1782,10 +1873,10 @@ then
 				# The 20240605 arm64 stage3 image contains several outdated
 				# pakages which no longer exist in the portage tree :(
 				#
-				grep 'python_[^ ]*target' \
+				grep -- 'python_[^ ]*target' \
 						"${ROOT:-}"/var/db/pkg/*/*/USE |
 					grep -v "_${python_default_targets%%" "*}" |
-					grep '_python3_' |
+					grep -- '_python3_' |
 					grep -v 'backports' |
 					cut -d':' -f 1 |
 					rev |
@@ -1804,11 +1895,11 @@ then
 							sort -V |
 							tail -n 1
 					)"
-					grep 'python_[^ ]*target' \
+					grep -- 'python_[^ ]*target' \
 							"${ROOT:-}"/var/db/pkg/*/*/USE |
 						grep -v "_${python_default_targets%%" "*}" |
-						grep '_python3_' |
-						grep 'backports' |
+						grep -- '_python3_' |
+						grep -- 'backports' |
 						cut -d':' -f 1 |
 						rev |
 						cut -d'/' -f 2-3 |
@@ -1989,7 +2080,13 @@ if ! [ -d "/usr/${CHOST}" ]; then
 			pkgdir="$( LC_ALL='C' portageq pkgdir )"
 			export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 			unset pkgdir
+			if [ "${pkg}" = 'sys-devel/gcc' ]; then
+				validate_libgcc
+			fi
 			do_emerge --single-defaults "${pkg}"
+			if [ "${pkg}" = 'sys-devel/gcc' ]; then
+				validate_libgcc
+			fi
 		)
 		# For some reason, after dealing with /usr/sbin being a symlink to
 		# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
@@ -2011,6 +2108,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		[ -s /etc/profile ] && { . /etc/profile || : ; }
 	done
 	unset pkg
+
 	rm -r "/usr/${oldchost:?}" "/usr/bin/${oldchost:?}"*
 	grep -l -- "${oldchost}" /etc/env.d/0*gcc* /etc/env.d/0*binutils* |
 		xargs -r rm
@@ -2116,8 +2214,8 @@ echo
 	# There's something weird happening with sys-libs/pam - if it's built
 	# separately (albeit on our split-usr capable image) then everything works.
 	# If the exact same package is built below, all of the shared objects end
-	# up being linked to /usr/lib64/libpam.so.0 which then (correctly) triggers
-	# a QA violation.
+	# up being linked to /usr/$(get_libdir)/libpam.so.0 which then (correctly)
+	# triggers a QA violation.
 	#
 	# We also want to get a version of sys-libs/libxcrypt with libraries on the
 	# root filesystem, but can't remove it entirely without a binpkg already
@@ -2141,7 +2239,7 @@ echo
 
 	# shellcheck disable=SC2046
 	(
-		export USE='-gmp -nls ssl'
+		export USE='-gmp -nls asm cet ssl'
 		do_emerge --single-defaults sys-libs/libxcrypt
 
 		# app-arch/zstd is failing here because it can't find dev-build/ninja,
@@ -2153,6 +2251,11 @@ echo
 			sys-libs/pam $(
 				# sys-devel/gcc is a special case with a conditional
 				# gen_usr_ldscript call...
+				#
+				# ... and sys-libs/glibc and sys-devel/gcc are now required to
+				# have the same 'cet' USE flag, so we do either build both
+				# here, add USE='cet' or exclude glibc also.
+				#
 				# N.B. Using 'grep -lm 1' and so not having to read the whole
 				#      file where there is no match is about twice as fast as
 				#      finding the 'inherit' line only and then checking for
@@ -2293,20 +2396,24 @@ do
 		export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 		unset pkgdir
 		case "${pkg}" in
-			dev-libs/libxml2)
+			'dev-libs/libxml2')
 				# Don't install previous versions of python...
 				#
 				# FIXME: Remove hard-coding of previous python targets
 				#
 				USE="${USE} -lzma -python_targets_python3_10 -python_targets_python3_11 -python_targets_python3_12"
 				;;
-			sys-devel/gcc)
+			'sys-devel/gcc')
 				USE="${USE} -nls"
+				# This should be our first time building sys-devel/gcc, so we
+				# won't have a backup yet - subsequently, we can only take a
+				# fresh backup if libgcc_s may have changed...
+				validate_libgcc
 				;;
-			sys-libs/libcap)
+			'sys-libs/libcap')
 				USE="${USE} -tools"
 				;;
-			sys-process/audit)
+			'sys-process/audit')
 				# sys-process/audit is the first package which can pull-in an
 				# older python release, which causes preserved libraries...
 				#
@@ -2318,6 +2425,9 @@ do
 				;;
 		esac
 		do_emerge --single-defaults "${pkg}"
+		if [ "${pkg}" = 'sys-devel/gcc' ]; then
+			validate_libgcc
+		fi
 	)
 	#if LC_ALL='C' eselect --colour=yes news read new |
 	#		grep -Fv -- 'No news is good news.'
@@ -2634,8 +2744,7 @@ if [ -n "${pkg_initial:-}" ]; then
 			for ROOT in $(
 						echo "${extra_root:-}" "${ROOT}" |
 							xargs -rn 1 |
-							sort -u |
-							xargs -r
+							sort -u
 					)
 			do
 				export ROOT
@@ -2850,6 +2959,7 @@ if [ -n "${pkg_initial:-}" ]; then
 							dev-python/setuptools \
 							sys-devel/gcc # || :
 
+						validate_libgcc
 						validate_python_installation "python pre-requisites"
 					)
 
@@ -2896,6 +3006,7 @@ if [ -n "${pkg_initial:-}" ]; then
 						echo " * Building python prerequisites into ROOT" \
 							"'${ROOT}' ..."
 						echo
+
 						# Include sys-devel/gcc and dev-libs/isl here in case
 						# graphite USE flags are enabled...
 						#
@@ -2928,6 +3039,9 @@ if [ -n "${pkg_initial:-}" ]; then
 								dev-libs/isl \
 								sys-devel/gcc
 						)
+
+						validate_libgcc
+
 						do_emerge --build-defaults \
 							app-arch/libarchive \
 							app-crypt/libb2 \
@@ -3240,6 +3354,8 @@ echo
 		#	debug=1 \
 			USE="openmp${USE:+" ${USE} "}" \
 		do_emerge --system-defaults sys-devel/gcc
+		validate_libgcc
+
 		#	debug=1 \
 			USE="openmp${USE:+" ${USE} "}" \
 		do_emerge --system-defaults app-arch/libarchive \
@@ -3321,6 +3437,7 @@ echo
 				sys-libs/libxcrypt
 		unset root_use
 
+		validate_libgcc
 		validate_python_installation "system packages"
 
 		echo
@@ -3541,8 +3658,7 @@ case "${1:-}" in
 			for ROOT in $(
 						echo "${extra_root:-}" "${ROOT}" |
 							xargs -rn 1 |
-							sort -u |
-							xargs -r
+							sort -u
 					)
 			do
 				export ROOT
@@ -3587,8 +3703,7 @@ case "${1:-}" in
 			for ROOT in $(
 						echo "${extra_root:-}" "${ROOT}" |
 							xargs -rn 1 |
-							sort -u |
-							xargs -r
+							sort -u
 					)
 			do
 				export ROOT
@@ -3663,8 +3778,7 @@ case "${1:-}" in
 							for ROOT in $(
 										echo "${extra_root:-}" "${ROOT}" |
 											xargs -rn 1 |
-											sort -u |
-											xargs -r
+											sort -u
 									)
 							do
 								export ROOT
@@ -3690,8 +3804,7 @@ case "${1:-}" in
 				for ROOT in $(
 							echo "${extra_root:-}" "${ROOT}" |
 								xargs -rn 1 |
-								sort -u |
-								xargs -r
+								sort -u
 						)
 				do
 					export ROOT
@@ -3721,11 +3834,12 @@ case "${1:-}" in
 							sys-libs/glibc \
 							sys-libs/libxcrypt ||
 						rc=${?}
-						if [ $(( rc )) -ne 0 ]; then
-							echo "ERROR: Temporary post-packages build for" \
-								"root '${ROOT}': ${rc}"
-							break
-						fi
+					if [ $(( rc )) -ne 0 ]; then
+						echo "ERROR: Temporary post-packages build for" \
+							"root '${ROOT}': ${rc}"
+						break
+					fi
+					validate_libgcc
 
 					echo
 					echo " * Building post-packages '${post_pkgs}' to ROOT '${ROOT:-"/"}' ..."
@@ -4146,6 +4260,23 @@ case "${1:-}" in
 			LC_ALL='C' eselect --colour=yes news read |
 				grep -Fv -- 'No news is good news.'
 		fi
+
+		# Try to remove any temporary copy of libgcc_s.so.1 which we might have
+		# deployed to prevent breakages...
+		#
+		libgcc_root=''
+		for libgcc_root in $(
+					echo "${extra_root:-}" "${ROOT:-"/"}" "${SYSROOT:-}" \
+							"${service_root:-}" |
+						xargs -rn 1 |
+						sort -u
+				)
+		do
+			find "${libgcc_root%"/"}/usr/$(get_libdir)"/ \
+				-name 'libgcc_s.so*' \
+				-delete
+		done
+		unset libgcc_dir
 
 		exit ${rc}
 	;;

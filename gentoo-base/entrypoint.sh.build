@@ -131,7 +131,7 @@ parse_opt() {
 						print "           ... valid competions are '${po_line#* }'"
 						if echo "${po_arg}" | grep -Eq -- "$( # <- Syntax
 									echo "${po_line}" |
-										awk '{ print $2 }' |
+										awk '{print $2}' |
 										grep -o -- '{[^}]\+}' |
 										sed 's/^{// ; s/}$// ; s/,/|/g'
 								)"
@@ -1218,6 +1218,7 @@ if [ -n "${DEV_MODE:-}" ]; then
 
 EOF
 fi
+info "Starting 'gentoo-base/entrypoint.sh.build' ..."
 
 [ -n "${trace:-}" ] && set -o xtrace
 
@@ -2871,7 +2872,7 @@ case "${1:-}" in
 				gcc_pkgs="$( # <- Syntax
 						echo " ${packages} " |
 							grep -Eo -- '\s([<>]?=?sys-devel/)?gcc(-config)?([-:][^\s]+)?\s' |
-							awk '{ print $1 }' |
+							awk '{print $1}' |
 							xargs -rn 1 |
 							sort |
 							uniq |
