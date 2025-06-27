@@ -49,7 +49,7 @@ echo "${images}" |
 	grep --colour=always '^localhost/gentoo-build.*$'
 
 echo "${images}" |
-	grep -- '^localhost/gentoo-build' -A "${lines:-"100"}" |
+	grep -A "${lines:-"100"}" -- '^localhost/gentoo-build' |
 	grep -v -e '^localhost/gentoo-\(build\|base\|init\|stage3\|env\)' -e '^docker.io/gentoo/stage3' |
 	grep --colour=never '^localhost/\(service\|sys-kernel\.\)'
 
