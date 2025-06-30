@@ -39,6 +39,7 @@ llvm_targets_XCore
 #      to kernel-6.5.0
 #
 #python_targets_pypy3
+#python_targets_pypy3_11
 python_targets_python3_6
 python_targets_python3_7
 python_targets_python3_8
@@ -55,8 +56,8 @@ python_targets_python3_14
 # PHP versions prior to dev-lang/php-8.1 don't support >dev-libs/openssl-3
 #
 php_targets_php8-1
-php_targets_php8-2
-#php_targets_php8-3
+#php_targets_php8-2
+php_targets_php8-3
 php_targets_php8-4
 
 # vi: set syntax=gentoo-package-mask:

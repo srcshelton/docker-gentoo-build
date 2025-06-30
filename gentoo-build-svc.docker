@@ -84,14 +84,15 @@ services=(
 	opendkim
 	opendmarc
 	openntpd
+	# Gentoo no longer provides packages for <php-8.2 ...
 	php
-	php73
-	php74
-	# Gentoo no longer supports <php-8.2 ...
+	#php73
+	#php74
 	#php80
 	#php81
 	php82
-	#php83
+	php83
+	php84
 	pinfo
 	postfix
 	postgrey
@@ -532,21 +533,23 @@ case "${service:-}" in
 		service='>=mail-filter/opendkim-2.10.3-r3' ;;
 	opendmarc)
 		service='mail-filter/opendmarc' ;;
+	# Gentoo no longer provides packages for <php-8.2 ...
 	php)
 		service='dev-lang/php' ;;
-	php73)
-		service='=dev-lang/php-7.3*' ;;
-	php74)
-		service='=dev-lang/php-7.4*' ;;
-	# Gentoo no longer supports <php-8.2 ...
+	#php73)
+	#	service='=dev-lang/php-7.3*' ;;
+	#php74)
+	#	service='=dev-lang/php-7.4*' ;;
 	#php80)
 	#	service='=dev-lang/php-8.0*' ;;
 	#php81)
 	#	service='=dev-lang/php-8.1*' ;;
 	php82)
 		service='=dev-lang/php-8.2*' ;;
-	#php83)
-	#	service='=dev-lang/php-8.3*' ;;
+	php83)
+		service='=dev-lang/php-8.3*' ;;
+	php84)
+		service='=dev-lang/php-8.4*' ;;
 	pinfo|info)
 		# Launcher loads running services' /usr/share/info volumes
 		service='app-text/pinfo' ;;
@@ -721,7 +724,7 @@ else
 			;;
 		*)
 			# FIXME: Hard-coded
-			php_targets='php_targets_php8-2'
+			php_targets='php_targets_php8-3'
 			;;
 	esac
 fi
@@ -884,8 +887,7 @@ case "${package_name}" in
 		;;
 	*.lighttpd)
 		output "Setting build variables for package 'lighttpd' ..."
-		# Gentoo no longer supports <php-8.2 ...
-		#pre_pkgs='>=dev-lang/php-8.1 media-gfx/imagemagick sys-apps/help2man sys-devel/gcc'
+		# Gentoo no longer provides packages for <php-8.2 ...
 		pre_pkgs='>=dev-lang/php-8.2 media-gfx/imagemagick sys-apps/help2man sys-devel/gcc'
 		pre_pkgs+=' acct-group/lighttpd acct-user/lighttpd'
 		extra_pkgs='
@@ -1089,9 +1091,8 @@ case "${package_name}" in
 		# eselect-php-0.9.6+ required for ROOT support
 		pre_pkgs='media-gfx/imagemagick sys-apps/help2man sys-devel/gcc >=app-eselect/eselect-php-0.9.6'
 		pre_pkgs+=' acct-group/lighttpd acct-user/lighttpd acct-group/nobody acct-group/mail'
-		# Gentoo no longer supports <php-8.2
-		# (and therefore <dev-php/pecl-memcache-8.2) ...
-		#	>=dev-php/pecl-memcache-4
+		# Gentoo no longer provides packages for <php-8.2
+		# (and so blocks <dev-php/pecl-memcache-8.2) ...
 		extra_pkgs='
 			>=dev-php/pecl-memcache-8.2
 			dev-db/mysql-connector-c
@@ -1105,6 +1106,7 @@ case "${package_name}" in
 			sys-apps/shadow
 			virtual/mta
 		'
+		#	>=dev-php/pecl-memcache-4
 
 		container_cmd="/usr/${LIB}/${PHP_SLOT}/bin/php-fpm"
 		etcdir='php'
@@ -1731,7 +1733,8 @@ case "${package_mask_svc_name}-${package_version}" in
 	#php-8.0.*) package_mask_svc_name='php80' ;;
 	#php-8.1.*) package_mask_svc_name='php81' ;;
 	php-8.2.*) package_mask_svc_name='php82' ;;
-	#php-8.3.*) package_mask_svc_name='php83' ;;
+	php-8.3.*) package_mask_svc_name='php83' ;;
+	php-8.4.*) package_mask_svc_name='php84' ;;
 esac
 
 # package.unmask*
@@ -1844,7 +1847,8 @@ case "${package_use_svc_name}" in
 			#php-8.0.*) package_use_svc_name_extras+=( 'php80' ) ;;
 			#php-8.1.*) package_use_svc_name_extras+=( 'php81' ) ;;
 			php-8.2.*) package_use_svc_name_extras+=( 'php82' ) ;;
-			#php-8.3.*) package_use_svc_name_extras+=( 'php83' ) ;;
+			php-8.3.*) package_use_svc_name_extras+=( 'php83' ) ;;
+			php-8.4.*) package_use_svc_name_extras+=( 'php84' ) ;;
 			*)
 				die "Unsupported PHP version '${package_version}'" ;;
 		esac
