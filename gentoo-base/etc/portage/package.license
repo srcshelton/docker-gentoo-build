@@ -91,20 +91,26 @@ app-vim/eselect-syntax			 vim
 app-vim/gentoo-syntax			 vim
 sys-libs/zlib				 ZLIB
 
-net-nds/openldap			 OPENLDAP
+# Optional packages:
+#
 
+dev-go/golangci-lint			 MPL-2.0
+net-nds/openldap			 OPENLDAP
 sys-apps/memtest86-bin			 PassMark-EULA
 
-# Bulid dependencies:
+# Build dependencies:
 #
+
 dev-python/sphinxcontrib-jquery		 0BSD
 
 # Documentation:
 #
+
 media-gfx/graphviz			 CPL-1.0
 
 # Gentoo stage3 image:
 #
+
 dev-lang/tcl				 Spencer-99
 
 # clang:
