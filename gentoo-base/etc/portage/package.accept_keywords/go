@@ -1,0 +1,5 @@
+
+#							~amd64 ~arm ~arm64 ~x86
+~dev-go/golangci-lint-2.1.2				~amd64 ~arm ~arm64 ~x86
+
+# vi: set syntax=gentoo-package-keywords:
