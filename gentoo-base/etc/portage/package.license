@@ -96,6 +96,7 @@ sys-libs/zlib				 ZLIB
 
 dev-go/golangci-lint			 MPL-2.0
 net-nds/openldap			 OPENLDAP
+sci-libs/mkl				 ISSL
 sys-apps/memtest86-bin			 PassMark-EULA
 
 # Build dependencies:
