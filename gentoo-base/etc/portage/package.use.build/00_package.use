@@ -32,9 +32,9 @@
 */*					-kerberos
 */*					-libedit -ldap -lua libatomic libffi libidn2 libwww lighttpd lto lz4 lzma lzo
 */*					 mariadb mbox mdev memcached mmap mpfr mysql mysqli
-*/*					 ncurses network nfs nls nntp nptl
+*/*					 ncurses network nfs nntp nptl  # nls
 */*					 odbc openmp openssl
-*/*					-pango -policykit pcre perl pgo php pie python
+*/*					-pango -policykit pcre perl pgo php pie  # python
 */*					 readline rpc
 */*					-samba -sasl -slang -smartcard -source -startup-notification sctp
 */*					 seccomp server slp smtp snmp spell split-usr sql sqlite ssl syslog
@@ -321,11 +321,12 @@ app-shells/stdlib			 colour
 mail-client/roundcube::srcshelton	 plugins zxcvbn
 
 sys-kernel/gentoo-sources		 symlink experimental
-sys-kernel/linux-firmware		-firmware_amd_gpu -firmware_intel_gpu -firmware_nvidia_gpu compress compress-xz savedconfig
-# N.B. Raspberry Pi upstream kernels support compressed modules, but not
-#      compressed firmware...
+# N.B. Raspberry Pi and version-locked vendor-specific upstream kernels may
+#      support compressed modules, but not compressed firmware...
 #      See https://github.com/raspberrypi/firmware/issues/1943
-#sys-kernel/linux-firmware		-compress -compress-xz savedconfig
+#
+sys-kernel/linux-firmware		-firmware_amd_gpu -firmware_intel_gpu -firmware_nvidia_gpu compress compress-xz savedconfig
+#sys-kernel/linux-firmware		-compress -compress-xz -firmware_amd_gpu -firmware_intel_gpu -firmware_nvidia_gpu savedconfig
 
 # required by dev-db/mariadb-10.1.22[extraengine,server]
 >=sys-libs/zlib-1.2.11			 minizip
