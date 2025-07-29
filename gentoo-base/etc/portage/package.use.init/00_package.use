@@ -2,7 +2,7 @@
 # General USE flags:
 #
 
-#*/*					-* asm ipv6 ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
+#*/*					-* asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
 */*					-* pie split-usr
 
 #*/*					 ADA_TARGET: gcc_14
@@ -20,27 +20,21 @@
 */*					 RUBY_TARGETS: ruby33
 
 net-misc/curl				 CURL_SSL: openssl
-#net-misc/curl				 CURL_QUIC: -ngtcp2 -openssl
-net-misc/curl				-curl_quic_ngtcp2 -curl_quic_openssl
+# It's not possible to remove all flags with an empty flag-set as follows:
+#net-misc/curl				 CURL_QUIC:
+# ... therefore, since the default of 'CURL_QUIC: openssl' forces
+# 'USE=openssl', the only other option is to use 'USE=-curl_quic_openssl' :(
 
-# Packages outside of dev-perl and perl-core also reference these flags..
+# As above for 'USE=-firmware_amd' etc. also...
+#sys-kernel/linux-firmware		 FIRMWARE: -amd_gpu -intel_gpu -nvidia_gpu
+
+# Packages outside of dev-perl and perl-core also reference these flags...
 #
 # ... but don't enable them for base builds, as the stage3 image has this flag
 # disabled and turning it on is a hard-blocker rather than causing rebuilds in
 # dependent packages :(
 #
 #*/*					 PERL_FEATURES: ithreads
-
-app-alternatives/awk			 gawk  # busybox mawk nawk
-app-alternatives/bc			 gnu  # gh
-app-alternatives/bzip2			 reference  # pbzip2 lbzip2
-app-alternatives/cpio			 gnu  # libarchive
-app-alternatives/gzip			 reference  # pigz
-app-alternatives/lex			 flex  # reflex
-app-alternatives/ninja			 reference  # samurai
-app-alternatives/sh			 busybox  # bash dash ksh lksh mksh
-app-alternatives/tar			 gnu  # libarchive
-app-alternatives/yacc			-reference bison  # byacc
 
 app-arch/libarchive			-lz4 acl bzip2 e2fsprogs expat iconv lzma lzo nettle threads xattr zlib zstd
 app-arch/tar				 xattr
@@ -53,13 +47,13 @@ dev-lang/python				 ssl xml
 dev-libs/libgcrypt			 getentropy
 dev-libs/nettle				 gmp
 dev-util/pkgconf			 pkg-config
-net-misc/curl				-adns -ares -http2 -httpsrr openssl ssl
+net-misc/curl				-adns -ares -curl_quic_openssl -http2 -http3 -httpsrr -psl -quic -test -websockets libssh2 openssl ssl # http2 required by dev-lang/rust
 sys-apps/baselayout			 varrun
-sys-apps/busybox			-savedconfig mdev  # static
-sys-apps/grep				 pcre
-sys-apps/help2man			-nls
+sys-apps/busybox			-pam -savedconfig -sep-usr -split-usr math openrc  # static
+sys-apps/grep				-egrep-fgrep pcre
+sys-apps/help2man			-nls  # requires dev-perl/Locale-gettext, but then can't find it in many cases :(
 sys-apps/kmod				 tools
-sys-apps/openrc				 varrun
+sys-apps/openrc				 compat varrun  # newnet
 sys-apps/portage			-rsync-verify
 #sys-apps/shadow			-pam cracklib  # Python dependencies are fragile...
 sys-apps/shadow				-cracklib -su -pam  # conflicts sys-apps/util-linux[su]
@@ -69,11 +63,11 @@ sys-apps/util-linux			-pam -su  # conflicts sys-apps/shadow[su]
 sys-auth/pambase			 passwdqc -pwquality
 sys-libs/glibc				 clone3
 sys-libs/ncurses			 unicode
-sys-process/audit			-python  # Not compatible with python:3.12
+sys-process/audit			-python  # incompatible with python:3.12, requires dev-lang/swig but only as a DEPEND
 
-# required by sys-apps/busybox-1.31.1-r3[static]
-# required by virtual/dev-manager-0-r2
+# required by sys-apps/busybox[static]
+# required by virtual/dev-manager
 #virtual/libcrypt			 static-libs
 #sys-libs/libxcrypt			 static-libs
 
-# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
+# vi: set colorcolumn=41,80 nowrap syntax=gentoo-package-use sw=8 ts=8:
