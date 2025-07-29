@@ -51,6 +51,9 @@ net-misc/curl				 CURL_SSL: openssl
 # ... therefore, since the default of 'CURL_QUIC: openssl' forces
 # 'USE=openssl', the only other option is to use 'USE=-curl_quic_openssl' :(
 
+# As above, but for 'USE=-firmware_amd_gpu' etc. also...
+#sys-kernel/linux-firmware		 FIRMWARE: -amd_gpu -intel_gpu -nvidia_gpu
+
 # Packages outside of dev-perl and perl-core also reference these flags...
 */*					 PERL_FEATURES: ithreads
 
@@ -318,7 +321,7 @@ app-shells/stdlib			 colour
 mail-client/roundcube::srcshelton	 plugins zxcvbn
 
 sys-kernel/gentoo-sources		 symlink experimental
-sys-kernel/linux-firmware		 compress compress-xz savedconfig
+sys-kernel/linux-firmware		-firmware_amd_gpu -firmware_intel_gpu -firmware_nvidia_gpu compress compress-xz savedconfig
 # N.B. Raspberry Pi upstream kernels support compressed modules, but not
 #      compressed firmware...
 #      See https://github.com/raspberrypi/firmware/issues/1943
