@@ -1,5 +1,7 @@
 
-#net-misc/memcached			 debug sasl seccomp (-selinux) slabs-reassign systemd test
+*/*					 ssl
+
+#net-misc/memcached			 debug sasl seccomp (-selinux) slabs-reassign ssl systemd test
 net-misc/memcached			 seccomp
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
