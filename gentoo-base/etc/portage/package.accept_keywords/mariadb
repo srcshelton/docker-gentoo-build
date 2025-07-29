@@ -10,17 +10,19 @@
 # MariaDB upstream stable releases (see https://mariadb.org/download/)
 #
 #							~amd64 ~arm ~arm64 ~x86
-#~dev-db/mariadb-10.5.28				~amd64 ~arm ~arm64 ~x86
-~dev-db/mariadb-10.6.21					~amd64 ~arm ~arm64 ~x86
-~dev-db/mariadb-10.11.11				~amd64 ~arm ~arm64 ~x86
-~dev-db/mariadb-11.4.5					~amd64 ~arm ~arm64 ~x86
-~container-services/mariadb-10.6.21::container		~amd64 ~arm ~arm64 ~x86
-~container-services/mariadb-10.11.11::container		~amd64 ~arm ~arm64 ~x86
-~container-services/mariadb-11.4.5::container		~amd64 ~arm ~arm64 ~x86
+~dev-db/mariadb-10.6.22					~amd64 ~arm ~arm64 ~x86
+~dev-db/mariadb-10.11.13				~amd64 ~arm ~arm64 ~x86
+~dev-db/mariadb-11.4.7					~amd64 ~arm ~arm64 ~x86
+~dev-db/mariadb-11.8.2					~amd64 ~arm ~arm64 ~x86
+~container-services/mariadb-10.6.22::container		~amd64 ~arm ~arm64 ~x86
+~container-services/mariadb-10.11.13::container		~amd64 ~arm ~arm64 ~x86
+~container-services/mariadb-11.4.7::container		~amd64 ~arm ~arm64 ~x86
+~container-services/mariadb-11.8.2::container		~amd64 ~arm ~arm64 ~x86
 
 ~sys-cluster/galera-26.4.18				       ~arm
 ~sys-cluster/galera-26.4.20				       ~arm        ~x86
 ~sys-cluster/galera-26.4.21				       ~arm        ~x86
+~sys-cluster/galera-26.4.22				       ~arm        ~x86
 
 ~dev-db/mysqltuner-2.6.0				       ~arm ~arm64
 
