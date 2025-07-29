@@ -1381,42 +1381,48 @@ fi
 service_root='/service'
 
 if [ -n "${DEBUG:-}" ]; then
+	print "Directories with logged file-collisions:"
 	# shellcheck disable=SC2013
-	for f in $( # <- Syntax
-				grep -Rl -- 'collision' "${log_dir}"/*.log 2>/dev/null
-			)
-	do
-		sed 's/\x1b\[[0-9;]*m//g' "${f}" |
-			awk --assign p=0 '
-				/Detected file collision\(s\):$/ { p = 2 } ;
-				/^ \* $/ { p = p - 1 } ;
-				( 1 == p ) { print $2 } ;
-			'
-	done |
-		xargs -rn 1 dirname |
-			sed 's|/c.i-php.\../|/*/| ; s|/spamassassin/|/*/| ; s|$|/*|' |
-			sort |
-			uniq
+	(
+		for f in $( # <- Syntax
+					grep -Fl -- 'Detected file collision(s):' "${log_dir}"/*.log \
+						2>/dev/null
+				)
+		do
+			sed 's/\x1b\[[0-9;]*m//g' "${f}" |
+				awk --assign p=0 '
+					/Detected file collision\(s\):$/ { p = 2 } ;
+					/^ \* $/ { p = p - 1 } ;
+					/^ \* Package / { p = 0 } ;
+					( 1 == p ) { print $2 } ;
+				'
+		done |
+			xargs -rn 1 dirname
+	) |
+		sed 's|/c.i-php.\../|/*/| ; s|/spamassassin/|/*/|' |
+		sort |
+		uniq |
+		sed 's/^/DEBUG:  /'
 fi
 COLLISION_IGNORE="$( echo "${COLLISION_IGNORE:-"/lib/modules/*"}
-	/bin/cpio
-	/usr/bin/awk
-	/usr/bin/bc
-	/usr/bin/dc
-	/usr/bin/lexx
-	/usr/bin/ninja
-	/usr/bin/yacc
-	/etc/env.d/04gcc-x86_64-pc-linux-gnu
-	/etc/env.d/gcc/config-x86_64-pc-linux-gnu
-	/usr/lib/locale/locale-archive
-	/var/lib/portage/home/*
-	${service_root}/bin/*
-	${service_root}/etc/php/*/ext-active/*
-	${service_root}/sbin/*
-	${service_root}/usr/bin/*
-	${service_root}/usr/share/*/*
-	${service_root}/var/lib/*/*
-" | xargs -r )"
+		/bin/cpio
+		/usr/bin/awk
+		/usr/bin/bc
+		/usr/bin/dc
+		/usr/bin/lexx
+		/usr/bin/ninja
+		/usr/bin/yacc
+		/etc/env.d/04gcc-x86_64-pc-linux-gnu
+		/etc/env.d/gcc/config-x86_64-pc-linux-gnu
+		/usr/lib/locale/locale-archive
+		/var/lib/portage/home/*
+		${service_root}/bin/*
+		${service_root}/etc/php/*/ext-active/*
+		${service_root}/sbin/*
+		${service_root}/usr/bin/*
+		${service_root}/usr/share/*/*
+		${service_root}/var/lib/*/*
+	" | xargs -r )"
 export COLLISION_IGNORE
 
 TUSE='' pkg_use_pkg='' pkg_use_use='' pkg_use_file=''
