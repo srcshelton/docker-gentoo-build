@@ -1,16 +1,18 @@
 
-*/*					 ipv6
-
-##net-misc/zxtm-init-scripts		 perl -saveconfig
-#net-misc/zxtm-init-scripts		 perl
-net-misc/zxtm-init-scripts		 telegram
+*/*					 caps ipv6
 
 #net-firewall/iptables			 conntrack (+ipv6) netlink nftables pcap static-libs systemd
 net-firewall/iptables			 conntrack netlink nftables pcap
 
 #sys-apps/iproute2			 atm berkdb caps elf +iptables (+ipv6) minimal selinux
-sys-apps/iproute2			 caps iptables
+sys-apps/iproute2			 iptables
 
 app-alternatives/sh			-busybox bash
+
+net-dns/bind				-* tools xml
+
+##net-misc/zxtm-init-scripts		 perl -saveconfig
+#net-misc/zxtm-init-scripts		 perl
+net-misc/zxtm-init-scripts		 telegram
 
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

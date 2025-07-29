@@ -30,8 +30,15 @@ ARG CHOST="x86_64-pc-linux-gnu"
 
 ARG zxtm_image_name="docker.io/pulsesecure/vtm"
 ARG zxtm_service_version="20.3"
+ARG zxtm_geoip_version="20.2r1"
 ARG ZEUSHOME="/opt/zeus"
 
+
+# -----------------------------------------------------------------------------
+
+# Import GeoIP data removed in release 20.3
+#
+FROM "${zxtm_image_name}:${zxtm_geoip_version}" AS geoip
 
 # -----------------------------------------------------------------------------
 
@@ -155,6 +162,9 @@ COPY --from=zxtm /usr/local/zeus "${ZEUSHOME}/"
 COPY entrypoint.sh.service.zxtm "${ZEUSHOME}/runzeus.sh"
 RUN test -L "${ZEUSHOME}/zxtm/conf"
 
+# Copy GeoIP data into the current image
+COPY --from=geoip /usr/local/zeus/zxtm/etc/geo "${ZEUSHOME}/zxtm/etc/geo/"
+
 COPY --from=base /etc/group /etc/base/
 #COPY --from=base /etc/gshadow /etc/base/  # Doesn't exist in source image
 COPY --from=base /etc/passwd /etc/base/
@@ -164,7 +174,7 @@ COPY --from=base /etc/networks /etc/base/
 COPY --from=base /etc/protocols /etc/base/
 COPY --from=base /etc/services /etc/base/
 COPY --from=base /etc/shells /etc/base/
-#COPY --from=base /usr/share/zoneinfo /usr/share/zoneinfo/
+COPY --from=base /usr/share/zoneinfo /usr/share/zoneinfo/
 COPY --from=base "/usr/share/zoneinfo/${timezone}" /etc/localtime
 #COPY etc/msmtprc /etc/
 
