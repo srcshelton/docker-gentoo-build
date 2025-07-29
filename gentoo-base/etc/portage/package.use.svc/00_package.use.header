@@ -23,7 +23,6 @@
 #*/*					 LLVM_TARGETS: BPF X86
 */*					 LUA_SINGLE_TARGET: luajit
 */*					 LUA_TARGETS: luajit
-*/*					 PHP_TARGETS: php8-2
 #*/*					 POSTGRES_TARGETS: postgres17
 */*					 PYTHON_SINGLE_TARGET: python3_13
 */*					 PYTHON_TARGETS: python3_13
@@ -35,7 +34,9 @@ net-misc/curl				-curl_quic_ngtcp2 -curl_quic_openssl
 
 */*					 PERL_FEATURES: ithreads
 
-# Set individually...
+# PHP_TARGETS is set on a per-service basis by optionally including
+# 'php8{x}' from this directory...
+#
 #*/*					 PHP_TARGETS: php8-2
 
 dev-lang/perl				 minimal
