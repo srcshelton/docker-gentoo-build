@@ -32,7 +32,7 @@ dev-python/numpy			-multiarch
 dev-scheme/guile			 regex
 #mail-mta/postfix			 cdb lmdb
 net-dns/bind				 tools
-net-firewall/firehol			 ipset
+net-firewall/firehol			-firehol fireqos ipset
 net-firewall/iptables			 nftables
 net-libs/ngtcp2				-openssl gnutls  # openssl is currently masked due to lack of stable QUIC support
 sys-apps/iproute2			-minimal

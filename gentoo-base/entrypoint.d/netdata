@@ -1,0 +1,5 @@
+#! /bin/sh
+
+[ -d /var/run/fireqos ] || mkdir -p /var/run/fireqos
+
+# vi: set syntax=sh:
