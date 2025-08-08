@@ -21,6 +21,7 @@ environment_filter="${environment_filter:-"__ENVFILTER__"}"
 #      must be listed *first*:
 python_default_targets='python3_13'
 stage3_flags=''
+os_headers_arch_flags='raspberrypi rockchip'
 
 export arch="${ARCH}"
 unset -v ARCH
@@ -1745,8 +1746,8 @@ validate_python_installation "pre-remove"
 	fi
 	if echo "${ARCH:-"${arch:-}"}" | grep -Fiq 'arm'; then
 		# Give virtual/os-headers a chance to pull-in
-		# sys-kernel/raspberrypi-headers or sys-kernel/rockchip-headers by
-		# removing all preinstalled headers packages...
+		# sys-kernel/${os_headers_arch_flags}-headers by removing all
+		# pre-existing headers packages...
 		list="${list:-} virtual/os-headers sys-kernel/linux-headers"
 	fi
 
@@ -2239,7 +2240,17 @@ echo
 
 	# shellcheck disable=SC2046
 	(
-		export USE='-gmp -nls asm cet ssl'
+		export USE="-gmp -nls asm cet ssl$( # <- Syntax
+				flag=''
+				if [ -n "${use_essential:-}" ]; then
+					for flag in ${os_headers_arch_flags}; do
+						if echo " ${use_essential} " | grep -qw -- "${flag}"
+						then
+							printf ' %s' "${flag}"
+						fi
+					done
+				fi
+			)"
 		do_emerge --single-defaults sys-libs/libxcrypt
 
 		# app-arch/zstd is failing here because it can't find dev-build/ninja,
@@ -2366,7 +2377,18 @@ do
 	echo
 
 	(
-		USE="-* $( get_stage3 --values-only USE )"
+		USE="-* $( # <- Syntax
+				get_stage3 --values-only USE
+				flag=''
+				if [ -n "${use_essential:-}" ]; then
+					for flag in ${os_headers_arch_flags}; do
+						if echo " ${use_essential} " | grep -qw -- "${flag}"
+						then
+							printf ' %s' "${flag}"
+						fi
+					done
+				fi
+			)"
 		USE="$( # <- Syntax
 				echo "${USE}" |
 					xargs -rn 1 |
@@ -2591,9 +2613,17 @@ features_eudev=1
 #
 # app-portage/elt-patches directly depends on app-arch/xz-utils, which
 # indirectly depends on app-portage/elt-patches, so let's try to build the
-# latter first in order to break this circular dependency.
+# latter first in order to break this circular dependency;
 #
-pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
+# sys-process/audit depends on sys-libs/libcap-ng which only depends on
+# virtual/os-headers and optional python packages.  However, portage
+# hallucinates a dependency on sys-libs/glibc.  net-dns/libidn2 legitimately
+# (r)depends on dev-libs/libunistring which has no declared dependencies, but
+# portage also hallucinates a dependency on sys-libs/glibc which really
+# (r)depends on net-dns/libidn2, and so forms an undeclared circular
+# dependency :(
+#
+pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-libs/libcap-ng sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
 # See above for 'xml'...
 pkg_initial_use='-compress-xz -lzma -nls -pam -perl -python -su -unicode minimal no-xz-utils xml'
 if get_portage_flags USE | grep -Eq -- '(^|[^-])graphite'; then
