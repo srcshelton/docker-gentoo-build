@@ -2602,6 +2602,9 @@ case "${1:-}" in
 								  ${parallel} \
 								  ${opts} \
 								--buildpkg=y \
+								--onlydeps \
+								--onlydeps-with-ideps y \
+								--onlydeps-with-rdeps y \
 								--usepkg=y \
 								--with-bdeps=y \
 								  ${flags:-} \
@@ -2640,6 +2643,8 @@ case "${1:-}" in
 							  ${parallel} \
 							  ${opts} \
 							--buildpkg=y \
+							--onlydeps \
+							--onlydeps-with-ideps y --onlydeps-with-rdeps y \
 							--usepkg=y \
 							--with-bdeps=y \
 						-- ${packages}
