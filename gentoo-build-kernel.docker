@@ -1166,13 +1166,15 @@ if [[ "${compiler}" == 'clang' ]]; then
 		esac
 		unset python_taget
 		if (( llvm_slot_override )); then
-			warn "Upgrading LLVM slot to ${llvm_slot_override} due to" \
+			llvm_slot=${llvm_slot_override}
+			warn "Upgrading LLVM slot to ${llvm_slot} due to" \
 				"minimum python versions"
 		fi
 	fi
 
-	if (( llvm_slot_override )); then
-		# Command-line overrides in llvm_sub_slot_override & llvm_slot_override...
+	if (( llvm_slot_override )) && [[ -n "${llvm_sub_slot_override:-}" ]] then
+		# Command-line overrides in llvm_sub_slot_override &
+		# llvm_slot_override...
 		declare last_unsuitable_llvm_ver="$(( llvm_slot - 1 )).9999.9999"
 		if [[ "$( # <- Syntax
 				printf '%s\n%s\n' \
@@ -1182,8 +1184,8 @@ if [[ "${compiler}" == 'clang' ]]; then
 					tail -n 1
 				)" == "${last_unsuitable_llvm_ver}" ]]
 		then
-			die "Specified LLVM version '${llvm_sub_slot_override}' is" \
-				"below minimum required version '${llvm_slot}'"
+			die "Specified LLVM version '${llvm_sub_slot_override}' is below" \
+				"minimum required version '${llvm_slot}'"
 		fi
 		unset last_unsuitable_llvm_ver
 		if [[ "${llvm_sub_slot_override}" == *.* ]]; then
@@ -1200,12 +1202,16 @@ if [[ "${compiler}" == 'clang' ]]; then
 			[1-9]|10) : ;;
 			11|12|13)
 				llvm_sub_slot="${llvm_slot}.0.1" ;;
+			14|16|17)
+				llvm_sub_slot="${llvm_slot}.0.6" ;;
 			15|19)
 				llvm_sub_slot="${llvm_slot}.0.7" ;;
 			18)
 				llvm_sub_slot="${llvm_slot}.0.8" ;;
+			20)
+				llvm_sub_slot="${llvm_slot}.1.7" ;;
 			*)
-				llvm_sub_slot="${llvm_slot}.0.6" ;;
+				die "Unknown sub_slot for llvm_slot '${llvm_slot}'" ;;
 		esac
 	fi
 
