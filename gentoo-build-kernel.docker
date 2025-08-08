@@ -729,7 +729,14 @@ if ! echo " ${*:-} " | grep -q -- ' --no-patch'; then
 		6.1.79*|6.1.[89][0-9]*|6.1.[1-9][0-9][0-9]*|6.[2-9].*|6.1[0-4].*)
 			kpatch="${kpatchprefix}/more-ISA-levels-and-uarches-for-kernel-6.1.79%2B.patch" ;;
 		6.1[5-9].*|6.[2-9][0-9].*)
-			kpatch="${kpatchprefix}/more-ISA-levels-and-uarches-for-kernel-6.15-rc1%2B.patch" ;;
+			kpatch="${kpatchprefix}/more-ISA-levels-and-uarches-for-kernel-6.15-rc1%2B.patch"
+			case "${package_version}" in
+				6.15.*|6.16.0)
+					if ! [[ "${package_version}" =~ 5\.15\.[012] ]]; then
+						kpatch+=" https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git/patch/?id=0a32e4f0025a74c70dcab4478e9b29c22f5ecf2f"
+					fi
+			esac
+			;;
 		'')
 			: ;;
 		*)
@@ -742,13 +749,14 @@ case "${arch:-"${ARCH:-}"}" in
 	arm64)
 		# This patch is specific to the Raspberry Pi 4/BCM2711/Cortex-A72;
 		# the RPi5/BCM2712 uses a Cortex-A76
+		#
 		# FIXME: This patch could itself be trivially patched to account for
 		#        this...
 		if [[ "$( # <- Syntax
 				emerge --info 2>/dev/null |
 					grep -- '^USE=' |
 					cut -d'"' -f 2
-				)" =~ pi4 ]]
+				)" =~ rpi[-cm]+4 ]]
 		then
 			kpatch="${kpatch:+"${kpatch} "}https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/refs/heads/master/other/build-with-mcpu-for-cortex-a72.patch"
 		fi
@@ -1401,6 +1409,7 @@ if (( opt_o3 )); then
 			# [1] https://github.com/clearlinux-pkgs/linux/blob/main/0133-novector.patch
 			#
 			add_flags+=' -fivopts -fmodulo-sched'
+			#add_flags+=' -mno-avx2 -O3 -fno-tree-vectorize -march=westmere -mpopcnt'
 			;;
 	esac
 	container_KCFLAGS="KCFLAGS=\"${add_flags}\""
@@ -1827,8 +1836,10 @@ mkdir -p "${log_dir:="log"}" ||
 				app-crypt/libb2
 				dev-util/pahole
 				dev-libs/libyaml
+				dev-libs/openssl
 				sys-apps/coreutils
 				sys-apps/kmod
+				sys-apps/util-linux
 				sys-process/time
 				${microcode:-}
 				${firmware:-}
@@ -2766,11 +2777,15 @@ mkdir -p "${log_dir:="log"}" ||
 			fi ;
 		fi ;
 		if [ '${install}' = '1' ]; then
-			if ! tar --no-same-owner ${tar_extra_args:-} -C / -cpf - /boot/ /lib/modules/ | tar -C /host/ -xpf - ; then
-				echo >&2 "ERROR: Build artefact extraction failed: \${?}" ;
-				exit 1 ;
+			if findmnt -fnu /host/boot/ | grep -Fq -- 'ro,'; then
+				echo >&2 "ERROR: /boot/ is mounted read-only, not attempting install" ;
 			else
-				echo "INFO:  Linux kernel-\${kernel_version} successfully installed - please update your bootloader" ;
+				if ! tar --no-same-owner ${tar_extra_args:-} -C / -cpf - /boot/ /lib/modules/ | tar -C /host/ -xpf - ; then
+					echo >&2 "FATAL: Build artefact extraction failed: \${?}" ;
+					exit 1 ;
+				else
+					echo "INFO:  Linux kernel-\${kernel_version} successfully installed - please update your bootloader" ;
+				fi ;
 			fi ;
 			unset tar_extra_args ;
 		elif [ '${bundle}' = '0' ]; then
