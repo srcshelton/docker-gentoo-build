@@ -1,5 +1,5 @@
 
 #							~amd64 ~arm ~arm64 ~x86
-~app-forensics/lynis-3.1.4				~amd64 ~arm ~arm64 ~x86
+~app-forensics/lynis-3.1.5				~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:
