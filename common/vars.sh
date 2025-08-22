@@ -792,7 +792,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	python_default_target='python3_13'
 	export python_default_target
 
-	php_default_target='php8-2'
+	php_default_target='php8-3'
 	export php_default_target
 
 	# Finally, execute any user-overrides which might exist!

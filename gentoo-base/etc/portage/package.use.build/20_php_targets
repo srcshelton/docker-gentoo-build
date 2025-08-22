@@ -1,10 +1,9 @@
 
 # See $( portageq get_repo_path / gentoo )/profiles/desc/php_targets.desc
 #
-# php8-3 & php8-4 are currently (since 2023...) masked in
-# profiles/base/use.stable.mask
+# php8-4 is currently (since 2023...) masked in profiles/base/use.stable.mask
 #
-#*/*					 PHP_TARGETS: php8-2 (php8-3) (php8-4)
-*/*					 PHP_TARGETS: php8-2
+#*/*					 PHP_TARGETS: php8-2 php8-3 (php8-4)
+*/*					 PHP_TARGETS: php8-3
 
-# vi: set nowrap syntax=gentoo-package-use:
+# vi: set colorcolumn=41,80 syntax=gentoo-package-use sw=8 ts=8 nowrap:

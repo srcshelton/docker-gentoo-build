@@ -92,7 +92,7 @@ services=(
 	#php81
 	php82
 	php83
-	php84
+	#php84
 	pinfo
 	postfix
 	postgrey
@@ -549,8 +549,8 @@ case "${service:-}" in
 		service='=dev-lang/php-8.2*' ;;
 	php83)
 		service='=dev-lang/php-8.3*' ;;
-	php84)
-		service='=dev-lang/php-8.4*' ;;
+	#php84)
+	#	service='=dev-lang/php-8.4*' ;;
 	pinfo|info)
 		# Launcher loads running services' /usr/share/info volumes
 		service='app-text/pinfo' ;;
@@ -1737,7 +1737,7 @@ case "${package_mask_svc_name}-${package_version}" in
 	#php-8.1.*) package_mask_svc_name='php81' ;;
 	php-8.2.*) package_mask_svc_name='php82' ;;
 	php-8.3.*) package_mask_svc_name='php83' ;;
-	php-8.4.*) package_mask_svc_name='php84' ;;
+	#php-8.4.*) package_mask_svc_name='php84' ;;
 esac
 
 # package.unmask*
@@ -1851,7 +1851,7 @@ case "${package_use_svc_name}" in
 			#php-8.1.*) package_use_svc_name_extras+=( 'php81' ) ;;
 			php-8.2.*) package_use_svc_name_extras+=( 'php82' ) ;;
 			php-8.3.*) package_use_svc_name_extras+=( 'php83' ) ;;
-			php-8.4.*) package_use_svc_name_extras+=( 'php84' ) ;;
+			#php-8.4.*) package_use_svc_name_extras+=( 'php84' ) ;;
 			*)
 				die "Unsupported PHP version '${package_version}'" ;;
 		esac

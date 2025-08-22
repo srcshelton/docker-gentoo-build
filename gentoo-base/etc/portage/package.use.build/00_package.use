@@ -116,7 +116,7 @@ dev-java/icedtea			-*
 dev-java/oracle-jdk-bin			-X -javafx headless-awt jce
 dev-java/sun-jdk			 jce
 dev-lang/luajit				 lua52compat
-dev-lang/php				-ldap-sasl bcmath calendar cgi ctype curlwrappers exif flatfile fpm hash iconv imap inifile intl mhash mysqlnd pcntl pdo posix session simplexml soap sockets sqlite2 sqlite3 sysvipc tidy tokenizer truetype wddx xmlreader xmlrpc xmlwriter xslt zip # -readline
+dev-lang/php				-ldap-sasl bcmath calendar cgi ctype curlwrappers exif flatfile fpm hash iconv imap inifile intl mhash mysqlnd pcntl pdo posix session simplexml soap sockets sqlite2 sqlite3 sysvipc tidy tokenizer wddx xmlreader xmlrpc xmlwriter xslt zip # -readline -truetype
 dev-lang/python-exec			 native-symlinks
 dev-lang/ruby				-jemalloc jit  # Fails to compile with jemalloc support
 dev-lang/rust				 llvm-libunwind rustfmt system-llvm  # 'rustfmt' required by dev-util/bindgen

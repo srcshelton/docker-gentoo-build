@@ -10,7 +10,7 @@
 app-eselect/eselect-php			 fpm
 
 #dev-lang/php				 acl apache2 argon2 bcmath berkdb bzip2 calendar cdb cgi cjk +cli coverage +ctype curl debug embed enchant exif ffi +fileinfo +filter firebird +flatfile fpm ftp gd gdbm gmp +iconv imap inifile intl iodbc (+ipv6) +json kerberos ldap ldap-sasl libedit lmdb mhash mssql mysql mysqli nls oci8-instant-client odbc +opcache pcntl pdo +phar phpdbg +posix postgres qdbm readline selinux +session session-mm sharedmem +simplexml snmp soap sockets sodium spell sqlite (+ssl) systemd sysvipc test (+threads) tidy +tokenizer tokyocabinet truetype unicode webp +xml xmlreader xmlrpc xmlwriter xpm xslt zip (+zlib)
-dev-lang/php				 bzip2 cgi cli ctype curl exif fileinfo filter flatfile fpm ftp gd hash iconv intl json mysql mysqli opcache pdo phar posix readline session sharedme simplexml sockets spell sqlite sysvipc tidy tokenizer unicode xml xmlreader xmlrpc xmlwriter xslt zip
+dev-lang/php				-truetype bzip2 cgi cli ctype curl exif fileinfo filter flatfile fpm ftp gd hash iconv intl json mysql mysqli opcache pdo phar posix readline session sharedme simplexml sockets spell sqlite sysvipc tidy tokenizer unicode xml xmlreader xmlrpc xmlwriter xslt zip
 
 #dev-libs/libpcre2			 bzip2 +jit libedit pcre16 pcre32 +readline +recursion-limit static-libs unicode (+zlib)
 dev-libs/libpcre2			 jit recursion-limit unicode
@@ -24,7 +24,7 @@ dev-php/memcached			 igbinary json session
 dev-php/pecl-redis			 igbinary json lz4 session zstd
 
 #media-gfx/imagemagick			 X bzip2 corefonts +cxx djvu fftw fontconfig fpx graphviz hdri heif jbig jpeg jpeg2k lcms lqr lzma opencl openexr openmp pango perl png postscript q32 q8 raw static-libs svg test tiff truetype webp wmf xml (+zlib)
-media-gfx/imagemagick			 bzip2 jpeg perl png # svg webp (+xml)
+media-gfx/imagemagick			-truetype bzip2 jpeg perl png # svg webp (+xml)
 
 # dependency required by dev-php/PEAR-PEAR-1.10.13
 dev-lang/php				 zlib

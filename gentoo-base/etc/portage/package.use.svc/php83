@@ -1,0 +1,6 @@
+
+# <=dev-perl/pecl-memcache-8.2 (required by mail-client/roundcube) only
+# supports php8_1 :(
+*/*					 PHP_TARGETS: php8-3
+
+# vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:

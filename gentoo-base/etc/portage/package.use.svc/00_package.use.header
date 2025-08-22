@@ -37,7 +37,7 @@ net-misc/curl				-curl_quic_ngtcp2 -curl_quic_openssl
 # PHP_TARGETS is set on a per-service basis by optionally including
 # 'php8{x}' from this directory...
 #
-#*/*					 PHP_TARGETS: php8-2
+#*/*					 PHP_TARGETS: php8-3
 
 dev-lang/perl				 minimal
 dev-lang/python-exec			 native-symlinks
