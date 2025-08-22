@@ -722,19 +722,19 @@ if ! echo " ${*:-} " | grep -q -- ' --no-patch'; then
 					kpatch+=" https://lore.kernel.org/all/20220630090100.2769490-1-yi.zhang@huawei.com/raw"
 			esac
 			;;
-		#6.1.79*|6.1.[89][0-9]*|6.1.[1-9][0-9][0-9]*|6.[2-7].*)
-		#	kpatch="${kpatchprefix}/more-ISA-levels-and-uarches-for-kernel-6.1.79%2B.patch" ;;
-		#6.[89].*|6.1[0-9].*)
-		#	kpatch="${kpatchprefix}/lite-more-x86-64-ISA-levels-for-kernel-6.8-rc4%2B.patch" ;;
 		6.1.79*|6.1.[89][0-9]*|6.1.[1-9][0-9][0-9]*|6.[2-9].*|6.1[0-4].*)
 			kpatch="${kpatchprefix}/more-ISA-levels-and-uarches-for-kernel-6.1.79%2B.patch" ;;
-		6.1[5-9].*|6.[2-9][0-9].*)
-			kpatch="${kpatchprefix}/more-ISA-levels-and-uarches-for-kernel-6.15-rc1%2B.patch"
+		6.15.*)
+			kpatch="${kpatchprefix}/more-ISA-levels-and-uarches-for-kernel-6.15-rc1-6.15.x.patch"
+			if ! [[ "${package_version}" =~ 6\.15\.[012] ]]; then
+				kpatch+=" https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git/patch/?id=0a32e4f0025a74c70dcab4478e9b29c22f5ecf2f"
+			fi
+			;;
+		6.1[6-9].*|6.[2-9][0-9].*)
+			kpatch="${kpatchprefix}/more-ISA-levels-and-uarches-for-kernel-6.16%2B.patch"
 			case "${package_version}" in
-				6.15.*|6.16.0)
-					if ! [[ "${package_version}" =~ 5\.15\.[012] ]]; then
-						kpatch+=" https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git/patch/?id=0a32e4f0025a74c70dcab4478e9b29c22f5ecf2f"
-					fi
+				6.16.0)
+					kpatch+=" https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git/patch/?id=0a32e4f0025a74c70dcab4478e9b29c22f5ecf2f" ;;
 			esac
 			;;
 		'')
