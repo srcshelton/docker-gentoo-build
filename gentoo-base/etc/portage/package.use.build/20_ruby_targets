@@ -1,7 +1,7 @@
 
 # See $( portageq get_repo_path / gentoo )/profiles/desc/ruby_targets.desc
 #
-#*/*					 RUBY_TARGETS: ruby30 ruby31 ruby32 ruby33 ruby34
+#*/*					 RUBY_TARGETS: ruby30 (ruby31) ruby32 ruby33 (ruby34)
 */*					 RUBY_TARGETS: ruby33
 
-# vi: set nowrap syntax=gentoo-package-use:
+# vi: set colorcolumn=41,80 syntax=gentoo-package-use sw=8 ts=8 nowrap:
