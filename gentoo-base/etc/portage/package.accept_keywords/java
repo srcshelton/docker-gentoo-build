@@ -4,20 +4,20 @@
 #							~amd64 ~arm ~arm64 ~x86
 ~virtual/jdk-1.8.0					       ~arm
 ~virtual/jre-1.8.0					       ~arm
-~dev-java/openjdk-bin-8.432_p06				       ~arm
+~dev-java/openjdk-bin-8.462_p08				       ~arm
 
 ~virtual/jdk-11						       ~arm
 ~virtual/jre-11						       ~arm
-~dev-java/openjdk-11.0.25_p9				       ~arm
-~dev-java/openjdk-bin-11.0.25_p9			       ~arm
+~dev-java/openjdk-11.0.26_p4				       ~arm
+~dev-java/openjdk-bin-11.0.26_p4			       ~arm
 
 ~virtual/jdk-17						       ~arm
 ~virtual/jre-17						       ~arm
-~dev-java/openjdk-17.0.13_p11				       ~arm
-~dev-java/openjdk-bin-17.0.13_p11			       ~arm
+~dev-java/openjdk-17.0.14_p7				       ~arm
+~dev-java/openjdk-bin-17.0.14_p7			       ~arm
 
 ~virtual/jdk-21						                   ~x86
 ~virtual/jre-21						                   ~x86
-~dev-java/openjdk-21.0.5_p11				                   ~x86
+~dev-java/openjdk-21.0.8_p9				                   ~x86
 
 # vi: set syntax=gentoo-package-keywords:
