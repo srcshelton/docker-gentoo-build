@@ -252,6 +252,21 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	esac
 	if command -v cpuid2cpuflags >/dev/null 2>&1; then
 		use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- )"
+	fi
+
+	if [ -n "${CPU_OVERRIDE:-}" ]; then
+		 case "${CPU_OVERRIDE}" in
+			'rpi02'|'Raspberry Pi Zero 2')
+				description='x: Raspberry Pi Zero 2 W x'
+				;;
+			*)
+				echo >&2 "FATAL: Unknown CPU override '${CPU_OVERRIDE}'"
+				exit 1
+				;;
+		esac
+		echo >&2 "WARN:  Using CPU override '$(
+				echo "${description}" | sed 's/^x: // ; s/ x$//'
+			)'"
 	else
 		# N.B. 'uname -s' returns 'Linux' in Darwin podman-machine...
 		if [ "$( uname -s )" = 'Darwin' ]; then
@@ -295,354 +310,355 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 					xargs -r
 			)" || :
 		fi
+	fi
 
-		# Find '-march=native' flags:
-		# diff <(g++ -march=<arch> -Q --help=target --help=params) <(g++ -march=native -Q --help=target --help=params)
-		case "${description:-}" in
-			*': Intel(R) Atom(TM) CPU '*' 330 '*' @ '*)
-				use_cpu_arch='x86'
-				use_cpu_flags='mmx mmxext sse sse2 sse3 ssse3'
-				gcc_target_opts='-march=bonnell'
-				rust_target_opts='-C target-cpu=bonnell' ;;
-			*': Intel(R) Core(TM) i3-21'*' CPU @ '*)
-				use_cpu_arch='x86'
-				use_cpu_flags='avx mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3'
-				gcc_target_opts='-march=sandybridge'
-				rust_target_opts='-C target-cpu=sandybridge' ;;
-			*': Intel(R) Core(TM) i5-24'*' CPU @ '*)
-				use_cpu_arch='x86'
-				use_cpu_flags='aes avx mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3'
-				gcc_target_opts='-march=sandybridge -maes'
-				rust_target_opts='-C target-cpu=sandybridge' ;;
-			*': Intel(R) Xeon(R) CPU E5-'*' v2 @ '*)
-				use_cpu_arch='x86'
-				use_cpu_flags='aes avx f16c mmx mmxext pclmul popcnt rdrand sse sse2 sse4_1 sse4_2 ssse3'
-				gcc_target_opts='-march=ivybridge -maes'
-				rust_target_opts='-C target-cpu=ivybridge' ;;
-			*': Intel(R) Xeon(R) CPU E3-'*' v5 @ '*)
-				use_cpu_arch='x86'
-				use_cpu_flags='aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sse sse2 sse3 sse4_1 sse4_2 ssse3'
-				gcc_target_opts='-march=skylake -mabm'
-				rust_target_opts='-C target-cpu=skylake' ;;
+	# Find '-march=native' flags:
+	# diff <(g++ -march=<arch> -Q --help=target --help=params) <(g++ -march=native -Q --help=target --help=params)
+	case "${description:-}" in
+		*': Intel(R) Atom(TM) CPU '*' 330 '*' @ '*)
+			use_cpu_arch='x86'
+			use_cpu_flags='mmx mmxext sse sse2 sse3 ssse3'
+			gcc_target_opts='-march=bonnell'
+			rust_target_opts='-C target-cpu=bonnell' ;;
+		*': Intel(R) Core(TM) i3-21'*' CPU @ '*)
+			use_cpu_arch='x86'
+			use_cpu_flags='avx mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3'
+			gcc_target_opts='-march=sandybridge'
+			rust_target_opts='-C target-cpu=sandybridge' ;;
+		*': Intel(R) Core(TM) i5-24'*' CPU @ '*)
+			use_cpu_arch='x86'
+			use_cpu_flags='aes avx mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 ssse3'
+			gcc_target_opts='-march=sandybridge -maes'
+			rust_target_opts='-C target-cpu=sandybridge' ;;
+		*': Intel(R) Xeon(R) CPU E5-'*' v2 @ '*)
+			use_cpu_arch='x86'
+			use_cpu_flags='aes avx f16c mmx mmxext pclmul popcnt rdrand sse sse2 sse4_1 sse4_2 ssse3'
+			gcc_target_opts='-march=ivybridge -maes'
+			rust_target_opts='-C target-cpu=ivybridge' ;;
+		*': Intel(R) Xeon(R) CPU E3-'*' v5 @ '*)
+			use_cpu_arch='x86'
+			use_cpu_flags='aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sse sse2 sse3 sse4_1 sse4_2 ssse3'
+			gcc_target_opts='-march=skylake -mabm'
+			rust_target_opts='-C target-cpu=skylake' ;;
 
-			*': AMD G-T40E '*)
-				use_cpu_arch='x86'
-				use_cpu_flags='mmx mmxext popcnt sse sse2 sse3 sse4a ssse3'
-				gcc_target_opts='-march=btver1'
-				rust_target_opts='-C target-cpu=btver1' ;;
-			*': AMD GX-412TC '*)
-				use_cpu_arch='x86'
-				use_cpu_flags='aes avx f16c mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3'
-				gcc_target_opts='-march=btver2'
-				rust_target_opts='-C target-cpu=btver2' ;;
-			*': AMD EPYC 7R32')
-				use_cpu_arch='x86'
-				use_cpu_flags='aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3'
-				gcc_target_opts='-march=znver2'
-				rust_target_opts='-C target-cpu=znver2' ;;
-			*': AMD EPYC 9R14')
-				use_cpu_arch='x86'
-				use_cpu_flags='aes avx avx2 avx512_bf16 avx512_bitalg avx512_vbmi2 avx512_vnni avx512_vpopcntdq avx512bw avx512cd avx512dq avx512f avx512ifma avx512vbmi avx512vl f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3 vpclmulqdq'
-				gcc_target_opts='-march=znver4'
-				rust_target_opts='-C target-cpu=znver4' ;;
+		*': AMD G-T40E '*)
+			use_cpu_arch='x86'
+			use_cpu_flags='mmx mmxext popcnt sse sse2 sse3 sse4a ssse3'
+			gcc_target_opts='-march=btver1'
+			rust_target_opts='-C target-cpu=btver1' ;;
+		*': AMD GX-412TC '*)
+			use_cpu_arch='x86'
+			use_cpu_flags='aes avx f16c mmx mmxext pclmul popcnt sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3'
+			gcc_target_opts='-march=btver2'
+			rust_target_opts='-C target-cpu=btver2' ;;
+		*': AMD EPYC 7R32')
+			use_cpu_arch='x86'
+			use_cpu_flags='aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3'
+			gcc_target_opts='-march=znver2'
+			rust_target_opts='-C target-cpu=znver2' ;;
+		*': AMD EPYC 9R14')
+			use_cpu_arch='x86'
+			use_cpu_flags='aes avx avx2 avx512_bf16 avx512_bitalg avx512_vbmi2 avx512_vnni avx512_vpopcntdq avx512bw avx512cd avx512dq avx512f avx512ifma avx512vbmi avx512vl f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3 vpclmulqdq'
+			gcc_target_opts='-march=znver4'
+			rust_target_opts='-C target-cpu=znver4' ;;
 
-			# ARM CPUs: Only sci-libs/blis seems to make use of v{x} flags, and
-			# v9 isn't yet referenced (although 'sve' is...)
+		# ARM CPUs: Only sci-libs/blis seems to make use of v{x} flags, and
+		# v9 isn't yet referenced (although 'sve' is...)
+		#
+		# See https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html for
+		# possible extensions:
+		#
+		# crypto implies aes, sha2, and simd, which implies fp.
+		# nofp implies nosimd, which implies nocrypto, noaes and nosha2
+		#
+		# Defaults:
+		#   armv8-a   - fp, simd;
+		#   armv8.1-a - crc, lse, rdma(*),;
+		#   armv8.3-a - pauth, fcma, jscvt
+		#   armv8.4-a - flagm, fp16fml [1], dotprod, rcpc2;
+		#   armv8.5-a - sb, ssbs, predres, frintts, flagm2;
+		#   armv8.6-a - i8mm [2], bf16 [2];
+		#   armv8.7-a - wfxt, xs;
+		#   armv8.8-a - mops;
+		#   armv9-a   - nomops, noxs, nowfxt, nobf16, noi8mm, sve, sve2
+		#   armv9.1-a - i8mm [2], bf16 [2];
+		#   armv9.2-a - wfxt, xs;
+		#   armv9.3-a - mops;
+		#   armv9.4-a - sve2p1;
+		#   armv9.5-a - cpa, faminmax, lut.
+		#
+		#   manual    - crypto, fp16, rcpc, aes, sha2, sha3 [1], sm4 [1],
+		#               profile, rng [2], memtag [2], sve2-bitperm,
+		#               sve2-sm4, sve2-aes, sve2-sha3, tme, f32mm [2],
+		#               f64mm [2], ls64, cssc, sme [3], sme-i16i64,
+		#               sme-f64f64, sme2, sme-b16b16, sme-f16f16, sme2p1,
+		#               lse128, d128, gcs [4], the [5], rcpc3, fp8, fp8fma,
+		#               ssve-fp8fma, fp8dot4, ssve-fp8dot4, fp8dot2,
+		#               ssve-fp8dot2, sve-b16b16 [6].
+		#
+		#   (*) No, not that one: 'Round Double Multiply Accumulate'
+		#   [1] armv8.2-a and above only
+		#   [2] armv8.5-a and above only
+		#   [3] only supported with sve2 enabled
+		#   [4] armv9.4-a and above only
+		#   [5] armv8.9-a/armv9.4-a and above only
+		#   [6] No effect unless sve2 or sme enabled
+		#
+		*': Raspberry Pi Zero W Rev 1.1'*)
+			# ARMv6, 32bit
+			# Features: half thumb fastmult vfp edsp java tls
+			# ARM11: armv6(+thumb2,security)
+			use_cpu_arch='arm'
+			use_cpu_flags='edsp thumb vfp v4 v5 v6'
+			gcc_target_opts='-mcpu=arm1176jzf-s -mfpu=vfp'
+			rust_target_opts='-C target-cpu=arm1176jzf-s'
+			rpi_model='rpi0' ;;
+		*': Raspberry Pi 2 '*)
+			# ARMv7, 32bit
+			# Features: half thumb fastmult vfp edsp neon vfpv3 tls vfpv4
+			#           idiva idivt vfpd32 lpae evtstrm
+			# A7: armv7-a, "Apollo"
+			use_cpu_arch='arm'
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 v4 v5 v6 v7 thumb2'
+			gcc_target_opts='-mcpu=cortex-a7 -mfpu=neon-vfpv4 -mneon-for-64bits -mthumb'
+			rust_target_opts='-C target-cpu=cortex-a7'
+			rpi_model='rpi2' ;;
+		*': Raspberry Pi 3 '*|*': Raspberry Pi Zero 2 W '*)
+			# ARMv8, 64bit (no longer needs '-mneon-for-64bits', '-mfpu=*')
+			# Features: half thumb fastmult vfp edsp neon vfpv3 tls vfpv4
+			#           idiva idivt vfpd32 lpae evtstrm crc32
+			# A7: armv7-a, "Apollo"
+			use_cpu_arch='arm'
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2'
+			gcc_target_opts='-mcpu=cortex-a53+crc'
+			rust_target_opts='-C target-cpu=cortex-a53'
+			case "${description}" in
+				*': Raspberry Pi 3 '*)
+					rpi_model='rpi3' ;;
+				*': Raspberry Pi Zero 2 W '*)
+					rpi_model='rpi02' ;;
+			esac ;;
+		*': Raspberry Pi 4 '*|*': Raspberry Pi Compute Module 4 '*)
+			# Features: half thumb fastmult vfp edsp neon vfpv3 tls vfpv4
+			#           idiva idivt vfpd32 lpae evtstrm crc32
+			# Features: fp asimd evtstrm crc32 cpuid
+			# A72: armv8-a, "Maya"
+			use_cpu_arch='arm'
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
+			gcc_target_opts='-mcpu=cortex-a72+crc'
+			rust_target_opts='-C target-cpu=cortex-a72'
+			case "${description}" in
+				*': Raspberry Pi 4 '*)
+					rpi_model='rpi4' ;;
+				*': Raspberry Pi Compute Module 4 '*)
+					rpi_model='rpi-cm4' ;;
+			esac ;;
+		*': Raspberry Pi 400 '*)
+			# Features: fp asimd evtstrm crc32 cpuid
+			# A72: armv8-a, "Maya"
+			use_cpu_arch='arm'
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
+			gcc_target_opts='-mcpu=cortex-a72+crc'
+			rust_target_opts='-C target-cpu=cortex-a72'
+			rpi_model='rpi400' ;;
+		*': Raspberry Pi 5 '*)
+			# Features: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics
+			#           fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp
+			# A76: armv8.2-a(+crypto,dotprod,sb,ssbs)?, "Enyo"
+			use_cpu_arch='arm'
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
+			gcc_target_opts='-mcpu=cortex-a76+crypto'
+			rust_target_opts='-C target-cpu=cortex-a76'
+			rpi_model='rpi5' ;;
+		*': Raspberry Pi 500 '*)
+			# Features: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics
+			#           fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp
+			# A76: armv8.2-a(+crypto,dotprod,sb,ssbs)?, "Enyo"
+			use_cpu_arch='arm'
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
+			gcc_target_opts='-mcpu=cortex-a76+crypto'
+			rust_target_opts='-C target-cpu=cortex-a76'
+			rpi_model='rpi500' ;;
+
+		*': Mixtile Blade 3'*|*': Rockchip RK3588')
+			# ARMv8, big.LITTLE
+			# Features: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics
+			#           fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp
+			# A76: armv8.2-a(+crypto,dotprod,sb,ssbs)?, "Enyo"
+			# A55: armv8.2-a, "Ananke"
+			use_cpu_arch='arm'
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
+			gcc_target_opts='-mcpu=cortex-a76.cortex-a55+crypto'
+			# Unlike gcc, clang/rust don't support heterogeneous systems
+			# and so the best we can do is to optimise for the smallest
+			# LITTLE core(s) and above, with a potential under-optimisation
+			# of the big cores...
+			rust_target_opts='-C target-cpu=cortex-a55' ;;
+
+		*': Radxa Orion O6'*|*': CIX P1 CD8180')
+			# ARMv9, big.LITTLE
+			# Features: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics
+			#           fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop
+			#           sha3 sm3 sm4 asimddp sha512 sve asimdfhm dit uscat
+			#           ilrcpc flagm ssbs sb paca pacg dcpodp sve2 sveaes
+			#           svepmull svebitperm svesha3 svesm4 flagm2 frint
+			#           svei8mm svebf16 i8mm bf16 dgh bti ecv afp wfxt
+			# N.B. A520 cores have no Statistical Profiling Extension (SPE)
+			#      support.
+			# A720: armv9.2-a, "Hunter"
+			# A520: armv9.2-a, "Hayes"
+			use_cpu_arch='arm'
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 sm4 asimddp sve sve2 i8mm v4 v5 v6 v7 v8 thumb2' # v9
+			gcc_target_opts='-march=armv9.2-a+crypto+sha3+sve2-sha3+sm4+sve2-sm4 -mtune=cortex-a720'
+			# Unlike gcc, clang/rust don't support heterogeneous systems
+			# and so the best we can do is to optimise for the smallest
+			# LITTLE core(s) and above, with a potential under-optimisation
+			# of the big cores, or optimise for the (greater number of) big
+			# cores and accept that rust code may run poorly on the LITTLE
+			# cores.
+			rust_target_opts='-C target-cpu=cortex-a720' ;;
+
+		*': 0xd07'|'0x61 8'|'Apple M1'*)
+			# M1: armv8.4-a, "Firestorm" & "Icestorm"
+			use_cpu_arch='arm'
+			use_cpu_flags='aes crc32 sha1 sha2'
+			gcc_target_opts='-march=armv8.4-a'
+			# Requires GCC15+
+			#gcc_target_opts='-mcpu=apple-m1'
+			rust_target_opts='-C target-cpu=apple-m1' ;;
+		*': 0xd0c'|'Ampere Altra'*)
+			# Neoverse N1 ("Ares"): armv8.2-a, "Altra"
+			use_cpu_arch='arm'
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
+			gcc_target_opts='-mcpu=neoverse-n1'
+			rust_target_opts='-C target-cpu=neoverse-n1' ;;
+		*': 0xd40'|'AWS Graviton 3'*)
+			# Neoverse V1 ("Zeus"): armv8.4-a, "Graviton 3"
+			use_cpu_arch='arm'
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 sm4 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2'
+			# For <GCC11, <clang14:
+			#gcc_target_opts='-march=zeus+crypto+sha3+sm4+nodotprod+noprofile+nossbs -mcpu=zeus'
+			gcc_target_opts='-mcpu=neoverse-v1'
+			rust_target_opts='-C target-cpu=neoverse-v1' ;;
+		*': 0xd4f')
+			# Neoverse V2 ("Demeter"): armv9.0-a
+			use_cpu_arch='arm'
+			# Requires GCC13+, clang16+
+			gcc_target_opts='-mcpu=neoverse-v2'
+			rust_target_opts='-C target-cpu=neoverse-v2'
+
+			# We're at the limit of the data we can get from /proc/cpuinfo,
+			# so let's see whether this is enough of a differentiator
+			# before having to parse the output of 'lscpu'...
 			#
-			# See https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html for
-			# possible extensions:
-			#
-			# crypto implies aes, sha2, and simd, which implies fp.
-			# nofp implies nosimd, which implies nocrypto, noaes and nosha2
-			#
-			# Defaults:
-			#   armv8-a   - fp, simd;
-			#   armv8.1-a - crc, lse, rdma(*),;
-			#   armv8.3-a - pauth, fcma, jscvt
-			#   armv8.4-a - flagm, fp16fml [1], dotprod, rcpc2;
-			#   armv8.5-a - sb, ssbs, predres, frintts, flagm2;
-			#   armv8.6-a - i8mm [2], bf16 [2];
-			#   armv8.7-a - wfxt, xs;
-			#   armv8.8-a - mops;
-			#   armv9-a   - nomops, noxs, nowfxt, nobf16, noi8mm, sve, sve2
-			#   armv9.1-a - i8mm [2], bf16 [2];
-			#   armv9.2-a - wfxt, xs;
-			#   armv9.3-a - mops;
-			#   armv9.4-a - sve2p1;
-			#   armv9.5-a - cpa, faminmax, lut.
-			#
-			#   manual    - crypto, fp16, rcpc, aes, sha2, sha3 [1], sm4 [1],
-			#               profile, rng [2], memtag [2], sve2-bitperm,
-			#               sve2-sm4, sve2-aes, sve2-sha3, tme, f32mm [2],
-			#               f64mm [2], ls64, cssc, sme [3], sme-i16i64,
-			#               sme-f64f64, sme2, sme-b16b16, sme-f16f16, sme2p1,
-			#               lse128, d128, gcs [4], the [5], rcpc3, fp8, fp8fma,
-			#               ssve-fp8fma, fp8dot4, ssve-fp8dot4, fp8dot2,
-			#               ssve-fp8dot2, sve-b16b16 [6].
-			#
-			#   (*) No, not that one: 'Round Double Multiply Accumulate'
-			#   [1] armv8.2-a and above only
-			#   [2] armv8.5-a and above only
-			#   [3] only supported with sve2 enabled
-			#   [4] armv9.4-a and above only
-			#   [5] armv8.9-a/armv9.4-a and above only
-			#   [6] No effect unless sve2 or sme enabled
-			#
-			*': Raspberry Pi Zero W Rev 1.1'*)
-				# ARMv6, 32bit
-				# Features: half thumb fastmult vfp edsp java tls
-				# ARM11: armv6(+thumb2,security)
-				use_cpu_arch='arm'
-				use_cpu_flags='edsp thumb vfp v4 v5 v6'
-				gcc_target_opts='-mcpu=arm1176jzf-s -mfpu=vfp'
-				rust_target_opts='-C target-cpu=arm1176jzf-s'
-				rpi_model='rpi0' ;;
-			*': Raspberry Pi 2 '*)
-				# ARMv7, 32bit
-				# Features: half thumb fastmult vfp edsp neon vfpv3 tls vfpv4
-				#           idiva idivt vfpd32 lpae evtstrm
-				# A7: armv7-a, "Apollo"
-				use_cpu_arch='arm'
-				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 v4 v5 v6 v7 thumb2'
-				gcc_target_opts='-mcpu=cortex-a7 -mfpu=neon-vfpv4 -mneon-for-64bits -mthumb'
-				rust_target_opts='-C target-cpu=cortex-a7'
-				rpi_model='rpi2' ;;
-			*': Raspberry Pi 3 '*|*': Raspberry Pi Zero 2 W '*)
-				# ARMv8, 64bit (no longer needs '-mneon-for-64bits', '-mfpu=*')
-				# Features: half thumb fastmult vfp edsp neon vfpv3 tls vfpv4
-				#           idiva idivt vfpd32 lpae evtstrm crc32
-				# A7: armv7-a, "Apollo"
-				use_cpu_arch='arm'
-				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 thumb2'
-				gcc_target_opts='-mcpu=cortex-a53+crc'
-				rust_target_opts='-C target-cpu=cortex-a53'
-				case "${description}" in
-					*': Raspberry Pi 3 '*)
-						rpi_model='rpi3' ;;
-					*': Raspberry Pi Zero 2 W '*)
-						rpi_model='rpi02' ;;
-				esac ;;
-			*': Raspberry Pi 4 '*|*': Raspberry Pi Compute Module 4 '*)
-				# Features: half thumb fastmult vfp edsp neon vfpv3 tls vfpv4
-				#           idiva idivt vfpd32 lpae evtstrm crc32
-				# Features: fp asimd evtstrm crc32 cpuid
-				# A72: armv8-a, "Maya"
-				use_cpu_arch='arm'
-				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='-mcpu=cortex-a72+crc'
-				rust_target_opts='-C target-cpu=cortex-a72'
-				case "${description}" in
-					*': Raspberry Pi 4 '*)
-						rpi_model='rpi4' ;;
-					*': Raspberry Pi Compute Module 4 '*)
-						rpi_model='rpi-cm4' ;;
-				esac ;;
-			*': Raspberry Pi 400 '*)
-				# Features: fp asimd evtstrm crc32 cpuid
-				# A72: armv8-a, "Maya"
-				use_cpu_arch='arm'
-				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 crc32 v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='-mcpu=cortex-a72+crc'
-				rust_target_opts='-C target-cpu=cortex-a72'
-				rpi_model='rpi400' ;;
-			*': Raspberry Pi 5 '*)
-				# Features: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics
-				#           fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp
-				# A76: armv8.2-a(+crypto,dotprod,sb,ssbs)?, "Enyo"
-				use_cpu_arch='arm'
-				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='-mcpu=cortex-a76+crypto'
-				rust_target_opts='-C target-cpu=cortex-a76'
-				rpi_model='rpi5' ;;
-			*': Raspberry Pi 500 '*)
-				# Features: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics
-				#           fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp
-				# A76: armv8.2-a(+crypto,dotprod,sb,ssbs)?, "Enyo"
-				use_cpu_arch='arm'
-				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='-mcpu=cortex-a76+crypto'
-				rust_target_opts='-C target-cpu=cortex-a76'
-				rpi_model='rpi500' ;;
-
-			*': Mixtile Blade 3'*|*': Rockchip RK3588')
-				# ARMv8, big.LITTLE
-				# Features: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics
-				#           fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp
-				# A76: armv8.2-a(+crypto,dotprod,sb,ssbs)?, "Enyo"
-				# A55: armv8.2-a, "Ananke"
-				use_cpu_arch='arm'
-				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='-mcpu=cortex-a76.cortex-a55+crypto'
-				# Unlike gcc, clang/rust don't support heterogeneous systems
-				# and so the best we can do is to optimise for the smallest
-				# LITTLE core(s) and above, with a potential under-optimisation
-				# of the big cores...
-				rust_target_opts='-C target-cpu=cortex-a55' ;;
-
-			*': Radxa Orion O6'*|*': CIX P1 CD8180')
-				# ARMv9, big.LITTLE
-				# Features: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics
-				#           fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop
-				#           sha3 sm3 sm4 asimddp sha512 sve asimdfhm dit uscat
-				#           ilrcpc flagm ssbs sb paca pacg dcpodp sve2 sveaes
-				#           svepmull svebitperm svesha3 svesm4 flagm2 frint
-				#           svei8mm svebf16 i8mm bf16 dgh bti ecv afp wfxt
-				# N.B. A520 cores have no Statistical Profiling Extension (SPE)
-				#      support.
-				# A720: armv9.2-a, "Hunter"
-				# A520: armv9.2-a, "Hayes"
-				use_cpu_arch='arm'
-				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 sm4 asimddp sve sve2 i8mm v4 v5 v6 v7 v8 thumb2' # v9
-				gcc_target_opts='-march=armv9.2-a+crypto+sha3+sve2-sha3+sm4+sve2-sm4 -mtune=cortex-a720'
-				# Unlike gcc, clang/rust don't support heterogeneous systems
-				# and so the best we can do is to optimise for the smallest
-				# LITTLE core(s) and above, with a potential under-optimisation
-				# of the big cores, or optimise for the (greater number of) big
-				# cores and accept that rust code may run poorly on the LITTLE
-				# cores.
-				rust_target_opts='-C target-cpu=cortex-a720' ;;
-
-			*': 0xd07'|'0x61 8'|'Apple M1'*)
-				# M1: armv8.4-a, "Firestorm" & "Icestorm"
-				use_cpu_arch='arm'
-				use_cpu_flags='aes crc32 sha1 sha2'
-				gcc_target_opts='-march=armv8.4-a'
-				# Requires GCC15+
-				#gcc_target_opts='-mcpu=apple-m1'
-				rust_target_opts='-C target-cpu=apple-m1' ;;
-			*': 0xd0c'|'Ampere Altra'*)
-				# Neoverse N1 ("Ares"): armv8.2-a, "Altra"
-				use_cpu_arch='arm'
-				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
-				gcc_target_opts='-mcpu=neoverse-n1'
-				rust_target_opts='-C target-cpu=neoverse-n1' ;;
-			*': 0xd40'|'AWS Graviton 3'*)
-				# Neoverse V1 ("Zeus"): armv8.4-a, "Graviton 3"
-				use_cpu_arch='arm'
-				use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 sm4 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2'
-				# For <GCC11, <clang14:
-				#gcc_target_opts='-march=zeus+crypto+sha3+sm4+nodotprod+noprofile+nossbs -mcpu=zeus'
-				gcc_target_opts='-mcpu=neoverse-v1'
-				rust_target_opts='-C target-cpu=neoverse-v1' ;;
-			*': 0xd4f')
-				# Neoverse V2 ("Demeter"): armv9.0-a
-				use_cpu_arch='arm'
-				# Requires GCC13+, clang16+
-				gcc_target_opts='-mcpu=neoverse-v2'
-				rust_target_opts='-C target-cpu=neoverse-v2'
-
-				# We're at the limit of the data we can get from /proc/cpuinfo,
-				# so let's see whether this is enough of a differentiator
-				# before having to parse the output of 'lscpu'...
-				#
-				case "$( # <- Syntax
-							grep -- 'CPU revision' /proc/cpuinfo |
-								sort |
-								uniq |
-								cut -d':' -f 2 |
-								awk '{print $1}'
-						)" in
-					'0')
-						# "Grace" GH200 (via qemu)
-						use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 sm4 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2' # v9
-						gcc_target_opts='-mcpu=neoverse-v2+crypto+sve2-sm4+sve2-aes+sve2-sha3+norng+nomemtag+nopredres'
-						;;
-					'1')
-						# "Graviton 4"
-						use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2' # v9
-						gcc_target_opts='-mcpu=neoverse-v2+crc+sve2-aes+sve2-sha3+nossbs'
-						;;
-				esac
-				;;
-			*)
-				description="$( # <- Syntax
-					echo "${description}" |
-						cut -d':' -f 2- |
-						sed 's/^\s*// ; s/\s*$//'
-				)"
+			case "$( # <- Syntax
+						grep -- 'CPU revision' /proc/cpuinfo |
+							sort |
+							uniq |
+							cut -d':' -f 2 |
+							awk '{print $1}'
+					)" in
+				'0')
+					# "Grace" GH200 (via qemu)
+					use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 sm4 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2' # v9
+					gcc_target_opts='-mcpu=neoverse-v2+crypto+sve2-sm4+sve2-aes+sve2-sha3+norng+nomemtag+nopredres'
+					;;
+				'1')
+					# "Graviton 4"
+					use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp sve i8mm v4 v5 v6 v7 v8 thumb2' # v9
+					gcc_target_opts='-mcpu=neoverse-v2+crc+sve2-aes+sve2-sha3+nossbs'
+					;;
+			esac
+			;;
+		*)
+			description="$( # <- Syntax
+				echo "${description}" |
+					cut -d':' -f 2- |
+					sed 's/^\s*// ; s/\s*$//'
+			)"
+			vendor="$( # <- Syntax
+				grep -- '^vendor_id' /proc/cpuinfo |
+					tail -n 1 |
+					awk -F': ' '{print $2}'
+			)" || :
+			if [ -z "${vendor:-}" ]; then
 				vendor="$( # <- Syntax
-					grep -- '^vendor_id' /proc/cpuinfo |
+					grep -- '^CPU implementer' /proc/cpuinfo |
 						tail -n 1 |
 						awk -F': ' '{print $2}'
-				)" || :
-				if [ -z "${vendor:-}" ]; then
-					vendor="$( # <- Syntax
-						grep -- '^CPU implementer' /proc/cpuinfo |
-							tail -n 1 |
-							awk -F': ' '{print $2}'
-					)"
-				fi
-				if [ -r /proc/cpuinfo ]; then
-					case "${vendor}" in
-						GenuineIntel)
-							#echo >&2 "Attempting to auto-discover CPU '${description}' capabilities..."
-							use_cpu_arch='x86'
+				)"
+			fi
+			if [ -r /proc/cpuinfo ]; then
+				case "${vendor}" in
+					GenuineIntel)
+						#echo >&2 "INFO:  Attempting to auto-discover CPU '${description}' capabilities..."
+						use_cpu_arch='x86'
 
-							if
-								[ -f /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc ] &&
-								[ -s /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc ]
-							then
-								use_cpu_flags=''
+						if
+							[ -f /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc ] &&
+							[ -s /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc ]
+						then
+							use_cpu_flags=''
 
-								# FIXME: Hard-coded /var/db/repo/gentoo...
-								while read -r line; do
-									echo "${line}" |
-											grep -q -- ' - ' ||
-										continue
+							# FIXME: Hard-coded /var/db/repo/gentoo...
+							while read -r line; do
+								echo "${line}" |
+										grep -q -- ' - ' ||
+									continue
 
-									flag="$( # <- Syntax
-											echo "${line}" |
-												awk -F' - ' '{print $1}'
-										)"
-									if echo "${line}" |
-											grep -- "^${flag} - " |
-											grep -Fq -- '['
-									then
-										count=2
-										while true; do
-											extra="$( # <- Syntax
-													echo "${line}" |
-														awk -F'[' \
-															"{print \$${count}}" |
-														cut -d']' -f 1
-												)"
-											if [ -n "${extra:-}" ]; then
-												flag="${flag}|${extra}"
-											else
-												break
-											fi
-											: $(( count = count + 1 ))
-										done
-										unset extra count
-									fi
-									use_cpu_flags="${use_cpu_flags:-}$( # <- Syntax
-											grep -E -- '^(Features|flags)' \
-														/proc/cpuinfo |
-													tail -n 1 |
-													awk -F': ' '{print $2}' |
-													grep -Eq -- "${flag}" &&
-												echo " ${flag}" |
-													cut -d'|' -f 1
-										)"
-								done < /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc
+								flag="$( # <- Syntax
+										echo "${line}" |
+											awk -F' - ' '{print $1}'
+									)"
+								if echo "${line}" |
+										grep -- "^${flag} - " |
+										grep -Fq -- '['
+								then
+									count=2
+									while true; do
+										extra="$( # <- Syntax
+												echo "${line}" |
+													awk -F'[' \
+														"{print \$${count}}" |
+													cut -d']' -f 1
+											)"
+										if [ -n "${extra:-}" ]; then
+											flag="${flag}|${extra}"
+										else
+											break
+										fi
+										: $(( count = count + 1 ))
+									done
+									unset extra count
+								fi
+								use_cpu_flags="${use_cpu_flags:-}$( # <- Syntax
+										grep -E -- '^(Features|flags)' \
+													/proc/cpuinfo |
+												tail -n 1 |
+												awk -F': ' '{print $2}' |
+												grep -Eq -- "${flag}" &&
+											echo " ${flag}" |
+												cut -d'|' -f 1
+									)"
+							done < /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc
 
-								use_cpu_flags="${use_cpu_flags#" "}"
-								echo >&2 "Auto-discovered CPU feature-flags" \
-									"'${use_cpu_flags}'"
-							fi
-							;;
-					esac
-				fi
+							use_cpu_flags="${use_cpu_flags#" "}"
+							echo >&2 "INFO:  Auto-discovered CPU feature-flags" \
+								"'${use_cpu_flags}'"
+						fi
+						;;
+				esac
+			fi
 
-				if [ -z "${use_cpu_flags:-}" ]; then
-					echo >&2 "Unknown CPU '${description}' and" \
-						"'cpuid2cpuflags' not installed - not enabling" \
-						"model-specific CPU flags"
-				fi
-				;;
-		esac
-		unset vendor description
-	fi
+			if [ -z "${use_cpu_flags:-}" ]; then
+				echo >&2 "WARN:  Unknown CPU '${description}' and" \
+					"'cpuid2cpuflags' not installed - not enabling" \
+					"model-specific CPU flags"
+			fi
+			;;
+	esac
+	unset vendor description
+
 	if [ -n "${use_cpu_flags:-}" ]; then
 		use_cpu_flags_raw="${use_cpu_flags}"
 		use_cpu_flags="$( # <- Syntax
