@@ -1074,29 +1074,37 @@ do_emerge() {
 
 # Modified from sys-apps/portage phase-helpers.sh:
 get_libdir() {
-	libdir_data="$( # <- Syntax
-			LC_ALL='C' emerge --info --verbose=y 2>&1 |
-				grep -e 'ABI=' -e '^LIBDIR'
-		)"
-	libdir_ABI="${ABI:-}"
-	if [ -z "${libdir_ABI:-}" ]; then
-		libdir_ABI="$( # <- Syntax
-				echo "${libdir_data}" |
-					grep -- '^ABI=' |
-					cut -d'"' -f 2
+	if ! [ -n "${libdir:-}" ]; then
+		libdir_data="$( # <- Syntax
+				LC_ALL='C' emerge --info --verbose=y 2>&1 |
+					grep -e 'ABI=' -e '^LIBDIR'
 			)"
-	fi
-	libdir="lib"
+		libdir_ABI="${ABI:-}"
+		if [ -z "${libdir_ABI:-}" ]; then
+			libdir_ABI="$( # <- Syntax
+					echo "${libdir_data}" |
+						grep -- '^ABI=' |
+						cut -d'"' -f 2 |
+						uniq |
+						head -n 1
+				)"
+		fi
+		libdir="lib"
 
-	if [ -n "${libdir_ABI}" ] &&
-			echo "${libdir_data}" |
-				grep -q "^LIBDIR_${libdir_ABI}="
-	then
-		libdir="$( # <- Syntax
+		if [ -n "${libdir_ABI:-}" ] &&
 				echo "${libdir_data}" |
-					grep -- "^LIBDIR_${libdir_ABI}=" |
-					cut -d'"' -f 2
-			)"
+					grep -q -- "^LIBDIR_${libdir_ABI}="
+		then
+			libdir="$( # <- Syntax
+					echo "${libdir_data}" |
+						grep -- "^LIBDIR_${libdir_ABI}=" |
+						cut -d'"' -f 2 |
+						uniq |
+						head -n 1
+				)"
+		fi
+
+		unset libdir_ABI libdir_data
 	fi
 
 	echo "${libdir}"
@@ -1136,10 +1144,10 @@ validate_libgcc() {
 					if [ -n "${*:-}" ]; then
 						echo "${*}"
 					else
-						echo "${extra_root:-}" "${ROOT:-"/"}" "${SYSROOT:-}" \
-								"${service_root:-}" |
+						echo "${service_root:-}" "${SYSROOT:-}" \
+								"${ROOT:-"/"}" "${extra_root:-}"
 							xargs -rn 1 |
-							sort -u
+							sort -mu
 					fi
 				)
 		do
@@ -1156,6 +1164,8 @@ validate_libgcc() {
 			then
 				cp -a "${libgcc_dir}"/libgcc_s.so* \
 					"${libgcc_root%"/"}/usr/$(get_libdir)"/
+				ldconfig >/dev/null 2>&1
+				break
 			fi
 		done
 		unset libgcc_dir libgcc_root
@@ -1247,6 +1257,11 @@ if set | grep -q -- '=__[A-Z]\+__$'; then
 			set | grep -- '=__[A-Z]\+__$' | sed 's/^/  /'
 		)"
 fi
+
+if [ $(( $( get_libdir | wc -l ) )) -gt 1 ]; then
+	die "get_libdir() result '$(get_libdir)' is broken"
+fi
+print "get_libdir() returns '$(get_libdir)'"
 
 if [ -e /etc/portage/repos.conf.host ]; then
 	echo
@@ -2377,7 +2392,7 @@ do
 	echo
 
 	(
-		USE="-* $( # <- Syntax
+		USE="-*$( # <- Syntax
 				get_stage3 --values-only USE
 				flag=''
 				if [ -n "${use_essential:-}" ]; then
@@ -2623,7 +2638,7 @@ features_eudev=1
 # (r)depends on net-dns/libidn2, and so forms an undeclared circular
 # dependency :(
 #
-pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-libs/libcap-ng sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
+pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
 # See above for 'xml'...
 pkg_initial_use='-compress-xz -lzma -nls -pam -perl -python -su -unicode minimal no-xz-utils xml'
 if get_portage_flags USE | grep -Eq -- '(^|[^-])graphite'; then
@@ -4012,6 +4027,17 @@ case "${1:-}" in
 										"${PYTHON_TARGETS}"
 								)"
 						fi
+						USE="${USE}$( # <- Syntax
+								flag=''
+								if [ -n "${use_essential:-}" ]; then
+									for flag in ${os_headers_arch_flags}; do
+										if echo " ${use_essential} " | grep -qw -- "${flag}"
+										then
+											printf ' %s' "${flag}"
+										fi
+									done
+								fi
+							)"
 
 						use=''
 						for arg in ${USE}; do
@@ -4307,6 +4333,9 @@ case "${1:-}" in
 				-delete
 		done
 		unset libgcc_dir
+
+		# ... but then make sure that we've not broken anything!
+		validate_libgcc
 
 		exit ${rc}
 	;;
