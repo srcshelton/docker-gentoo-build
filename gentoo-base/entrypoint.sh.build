@@ -1168,6 +1168,44 @@ do_emerge() {
 	return ${do_emerge_rc}
 }  # do_emerge
 
+# Modified from sys-apps/portage phase-helpers.sh:
+get_libdir() {
+	if ! [ -n "${libdir:-}" ]; then
+		libdir_data="$( # <- Syntax
+				LC_ALL='C' emerge --info --verbose=y 2>&1 |
+					grep -e 'ABI=' -e '^LIBDIR'
+			)"
+		libdir_ABI="${ABI:-}"
+		if [ -z "${libdir_ABI:-}" ]; then
+			libdir_ABI="$( # <- Syntax
+					echo "${libdir_data}" |
+						grep -- '^ABI=' |
+						cut -d'"' -f 2 |
+						uniq |
+						head -n 1
+				)"
+		fi
+		libdir="lib"
+
+		if [ -n "${libdir_ABI:-}" ] &&
+				echo "${libdir_data}" |
+					grep -q -- "^LIBDIR_${libdir_ABI}="
+		then
+			libdir="$( # <- Syntax
+					echo "${libdir_data}" |
+						grep -- "^LIBDIR_${libdir_ABI}=" |
+						cut -d'"' -f 2 |
+						uniq |
+						head -n 1
+				)"
+		fi
+
+		unset libdir_ABI libdir_data
+	fi
+
+	echo "${libdir}"
+}  # get_libdir
+
 # Prelink is no longer supported :(
 #
 #do_prelink() {
@@ -1246,6 +1284,50 @@ if [ -e /etc/portage/repos.conf.host ]; then
 	fi
 	cp -a /etc/portage/repos.conf.host /etc/portage/repos.conf ||
 		die "Can't copy host repos.conf: ${?}"
+fi
+
+# From validate_libgcc() in gentoo-base/entrypoint.sh ...
+#
+
+env-update >/dev/null 2>&1
+# shellcheck disable=SC1091
+. /etc/profile >/dev/null 2>&1 || :
+
+# sys-apps/sandbox is a dependency of sys-apps/portage, and also links
+# against libgcc_s...
+if [ -s "/usr/$(get_libdir)/libsandbox.so" ] &&
+		ldd "/usr/$(get_libdir)/libsandbox.so" 2>&1 |
+			grep -q -- 'libgcc_s.*not found'
+then
+	warn 'libgcc_s.so.1 breakage encountered - attempting to relocate' \
+		'library ...'
+
+	libgcc_root='' libgcc_dir=''
+	for libgcc_root in $(
+					echo "${service_root:-}" "${SYSROOT:-}" "${ROOT:-"/"}" \
+						"${extra_root:-}"
+					xargs -rn 1 |
+					sort -mu
+			)
+	do
+		[ -d "${libgcc_root:-}" ] || continue
+
+		if libgcc_dir="$( #
+				find "${libgcc_root%"/"}/usr/lib/gcc/" \
+						-mindepth 2 \
+						-maxdepth 2 \
+						-type d |
+					sort -V |
+					tail -n 1
+			)" && [ -d "${libgcc_dir:-}" ]
+		then
+			cp -a "${libgcc_dir}"/libgcc_s.so* \
+				"${libgcc_root%"/"}/usr/$(get_libdir)"/
+			ldconfig >/dev/null 2>&1
+			break
+		fi
+	done
+	unset libgcc_dir libgcc_root
 fi
 
 # For reasons I can't fathom, even with a verifiably correct
