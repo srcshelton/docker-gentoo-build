@@ -82,13 +82,13 @@ net-misc/dhcp				-* client ipv6 ssl vim-syntax
 #					+client ipv6 ldap selinux +server ssl systemd +tmpfiles vim-syntax
 
 # Avoid udev/eudev dependencies when using busybox mdev
-sys-apps/busybox			 mdev
+sys-apps/busybox			-savedconfig mdev
 net-misc/dhcpcd				-udev
 sys-apps/hwids				-udev
 sys-fs/dosfstools			-udev
 
 # Requires dev-perl/Locale-gettext, but then can't find it in many cases :(
-sys-apps/help2man			 nls
+#sys-apps/help2man			 nls
 
 sys-apps/portage			-trust-helper  # -rsync-verify native-extensions
 #					 apidoc build doc gentoo-dev +ipc +native-extensions +rsync-verify selinux test +trust-helper xattr
@@ -104,6 +104,10 @@ sys-apps/portage			-trust-helper  # -rsync-verify native-extensions
 #
 sys-devel/gcc				 lib-only openmp default-stack-clash-protection default-znow lto pgo pie ssp zstd
 #                                       (cxx) -lib-only openmp (split-usr) ada cet (custom-cflags) d debug default-stack-clash-protection default-znow doc (fixed-point) fortran go graphite hardened (ieee-long-double) jit (libssp) lto modula2 (multilib) nls objc objc++ objc-gc (pch) pgo pie sanitize ssp systemtap -test valgrind vanilla vtv zstd
+
+# Mandatory for sys-auth/pambase[caps]
+#
+sys-libs/libcap				 pam
 
 # 'webdav' requires sqlite, which now requires dbi...
 >=www-servers/lighttpd-1.4.58		-dbi -mysql -sqlite -webdav
