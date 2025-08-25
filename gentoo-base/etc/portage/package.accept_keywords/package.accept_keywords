@@ -20,7 +20,8 @@
 ~net-nds/phpldapadmin-1.2.6.7				~amd64 ~arm ~arm64 ~x86
 ~sci-libs/mkl-2023.1.0.46342				~amd64             ~x86
 ~sys-apps/bpftune-0.1.3_p20250121			~amd64 ~arm ~arm64 ~x86
-~sys-apps/corefreq-2.0.1				~amd64      ~arm64
+~sys-apps/corefreq-2.0.8				~amd64      ~arm64
+~sys-apps/edac-utils-0.18				       ~arm ~arm64 ~x86
 ~sys-apps/hwinfo-24.0					~amd64 ~arm ~arm64 ~x86
 ~sys-apps/memtest86-bin-11.1				~amd64
 ~sys-apps/pkgcraft-tools-0.0.23				~amd64 ~arm ~arm64 ~x86

@@ -32,6 +32,10 @@
 ~sys-kernel/gentoo-sources-6.16.0			~amd64 ~arm ~arm64 ~x86
 ~sys-kernel/vanilla-sources-6.16.0			~amd64 ~arm ~arm64 ~x86
 
+~dev-util/perf-6.16					~amd64 ~arm ~arm64 ~x86
+
+~dev-libs/libbpf-1.6.1					~amd64 ~arm ~arm64 ~x86
+
 # Required for rust modules...
 #
 # N.B. Without warning mid-November 2024, virtual/rust
