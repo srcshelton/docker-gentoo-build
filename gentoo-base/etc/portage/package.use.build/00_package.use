@@ -326,6 +326,7 @@ sys-kernel/gentoo-sources		 symlink experimental
 #      See https://github.com/raspberrypi/firmware/issues/1943
 #
 sys-kernel/linux-firmware		-firmware_amd_gpu -firmware_intel_gpu -firmware_nvidia_gpu compress compress-xz savedconfig
+*/*					 modules-compress
 #sys-kernel/linux-firmware		-compress -compress-xz -firmware_amd_gpu -firmware_intel_gpu -firmware_nvidia_gpu savedconfig
 
 # required by dev-db/mariadb-10.1.22[extraengine,server]
