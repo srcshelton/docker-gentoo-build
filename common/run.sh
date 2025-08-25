@@ -1169,7 +1169,35 @@ _docker_run() {
 						#
 						# N.B. CPUs are indexed from 0 to `nproc`-1
 						#
-						echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))"
+						#echo "--cpuset-cpus 1-$(( $( nproc ) - 1 ))"
+
+						# Update: Let's try harder...
+						if ! type -pf dmidecode >/dev/null 2>&1; then
+							warn "'dmidecode' missing - not applying cpuset" \
+								"ring-fencing"
+						else
+							local pn=''
+							pn="$( # <- Syntax
+									dmidecode -t processor |
+										grep 'Part Number: [^ ]' |
+										sed 's/^.*Part Number: //' |
+										sort |
+										uniq |
+										head -n 1
+								)"
+							case "${pn:-}" in
+								'CIX P1 CD8180')
+									warn "Applying cpuset ring-fencing for" \
+										"${pn} system ..."
+									echo '--cpuset-cpus 0,5-11'
+									;;
+								*)
+									print "Not applying cpuset ring-fencing" \
+										"on conventional systems"
+									;;
+							esac
+							unset pn
+						fi
 					fi
 				fi
 			)

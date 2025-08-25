@@ -495,7 +495,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			# of the big cores...
 			rust_target_opts='-C target-cpu=cortex-a55' ;;
 
-		*': Radxa Orion O6'*|*': CIX P1 CD8180')
+		*': 0xd81'|*': Radxa Orion O6'*|*': CIX P1 CD8180')
 			# ARMv9, big.LITTLE
 			# Features: fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics
 			#           fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop
