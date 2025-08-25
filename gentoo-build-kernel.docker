@@ -733,8 +733,19 @@ if ! echo " ${*:-} " | grep -q -- ' --no-patch'; then
 		6.1[6-9].*|6.[2-9][0-9].*)
 			kpatch="${kpatchprefix}/more-ISA-levels-and-uarches-for-kernel-6.16%2B.patch"
 			case "${package_version}" in
+				6.15.*)
+					if ! [[ "${package_version}" =~ 5\.15\.[012] ]]; then
+						kpatch+=" https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git/patch/?id=0a32e4f0025a74c70dcab4478e9b29c22f5ecf2f"
+					fi
+					kpatch+=" https://raw.githubusercontent.com/pyavitz/debian-image-builder/3267923de8302d1375002e657fbc7befc391e9c5/patches/cix/6.15/001-v9-CIX-SoC-series-support.patch"
+					;;
 				6.16.0)
-					kpatch+=" https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git/patch/?id=0a32e4f0025a74c70dcab4478e9b29c22f5ecf2f" ;;
+					kpatch+=" https://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux.git/patch/?id=0a32e4f0025a74c70dcab4478e9b29c22f5ecf2f"
+					kpatch+=" https://raw.githubusercontent.com/pyavitz/debian-image-builder/3267923de8302d1375002e657fbc7befc391e9c5/patches/cix/6.16/001-v9-CIX-SoC-series-support.patch"
+					;;
+				6.16.*)
+					kpatch+=" https://raw.githubusercontent.com/pyavitz/debian-image-builder/3267923de8302d1375002e657fbc7befc391e9c5/patches/cix/6.16/001-v9-CIX-SoC-series-support.patch"
+					;;
 			esac
 			;;
 		'')
@@ -2792,20 +2803,25 @@ mkdir -p "${log_dir:="log"}" ||
 			echo >&2 "WARN:  Linux kernel-\${kernel_version} successfully built (but not installed due to '--no-install' argument)" ;
 		fi ;
 		if [ -n '${extra_packages:-}' ]; then
+			set -x ;
 			if ! [[ '${compiler}' == 'clang' ]]; then
 				export CFLAGS="\${gcc_CFLAGS:-}" ;
 				export CXXFLAGS="\${gcc_CXXFLAGS:-}" ;
 				export LDFLAGS="\${gcc_LDFLAGS:-}" ;
 			fi ;
+			export CC='${container_CC}' ;
+			export CXX='${container_CXX}' ;
+			export LD='${container_LD}' ;
 			export USE='modules modules-compress${EXTRA_USE:+" ${EXTRA_USE}"}' ;
 			export XTABLES_ADDONS='${XTABLES_ADDONS:-"asn geoip"}' ;
+			extra_packages="\$( echo '${extra_packages}' | sed 's/>/\\>/g ; s/</\\</g' )" ;
 			: The build includes a placeholder Makefile pointing back to the \
 			: source directory, so must must exclude that... ;
 			[ -n '${modargs:-}' ] &&
 				export modargs='${modargs}' BUILD_FIXES='${modargs}' ;
 			tar -C /usr/src/build/ -cpf - --exclude Makefile . |
-					tar -C /usr/src/linux/ -xpf - &&
-				emerge -kv --buildpkg=y ${extra_packages} ;
+					tar -C /usr/src/linux/ -xpf - ;
+			emerge -kv --buildpkg=y \${extra_packages} || bash ;
 		fi ;
 	EOF
 	)"
