@@ -29,28 +29,71 @@ unset -v ARCH
 portage_kv_cache_root=''
 portage_kv_cache=''
 
+output() {
+	# Use in place of 'echo' (or 'printf'?) to explicitly indicate that
+	# arguments are intended to provide end-user information...
+	if echo "${1:-}" | grep -Fq -- '%'; then
+		# Assume we've got a printf()-formatted string
+		# shellcheck disable=SC2059
+		printf "${@}"
+	else
+		printf "%b\n" "$*"
+	fi
+}  # output
+
+# See https://www.etalabs.net/sh_tricks.html
+echo() {
+	# Internal usage to pipe data between processes...
+	printf '%s\n' "$*"
+}  # echo
+
 die() {
-	printf >&2 'FATAL: %s\n' "${*:-"Unknown error"}"
+	output >&2 'FATAL: %s\n' "${*:-"Unknown error"}"
 	exit 1
 }  # die
 
+fatal() {
+	if [ -z "${*:-}" ]; then
+		output >&2
+	else
+		output >&2 'FATAL:  %s\n' "${*}"
+	fi
+}  # fatal
+
+error() {
+	if [ -z "${*:-}" ]; then
+		output >&2
+	else
+		output >&2 'ERROR:  %s\n' "${*}"
+	fi
+}  # error
+
 warn() {
-	[ -z "${*:-}" ] && echo || printf >&2 'WARN:  %s\n' "${*}"
+	if [ -z "${*:-}" ]; then
+		output >&2
+	else
+		output >&2 'WARN:  %s\n' "${*}"
+	fi
 }  # warn
 
 info() {
-	[ -z "${*:-}" ] && echo || printf 'INFO:  %s\n' "${*}"
+	if [ -z "${*:-}" ]; then
+		output
+	else
+		output 'INFO:  %s\n' "${*}"
+	fi
 }  # info
 
 print() {
 	if [ -n "${debug:-}" ]; then
 		if [ -z "${*:-}" ]; then
-			echo >&2
+			output >&2
 		else
-			printf >&2 'DEBUG: %s\n' "${*}"
+			output >&2 'DEBUG: %s\n' "${*}"
 		fi
 	fi
 }  # print
+
 
 # POSIX sh doesn't support 'export -f'...
 format_fn_code="$( cat <<'EOF'
@@ -71,7 +114,7 @@ format() {
 	format_string="%-${format_padding}s= \"%s\"\\n"
 
 	# shellcheck disable=SC2059
-	printf "${format_string}" "${format_variable}" "$( # <- Syntax
+	output "${format_string}" "${format_variable}" "$( # <- Syntax
 			cat - |
 				grep -- "^${format_variable}=" |
 				cut -d'"' -f 2 |
@@ -129,7 +172,8 @@ check() {
 			fi
 		else
 			if ! ls -1d \
-					"${ROOT:-}/var/db/pkg"/*/"${check_pkg%"::"*}"* >/dev/null 2>&1
+					"${ROOT:-}/var/db/pkg"/*/"${check_pkg%"::"*}"* \
+						>/dev/null 2>&1
 			then
 				${check_op:-"die"} "emerge indicated success but package" \
 					"'${check_pkg%"::"*}' does not appear to be installed"
@@ -603,13 +647,13 @@ resolve_python_flags() {
 
 	# We seem to have a weird situation where USE and PYTHON_*
 	# variables are not in sync with each other...?
-	resolve_use="${USE:+"${USE} "}${resolve_use:+"${resolve_use} "}$( # <- Syntax
+	resolve_use="${USE:+"${USE} "}${resolve_use:+"${resolve_use} "}$( #
 			get_portage_flags 'USE'
 		)"
 	resolve_python_single_target="${PYTHON_SINGLE_TARGET:-} ${resolve_python_single_target:-} $( # <- Syntax
 			get_portage_flags 'PYTHON_SINGLE_TARGET'
 		)${python_targets:+" ${python_targets%%" "*}"}"
-	resolve_python_targets="${PYTHON_TARGETS:-} ${resolve_python_targets:-} $( # <- Syntax
+	resolve_python_targets="${PYTHON_TARGETS:-} ${resolve_python_targets:-} $( #
 			get_portage_flags 'PYTHON_TARGETS'
 		) ${python_targets:-}"
 
@@ -629,7 +673,10 @@ resolve_python_flags() {
 	for resolve_target in ${USE:-}; do
 		case "${resolve_target}" in
 			python_single_target_*)
-				resolve_target="$( echo "${resolve_target}" | sed 's/^python_single_target_//' )"
+				resolve_target="$( # <- Syntax
+						echo "${resolve_target}" |
+							sed 's/^python_single_target_//'
+					)"
 				if ! echo " ${resolve_python_single_target:-} " |
 						grep -q -- " ${resolve_target} "
 				then
@@ -637,7 +684,10 @@ resolve_python_flags() {
 				fi
 				;;
 			python_targets_*)
-				resolve_target="$( echo "${resolve_target}" | sed 's/^python_targets_//' )"
+				resolve_target="$( # <- Syntax
+						echo "${resolve_target}" |
+							sed 's/^python_targets_//'
+					)"
 				if ! echo " ${resolve_python_targets} " |
 						grep -q -- " ${resolve_target} "
 				then
@@ -954,6 +1004,7 @@ do_emerge() {
 	done
 
 	if ! [ -f /srv/host/var/lib/portage/eclass/linux-info/.keep ]; then
+		warn
 		warn "Running emerge with ROOT='${ROOT:-"/"}' without" \
 			"'eclass/linux-info' mounted into '/srv/host/var/lib/portage' -" \
 			"kernel configuration dependencies will not be recorded"
@@ -975,7 +1026,7 @@ do_emerge() {
 		"${ROOT:+" with ROOT='${ROOT}'"}"
 	#FEATURES="${do_emerge_features:-}" \
 	emerge --ignore-default-opts --color=y "${@:-}" || do_emerge_rc="${?}"
-	echo "   -> ${do_emerge_rc}"
+	output "   -> ${do_emerge_rc}"
 
 	if [ $(( do_emerge_rc )) -eq 0 ]; then
 		do_emerge_dir='var/lib/portage/eclass/linux-info'
@@ -1110,68 +1161,6 @@ get_libdir() {
 	echo "${libdir}"
 }  # get_libdir
 
-# shellcheck disable=SC2120
-validate_libgcc() {
-	# With the 2025-06-09T01:12:14.538737447Z
-	# docker.io/gentoo/stage3:arm64-openrc (807068a219e9) and
-	# 2025-06-09T01:09:39.348232494Z
-	# docker.io/gentoo/stage3:amd64-nomultilib-openrc (fbd632d5b57a) images
-	# we're getting failures early in gentoo-base.log when trying to /unpack/
-	# sys-devel/gcc due to libgcc_s.so apparently being missing - so let's
-	# validate that we have the appropriate library and potentially also copy
-	# it to a standard location...
-
-	# Thinking about it, I wonder whether this is due to gcc-14.2 -> gcc-14.3,
-	# and so env-update/ldconfig needing to be run in order to pick up the new
-	# paths?  But why, then, is this happening in the sys-devel/gcc 'unpack'
-	# stage?!
-	#
-	env-update >/dev/null 2>&1
-	# shellcheck disable=SC1091
-	. /etc/profile >/dev/null 2>&1 || :
-
-	# sys-apps/sandbox is a dependency of sys-apps/portage, and also links
-	# against libgcc_s...
-	if [ -s "/usr/$(get_libdir)/libsandbox.so" ] &&
-			ldd "/usr/$(get_libdir)/libsandbox.so" 2>&1 |
-				grep -q -- 'libgcc_s.*not found'
-	then
-		warn 'libgcc_s.so.1 breakage encountered - attempting to relocate' \
-			'library ...'
-
-		libgcc_root='' libgcc_dir=''
-		for libgcc_root in $(
-					if [ -n "${*:-}" ]; then
-						echo "${*}"
-					else
-						echo "${service_root:-}" "${SYSROOT:-}" \
-								"${ROOT:-"/"}" "${extra_root:-}"
-							xargs -rn 1 |
-							sort -mu
-					fi
-				)
-		do
-			[ -d "${libgcc_root:-}" ] || continue
-
-			if libgcc_dir="$( #
-					find "${libgcc_root%"/"}/usr/lib/gcc/" \
-							-mindepth 2 \
-							-maxdepth 2 \
-							-type d |
-						sort -V |
-						tail -n 1
-				)" && [ -d "${libgcc_dir:-}" ]
-			then
-				cp -a "${libgcc_dir}"/libgcc_s.so* \
-					"${libgcc_root%"/"}/usr/$(get_libdir)"/
-				ldconfig >/dev/null 2>&1
-				break
-			fi
-		done
-		unset libgcc_dir libgcc_root
-	fi
-}  # validate_libgcc
-
 validate_python_installation() {
 	vpi_stage="${*:-}"
 
@@ -1205,7 +1194,7 @@ validate_python_installation() {
 							wc -l
 					) )) -gt 0 ]
 				then
-					echo >&2 "ERROR: Unreadable python files found in root" \
+					error "Unreadable python files found in root" \
 						"'${ROOT:-"/"}':"
 					find "${python_path}" -xtype f -perm 0 -exec ls -l {} + |
 						sed 's/^/ERROR:   /' >&2
@@ -1227,7 +1216,7 @@ fix_sh_symlink() {
 
 	# Ensure we have a valid /bin/sh symlink in our ROOT...
 	if ! [ -x "${symlink_root}"/bin/sh ]; then
-		echo " * Fixing ${symlink_msg:+"${symlink_msg} "}'/bin/sh' symlink ..."
+		output " * Fixing ${symlink_msg:+"${symlink_msg} "}'/bin/sh' symlink ..."
 		[ ! -e "${symlink_root}"/bin/sh ] || rm "${symlink_root}"/bin/sh
 		ln -sf bash "${symlink_root}"/bin/sh
 	fi
@@ -1253,7 +1242,7 @@ info "Starting 'gentoo-base/entrypoint.sh' ..."
 
 if set | grep -q -- '=__[A-Z]\+__$'; then
 	die "Unexpanded variable(s) in environment: $( # <- Syntax
-			echo
+			output
 			set | grep -- '=__[A-Z]\+__$' | sed 's/^/  /'
 		)"
 fi
@@ -1264,7 +1253,7 @@ fi
 print "get_libdir() returns '$(get_libdir)'"
 
 if [ -e /etc/portage/repos.conf.host ]; then
-	echo
+	output
 	info "Mirroring host repos.conf to container ..."
 	if [ -e /etc/portage/repos.conf ]; then
 		if [ -d /etc/portage/repos.conf ]; then
@@ -1562,35 +1551,36 @@ info="$( # <- Syntax
 			)"
 		LC_ALL='C' emerge --info --verbose=y 2>&1
 	)"
-echo
-echo 'Resolved build variables for stage3:'
-echo '-----------------------------------'
-echo
+output
+output
+output 'Resolved build variables for stage3:'
+output '-----------------------------------'
+output
 echo "${info}" | format 'CFLAGS'
 echo "${info}" | format 'LDFLAGS'
-echo
-echo "ROOT                = $( # <- Syntax
+output
+output "ROOT                = $( # <- Syntax
 		echo "${info}" |
 			grep -- '^ROOT=' |
 			cut -d'=' -f 2- |
 			uniq |
 			head -n 1
 	)"
-echo "SYSROOT             = $( # <- Syntax
+output "SYSROOT             = $( # <- Syntax
 		echo "${info}" |
 			grep -- '^SYSROOT=' |
 			cut -d'=' -f 2- |
 			uniq |
 			head -n 1
 	)"
-echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
+output "PORTAGE_CONFIGROOT  = $( # <- Syntax
 		echo "${info}" |
 			grep -- '^PORTAGE_CONFIGROOT=' |
 			cut -d'=' -f 2- |
 			uniq |
 			head -n 1
 	)"
-echo
+output
 echo "${info}" | format 'FEATURES'
 echo "${info}" | format 'ACCEPT_LICENSE'
 echo "${info}" | format 'ACCEPT_KEYWORDS'
@@ -1598,49 +1588,50 @@ echo "${info}" | format 'ACCEPT_KEYWORDS'
 echo "${info}" | format 'USE'
 echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 echo "${info}" | format 'PYTHON_TARGETS'
-echo "MAKEOPTS            = $( # <- Syntax
+output "MAKEOPTS            = $( # <- Syntax
 		echo "${info}" |
 			grep -- '^MAKEOPTS=' |
 			cut -d'=' -f 2- |
 			uniq
 	)"
-echo
+output
 echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
-echo
-echo "DISTDIR             = $( # <- Syntax
+output
+output "DISTDIR             = $( # <- Syntax
 		echo "${info}" |
 			grep -- '^DISTDIR=' |
 			cut -d'=' -f 2- |
 			uniq
 	)"
-echo "PKGDIR              = $( # <- Syntax
+output "PKGDIR              = $( # <- Syntax
 		echo "${info}" |
 			grep -- '^PKGDIR=' |
 			cut -d'=' -f 2- |
 			uniq |
 			head -n 1
 	)"
-echo "PORTAGE_LOGDIR      = $( # <- Syntax
+output "PORTAGE_LOGDIR      = $( # <- Syntax
 		echo "${info}" |
 			grep -- '^PORTAGE_LOGDIR=' |
 			cut -d'=' -f 2- |
 			uniq
 	)"
-echo
+output
 unset info
 
 # Report stage3 tool versions (because some are masked from the arm64 stage3!)
 #
 file=''
 for file in /lib*/libc.so.6; do
-	printf '%4s: ' 'libc'
+	output '%4s: ' 'libc'
 	"${file}" 2>&1 | head -n 1 || :
 done
 unset file
-printf '%4s: ' 'gcc'
+output '%4s: ' 'gcc'
 gcc --version 2>&1 | head -n 1 || :
-printf '%4s: ' 'ld'
+output '%4s: ' 'ld'
 ld --version 2>&1 | head -n 1 || :
+output
 
 # We should *definitely* have this...
 package='virtual/libc'
@@ -1668,7 +1659,7 @@ LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 
 #set -o xtrace
 
-# Until we're rebuilt sys-devel/gcc ourselves, we can't rely on having
+# Until we've rebuilt sys-devel/gcc ourselves, we can't rely on having
 # 'graphite' functionality - therefore, we need to strip these flags to prevent
 # build failures up to that point.
 #
@@ -1705,9 +1696,10 @@ fi
 #quickpkg --include-config y --include-unmodified-config y sys-libs/zlib
 
 if portageq get_repos '/' | grep -Fq -- 'srcshelton'; then
-	echo
-	echo " * Building linted 'sys-apps/gentoo-functions' package for stage3 ..."
-	echo
+	output
+	output
+	output " * Building linted 'sys-apps/gentoo-functions' package for" \
+		"stage3 ..."
 	(
 		USE="-* $( get_stage3 --values-only USE )"
 		export USE
@@ -1769,11 +1761,10 @@ validate_python_installation "pre-remove"
 	# To make the following output potentially clearer, attempt to remove any
 	# masked packages which might exist in the image we're building from...
 	#
-	echo
-	echo
-	echo " * Attempting to remove masked packages from stage3 ..."
-	echo
-	echo
+	output
+	output
+	output " * Attempting to remove masked packages from stage3 ..."
+	output
 
 	# shellcheck disable=SC2086
 	do_emerge --unmerge-defaults ${list} || :
@@ -1802,8 +1793,10 @@ validate_python_installation "pre-remove"
 				sort -V |
 				xargs -r
 		)"
-	echo "Package list: ${list}"
-	echo
+	output
+	output
+	output "Package list: ${list}"
+	output
 	# shellcheck disable=SC2086
 	do_emerge --depclean-defaults ${list} || :
 )
@@ -1821,10 +1814,10 @@ if [ $(( $(
 				wc -l
 		) )) -gt 1 ]
 then
-	echo
-	echo " * Multiple python interpreters present, attempting rebuild for" \
+	output
+	output " * Multiple python interpreters present, attempting rebuild for" \
 		"'${python_default_targets%%" "*}' ..."
-	echo
+	output
 	(
 		# First, let's try to get a working 'qatom' for map_p_to_pn from
 		# app-portage/portage-utils...
@@ -1928,8 +1921,8 @@ then
 					xargs -r
 			)"
 
-		echo "Package list: ${list}"
-		echo
+		output "Package list: ${list}"
+		output
 		# shellcheck disable=SC2086
 		do_emerge --depclean-defaults ${list} || :
 
@@ -1941,9 +1934,9 @@ fi
 #
 validate_python_installation "post-rebuild"
 
-echo
-echo " * Building 'sys-apps/fakeroot' package for stage3 ..."
-echo
+output
+output
+output " * Building 'sys-apps/fakeroot' package for stage3 ..."
 (
 	USE="-* $( get_stage3 --values-only USE )"
 	export USE
@@ -1971,10 +1964,10 @@ export FEATURES
 
 export QA_XLINK_ALLOWED='*'
 
-echo
-echo " * Building 'sys-apps/portage' package for stage3 (in case of" \
+output
+output
+output " * Building 'sys-apps/portage' package for stage3 (in case of" \
 	"downgrades) ..."
-echo
 (
 	USE="-* $( get_stage3 --values-only USE ) ${use_essential}"
 	export USE
@@ -2012,15 +2005,22 @@ usex() {
 #
 ithreads=''
 for ithreads in 'ithreads' ''; do
-	echo
-	echo " * Building 'dev-lang/perl' package (with$(usex ithreads '' 'out')" \
-		"ithreads) for stage3 ..."
-	echo
+	output
+	output
+	output " * Building 'dev-lang/perl' package (with$( # <- Syntax
+			usex ithreads '' 'out'
+		) ithreads) for stage3 ..."
 	(
 		USE="-* $( get_stage3 --values-only USE )"
 		USE="$( # <- Syntax
-				echo " berkdb gdbm $(usex ithreads 'perl_features_ithreads ' '')${USE}$(usex ithreads '' ' -perl_features_ithreads') " |
-					sed "s/ $(usex ithreads '-' '')perl_features_ithreads / /g" |
+				echo " berkdb gdbm $( # <- Syntax
+							usex ithreads 'perl_features_ithreads ' ''
+						)${USE}$( # <- Syntax
+							usex ithreads '' ' -perl_features_ithreads'
+						) " |
+					sed "s/ $( # <- Syntax
+							usex ithreads '-' ''
+						)perl_features_ithreads / /g" |
 					xargs -rn 1 |
 					sort -u |
 					xargs -r
@@ -2046,9 +2046,9 @@ unset ithreads usex
 
 
 if ! [ -d "/usr/${CHOST}" ]; then
-	echo
-	echo " * CHOST change detected - ensuring stage3 is up to date ..."
-	echo
+	output
+	output
+	output " * CHOST change detected - ensuring stage3 is up to date ..."
 
 	# chost_change() {
 
@@ -2076,9 +2076,9 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	LC_ALL='C' /usr/sbin/etc-update --quiet --preen
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
-	echo
-	echo " * CHOST change detected - building stage3 compiler suite ..."
-	echo
+	output
+	output
+	output " * CHOST change detected - building stage3 compiler suite ..."
 
 	oldchost="$( # <- Syntax
 			find /usr \
@@ -2096,13 +2096,7 @@ if ! [ -d "/usr/${CHOST}" ]; then
 			pkgdir="$( LC_ALL='C' portageq pkgdir )"
 			export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 			unset pkgdir
-			if [ "${pkg}" = 'sys-devel/gcc' ]; then
-				validate_libgcc
-			fi
 			do_emerge --single-defaults "${pkg}"
-			if [ "${pkg}" = 'sys-devel/gcc' ]; then
-				validate_libgcc
-			fi
 		)
 		# For some reason, after dealing with /usr/sbin being a symlink to
 		# /usr/bin, the resultant /usr/sbin/etc-update isn't found when this
@@ -2134,9 +2128,9 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	gcc-config 1 2>/dev/null || :
 	# shellcheck disable=SC1091
 	[ -s /etc/profile ] && . /etc/profile
-	echo
-	echo " * Switched from CHOST '${oldchost}' to '${CHOST}'":
-	echo
+	output
+	output
+	output " * Switched from CHOST '${oldchost}' to '${CHOST}'":
 	#ls -lAR /etc/env.d/
 	#grep -HR --colour -- '^.*$' /etc/env.d/
 	#binutils-config -l
@@ -2216,11 +2210,10 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	# }  # chost_change
 fi
 
-echo
-echo
-echo " * Installing stage3 prerequisites to allow for working 'split-usr'" \
+output
+output
+output " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 	"setups ..."
-echo
 
 (
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
@@ -2255,7 +2248,7 @@ echo
 
 	# shellcheck disable=SC2046
 	(
-		export USE="-gmp -nls asm cet ssl$( # <- Syntax
+		USE="-gmp -nls asm cet ssl$( # <- Syntax
 				flag=''
 				if [ -n "${use_essential:-}" ]; then
 					for flag in ${os_headers_arch_flags}; do
@@ -2266,6 +2259,7 @@ echo
 					done
 				fi
 			)"
+		export USE
 		do_emerge --single-defaults sys-libs/libxcrypt
 
 		# app-arch/zstd is failing here because it can't find dev-build/ninja,
@@ -2322,16 +2316,16 @@ echo
 			)
 	)
 
-	echo
-	echo " * Rebuilding preserved dependencies, if any ..."
-	echo
+	output
+	output
+	output " * Rebuilding preserved dependencies, if any ..."
 	do_emerge --preserved-defaults '@preserved-rebuild'
 )
 
-echo
-echo " * Installing stage3 'sys-kernel/gentoo-sources' kernel source" \
+output
+output
+output " * Installing stage3 'sys-kernel/gentoo-sources' kernel source" \
 	"package ..."
-echo
 
 # Some packages require prepared kernel sources...
 #
@@ -2352,9 +2346,10 @@ echo
 	do_emerge --single-defaults sys-kernel/gentoo-sources
 )
 
-echo
-echo ' * Configuring stage3 kernel sources ...'
-echo
+output
+output
+output ' * Configuring stage3 kernel sources ...'
+output
 
 #pushd >/dev/null /usr/src/linux  # bash only
 src_cwd="${PWD}"
@@ -2386,10 +2381,9 @@ for pkg in \
 		'sys-devel/gcc' \
 		'app-crypt/libb2'
 do
-	echo
-	echo
-	echo " * Building stage3 '${pkg}' package ..."
-	echo
+	output
+	output
+	output " * Building stage3 '${pkg}' package ..."
 
 	(
 		USE="-*$( # <- Syntax
@@ -2442,10 +2436,6 @@ do
 				;;
 			'sys-devel/gcc')
 				USE="${USE} -nls"
-				# This should be our first time building sys-devel/gcc, so we
-				# won't have a backup yet - subsequently, we can only take a
-				# fresh backup if libgcc_s may have changed...
-				validate_libgcc
 				;;
 			'sys-libs/libcap')
 				USE="${USE} -tools"
@@ -2462,9 +2452,6 @@ do
 				;;
 		esac
 		do_emerge --single-defaults "${pkg}"
-		if [ "${pkg}" = 'sys-devel/gcc' ]; then
-			validate_libgcc
-		fi
 	)
 	#if LC_ALL='C' eselect --colour=yes news read new |
 	#		grep -Fv -- 'No news is good news.'
@@ -2504,10 +2491,10 @@ unset _o_CFLAGS _o_CXXFLAGS _o_CGO_CFLAGS _o_CGO_CXXFLAGS \
 
 # Now we can build our ROOT environment...
 #
-echo
-echo
-echo ' * Creating build root ...'
-echo
+output
+output
+output ' * Creating build root ...'
+output
 
 rm "${stage3_flags_file}"
 
@@ -2591,11 +2578,11 @@ for file in /etc/profile "${ROOT}"/etc/profile; do
 	[ -s "${file}" ] && . "${file}"
 done
 unset file
-echo "Setting profile for architecture '${ARCH}'..."
+output "Setting profile for architecture '${ARCH}'..."
 LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" 2>&1 |
 	grep -v -- 'Warning:' || :
 
-LC_ALL='C' emerge --check-news
+#LC_ALL='C' emerge --check-news
 
 # It seems we never actually defined USE if not passed-in externally, and yet
 # somehow on amd64 gcc still gets 'nptl'.  On arm64, however, this doesn't
@@ -2661,7 +2648,9 @@ fi
 
 if [ -n "${pkg_initial:-}" ]; then
 	export python_targets PYTHON_SINGLE_TARGET PYTHON_TARGETS
-	print "'python_targets' is '${python_targets:-}', 'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}', 'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
+	print "'python_targets' is '${python_targets:-}', 'PYTHON_SINGLE_TARGET'" \
+		"is '${PYTHON_SINGLE_TARGET:-}', 'PYTHON_TARGETS' is" \
+		"'${PYTHON_TARGETS:-}'"
 
 	(
 		# We need to include sys-devel/gcc flags here, otherwise portage has
@@ -2671,8 +2660,12 @@ if [ -n "${pkg_initial:-}" ]; then
 		if [ "${ROOT:-"/"}" = '/' ]; then
 			if [ -z "${stage3_flags:-}" ]; then
 				USE="${USE:+"${USE} "}$( get_stage3 --values-only USE )"
-				PYTHON_SINGLE_TARGET="${PYTHON_SINGLE_TARGET:+"${PYTHON_SINGLE_TARGET} "}$( get_stage3 --values-only PYTHON_SINGLE_TARGET )"
-				PYTHON_TARGETS="${PYTHON_TARGETS:+"${PYTHON_TARGETS} "}$( get_stage3 --values-only PYTHON_TARGETS )"
+				PYTHON_SINGLE_TARGET="${PYTHON_SINGLE_TARGET:+"${PYTHON_SINGLE_TARGET} "}$( # <- Syntax
+						get_stage3 --values-only PYTHON_SINGLE_TARGET
+					)"
+				PYTHON_TARGETS="${PYTHON_TARGETS:+"${PYTHON_TARGETS} "}$( #
+						get_stage3 --values-only PYTHON_TARGETS
+					)"
 				eval "$( # <- Syntax
 						resolve_python_flags \
 								"${USE}" \
@@ -2711,74 +2704,75 @@ if [ -n "${pkg_initial:-}" ]; then
 		fi
 
 		info="$( LC_ALL='C' emerge --info --verbose=y 2>&1 )"
-		echo
-		echo 'Resolved build variables for initial packages:'
-		echo '---------------------------------------------'
-		echo
+		output
+		output 'Resolved build variables for initial packages:'
+		output '---------------------------------------------'
+		output
 		echo "${info}" | format 'CFLAGS'
 		echo "${info}" | format 'LDFLAGS'
-		echo
-		echo "ROOT                = $( # <- Syntax
+		output
+		output "ROOT                = $( # <- Syntax
 				echo "${info}" |
 					grep -- '^ROOT=' |
 					cut -d'=' -f 2- |
 					uniq |
 					head -n 1
 			)"
-		echo "SYSROOT             = $( # <- Syntax
+		output "SYSROOT             = $( # <- Syntax
 				echo "${info}" |
 					grep -- '^SYSROOT=' |
 					cut -d'=' -f 2- |
 					uniq |
 					head -n 1
 			)"
-		echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-				echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' |
+		output "PORTAGE_CONFIGROOT  = $( # <- Syntax
+				echo "${info}" |
+					grep -- '^PORTAGE_CONFIGROOT=' |
 					cut -d'=' -f 2- |
 					uniq |
 					head -n 1
 			)"
-		echo
+		output
 		echo "${info}" | format 'FEATURES'
 		echo "${info}" | format 'ACCEPT_LICENSE'
 		echo "${info}" | format 'ACCEPT_KEYWORDS'
 		echo "${info}" | format 'USE'
 		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 		echo "${info}" | format 'PYTHON_TARGETS'
-		echo "MAKEOPTS            = $( # <- Syntax
+		output "MAKEOPTS            = $( # <- Syntax
 				echo "${info}" |
 					grep -- '^MAKEOPTS=' |
 					cut -d'=' -f 2- |
 					uniq
 			)"
-		echo
+		output
 		echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
-		echo
-		echo "DISTDIR             = $( # <- Syntax
+		output
+		output "DISTDIR             = $( # <- Syntax
 				echo "${info}" |
 					grep -- '^DISTDIR=' |
 					cut -d'=' -f 2- |
 					uniq
 			)"
-		echo "PKGDIR              = $( # <- Syntax
+		output "PKGDIR              = $( # <- Syntax
 				echo "${info}" |
 					grep -- '^PKGDIR=' |
 					cut -d'=' -f 2- |
 					uniq |
 					head -n 1
 			)"
-		echo "PORTAGE_LOGDIR      = $( # <- Syntax
+		output "PORTAGE_LOGDIR      = $( # <- Syntax
 				echo "${info}" |
 					grep -- '^PORTAGE_LOGDIR=' |
 					cut -d'=' -f 2- |
 					uniq
 			)"
-		echo
 		unset info
 
-		echo
-		echo ' * Building initial packages ...'
-		echo
+		output
+		output
+		output ' * Building initial packages ...'
+		output
 
 		if ! get_portage_flags USE | grep -Eq -- '(^|[^-])openmp'; then
 			warn "'openmp' USE flag is not set: app-crypt/libb2 may" \
@@ -2848,7 +2842,8 @@ if [ -n "${pkg_initial:-}" ]; then
 
 						eval "$( # <- Syntax
 								resolve_python_flags \
-										"${USE:-} ${use_essential} ${use_essential_gcc} python" \
+										"${USE:-} ${use_essential} \
+											${use_essential_gcc} python" \
 										"${PYTHON_SINGLE_TARGET}" \
 										"${PYTHON_TARGETS}"
 							)"
@@ -2866,68 +2861,69 @@ if [ -n "${pkg_initial:-}" ]; then
 							PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
 						info="$( LC_ALL='C' emerge --info --verbose=y 2>&1 )"
-						echo
-						echo 'Resolved build variables for python prerequisites:'
-						echo '-------------------------------------------------'
-						echo
+						output
+						output
+						output 'Resolved build variables for python prerequisites:'
+						output '-------------------------------------------------'
+						output
 						echo "${info}" | format 'CFLAGS'
 						echo "${info}" | format 'LDFLAGS'
-						echo
-						echo "ROOT                = $( # <- Syntax
+						output
+						output "ROOT                = $( # <- Syntax
 								echo "${info}" |
 									grep -- '^ROOT=' |
 									cut -d'=' -f 2- |
 									uniq |
 									head -n 1
 							)"
-						echo "SYSROOT             = $( # <- Syntax
+						output "SYSROOT             = $( # <- Syntax
 								echo "${info}" |
 									grep -- '^SYSROOT=' |
 									cut -d'=' -f 2- |
 									uniq |
 									head -n 1
 							)"
-						echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-								echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' |
+						output "PORTAGE_CONFIGROOT  = $( # <- Syntax
+								echo "${info}" |
+									grep -- '^PORTAGE_CONFIGROOT=' |
 									cut -d'=' -f 2- |
 									uniq |
 									head -n 1
 							)"
-						echo
+						output
 						echo "${info}" | format 'ACCEPT_LICENSE'
 						echo "${info}" | format 'ACCEPT_KEYWORDS'
 						echo "${info}" | format 'USE'
 						echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 						echo "${info}" | format 'PYTHON_TARGETS'
-						echo "MAKEOPTS            = $( # <- Syntax
+						output "MAKEOPTS            = $( # <- Syntax
 								echo "${info}" |
 									grep -- '^MAKEOPTS=' |
 									cut -d'=' -f 2- |
 									uniq
 							)"
-						echo
+						output
 						echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
-						echo
-						echo "DISTDIR             = $( # <- Syntax
+						output
+						output "DISTDIR             = $( # <- Syntax
 								echo "${info}" |
 									grep -- '^DISTDIR=' |
 									cut -d'=' -f 2- |
 									uniq
 							)"
-						echo "PKGDIR              = $( # <- Syntax
+						output "PKGDIR              = $( # <- Syntax
 								echo "${info}" |
 									grep -- '^PKGDIR=' |
 									cut -d'=' -f 2- |
 									uniq |
 									head -n 1
 							)"
-						echo "PORTAGE_LOGDIR      = $( # <- Syntax
+						output "PORTAGE_LOGDIR      = $( # <- Syntax
 								echo "${info}" |
 									grep -- '^PORTAGE_LOGDIR=' |
 									cut -d'=' -f 2- |
 									uniq
 							)"
-						echo
 						unset info
 
 						# Specifically python-3.12.6 is throwing:
@@ -2944,10 +2940,11 @@ if [ -n "${pkg_initial:-}" ]; then
 						export PORTAGE_ELOG_SYSTEM
 
 						# ROOT == '/'
-						echo
-						echo " * Building python prerequisites into ROOT" \
+						output
+						output
+						output " * Building python prerequisites into ROOT" \
 							"'${ROOT:-"/"}' ..."
-						echo
+						#
 						# FIXME:  --emptytree is needed if the upstream stage3
 						#         image is built against a different python
 						#         version to what we're now trying to build,
@@ -3004,7 +3001,6 @@ if [ -n "${pkg_initial:-}" ]; then
 							dev-python/setuptools \
 							sys-devel/gcc # || :
 
-						validate_libgcc
 						validate_python_installation "python pre-requisites"
 					)
 
@@ -3027,7 +3023,8 @@ if [ -n "${pkg_initial:-}" ]; then
 
 						eval "$( # <- Syntax
 								resolve_python_flags \
-										"${USE:-} ${use_essential} ${use_essential_gcc}" \
+										"${USE:-} ${use_essential} \
+											${use_essential_gcc}" \
 										"${PYTHON_SINGLE_TARGET}" \
 										"${PYTHON_TARGETS}"
 							)"
@@ -3047,10 +3044,10 @@ if [ -n "${pkg_initial:-}" ]; then
 							PYTHON_TARGETS
 
 						# ROOT == '/build'
-						echo
-						echo " * Building python prerequisites into ROOT" \
+						output
+						output
+						output " * Building python prerequisites into ROOT" \
 							"'${ROOT}' ..."
-						echo
 
 						# Include sys-devel/gcc and dev-libs/isl here in case
 						# graphite USE flags are enabled...
@@ -3085,8 +3082,6 @@ if [ -n "${pkg_initial:-}" ]; then
 								sys-devel/gcc
 						)
 
-						validate_libgcc
-
 						do_emerge --build-defaults \
 							app-arch/libarchive \
 							app-crypt/libb2 \
@@ -3111,10 +3106,10 @@ if [ -n "${pkg_initial:-}" ]; then
 								;;
 						esac
 
-						echo
-						echo " * Building perl (without ithreads) into ROOT" \
+						output
+						output
+						output " * Building perl (without ithreads) into ROOT" \
 							"'${ROOT:-"/"}' for package '${pkg}' ..."
-						echo
 
 						# Using --emptytree below causes portage to
 						# unnecessarily rebuild existing root-dependencies
@@ -3159,11 +3154,11 @@ if [ -n "${pkg_initial:-}" ]; then
 					# package or a new build issue, but we had a circular
 					# dependency when building sys-apps/util-linux of
 					# libidn2 -> libunistring -> glibc -> libidn2
-					echo
-					echo " * Building initial package '${pkg:-}' into ROOT" \
+					output
+					output
+					output " * Building initial package '${pkg:-}' into ROOT" \
 						"'${ROOT:-"/"}'" \
 						"${pkg_exclude:+"excluding packages with '${pkg_exclude}' "}..."
-					echo
 
 					case "${ROOT:-}" in
 						''|'/')
@@ -3182,40 +3177,40 @@ if [ -n "${pkg_initial:-}" ]; then
 						for pkg_dep in sys-libs/glibc dev-libs/libunistring \
 								net-dns/libidn2
 						do
-							echo
-							echo " * Building dependencies for initial" \
+							output
+							output
+							output " * Building dependencies for initial" \
 								"package '${pkg_dep:-}' for ROOT '${ROOT:-"/"}'"
-							echo
 
 							# shellcheck disable=SC2086
 							do_emerge --initial-defaults --onlydeps \
 								--with-bdeps=y "${pkg_dep}"
 
-							echo
-							echo " * Rebuilding initial package" \
+							output
+							output
+							output " * Rebuilding initial package" \
 								"'${pkg_dep:-}' without merging for ROOT" \
 								"'${ROOT:-"/"}'"
-							echo
 
 							do_emerge --initial-defaults --buildpkgonly \
 								"${pkg_dep}"
 						done
 						unset pkg_dep
 
-						echo
-						echo " * Building initial package '${pkg:-}' into" \
+						output
+						output
+						output " * Building initial package '${pkg:-}' into" \
 							"ROOT '${ROOT:-"/"}'" \
 							"${pkg_exclude:+"excluding packages with '${pkg_exclude}' "}..."
-						echo
 						do_emerge --initial-defaults "${pkg}" ${pkg_exclude:-}
 					fi
 				else  # [ "${pkg}" != 'sys-libs/glibc' ] && [ "${pkg}" != 'dev-perl/Locale-gettext' ] && [ "${pkg}" != 'sys-apps/help2man' ]
 
-					echo
-					echo " * Building initial package '${pkg:-}' into ROOT" \
+					output
+					output
+					output " * Building initial package '${pkg:-}' into ROOT" \
 						"'${ROOT:-"/"}'" \
 						"${pkg_exclude:+"excluding packages with '${pkg_exclude}' "}..."
-					echo
 
 					case "${ROOT:-}" in
 						''|'/')
@@ -3236,7 +3231,10 @@ if [ -n "${pkg_initial:-}" ]; then
 				# when this following line is encountered, despite both
 				# elements still appearing in $PATH...
 				LC_ALL='C' /usr/sbin/etc-update --quiet --preen
-				find "${ROOT}"/etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
+				find "${ROOT}"/etc/ \
+					-type f \
+					-regex '.*\._\(cfg\|mrg\)[0-9]+_.*' \
+					-delete
 
 				if echo " ${pkg} " | grep -q -- ' app-shells/bash '; then
 					fix_sh_symlink "${ROOT}" 'pre-deploy'
@@ -3255,9 +3253,9 @@ if [ -n "${pkg_initial:-}" ]; then
 	)
 fi  # [ -n "${pkg_initial:-}" ]
 
-echo
-echo ' * Building @system packages ...'
-echo
+output
+output
+output ' * Building @system packages ...'
 
 (
 	#set -x
@@ -3320,86 +3318,86 @@ echo
 		eval "${format_fn_code}"
 
 		info="$( LC_ALL='C' emerge --info --verbose=y 2>&1 )"
-		echo
-		echo "Resolved build variables for @system in ROOT '${ROOT}':"
-		echo '------------------------------------'
-		echo
+		output
+		output
+		output "Resolved build variables for @system in ROOT '${ROOT}':"
+		output '------------------------------------'
+		output
 		echo "${info}" | format 'CFLAGS'
 		echo "${info}" | format 'LDFLAGS'
-		echo
-		echo "ROOT                = $( # <- Syntax
+		output
+		output "ROOT                = $( # <- Syntax
 				echo "${info}" |
 					grep -- '^ROOT=' |
 					cut -d'=' -f 2- |
 					uniq |
 					head -n 1
 			)"
-		echo "SYSROOT             = $( # <- Syntax
+		output "SYSROOT             = $( # <- Syntax
 				echo "${info}" |
 					grep -- '^SYSROOT=' |
 					cut -d'=' -f 2- |
 					uniq |
 					head -n 1
 			)"
-		echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-				echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' |
+		output "PORTAGE_CONFIGROOT  = $( # <- Syntax
+				echo "${info}" |
+					grep -- '^PORTAGE_CONFIGROOT=' |
 					cut -d'=' -f 2- |
 					uniq |
 					head -n 1
 			)"
-		echo
+		output
 		echo "${info}" | format 'ACCEPT_LICENSE'
 		echo "${info}" | format 'ACCEPT_KEYWORDS'
 		echo "${info}" | format 'USE'
 		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 		echo "${info}" | format 'PYTHON_TARGETS'
-		echo "MAKEOPTS            = $( # <- Syntax
+		output "MAKEOPTS            = $( # <- Syntax
 				echo "${info}" |
 					grep -- '^MAKEOPTS=' |
 					cut -d'=' -f 2- |
 					uniq
 			)"
-		echo
+		output
 		echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
-		echo
-		echo "DISTDIR             = $( # <- Syntax
+		output
+		output "DISTDIR             = $( # <- Syntax
 				echo "${info}" |
 					grep -- '^DISTDIR=' |
 					cut -d'=' -f 2- |
 					uniq
 			)"
-		echo "PKGDIR              = $( # <- Syntax
+		output "PKGDIR              = $( # <- Syntax
 				echo "${info}" |
 					grep -- '^PKGDIR=' |
 					cut -d'=' -f 2- |
 					uniq |
 					head -n 1
 			)"
-		echo "PORTAGE_LOGDIR      = $( # <- Syntax
+		output "PORTAGE_LOGDIR      = $( # <- Syntax
 				echo "${info}" |
 					grep -- '^PORTAGE_LOGDIR=' |
 					cut -d'=' -f 2- |
 					uniq
 			)"
-		echo
 		unset info
 
-		echo
-		echo " * Ensuring we have sys-apps/baselayout ..."
-		echo
+		output
+		output
+		output " * Ensuring we have sys-apps/baselayout ..."
 		[ ! -f "${ROOT%"/"}/var/lock" ] || rm "${ROOT%"/"}/var/lock"
 		#	debug=1 \
 		do_emerge --system-defaults sys-apps/baselayout
 
 		# portage is tripping over sys-devel/gcc[openmp] :(
 		#
-		echo
-		echo " * Ensuring we have sys-devel/gcc ..."
-		echo
+		output
+		output
+		output " * Ensuring we have sys-devel/gcc ..."
 		#	debug=1 \
 			USE="openmp${USE:+" ${USE} "}" \
 		do_emerge --system-defaults sys-devel/gcc
-		validate_libgcc
 
 		#	debug=1 \
 			USE="openmp${USE:+" ${USE} "}" \
@@ -3409,16 +3407,16 @@ echo
 		# ... likewise sys-apps/net-tools[hostname] (for which the recommended
 		# fix is sys-apps/coreutils[hostname]?)
 		#
-		echo
-		echo " * Ensuring we have sys-apps/coreutils ..."
-		echo
+		output
+		output
+		output " * Ensuring we have sys-apps/coreutils ..."
 		#	debug=1 \
 			USE="${USE:+"${USE} "}-hostname" \
 		do_emerge --system-defaults sys-apps/coreutils
 
-		echo
-		echo " * Ensuring we have sys-apps/net-tools ..."
-		echo
+		output
+		output
+		output " * Ensuring we have sys-apps/net-tools ..."
 		#	debug=1 \
 			USE="hostname${USE:+" ${USE}"}" \
 		do_emerge --system-defaults sys-apps/net-tools
@@ -3427,9 +3425,9 @@ echo
 		#
 		# -gmp blocks gnutls...
 		#
-		echo
-		echo " * Trying to avoid preserved libraries ..."
-		echo
+		output
+		output
+		output " * Trying to avoid preserved libraries ..."
 		# shellcheck disable=SC2046,SC2086
 		#	debug=1 \
 			USE="asm cxx gmp minimal openssl perl_features_ithreads${USE:+" ${USE}"} -ensurepip -gdbm -ncurses -readline -sqlite -zstd" \
@@ -3460,16 +3458,22 @@ echo
 		#
 		[ "${ARCH:-}" = 'arm64' ] && arm64_use='ncurses'
 
-		echo
-		echo " * Ensuring we have system packages ..."
-		echo
+		output
+		output
+		output " * Ensuring we have system packages ..."
 		# For some reason, portage is selecting dropbear to satisfy
 		# virtual/ssh?
+		#
+		# We get lots of:
+		#  * FEATURES=dedupdebug is enabled but the dwz binary could not be
+		#  * found. This feature will not work unless dwz is installed!
+		# ... here if this FEATURE isn't disabled.
 		#
 		# FIXME: Forcing 'openmp'?
 		#
 		# shellcheck disable=SC2086
 		#	debug=1 \
+			FEATURES='-dedupdebug' \
 			USE="cxx gmp openmp openssl${arm64_use:+" ${arm64_use}"}${root_use:+" ${root_use}"}${USE:+" ${USE}"} -extra-filters -nettle -nls" \
 		do_emerge \
 				--exclude='dev-libs/libtomcrypt' \
@@ -3478,16 +3482,15 @@ echo
 				--system-defaults \
 			${pkg_system} dev-libs/nettle net-libs/gnutls dev-lang/python \
 				dev-libs/libxml2 sys-devel/gettext \
-				app-arch/libarchive app-crypt/libb2 sys-devel/gettext \
-				sys-libs/libxcrypt
+				app-arch/libarchive app-crypt/libb2 sys-devel/dwz \
+				sys-devel/gettext sys-libs/libxcrypt
 		unset root_use
 
-		validate_libgcc
 		validate_python_installation "system packages"
 
-		echo
-		echo " * Rebuilding any preserved dependencies ..."
-		echo
+		output
+		output
+		output " * Rebuilding any preserved dependencies ..."
 		# We're hitting errors here that dev-libs/nettle[gmp] is required...
 		#	debug=1 \
 			USE="asm openssl${USE:+" ${USE}"}-ensurepip -gdbm -ncurses -readline -sqlite -zstd" \
@@ -3523,7 +3526,7 @@ if [ -s /etc/bash/bashrc.patch ]; then
 				cd "${ROOT}"/etc/bash/ ||
 					die "chdir() to '${ROOT%"/"}/etc/bash' failed: ${?}"
 
-				echo ' * Patching /etc/bash/bashrc ...'
+				output ' * Patching /etc/bash/bashrc ...'
 				patch -p1 -r - -s </etc/bash/bashrc.patch ||
 					die "Applying patch to bashrc failed: ${?}"
 
@@ -3540,9 +3543,9 @@ if [ -s /etc/bash/bashrc.patch ]; then
 	rm /etc/bash/bashrc.patch
 fi
 
-echo
-echo ' * Cleaning up ...'
-echo
+output
+output
+output ' * Cleaning up ...'
 
 # Save failed build logs...
 # (e.g. /var/tmp/portage/app-misc/mime-types-9/temp/build.log)
@@ -3577,10 +3580,8 @@ fi
 [ ! -d "${PORTAGE_TMPDIR}/portage" ] ||
 	rm -r "${PORTAGE_TMPDIR}/portage"
 
-echo
-echo ' * System deployment complete'
-echo
-echo
+output
+output ' * System deployment complete'
 
 # Check for ROOT news...
 #if LC_ALL='C' eselect --colour=yes news read new |
@@ -3594,68 +3595,69 @@ echo
 export EMERGE_DEFAULT_OPTS="${EMERGE_DEFAULT_OPTS:+"${EMERGE_DEFAULT_OPTS} "} --with-bdeps=y --with-bdeps-auto=y"
 
 info="$( LC_ALL='C' emerge --info --verbose=y 2>&1 )"
-echo
-echo 'Resolved build variables after init stage:'
-echo '-----------------------------------------'
-echo
+output
+output
+output 'Resolved build variables after init stage:'
+output '-----------------------------------------'
+output
 echo "${info}" | format 'CFLAGS'
 echo "${info}" | format 'LDFLAGS'
-echo
-echo "ROOT                = $( # <- Syntax
+output
+output "ROOT                = $( # <- Syntax
 		echo "${info}" |
 			grep -- '^ROOT=' |
 			cut -d'=' -f 2- |
 			uniq |
 			head -n 1
 	)"
-echo "SYSROOT             = $( # <- Syntax
+output "SYSROOT             = $( # <- Syntax
 		echo "${info}" |
 			grep -- '^SYSROOT=' |
 			cut -d'=' -f 2- |
 			uniq |
 			head -n 1
 	)"
-echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-		echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' |
+output "PORTAGE_CONFIGROOT  = $( # <- Syntax
+		echo "${info}" |
+			grep -- '^PORTAGE_CONFIGROOT=' |
 			cut -d'=' -f 2- |
 			uniq |
 			head -n 1
 	)"
-echo
+output
 echo "${info}" | format 'ACCEPT_LICENSE'
 echo "${info}" | format 'ACCEPT_KEYWORDS'
 echo "${info}" | format 'USE'
 echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 echo "${info}" | format 'PYTHON_TARGETS'
-echo "MAKEOPTS            = $( # <- Syntax
+output "MAKEOPTS            = $( # <- Syntax
 		echo "${info}" |
 			grep -- '^MAKEOPTS=' |
 			cut -d'=' -f 2- |
 			uniq
 	)"
-echo
+output
 echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
-echo
-echo "DISTDIR             = $( # <- Syntax
+output
+output "DISTDIR             = $( # <- Syntax
 		echo "${info}" |
 			grep -- '^DISTDIR=' |
 			cut -d'=' -f 2- |
 			uniq
 	)"
-echo "PKGDIR              = $( # <- Syntax
+output "PKGDIR              = $( # <- Syntax
 		echo "${info}" |
 			grep -- '^PKGDIR=' |
 			cut -d'=' -f 2- |
 			uniq |
 			head -n 1
 	)"
-echo "PORTAGE_LOGDIR      = $( # <- Syntax
+output "PORTAGE_LOGDIR      = $( # <- Syntax
 		echo "${info}" |
 			grep -- '^PORTAGE_LOGDIR=' |
 			cut -d'=' -f 2- |
 			uniq
 	)"
-echo
 unset info
 
 export PATH="${path}"
@@ -3689,15 +3691,15 @@ test -s "${ROOT}${environment_file}" ||
 	warn "'${ROOT%"/"}${environment_file}' is empty"
 grep -- ' ROOT=' "${ROOT}${environment_file}" &&
 	die "Invalid 'ROOT' directive in '${ROOT%"/"}${environment_file}'"
-#printf ' * Initial propagated environment:\n\n%s\n\n' "$( # <- Syntax
+#output ' * Initial propagated environment:\n\n%s\n\n' "$( # <- Syntax
 #		cat "${ROOT}${environment_file}"
 #	)"
 
 case "${1:-}" in
 	'')
-		echo
-		echo " * Building default '${package}' package ..."
-		echo
+		output
+		output
+		output " * Building default '${package}' package ..."
 
 		(
 			for ROOT in $(
@@ -3711,8 +3713,7 @@ case "${1:-}" in
 				export PORTAGE_CONFIGROOT="${SYSROOT}"
 				do_emerge --once-defaults "${package}" || rc=${?}
 				if [ $(( rc )) -ne 0 ]; then
-					echo "ERROR: Default package build for root '${ROOT}':" \
-						"${rc}"
+					error "Default package build for root '${ROOT}': ${rc}"
 					break
 				fi
 			done
@@ -3737,12 +3738,12 @@ case "${1:-}" in
 		;;
 
 	*)
-		echo
-		echo " * Building requested '$( # <- Syntax
+		output
+		output
+		output " * Building requested '$( # <- Syntax
 				printf '%s' "${*}" |
 					sed 's/--[^ ]\+ \?//g'
 			)' packages ${post_pkgs:+"(with post-package list) "}..."
-		echo
 
 		(
 			for ROOT in $(
@@ -3757,7 +3758,7 @@ case "${1:-}" in
 				# shellcheck disable=SC2086
 				do_emerge --multi-defaults "${@}" || rc=${?}
 				if [ $(( rc )) -ne 0 ]; then
-					echo "ERROR: Package build for root '${ROOT}': ${rc}"
+					error "Package build for root '${ROOT}': ${rc}"
 					break
 				fi
 			done
@@ -3771,10 +3772,10 @@ case "${1:-}" in
 		fi
 
 
-		echo
-		echo " * Building specified post-installation '${post_pkgs}'" \
+		output
+		output
+		output " * Building specified post-installation '${post_pkgs}'" \
 			"packages ${post_use:+"with USE='${post_use}' "}..."
-		echo
 
 		[ -n "${post_use:-}" ] && export USE="${post_use}"
 		eval "$( # <- Syntax
@@ -3787,17 +3788,17 @@ case "${1:-}" in
 
 		info="$( LC_ALL='C' emerge --info --verbose=y 2>&1 )"
 
-		echo
-		echo 'Resolved build variables for post-installation packages:'
-		echo '-------------------------------------------------------'
-		echo
+		output
+		output
+		output 'Resolved build variables for post-installation packages:'
+		output '-------------------------------------------------------'
+		output
 		echo "${info}" | format 'CFLAGS'
 		echo "${info}" | format 'LDFLAGS'
-		echo
+		output
 		echo "${info}" | format 'USE'
 		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 		echo "${info}" | format 'PYTHON_TARGETS'
-		echo
 		unset info
 
 		if [ -n "${EMERGE_OPTS:-}" ] &&
@@ -3815,10 +3816,10 @@ case "${1:-}" in
 				case "${arg}" in
 					-*)	continue ;;
 					*)
-						echo
-						echo " * Building single post-package '${arg}'" \
+						output
+						output
+						output " * Building single post-package '${arg}'" \
 							"from '${post_pkgs}' ..."
-						echo
 						(
 							for ROOT in $(
 										echo "${extra_root:-}" "${ROOT}" |
@@ -3833,7 +3834,7 @@ case "${1:-}" in
 								do_emerge --defaults ${parallel} \
 									--usepkg=y ${flags:-} ${arg} || rc=${?}
 								if [ $(( rc )) -ne 0 ]; then
-									echo "ERROR: Single post-package build" \
+									error "Single post-package build" \
 										"for root '${ROOT}': ${rc}"
 									break
 								fi
@@ -3855,12 +3856,12 @@ case "${1:-}" in
 					export ROOT
 					export SYSROOT="${ROOT}"
 					export PORTAGE_CONFIGROOT="${SYSROOT}"
-					echo
-					echo " * Building temporary post-packages" \
+					output
+					output
+					output " * Building temporary post-packages" \
 						"'app-crypt/libb2 sys-apps/coreutils sys-devel/gcc" \
 						"sys-devel/gettext sys-libs/glibc' to ROOT" \
 						"'${ROOT:-"/"}' ..."
-					echo
 
 					# If we don't include 'openmp' in the USE flags here, we
 					# hit a hard dependencies failure when performing the
@@ -3880,15 +3881,14 @@ case "${1:-}" in
 							sys-libs/libxcrypt ||
 						rc=${?}
 					if [ $(( rc )) -ne 0 ]; then
-						echo "ERROR: Temporary post-packages build for" \
-							"root '${ROOT}': ${rc}"
+						error "Temporary post-packages build for root" \
+							"'${ROOT}': ${rc}"
 						break
 					fi
-					validate_libgcc
 
-					echo
-					echo " * Building post-packages '${post_pkgs}' to ROOT '${ROOT:-"/"}' ..."
-					echo
+					output
+					output
+					output " * Building post-packages '${post_pkgs}' to ROOT '${ROOT:-"/"}' ..."
 
 					# shellcheck disable=SC2086
 						USE='asm compile-locales gmp minimal multiarch native-extensions ssl ssp xattr' \
@@ -3896,8 +3896,7 @@ case "${1:-}" in
 						${post_pkgs} || rc=${?}
 
 					if [ $(( rc )) -ne 0 ]; then
-						echo "ERROR: Post-packages build for root" \
-							"'${ROOT}': ${rc}"
+						error "Post-packages build for root '${ROOT}': ${rc}"
 						break
 					fi
 				done
@@ -3927,8 +3926,12 @@ case "${1:-}" in
 		export BUILD_USE BUILD_PYTHON_SINGLE_TARGET BUILD_PYTHON_TARGETS
 
 		ROOT_USE="${USE:+"${USE} "}$( get_stage3 --values-only USE )"
-		ROOT_PYTHON_SINGLE_TARGET="${PYTHON_SINGLE_TARGET:+"${PYTHON_SINGLE_TARGET} "}$( get_stage3 --values-only PYTHON_SINGLE_TARGET )"
-		ROOT_PYTHON_TARGETS="${PYTHON_TARGETS:+"${PYTHON_TARGETS} "}$( get_stage3 --values-only PYTHON_TARGETS )"
+		ROOT_PYTHON_SINGLE_TARGET="${PYTHON_SINGLE_TARGET:+"${PYTHON_SINGLE_TARGET} "}$( # <- Syntax
+				get_stage3 --values-only PYTHON_SINGLE_TARGET
+			)"
+		ROOT_PYTHON_TARGETS="${PYTHON_TARGETS:+"${PYTHON_TARGETS} "}$( #
+				get_stage3 --values-only PYTHON_TARGETS
+			)"
 		eval "$( # <- Syntax
 				resolve_python_flags \
 						"${ROOT_USE}" \
@@ -3939,7 +3942,8 @@ case "${1:-}" in
 		# FIXME: ROOT_PYTHON_SINGLE_TARGET, ROOT_PYTHON_TARGETS unused
 		export ROOT_USE ROOT_PYTHON_SINGLE_TARGET ROOT_PYTHON_TARGETS
 
-		print "Checking for multiple 'python_target'(s) in USE ('${ROOT_USE}') ..."
+		print "Checking for multiple 'python_target'(s) in USE" \
+			"('${ROOT_USE}') ..."
 		if [ $(( $(
 					echo "${ROOT_USE}" |
 						xargs -rn 1 |
@@ -3978,11 +3982,11 @@ case "${1:-}" in
 			print "remove: '${remove}'"
 
 			if [ -n "${remove:-}" ]; then
-				echo
-				echo " * Cleaning old python targets '$( # <- Syntax
+				output
+				output
+				output " * Cleaning old python targets '$( # <- Syntax
 						echo "${remove}" | xargs -r
 					)' ..."
-				echo
 				(
 					arg='' use='' pkgs=''
 
@@ -4008,7 +4012,9 @@ case "${1:-}" in
 						PYTHON_SINGLE_TARGET="${BUILD_PYTHON_SINGLE_TARGET}"
 						if [ "${ROOT}" = '/' ]; then
 							USE="$( get_stage3 --values-only USE )"
-							PYTHON_TARGETS="$( get_stage3 --values-only PYTHON_TARGETS )"
+							PYTHON_TARGETS="$( # <- Syntax
+									get_stage3 --values-only PYTHON_TARGETS
+								)"
 							export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 							eval "$( # <- Syntax
 									resolve_python_flags \
@@ -4031,7 +4037,8 @@ case "${1:-}" in
 								flag=''
 								if [ -n "${use_essential:-}" ]; then
 									for flag in ${os_headers_arch_flags}; do
-										if echo " ${use_essential} " | grep -qw -- "${flag}"
+										if echo " ${use_essential} " |
+												grep -qw -- "${flag}"
 										then
 											printf ' %s' "${flag}"
 										fi
@@ -4109,34 +4116,36 @@ case "${1:-}" in
 									PORTAGE_CONFIGROOT="${ROOT}" \
 								emerge --info --verbose=y 2>&1
 							)"
-						echo
-						echo "Resolved build variables for python cleanup stage 1 in ROOT '${ROOT}':"
-						echo '---------------------------------------------------'
-						echo
+						output
+						output
+						output "Resolved build variables for python cleanup stage 1 in ROOT '${ROOT}':"
+						output '---------------------------------------------------'
+						output
 						echo "${info}" | format 'CFLAGS'
 						echo "${info}" | format 'LDFLAGS'
-						echo
-						echo "ROOT                = $( # <- Syntax
+						output
+						output "ROOT                = $( # <- Syntax
 								echo "${info}" |
 									grep -- '^ROOT=' |
 									cut -d'=' -f 2- |
 									uniq |
 									head -n 1
 							)"
-						echo "SYSROOT             = $( # <- Syntax
+						output "SYSROOT             = $( # <- Syntax
 								echo "${info}" |
 									grep -- '^SYSROOT=' |
 									cut -d'=' -f 2- |
 									uniq |
 									head -n 1
 							)"
-						echo "PORTAGE_CONFIGROOT  = $( # <- Syntax
-								echo "${info}" | grep -- '^PORTAGE_CONFIGROOT=' |
+						output "PORTAGE_CONFIGROOT  = $( # <- Syntax
+								echo "${info}" |
+									grep -- '^PORTAGE_CONFIGROOT=' |
 									cut -d'=' -f 2- |
 									uniq |
 									head -n 1
 							)"
-						echo
+						output
 						echo "${info}" | format 'USE'
 						echo "${info}" | format 'PYTHON_SINGLE_TARGET'
 						echo "${info}" | format 'PYTHON_TARGETS'
@@ -4154,8 +4163,7 @@ case "${1:-}" in
 						do_emerge --rebuild-defaults ${pkgs} ||
 							rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
-							echo "ERROR: Stage 1b cleanup for root" \
-								"'${ROOT}': ${rc}"
+							error "Stage 1b cleanup for root '${ROOT}': ${rc}"
 							break
 						fi
 
@@ -4168,13 +4176,14 @@ case "${1:-}" in
 									PORTAGE_CONFIGROOT="${ROOT}" \
 								emerge --info --verbose=y 2>&1
 							)"
-						echo
-						echo "Resolved build variables for python cleanup stage 2 in ROOT '${ROOT}':"
-						echo '---------------------------------------------------'
-						echo
+						output
+						output
+						output "Resolved build variables for python cleanup stage 2 in ROOT '${ROOT}':"
+						output '---------------------------------------------------'
+						output
 						echo "${info}" | format 'CFLAGS'
 						echo "${info}" | format 'LDFLAGS'
-						echo
+						output
 						echo "${info}" | format 'USE'
 						echo "${info}" | format 'PYTHON_TARGETS'
 
@@ -4232,7 +4241,7 @@ case "${1:-}" in
 						do_emerge --rebuild-defaults --update ${pkgs} ||
 							rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
-							echo "ERROR: Stage 2 cleanup for root '${ROOT}': ${rc}"
+							error "Stage 2 cleanup for root '${ROOT}': ${rc}"
 							break
 						fi
 
@@ -4244,10 +4253,11 @@ case "${1:-}" in
 										wc -l
 								) )) -gt 1 ]
 						then
-							do_emerge --depclean-defaults "<${targetpkg}" ||
+							do_emerge --depclean-defaults --verbose \
+									"<${targetpkg}" ||
 								rc=${?}
 							if [ $(( rc )) -ne 0 ]; then
-								echo "ERROR: Stage 2 package depclean: ${rc}"
+								error "Stage 2 package depclean: ${rc}"
 								break
 							fi
 						fi
@@ -4259,13 +4269,13 @@ case "${1:-}" in
 						# command twice...
 						#
 						if [ "${ROOT:-"/"}" = "${service_root:-}" ]; then
-							do_emerge --depclean-defaults net-misc/openssh \
-								app-crypt/libmd
+							do_emerge --depclean-defaults --verbose \
+								net-misc/openssh app-crypt/libmd
 						fi
 
-						do_emerge --depclean-defaults || rc=${?}
+						do_emerge --depclean-defaults --verbose || rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
-							echo "ERROR: Stage 2 world depclean: ${rc}"
+							error "Stage 2 world depclean: ${rc}"
 							break
 						fi
 					done  # for ROOT in $(...)
@@ -4273,20 +4283,21 @@ case "${1:-}" in
 					exit ${rc}  # from subshell
 				) || rc=${?}
 				if [ $(( rc )) -ne 0 ]; then
-					echo "ERROR: Old python targets: ${rc}"
+					error "Old python targets: ${rc}"
 				fi
 			fi # [ -n "${remove:-}" ]
 		fi # multiple python targets
 
 		# TODO: The following package-lists are manually maintained :(
 		#
-		echo
-		echo 'Final package cleanup for root '${ROOT}':'
-		echo '---------------------'
+		output
+		output
+		output 'Final package cleanup for root '${ROOT}':'
+		output '---------------------'
 		echo
 		do_emerge --unmerge-defaults \
-			dev-build/meson dev-build/meson-format-array || :
-		do_emerge --depclean-defaults dev-libs/icu app-portage/gemato || :
+			dev-build/meson dev-build/meson-format-array || output
+		do_emerge --depclean-defaults dev-libs/icu app-portage/gemato || output
 		# shellcheck disable=SC2046
 		set -- $( find "${ROOT}"/var/db/pkg/dev-python/ \
 				-mindepth 1 \
@@ -4305,16 +4316,24 @@ case "${1:-}" in
 		validate_python_installation "final cleanup"
 
 		if [ $(( rc )) -ne 0 ]; then
-			echo "ERROR: Final package cleanup: ${rc}"
+			error "Final package cleanup: ${rc}"
 		else
 			set +e
+			output
+			output "Checking news for ROOT='/' ..."
 			ROOT='/' SYSROOT='/' LC_ALL='C' emerge --check-news
 			ROOT='/' SYSROOT='/' LC_ALL='C' eselect --colour=yes news read |
 				grep -Fv -- 'No news is good news.'
-			printf '\n---\n\n'
-			LC_ALL='C' emerge --check-news
-			LC_ALL='C' eselect --colour=yes news read |
-				grep -Fv -- 'No news is good news.'
+			if [ "${ROOT:-"/"}" != '/' ]; then
+				printf '\n---\n'
+				output
+				output "Checking news for ROOT='${ROOT}' ..."
+				LC_ALL='C' emerge --check-news
+				LC_ALL='C' eselect --colour=yes news read |
+					grep -Fv -- 'No news is good news.'
+			fi
+			output
+			set -e
 		fi
 
 		# Try to remove any temporary copy of libgcc_s.so.1 which we might have
@@ -4333,9 +4352,6 @@ case "${1:-}" in
 				-delete
 		done
 		unset libgcc_dir
-
-		# ... but then make sure that we've not broken anything!
-		validate_libgcc
 
 		exit ${rc}
 	;;
