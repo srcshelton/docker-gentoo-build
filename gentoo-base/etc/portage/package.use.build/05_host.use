@@ -88,6 +88,7 @@ sys-apps/hwids				-udev
 sys-fs/dosfstools			-udev
 
 # Requires dev-perl/Locale-gettext, but then can't find it in many cases :(
+# Overrides USE='-nls' in 00_package.use
 #sys-apps/help2man			 nls
 
 sys-apps/portage			-trust-helper  # -rsync-verify native-extensions
@@ -103,7 +104,7 @@ sys-apps/portage			-trust-helper  # -rsync-verify native-extensions
 #       installation...
 #
 sys-devel/gcc				 lib-only openmp default-stack-clash-protection default-znow lto pgo pie ssp zstd
-#                                       (cxx) -lib-only openmp (split-usr) ada cet (custom-cflags) d debug default-stack-clash-protection default-znow doc (fixed-point) fortran go graphite hardened (ieee-long-double) jit (libssp) lto modula2 (multilib) nls objc objc++ objc-gc (pch) pgo pie sanitize ssp systemtap -test valgrind vanilla vtv zstd
+#					(cxx) -lib-only openmp (split-usr) ada cet (custom-cflags) d debug default-stack-clash-protection default-znow doc (fixed-point) fortran go graphite hardened (ieee-long-double) jit (libssp) lto modula2 (multilib) nls objc objc++ objc-gc (pch) pgo pie sanitize ssp systemtap -test valgrind vanilla vtv zstd
 
 # Mandatory for sys-auth/pambase[caps]
 #
