@@ -1032,6 +1032,8 @@ case "${package_name}" in
 		pre_pkgs+=' acct-group/dkimsocket acct-group/mail acct-group/milter'
 		pre_pkgs+=' acct-group/unbound acct-user/unbound'
 		extra_pkgs='sys-libs/readline'
+		# Required for, e.g. opendkim-genkey
+		extra_pkgs+=' dev-lang/perl'
 
 		ports='8891/tcp'
 		#user='opendkim'
