@@ -42,9 +42,10 @@
 #  Mips MSP430 NVPTX PowerPC RISCV Sparc SPIRV SystemZ VE WebAssembly X86 XCore
 #  Xtensa
 #
-#*/*					 LLVM_TARGETS: BPF AArch64
-#*/*					 LLVM_TARGETS: BPF ARM
-#*/*					 LLVM_TARGETS: BPF X86
+#*/*					 LLVM_TARGETS: AArch64
+#*/*					 LLVM_TARGETS: ARM
+#*/*					 LLVM_TARGETS: X86
+*/*					 LLVM_TARGETS: BPF
 
 # See profiles/desc/grub_platforms.desc
 #
