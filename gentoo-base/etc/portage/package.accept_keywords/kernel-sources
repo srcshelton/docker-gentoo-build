@@ -3,34 +3,39 @@
 
 # Current stable package is gentoo-sources-5.10.233
 # Current stable package is gentoo-sources-5.10.237
-~sys-kernel/gentoo-sources-5.10.240			~amd64             ~x86
+# Current stable package is gentoo-sources-5.10.240
+#~sys-kernel/gentoo-sources-5.10.240			~amd64             ~x86
 
 # Current stable package is gentoo-sources-5.15.177
 # Current stable package is gentoo-sources-5.15.184
-~sys-kernel/gentoo-sources-5.15.189			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-5.15.189
+#~sys-kernel/gentoo-sources-5.15.189			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.1.132
 # Current stable package is gentoo-sources-6.1.140
-~sys-kernel/gentoo-sources-6.1.147			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-6.1.147
+~sys-kernel/gentoo-sources-6.1.148			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.6.85
 # Current stable package is gentoo-sources-6.6.92
-~sys-kernel/gentoo-sources-6.6.101			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-6.6.101
+~sys-kernel/gentoo-sources-6.6.102			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.12.21
 # Current stable package is gentoo-sources-6.12.31
-~sys-kernel/gentoo-sources-6.12.37			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-6.12.41
+~sys-kernel/gentoo-sources-6.12.43			~amd64 ~arm ~arm64 ~x86
 
 # Clear Linux is up to date with linux-6.15.5
 # https://www.phoronix.com/news/Intel-Ends-Clear-Linux
 ~sys-kernel/gentoo-sources-6.15.5			~amd64 ~arm ~arm64 ~x86
 
-# Latest is gentoo-sources-6.15.9
-~sys-kernel/gentoo-sources-6.15.9			~amd64 ~arm ~arm64 ~x86
+# Latest is gentoo-sources-6.15.11
+~sys-kernel/gentoo-sources-6.15.11			~amd64 ~arm ~arm64 ~x86
 
-# Latest is gentoo-sources-6.16.0
-~sys-kernel/gentoo-sources-6.16.0			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/vanilla-sources-6.16.0			~amd64 ~arm ~arm64 ~x86
+# Latest is gentoo-sources-6.16.3
+~sys-kernel/gentoo-sources-6.16.3			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-6.16.3			~amd64 ~arm ~arm64 ~x86
 
 ~dev-util/perf-6.16					~amd64 ~arm ~arm64 ~x86
 
