@@ -24,6 +24,7 @@ llvm_targets_NVPTX
 llvm_targets_PowerPC
 llvm_targets_RISCV
 llvm_targets_Sparc
+llvm_targets_SPIRV
 llvm_targets_SystemZ
 llvm_targets_VE
 llvm_targets_WebAssembly
