@@ -20,6 +20,7 @@ output() {
 	# arguments are intended to provide end-user information...
 	if echo "${1:-}" | grep -Fq -- '%'; then
 		# Assume we've got a printf()-formatted string
+		# shellcheck disable=SC2059
 		printf "${@}"
 	else
 		printf "%b\n" "$*"
@@ -62,11 +63,27 @@ info() {
 }  # info
 
 print() {
-	if [ -n "${DEBUG:-}" ]; then
-		if [ -z "${*:-}" ]; then
-			output >&2
+	# -t : Only output provided message if trace is also enabled...
+	if [ -n "${debug:-}" ]; then
+		if [ "${1:-}" = '-t' ]; then
+			if [ -n "${2:-}" ]; then
+				shift
+			else
+				set --
+			fi
+			if [ -n "${trace:-}" ]; then
+				if [ -z "${*:-}" ]; then
+					output >&2
+				else
+					output >&2 'TRACE: %s\n' "${*}"
+				fi
+			fi
 		else
-			output >&2 'DEBUG: %s\n' "${*}"
+			if [ -z "${*:-}" ]; then
+				output >&2
+			else
+				output >&2 'DEBUG: %s\n' "${*}"
+			fi
 		fi
 	fi
 }  # print
@@ -1135,7 +1152,7 @@ do_emerge() {
 		warn "Running emerge with ROOT='${ROOT}' without 'eclass/linux-info'" \
 			"mounted into '/srv/host/var/lib/portage' - kernel configuration" \
 			"dependencies will not be recorded"
-		if [ -n "${DEBUG:-}" ]; then
+		if [ -n "${debug:-}" ]; then
 			warn
 			warn "Mounts:"
 			line=''
@@ -1153,51 +1170,57 @@ do_emerge() {
 	# seems unable to do this - setting php_targets_${target} but not
 	# PHP_TARGETS seems to result in the USE flag being ignored)...
 	#
-	if [ -n "${USE:-}" ]; then
+	# N.B. The indirection and multiple calls to 'emerge' and 'portageq' below
+	#      make this a very expensive check :(
+	#
+	if [ -n "${debug:-}" ] && [ -n "${USE:-}" ]; then
 		devar=''            # CPU_FLAGS_X86		PHP_TARGETS
 		devar_use_expand='' # cpu_flags_x86		php_targets
 		devar_use_flag=''   # cpu_flags_x86_aes	php_targets_php8-3
 		devar_value=''      # aes				php8-3
 		devar_content=''    # aes ...			php8-2 php8-3
 		for devar in $( portageq envvar USE_EXPAND ); do
-			print "devar is '${devar}'"
+			print -t "devar is '${devar}'"
 			devar_use_expand="$( echo "${devar}" | tr '[:upper:]' '[:lower:]' )"
-			print "devar_use_expand is '${devar_use_expand}'"
-			if ( echo " ${USE} " | grep -q -- " ${devar_use_expand}_" ); then
+			print -t "devar_use_expand is '${devar_use_expand}'"
+			if echo " ${USE} " | grep -Fq -- " ${devar_use_expand}_"; then
 				for devar_use_flag in $( # <- Syntax
 							echo " ${USE} " |
 								grep -o -- " ${devar_use_expand}_[^ ]\+ "
 						)
 				do
-					print "devar_use_flag is '${devar_use_flag}'"
+					print -t "devar_use_flag is '${devar_use_flag}'"
 					devar_value="${devar_use_flag#"${devar_use_expand}_"}"
-					print "devar_value is '${devar_value}'"
+					print -t "devar_value is '${devar_value}'"
 					# Since we're looking at flags individually, we should only
-					# check that the USE_EXPAND variable _contains_ (rather
+					# check that the USE_EXPAND variable /contains/ (rather
 					# than is equal to) the USE flag value...
 					#
 					devar_content="$( portageq envvar "${devar}" )"
-					print "devar_content is '${devar_content}'"
-					if ! ( echo "${devar_content}" | grep -qw -- "${devar_value}" )
+					print -t "devar_content is '${devar_content}'"
+					if ! echo "${devar_content}" |
+							grep -Fqw -- "${devar_value}"
 					then
 						warn "USE_EXPAND variable '${devar}'" \
 							"(${devar_content}) does not contain" \
 							"'${devar_value}' from USE flag" \
 							"'${devar_use_flag}' ('${USE}') ..."
-						set -x
+						[ -z "${trace:-}" ] && set -x
 						eval "${devar}=\"${devar_content:+"${devar_content} "}${devar_value}\""
 						export "${devar?}"
-						env | grep -F -- "${devar}"
-						set +x
-						eval "warn \"Updated '${devar}' has value '\$${devar}'\""
-						warn "Updated '${devar}' has portage value '$( #
-								portageq envvar "${devar}"
-							)'"
-						warn "Updated '${devar}' has emerge value '$( #
-								emerge --info |
-									grep "^${devar}=" |
-									cut -d'"' -f 2
-							)'"
+						[ -n "${trace:-}" ] && env | grep -F -- "${devar}"
+						[ -z "${trace:-}" ] && set +x
+						if [ $(( debug )) -gt 1 ]; then
+							( eval "warn \"Updated '${devar}' has value\\t'\$${devar}'\"" )
+							warn "Updated '${devar}' has portage value\\t'$( #
+									portageq envvar "${devar}"
+								)'"
+							warn "Updated '${devar}' has emerge value\\t'$( #
+									emerge --info |
+										grep "^${devar}=" |
+										cut -d'"' -f 2
+								)'"
+						fi
 					fi
 					unset devar_content devar_value
 				done
@@ -1566,7 +1589,7 @@ fi
 #
 service_root='/service'
 
-if [ -n "${DEBUG:-}" ]; then
+if [ -n "${debug:-}" ]; then
 	print "Directories with logged file-collisions:"
 	# shellcheck disable=SC2013
 	(
