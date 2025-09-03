@@ -538,9 +538,10 @@
 #~net-misc/cni-plugins-1.5.1				~amd64 ~arm ~arm64 ~x86
 #~net-misc/cni-plugins-1.6.0				~amd64 ~arm ~arm64 ~x86
 #~net-misc/cni-plugins-1.6.1				~amd64 ~arm ~arm64 ~x86
-~net-misc/cni-plugins-1.6.2				~amd64 ~arm ~arm64 ~x86
+#~net-misc/cni-plugins-1.6.2				~amd64 ~arm ~arm64 ~x86
 #~net-misc/cni-plugins-1.7.0				~amd64 ~arm ~arm64 ~x86
 ~net-misc/cni-plugins-1.7.1				~amd64 ~arm ~arm64 ~x86
+~net-misc/cni-plugins-1.8.0				~amd64 ~arm ~arm64 ~x86
 
 # optional for >=app-containers/podman-4.4.0_rc3[rootless]
 # required for >=app-containers/podman-5.0.0_rc7[rootless]
