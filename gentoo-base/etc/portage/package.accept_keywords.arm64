@@ -183,7 +183,6 @@
 ~app-vim/vim-spell-en-20060123				~arm64
 ~dev-debug/bpftrace-0.21.3				~arm64
 #=dev-perl/Net-Twitter-Lite-0.12008			 **
-~dev-php/pecl-imagick-3.7.0				~arm64
 ~dev-python/pypy3-7.3.17				~arm64
 ~dev-util/ltrace-0.7.91_p195				~arm64
 ~mail-filter/dcc-2.3.168				~arm64

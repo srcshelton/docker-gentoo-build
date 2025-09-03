@@ -5,4 +5,8 @@
 ~dev-php/pecl-memcache-8.0				~amd64 ~arm ~arm64 ~x86
 ~dev-php/pecl-memcache-8.2				~amd64 ~arm ~arm64 ~x86
 
+~dev-php/pecl-imagick-3.8.0				~amd64 ~arm ~arm64 ~x86
+
+~net-nds/phpldapadmin-1.2.6.7				~amd64 ~arm ~arm64 ~x86
+
 # vi: set syntax=gentoo-package-keywords:

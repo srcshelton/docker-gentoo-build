@@ -17,7 +17,6 @@
 ~net-analyzer/masscan-1.3.2				~amd64 ~arm ~arm64 ~x86
 ~net-im/bitlbee-3.6					       ~arm ~arm64
 ~net-misc/kea-3.0.0					~amd64 ~arm ~arm64 ~x86
-~net-nds/phpldapadmin-1.2.6.7				~amd64 ~arm ~arm64 ~x86
 ~sci-libs/mkl-2023.1.0.46342				~amd64             ~x86
 ~sys-apps/bpftune-0.1.3_p20250121			~amd64 ~arm ~arm64 ~x86
 ~sys-apps/corefreq-2.0.8				~amd64      ~arm64
