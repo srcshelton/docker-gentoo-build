@@ -354,6 +354,8 @@ docker_run() {
 	)
 	unset portage_log_dir
 	if [[ -d /usr/src ]]; then
+		info "Host '/usr/src' directory will be mounted on" \
+			"'/srv/host/usr/src' ..."
 		mountpoints['/usr/src']='/srv/host/usr/src'
 	fi
 	if [[ -d /var/lib/portage/eclass/linux-info ]]; then
