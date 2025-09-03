@@ -532,7 +532,6 @@ if echo " ${*:-} " | grep -Eq -- ' --(clang|llvm) '; then
 				cut -d'.' -f 1 <<<"${llvm_sub_slot_override}"
 			) ))
 			print "Override llvm_slot is '${llvm_slot_override}'"
-			rust_llvm_use='-system-llvm'
 		fi
 	fi
 else
