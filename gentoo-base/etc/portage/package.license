@@ -124,6 +124,7 @@ llvm-core/clang-runtime			 metapackage
 llvm-core/lld				 Apache-2.0-with-LLVM-exceptions UoI-NCSA
 llvm-core/llvm				 Apache-2.0-with-LLVM-exceptions UoI-NCSA rc
 llvm-core/llvm-common			 Apache-2.0-with-LLVM-exceptions UoI-NCSA
+llvm-core/polly				 Apache-2.0-with-LLVM-exceptions UoI-NCSA
 llvm-runtimes/compiler-rt		 Apache-2.0-with-LLVM-exceptions
 llvm-runtimes/compiler-rt-sanitizers	 Apache-2.0-with-LLVM-exceptions
 llvm-runtimes/libcxxabi			 Apache-2.0-with-LLVM-exceptions
