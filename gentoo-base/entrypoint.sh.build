@@ -1120,6 +1120,22 @@ do_container_setup() {
 	command -v etc-update >/dev/null 2>&1 &&
 		etc-update --automode -5 2>/dev/null |
 			grep -Fv -- 'Nothing left to do; exiting' || :
+
+	# Check that we don't have any unresolvable libraries...
+	ldconfig || warn "'ldconfig' failed during do_container_setup(): ${?}"
+	{
+			find / -xdev -type f -executable 2>/dev/null ;
+			find / -xdev -name '*.so*' -type f 2>/dev/null ;
+	} |
+		sort |
+		uniq |
+		xargs -rn 1 file |
+		grep -F -- ': ELF ' |
+		cut -d':' -f 1 |
+		xargs -r ldd |
+		grep -e '^/' -e 'not found' |
+		grep -B 1 -- 'not found' &&
+			die "Unresolved shared objects detected"
 }  # do_container_setup
 
 do_emerge() {
