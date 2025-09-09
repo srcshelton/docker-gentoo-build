@@ -1132,10 +1132,12 @@ do_container_setup() {
 		xargs -rn 1 file |
 		grep -F -- ': ELF ' |
 		cut -d':' -f 1 |
-		xargs -r ldd |
+		xargs -r ldd 2>&1 |
 		grep -e '^/' -e 'not found' |
 		grep -B 1 -- 'not found' &&
 			die "Unresolved shared objects detected"
+
+	return 0
 }  # do_container_setup
 
 do_emerge() {
@@ -1375,11 +1377,11 @@ fix_libgcc_s() {
 	# sys-apps/sandbox is a dependency of sys-apps/portage, and also links
 	# against libgcc_s.so...
 	if ! [ -s "/usr/$(get_libdir)/libsandbox.so" ]; then
-		warn "Cannot locate 'libsandbox.so' to validate libgcc_s.so.1 presence"
+		warn "Cannot read '/usr/$(get_libdir)/libsandbox.so' to validate libgcc_s.so.1"
 	else
 		print "Copying libgcc_s.so.1 to /$(get_libdir)/ ..."
 		cp -a "/$( # <- Syntax
-				ldd "/usr/$(get_libdir)/libsandbox.so" |
+				ldd "/usr/$(get_libdir)/libsandbox.so" 2>&1 |
 					grep 'libgcc_s.so' |
 					cut -d'/' -f 2- |
 					awk '{print $1}'

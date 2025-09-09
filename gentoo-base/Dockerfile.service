@@ -255,7 +255,7 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
                     tr -d '\0' \
             )" = '#!' ] ; \
             then \
-                ldd "${service_cmd}" | \
+                ldd "${service_cmd}" 2>&1 | \
                     tee /dev/stdout | \
                     grep -qv 'not found' ; \
             fi ; \
