@@ -53,7 +53,13 @@ select_file() {
 			printf '%s\n' '4.8.0' "${docker_version}" | sort -V | head -n 1
 		)" == '4.8.0' ]]
 	then
-		[[ ! -e "${base_dir:-"${PWD}"}/${file}" ]] || file+='-1.4'
+		if [[ -s "${PWD%"${base_dir:-}"}/${base_dir:+"${base_dir}/"}${file}-1.4" ]]
+		then
+			file+='-1.4'
+		elif ! [[ -s "${PWD%"${base_dir:-}"}/${base_dir:+"${base_dir}/"}${file}" ]]
+		then
+			return 66 # EX_NOINPUT "cannot open input"
+		fi
 	fi
 
 	printf '%s' "${file}"
@@ -1715,7 +1721,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	# with chained 'env', 'stage3', 'init', and 'base' images; a unified
 	# 'build' pre-image with one layer on top for the post-'container
 	# build' changes which are committed below (as 'build') - and then
-	# services are re-squashed when 'gentoo-build'-svc.docker invokes
+	# services are re-squashed when 'gentoo-build-svc.docker' invokes
 	# 'Dockerfile.*service' to produce the service-container image.
 	#
 	declare -a build_args=()

@@ -59,7 +59,7 @@ ARG new_root_name
 #
 # linter ignore=ER0001,SC2028,SC2046
 RUN <<-'EOT' /bin/sh
-	set -eu
+	set -eux
 
 	set -o pipefail 2>/dev/null || :
 
@@ -133,7 +133,7 @@ EOT
 #         /usr/bin symlink is rolled-back :(
 #
 RUN <<-'EOT' /bin/sh
-	set -eu
+	set -eux
 
 	set -o pipefail 2>/dev/null || true
 

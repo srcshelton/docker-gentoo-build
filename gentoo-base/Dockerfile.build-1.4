@@ -96,7 +96,7 @@ LABEL environment-from="${env_name}:${env_id}"
 #
 # linter ignore=SC2015,SC1091,ER0001
 RUN <<-'EOT' /bin/sh
-	set -e
+	set -eux
 
 	set -o pipefail 2>/dev/null || true
 
@@ -104,8 +104,6 @@ RUN <<-'EOT' /bin/sh
 		echo >&2 "FATAL: Unable to source '${environment_file}': ${?}"
 		exit 1
 	}
-
-	set -u
 
 	etc-update --quiet --preen 2>/dev/null
 
@@ -145,7 +143,7 @@ ENV PORTAGE_CONFIGROOT="${SYSROOT}"
 #
 # linter ignore=SC2094,SC2015,SC1091,ER0001
 RUN <<-'EOT' /bin/sh
-	set -e
+	set -eux
 
 	set -o pipefail 2>/dev/null || true
 
@@ -196,7 +194,7 @@ RUN test -s /usr/libexec/entrypoint.sh
 
 # linter ignore=SC2015,SC1091
 RUN <<-'EOT' /bin/sh
-	set -e
+	set -eux
 
 	set -o pipefail 2>/dev/null || true
 
@@ -204,8 +202,6 @@ RUN <<-'EOT' /bin/sh
 		echo >&2 "FATAL: Unable to source '${environment_file}': ${?}"
 		exit 1
 	}
-
-	set -u
 
 	sed -i \
 		-e "s/__JOBS__/${JOBS}/" \

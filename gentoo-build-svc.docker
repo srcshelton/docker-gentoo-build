@@ -7,7 +7,7 @@ declare debug="${DEBUG:-}"
 set -eu
 set -o pipefail
 
-cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+cd "$( dirname "$( realpath -e "${0}" )" )" || exit 1
 
 #(( trace )) && set -o xtrace
 
@@ -57,6 +57,38 @@ if [[ "$( type -t 'die' )" != 'function' ]]; then
 		"'common/run.sh': ${?}"
 	exit 127
 fi
+
+declare docker_version=''
+docker_version="$( docker version --format '{{.Client.Version}}' )" ||
+	die "Cannot determine ${_command} version: ${?}"
+readonly docker_version
+
+# From buildah-1.33.0/podman-4.8.0, Docker syntax 1.3-labs/1.4 HEREDOC support
+# is available...
+#
+select_file() {
+	local file="${1:-}"
+
+	[[ -n "${file:-}" ]] || return 1
+	[[ -n "${docker_version:-}" ]] || return 1
+
+	if [[ "${_command:-}" == 'podman' ]] && [[ "$( # <- Syntax
+			printf '%s\n' '4.8.0' "${docker_version}" | sort -V | head -n 1
+		)" == '4.8.0' ]]
+	then
+		if [[ -s "${PWD%"${base_dir:-}"}/${base_dir:+"${base_dir}/"}${file}-1.4" ]]
+		then
+			file+='-1.4'
+		elif ! [[ -s "${PWD%"${base_dir:-}"}/${base_dir:+"${base_dir}/"}${file}" ]]
+		then
+			return 66 # EX_NOINPUT "cannot open input"
+		fi
+	fi
+
+	printf '%s' "${file}"
+
+	return 0
+}  # select_file
 
 declare -a services=() args=()
 services=(
@@ -2031,10 +2063,14 @@ cd "${base_dir}" || die "chdir() to '${base_dir}' failed: ${?}"
 
 case "${package_name}" in
 	*zxtm*)
-		file='Dockerfile.service.zxtm'
+		file="$( select_file 'Dockerfile.service.zxtm' )" ||
+			die "Failed to select Container-file for" \
+				"'Dockerfile.service.zxtm': ${?}"
 		;;
 	*)
-		file='Dockerfile.service'
+		file="$( select_file 'Dockerfile.service' )" ||
+			die "Failed to select Container-file for" \
+				"'Dockerfile.service': ${?}"
 		;;
 esac
 dockerfile_tmp="$( mktemp --tmpdir 'Dockerfile.service.XXXXXXXX' )" ||

@@ -1,0 +1,445 @@
+# syntax=docker/dockerfile:1.4
+
+# service:
+#   Extract a ROOT-installed service.
+
+# hadolint global ignore=DL4006,DL3025,SC3040,SC2174,SC2015,SC2012
+#
+ARG image_name
+ARG service_name
+ARG service_name_short
+ARG service_version
+
+ARG service_ports
+ARG service_user="root"
+ARG service_group="root"
+ARG service_cmd="/bin/sh"
+ARG service_cwd="/"
+ARG service_fs_name
+ARG timezone="GB"
+
+ARG keep_base="yes"
+
+ARG ROOT="/service"
+ARG environment_file="/usr/libexec/environment.sh"
+ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
+
+ARG smtp_smarthost="localhost"
+ARG smtp_domain="localhost"
+
+ARG CHOST="x86_64-pc-linux-gnu"
+
+
+# -----------------------------------------------------------------------------
+
+# Import system image
+#
+FROM "localhost/${image_name}:${service_version}" AS base
+
+ARG ROOT
+ARG environment_file
+ARG environment_filter
+
+
+RUN test -s "${environment_file}"
+
+# linter ignore=SC2094,SC2015,ER0001
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if ! command -v grep >/dev/null 2>&1; then
+		echo >&2 "FATAL: Unable to locate 'grep' binary"
+		exit 1
+	fi
+
+	mkdir -p "${ROOT}"/usr/libexec
+	printf "#FILTER: '%s'\n\n" "${environment_filter}" \
+		> "${ROOT}${environment_file}"
+	export -p |
+		grep -- '=' |
+		grep -Ev -- "${environment_filter}" |
+		sed -r 's/\s+/ /g ; s/^(export [a-z][a-z0-9_]+=")\s+/\1/i' | # " #
+		grep -v -e '^export [a-z_]' -e '=""$' \
+			>>"${ROOT}${environment_file}"
+
+	if grep -q -- ' ROOT=' "${ROOT}${environment_file}"; then
+			printf >&2 "FATAL: Invalid 'ROOT' directive in '%s':\n\n%s\n\n" \
+				"${ROOT%"/"}${environment_file}" \
+				"$( cat "${ROOT}${environment_file}" )"
+			exit 1
+	fi
+	#printf >&2 " * 'service' stage propagated environment:\n\n%s\n\n" \
+	#	"$( cat "${ROOT}${environment_file}" )"
+
+	if [ -s /builddeps.txt ] && ! [ -s "${ROOT}/builddeps.txt" ]; then
+		mv /builddeps.txt "${ROOT}/builddeps.txt"
+	fi
+EOT
+
+
+# -----------------------------------------------------------------------------
+
+# Create a new container
+#
+FROM scratch
+
+ARG image_name
+ARG service_name
+ARG service_name_short
+ARG service_version
+
+ARG service_ports
+ARG service_user
+ARG service_group
+ARG service_cmd
+ARG service_cwd
+ARG service_fs_name
+ARG timezone="GB"
+
+ARG keep_base
+
+ARG ROOT
+ARG environment_file
+
+ARG smtp_smarthost
+ARG smtp_domain
+
+ARG CHOST
+
+ENV service_cmd="${service_cmd}"
+ENV fs_name="${service_fs_name}"
+ENV CHOST="${CHOST}"
+
+
+# Copy the installed tree into the current image
+#
+COPY --from=base "${ROOT}" /
+RUN test -s "${environment_file}"
+
+COPY --from=base /etc/group /etc/base/
+#COPY --from=base /etc/gshadow /etc/base/  # Doesn't exist in source image
+COPY --from=base /etc/passwd /etc/base/
+COPY --from=base /etc/shadow /etc/base/
+#COPY --from=base /etc/ethertypes /etc/base/  # net-firewall/iptables only
+COPY --from=base /etc/networks /etc/base/
+COPY --from=base /etc/protocols /etc/base/
+COPY --from=base /etc/services /etc/base/
+COPY --from=base /etc/shells /etc/base/
+#COPY --from=base /usr/share/zoneinfo /usr/share/zoneinfo/
+COPY --from=base "/usr/share/zoneinfo/${timezone}" /etc/localtime
+COPY etc/msmtprc /etc/
+
+LABEL maintainer="stuart@shelton.me"
+LABEL description="Gentoo ${service_name}-${service_version} service"
+
+# Try to get nice colours ...
+#
+ARG SET_TERM="${TERM:-xterm}"
+ENV TERM="${SET_TERM}"
+
+ENV ROOT="/"
+
+#RUN cat "/var/db/pkg/${service_name}-${service_version}/CONTENTS"
+
+RUN test -x /bin/busybox
+
+# linter ignore=SC2050,SC2012,ER0001
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if ! command -v grep >/dev/null 2>&1; then
+		echo >&2 "FATAL: Unable to locate 'grep' binary"
+		exit 1
+	fi
+
+	i="${image_name}:${service_version}"
+	for f in /etc/base/* ; do
+		f="$( basename "${f}" )"
+		if ! [ -s "/etc/${f}" ]; then
+			echo "INFO:  Adding new file '${f}' from base image '${i}' ..."
+			mv "/etc/base/${f}" /etc/
+		elif ! diff -q "/etc/base/${f}" "/etc/${f}" >/dev/null; then
+			echo "WARN:  Files '/etc/base/${f}' and '/etc/${f}' differ ..."
+			diff -u "/etc/base/${f}" "/etc/${f}" |
+				sed 's/^/	/' || :
+			if [ "${keep_base}" = 'yes' ]; then
+				echo "WARN:  ... keeping file '${f}' from base image '${i}'"
+				mv "/etc/base/${f}" /etc/
+			else
+				echo "WARN:  ... keeping file '${f}' from build data"
+			fi
+		fi
+	done
+	rm -r /etc/base
+
+	if [ -e /etc/msmtprc ]; then
+		sed \
+			-e "s/__SMTP_SMARTHOST__/${smtp_smarthost}/" \
+			-e "s/__DOMAIN__/${smtp_domain}/" \
+			-i /etc/msmtprc
+	fi
+	if [ -d "${ROOT}"/usr/lib/gcc ]; then
+		if ! [ -d "${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}" ]; then
+			echo "WARN:  Directory '${ROOT}/usr/lib/gcc' exists but" \
+				"'${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}'" \
+				"doesn't"
+			ls -1AF "${ROOT}/usr/lib/gcc" | sed 's/^/DEBUG: /'
+		elif ! grep -Fqm 1 '/gcc/' /etc/ld.so.conf; then
+			find "/usr/lib/gcc/${CHOST:-"__chost_not_set__"}" \
+					-mindepth 1 \
+					-maxdepth 1 \
+					-type d \
+				-print0 | xargs -0rn 1 >> /etc/ld.so.conf
+			ldconfig
+		fi
+	fi
+EOT
+
+# linter ignore=SC2174,SC2050
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	for d in 'empty' 'log' 'run' 'lock'; do
+		if test -e "/var/${d}" &&
+			{ test -L "/var/${d}" || ! test -d "/var/${d}"; }
+		then
+			rm "/var/${d}"
+		fi
+		mkdir -p -m 0755 "/var/${d}"
+	done
+
+	if [ -n "${fs_name:-}" ]; then
+		for d in 'log' 'run'; do
+			mkdir -p -m 0755 "/var/${d}/${fs_name}"
+		done
+	fi
+
+	for d in \
+			etc/conf.d etc/init.d etc/portage \
+			usr/share/awk usr/share/udhcpc \
+			var/cache/edb var/db/Makefile var/lib/gentoo
+	do
+		if [ -e "${d}" ]; then
+			rm -rf "/${d:?}"
+		fi
+	done
+
+	if ! [ -L /usr/bin/gcc ]; then
+		if [ -d /usr/share/gcc-data ]; then
+			rm -rf /usr/share/gcc-data/*/*/man /usr/share/gcc-data/*/*/info
+		fi
+		for d in \
+				usr/lib64/pkgconfig usr/include usr/share/gcc-data \
+					usr/libexec/gcc etc/env.d/gcc
+		do
+			if [ -d "/${d:?}" ]; then
+				rm -f "/${d}/*"
+				rmdir --ignore-fail-on-non-empty -p "/${d}"
+			fi
+		done
+		for d in $(
+				find /usr/ \
+					-mindepth 2 -maxdepth 2 -name gcc-bin -print 2>/dev/null
+				find /usr/lib/gcc \
+					-mindepth 3 -maxdepth 3 -name plugin -print 2>/dev/null
+				find /etc/env.d/ \
+					-mindepth 1 -maxdepth 1 -name '04gcc-*' -print 2>/dev/null
+			)
+		do
+			if [ -e "${d:?}" ]; then
+				rm -rf "${d}"
+				d="$( dirname "${d}" )"
+				if [ -d "${d}" ]; then
+					rmdir --ignore-fail-on-non-empty -p "${d}"
+				fi
+			fi
+		done
+	fi
+EOT
+
+# Setup entrypoint script to perform a one-time copy of binary system packages
+# to the (hopefully) host-mounted packages directory ...
+#
+COPY entrypoint.sh.service /usr/libexec/entrypoint.sh
+COPY entrypoint.d/ /usr/libexec/entrypoint.d/
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if [ -s /usr/libexec/entrypoint.sh ]; then
+		chmod 0755 /usr/libexec/entrypoint.sh
+		sed \
+			-e "s|__ENVFILE__|${environment_file}|" \
+			-i /usr/libexec/entrypoint.sh
+	fi
+
+	test -x /usr/libexec/entrypoint.sh
+
+	chmod 0755 /usr/libexec/entrypoint.d/*.sh 2>/dev/null || :
+EOT
+
+# linter ignore=ER0001,SC2015
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	ldconfig
+
+	set +x
+	find / -xdev -type f -executable -not -name '*.sh' |
+		while read -r x; do
+			ldd "${x}" 2>&1 |
+				sed "s|^|${x}: |" |
+				grep 'not found' && exit 1 || :
+		done
+EOT
+
+# linter ignore=ER0001
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if ! [ "${service_cmd}" = '__wait__' ]; then
+		#echo "${service_cmd}"
+		if [ -x "${service_cmd}" ]; then
+			set +x
+			if ! [ "$(
+					head -n 1 "${service_cmd}" |
+						cut -c 1-2 |
+						tr -d '\0'
+				)" = '#!' ]
+			then
+				set -x
+				ldd "${service_cmd}" 2>&1 |
+					tee /dev/stdout |
+					grep -qv 'not found'
+			fi
+		fi
+	fi
+EOT
+
+# No longer needed, since 'service_cmd' is exposed as an ENV ...
+#RUN sed -i "s|^exec |exec '${service_cmd}' |" /usr/libexec/entrypoint.sh && \
+#	sh -n /usr/libexec/entrypoint.sh
+
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	mkdir -p "/srv/${service_name_short}/usr/share"
+
+	if [ -d /usr/share/doc ]; then
+		mv /usr/share/doc "/srv/${service_name_short}/usr/share/"
+		ln -s "../../srv/${service_name_short}/usr/share/doc" /usr/share/
+	fi
+	if [ -d /usr/share/info ]; then
+		mv /usr/share/info "/srv/${service_name_short}/usr/share/"
+		ln -s "../../srv/${service_name_short}/usr/share/info" /usr/share/
+	fi
+	if [ -d /usr/share/man ]; then
+		mv /usr/share/man "/srv/${service_name_short}/usr/share/"
+		ln -s "../../srv/${service_name_short}/usr/share/man" /usr/share/
+	fi
+EOT
+
+# Create /var/cache/man/index.db when man-db is installed...
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if [ -x /usr/bin/mandb ]; then
+		nice mandb --create
+	fi
+EOT
+
+# Run eselect for dependent components...
+#
+# hadolint ignore=SC3028
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if [ -x /usr/bin/eselect ]; then
+		if [ -s /usr/share/eselect/modules/python.eselect ]; then
+			if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then
+				echo "Setting python implementation ..."
+				mkdir -p /etc/python-exec
+				eselect python cleanup
+				eselect python update --if-unset
+			fi
+		fi
+		if [ -s /usr/share/eselect/modules/iptables.eselect ]; then
+			echo "Setting NFS as default iptables back-end ..."
+			eselect iptables set xtables-nft-multi
+		fi
+		if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then
+			echo "Setting Java VM as initial user ..."
+			if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then
+				eselect java-vm set --if-unset system 1
+			else
+				eselect java-vm set --if-unset user 1
+			fi
+		fi
+	fi
+EOT
+
+# http://www.gentoo.org/doc/en/prelink-howto.xml
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if [ -x /usr/sbin/prelink ]; then
+		/usr/sbin/prelink -av -m -R -f
+		/usr/sbin/prelink -p
+	fi
+EOT
+
+EXPOSE ${service_ports}
+
+# linter ignore=EW0001
+WORKDIR "${service_cwd}"
+
+USER "${service_user}:${service_group}"
+
+# hadolint ignore=SC3028
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if [ -x /usr/bin/eselect ]; then
+		if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then
+			echo "Setting Java VM as '${service_user:-"root"}' ..."
+			if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then
+				eselect java-vm set --if-unset system 1
+			else
+				eselect java-vm set --if-unset user 1
+			fi
+		fi
+	fi
+EOT
+
+VOLUME ["/srv/${service_name_short}","/var/db/pkg"]
+
+ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
+
+# Must be in shell-form to interpolate ARG/ENV values...
+#
+# linter ignore=EJ0002
+CMD "${service_cmd}"
+
+# linter ignore=ED0004
+# vi: set colorcolumn=80 noexpandtab shiftwidth=4 syntax=dockerfile tabstop=4 nowrap:

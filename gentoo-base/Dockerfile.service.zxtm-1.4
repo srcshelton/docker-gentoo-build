@@ -1,0 +1,610 @@
+# syntax=docker/dockerfile:1.4
+
+# service:
+#   Extract a ROOT-installed service, and overlay PulseSecure VTM (Zeus ZXTM).
+
+# hadolint global ignore=DL4006,DL3059,DL3025,SC3040,SC2174,SC2015,SC2012
+#
+ARG image_name
+ARG service_name
+ARG service_name_short
+ARG service_version
+
+ARG service_ports
+ARG service_user="root"
+ARG service_group="root"
+#ARG service_cmd="/bin/sh"
+ARG service_cwd="/"
+ARG service_fs_name
+ARG timezone="GB"
+
+ARG keep_base="yes"
+
+ARG ROOT="/service"
+ARG environment_file="/usr/libexec/environment.sh"
+ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
+
+ARG smtp_smarthost="localhost"
+ARG smtp_domain="localhost"
+
+ARG CHOST="x86_64-pc-linux-gnu"
+
+ARG zxtm_image_name="docker.io/pulsesecure/vtm"
+ARG zxtm_service_version="20.3"
+ARG zxtm_geoip_version="20.2r1"
+ARG ZEUSHOME="/opt/zeus"
+
+
+# -----------------------------------------------------------------------------
+
+# Import GeoIP data removed in release 20.3
+#
+FROM "${zxtm_image_name}:${zxtm_geoip_version}" AS geoip
+
+# -----------------------------------------------------------------------------
+
+# Import system image
+#
+FROM "${zxtm_image_name}:${zxtm_service_version}" AS zxtm
+
+# As-of 20.1 and later:
+#ENV ZEUS_BASE_CONFIG
+#ENV ZEUS_CLUSTER_NAME
+#ENV ZEUS_COMMUNITY_EDITION
+#ENV ZEUS_CONFIG_IMPORT_ARGS
+#ENV ZEUS_EULA
+#ENV ZEUS_LIC
+#ENV ZEUS_PACKAGES
+#ENV ZEUS_PASS=RANDOM
+#ENV ZEUS_REGISTER_FP
+#ENV ZEUS_REGISTER_HOST
+#ENV ZEUS_REGISTER_OWNER
+#ENV ZEUS_REGISTER_POLICY
+#ENV ZEUS_REGISTER_SECRET
+#ENV ZEUS_WATCHED_CONFIG
+
+
+# -----------------------------------------------------------------------------
+
+# Import system image
+#
+FROM "localhost/${image_name}:${service_version}" AS base
+
+ARG ROOT
+ARG environment_file
+ARG environment_filter
+
+ARG ZEUSHOME
+
+
+RUN test -s "${environment_file}"
+
+# Ensure nothing from the base image screws up the ultimate combined image...
+#
+# linter ignore=SC2050
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if ! command -v grep >/dev/null 2>&1; then
+		echo >&2 "FATAL: Unable to locate 'grep' binary"
+		exit 1
+	fi
+
+	mkdir -p "${ROOT}"/usr/libexec
+	printf "#FILTER: '%s'\n\n" "${environment_filter}" \
+		> "${ROOT}${environment_file}"
+	export -p |
+		grep -- '=' |
+		grep -Ev -- "${environment_filter}" |
+		sed -r 's/\s+/ /g ; s/^(export [a-z][a-z0-9_]+=")\s+/\1/i' | # " #
+		grep -v -e '^export [a-z_]' -e '=""$' \
+			>>"${ROOT}${environment_file}"
+
+	if grep -q -- ' ROOT=' "${ROOT}${environment_file}"; then
+			printf >&2 "FATAL: Invalid 'ROOT' directive in '%s':\n\n%s\n\n" \
+				"${ROOT%"/"}${environment_file}" \
+				"$( cat "${ROOT}${environment_file}" )"
+			exit 1
+	fi
+	#printf >&2 " * 'service' stage propagated environment:\n\n%s\n\n" \
+	#	"$( cat "${ROOT}${environment_file}" )"
+
+	if [ -s /builddeps.txt ] && ! [ -s "${ROOT}/builddeps.txt" ]; then
+		mv /builddeps.txt "${ROOT}/builddeps.txt"
+	fi
+EOT
+
+
+# -----------------------------------------------------------------------------
+
+# Create a new container
+#
+FROM scratch
+
+ARG image_name
+ARG service_name
+ARG service_name_short
+ARG service_version
+
+ARG service_ports
+ARG service_user
+ARG service_group
+#ARG service_cmd
+ARG service_cwd
+ARG service_fs_name
+ARG timezone="GB"
+
+ARG keep_base
+
+#ARG zxtm_service_version
+ARG ZEUSHOME
+
+ARG ROOT
+ARG environment_file
+
+ARG smtp_smarthost
+ARG smtp_domain
+
+ARG CHOST
+
+#ENV service_cmd="${service_cmd}"
+ENV fs_name="${service_fs_name}"
+ENV CHOST="${CHOST}"
+
+ENV ZEUSHOME="${ZEUSHOME}"
+ENV ZEUS_COMMUNITY_EDITION="yes"
+ENV ZEUS_EULA="accept"
+
+
+# Copy the installed tree into the current image
+#
+COPY --from=base "${ROOT}" /
+RUN test -s "${environment_file}"
+
+# Copy ZXTM/PS VTM into the current image
+COPY --from=zxtm /usr/local/zeus "${ZEUSHOME}/"
+COPY entrypoint.sh.service.zxtm "${ZEUSHOME}/runzeus.sh"
+RUN test -L "${ZEUSHOME}/zxtm/conf"
+
+# Copy GeoIP data into the current image
+COPY --from=geoip /usr/local/zeus/zxtm/etc/geo "${ZEUSHOME}/zxtm/etc/geo/"
+
+COPY --from=base /etc/group /etc/base/
+#COPY --from=base /etc/gshadow /etc/base/  # Doesn't exist in source image
+COPY --from=base /etc/passwd /etc/base/
+COPY --from=base /etc/shadow /etc/base/
+#COPY --from=base /etc/ethertypes /etc/base/  # Already in ${ROOT}
+COPY --from=base /etc/networks /etc/base/
+COPY --from=base /etc/protocols /etc/base/
+COPY --from=base /etc/services /etc/base/
+COPY --from=base /etc/shells /etc/base/
+COPY --from=base /usr/share/zoneinfo /usr/share/zoneinfo/
+COPY --from=base "/usr/share/zoneinfo/${timezone}" /etc/localtime
+#COPY etc/msmtprc /etc/
+
+LABEL maintainer="stuart@shelton.me"
+LABEL description="Pulse Secure/Ivanti ${service_name}-${service_version} service"
+
+# Try to get nice colours ...
+#
+ARG SET_TERM="${TERM:-xterm}"
+ENV TERM="${SET_TERM}"
+
+ENV ROOT="/"
+
+#RUN cat "/var/db/pkg/${service_name}-${service_version}/CONTENTS"
+
+RUN test -x /bin/busybox
+
+# linter ignore=SC2050,SC2012,ER0001
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if ! command -v grep >/dev/null 2>&1; then
+		echo >&2 "FATAL: Unable to locate 'grep' binary"
+		exit 1
+	fi
+
+	i="${image_name}:${service_version}"
+	for f in /etc/base/* ; do
+		f="$( basename "${f}" )"
+		if ! [ -s "/etc/${f}" ]; then
+			echo "INFO:  Adding new file '${f}' from base image '${i}' ..."
+			mv "/etc/base/${f}" /etc/
+		elif ! diff -q "/etc/base/${f}" "/etc/${f}" >/dev/null; then
+			echo "WARN:  Files '/etc/base/${f}' and '/etc/${f}' differ ..."
+			diff -u "/etc/base/${f}" "/etc/${f}" |
+				sed 's/^/	/' || :
+			if [ "${keep_base}" = 'yes' ]; then
+				echo "WARN:  ... keeping file '${f}' from base image '${i}'"
+				mv "/etc/base/${f}" /etc/
+			else
+				echo "WARN:  ... keeping file '${f}' from build data"
+			fi
+		fi
+	done
+	rm -r /etc/base
+
+	if [ -e /etc/msmtprc ]; then
+		sed \
+			-e "s/__SMTP_SMARTHOST__/${smtp_smarthost}/" \
+			-e "s/__DOMAIN__/${smtp_domain}/" \
+			-i /etc/msmtprc
+	fi
+	if [ -d "${ROOT}"/usr/lib/gcc ]; then
+		if ! [ -d "${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}" ]; then
+			echo "WARN:  Directory '${ROOT}/usr/lib/gcc' exists but" \
+				"'${ROOT}/usr/lib/gcc/${CHOST:-"__chost_not_set__"}'" \
+				"doesn't"
+			ls -1AF "${ROOT}/usr/lib/gcc" | sed 's/^/DEBUG: /'
+		elif ! grep -Fqm 1 '/gcc/' /etc/ld.so.conf; then
+			find "/usr/lib/gcc/${CHOST:-"__chost_not_set__"}" \
+					-mindepth 1 \
+					-maxdepth 1 \
+					-type d \
+				-print0 | xargs -0rn 1 >> /etc/ld.so.conf
+			ldconfig
+		fi
+	fi
+EOT
+
+# I suspect the directory group ownership is random and unimportant, but let's
+# keep this image as close to the original as possible...
+#
+# N.B. Not handling file group ownership, as there are too many and it's likely
+#	  not significant.
+#
+# linter ignore=SC2174,SC2050
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	rm /etc/mtab &&
+		ln -s /proc/self/mounts /etc/mtab
+
+	chown -R root:sys "${ZEUSHOME}"
+	chgrp root \
+		"${ZEUSHOME}" \
+		"${ZEUSHOME}"/log \
+		"${ZEUSHOME}"/log/services \
+		"${ZEUSHOME}"/log/statd \
+		"${ZEUSHOME}"/perl \
+		"${ZEUSHOME}"/rc.d \
+		"${ZEUSHOME}"/zxtmadmin/lang
+
+	rm \
+		"${ZEUSHOME}"/.zdocker \
+		"${ZEUSHOME}"/admin/website.old \
+		"${ZEUSHOME}"/zxtmadmin/lang/ja
+	rm -r "${ZEUSHOME}"/admin/.backup
+	rm -r "${ZEUSHOME}"/zxtm/.backup
+	rm -r "${ZEUSHOME}"/zxtmadmin/.backup
+
+	mv "${ZEUSHOME}"/rc.d/S99configure "${ZEUSHOME}"/rc.d/K99configure
+	ln -s ../zxtm/rc "${ZEUSHOME}"/rc.d/S10zxtm
+	ln -s ../admin/rc "${ZEUSHOME}"/rc.d/S20admin
+	ln -s ../zxtm/rc.configd "${ZEUSHOME}"/rc.d/S30configd
+
+	mkdir "${ZEUSHOME}"/admin/var
+	mv "${ZEUSHOME}"/admin/global.cfg "${ZEUSHOME}"/admin/var/
+	mv "${ZEUSHOME}"/admin/website "${ZEUSHOME}"/admin/var/
+	ln -s var/global.cfg "${ZEUSHOME}"/admin/global.cfg
+
+	ln -s var/website "${ZEUSHOME}"/admin/website
+
+	sed -i "${ZEUSHOME}/runzeus.sh" \
+		-e "/^zeushome=/ s|\"[^\"]*\"$|\"${ZEUSHOME}\"|" \
+		-e "s|__ENVFILE__|${environment_file}|"
+EOT
+
+# linter ignore=SC2174,SC2050
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	for d in 'empty' 'log' 'run' 'lock'; do
+		if test -e "/var/${d}" &&
+			{ test -L "/var/${d}" || ! test -d "/var/${d}"; }
+		then
+			rm "/var/${d}"
+		fi
+		mkdir -p -m 0755 "/var/${d}"
+	done
+
+	if [ -n "${fs_name:-}" ]; then
+		for d in 'log' 'run'; do
+			mkdir -p -m 0755 "/var/${d}/${fs_name}"
+		done
+	fi
+
+	for d in \
+			etc/conf.d etc/init.d etc/portage \
+			usr/share/awk usr/share/udhcpc \
+			var/cache/edb var/db/Makefile var/lib/gentoo
+	do
+		if [ -e "${d}" ]; then
+			rm -rf "/${d:?}"
+		fi
+	done
+
+	if ! [ -L /usr/bin/gcc ]; then
+		if [ -d /usr/share/gcc-data ]; then
+			rm -rf /usr/share/gcc-data/*/*/man /usr/share/gcc-data/*/*/info
+		fi
+		for d in \
+				usr/lib64/pkgconfig usr/include usr/share/gcc-data \
+					usr/libexec/gcc etc/env.d/gcc
+		do
+			if [ -d "/${d:?}" ]; then
+				rm -f "/${d}/*"
+				rmdir --ignore-fail-on-non-empty -p "/${d}"
+			fi
+		done
+		for d in $(
+				find /usr/ \
+					-mindepth 2 -maxdepth 2 -name gcc-bin -print 2>/dev/null
+				find /usr/lib/gcc \
+					-mindepth 3 -maxdepth 3 -name plugin -print 2>/dev/null
+				find /etc/env.d/ \
+					-mindepth 1 -maxdepth 1 -name '04gcc-*' -print 2>/dev/null
+			)
+		do
+			if [ -e "${d:?}" ]; then
+				rm -rf "${d}"
+				d="$( dirname "${d}" )"
+				if [ -d "${d}" ]; then
+					rmdir --ignore-fail-on-non-empty -p "${d}"
+				fi
+			fi
+		done
+	fi
+EOT
+
+# Setup entrypoint script to perform a one-time copy of binary system packages
+# to the (hopefully) host-mounted packages directory ...
+#
+#COPY entrypoint.sh.service /usr/libexec/entrypoint.sh
+#COPY entrypoint.d/ /usr/libexec/entrypoint.d/
+#RUN <<-'EOT' /bin/sh
+#	set -eux
+#
+#	set -o pipefail 2>/dev/null || true
+#
+#	if [ -s /usr/libexec/entrypoint.sh ]; then
+#		chmod 0755 /usr/libexec/entrypoint.sh
+#		sed \
+#			-e "s|__ENVFILE__|${environment_file}|" \
+#			-i /usr/libexec/entrypoint.sh
+#	fi
+#
+#	test -x /usr/libexec/entrypoint.sh
+#
+#	chmod 0755 /usr/libexec/entrypoint.d/*.sh 2>/dev/null || :
+#EOT
+
+# linter ignore=ER0001,SC2015
+#RUN <<-'EOT' /bin/sh
+#	set -eux
+#
+#	set -o pipefail 2>/dev/null || true
+#
+#	ldconfig
+#
+#	set +x
+#	find / -xdev -type f -executable -not -name '*.sh' |
+#		while read -r x; do
+#			ldd "${x}" 2>&1 |
+#				sed "s|^|${x}: |" |
+#				grep 'not found' && exit 1 || :
+#		done
+#EOT
+
+# linter ignore=ER0001
+#RUN <<-'EOT' /bin/sh
+#	set -eux
+#
+#	set -o pipefail 2>/dev/null || true
+#
+#	if ! [ "${service_cmd}" = '__wait__' ]; then
+#		#echo "${service_cmd}"
+#		if [ -x "${service_cmd}" ]; then
+#			set +x
+#			if ! [ "$(
+#					head -n 1 "${service_cmd}" |
+#						cut -c 1-2 |
+#						tr -d '\0'
+#				)" = '#!' ]
+#			then
+#				set -x
+#				ldd "${service_cmd}" 2>&1 |
+#					tee /dev/stdout |
+#					grep -qv 'not found'
+#			fi
+#		fi
+#	fi
+#EOT
+
+# linter ignore=SC2140 # False positive (https://github.com/buddy-works/dockerfile-linter/issues/8)
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if [ -s "${ZEUSHOME}/runzeus.sh" ]; then
+		sed \
+			-e "s|^zeushome=\"/usr/local/zeus\"$|zeushome=\"${ZEUSHOME}\"|" \
+			-i "${ZEUSHOME}/runzeus.sh"
+		chmod 0755 "${ZEUSHOME}/runzeus.sh"
+		test -x "${ZEUSHOME}/runzeus.sh"
+	fi
+EOT
+
+# No longer needed, since 'service_cmd' is exposed as an ENV ...
+#RUN sed -i "s|^exec |exec '${service_cmd}' |" /usr/libexec/entrypoint.sh && \
+#	sh -n /usr/libexec/entrypoint.sh
+
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	mkdir -p "/srv/${service_name_short}/usr/share"
+
+	if [ -d /usr/share/doc ]; then
+		mv /usr/share/doc "/srv/${service_name_short}/usr/share/"
+		ln -s "../../srv/${service_name_short}/usr/share/doc" /usr/share/
+	fi
+	if [ -d /usr/share/info ]; then
+		mv /usr/share/info "/srv/${service_name_short}/usr/share/"
+		ln -s "../../srv/${service_name_short}/usr/share/info" /usr/share/
+	fi
+	if [ -d /usr/share/man ]; then
+		mv /usr/share/man "/srv/${service_name_short}/usr/share/"
+		ln -s "../../srv/${service_name_short}/usr/share/man" /usr/share/
+	fi
+EOT
+
+# linter ignore=SC2015,ER0001
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	for dir in updater stingrayafm; do
+		if [ -d "${ZEUSHOME}/${dir}/current/doc" ]; then
+			mkdir -p "/srv/${service_name_short}/usr/share/doc/zxtm"
+			cp -r \
+				"${ZEUSHOME}/${dir}/current/doc" \
+				"/srv/${service_name_short}/usr/share/doc/zxtm/${dir}"
+		fi
+	done
+
+	for dir in admin zxtm zxtmadmin; do
+		srcpath="${ZEUSHOME}/${dir}/man/man1"
+		if [ -d "${srcpath}" ]; then
+			if [ "$( find "${srcpath}" -name '*.1' | wc -l )" != '0' ]; then
+				for file in "${ZEUSHOME}/${dir}/man/man1"/*.1; do
+					name="$( basename "${file}" )"
+					dstpath="/srv/${service_name_short}/usr/share/man/man1"
+					if ! [ -d "${dstpath}" ]; then
+						mkdir -p "${dstpath}"
+					fi
+					if \
+						[ -s "${dstpath}/${name}" ] ||
+						[ -s "${dstpath}/${name}.bz2" ]
+					then
+						cp "${file}" "${dstpath}/${name%".1"}_zeus.1"
+						rm -f "${dstpath}/${name%".1"}_zeus.1.bz2"
+						bzip2 "${dstpath}/${name%".1"}_zeus.1"
+					else
+						cp "${file}" "${dstpath}/"
+						bzip2 "${dstpath}/${name}"
+					fi
+				done
+			fi
+		fi
+	done
+EOT
+
+# Create /var/cache/man/index.db when man-db is installed...
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if [ -x /usr/bin/mandb ]; then
+		nice mandb --create
+	fi
+EOT
+
+# Run eselect for dependent components...
+#
+# hadolint ignore=SC3028
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if [ -x /usr/bin/eselect ]; then
+		if [ -s /usr/share/eselect/modules/python.eselect ]; then
+			if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then
+				echo "Setting python implementation ..."
+				mkdir -p /etc/python-exec
+				eselect python cleanup
+				eselect python update --if-unset
+			fi
+		fi
+		if [ -s /usr/share/eselect/modules/iptables.eselect ]; then
+			echo "Setting NFS as default iptables back-end ..."
+			eselect iptables set xtables-nft-multi
+		fi
+		if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then
+			echo "Setting Java VM as initial user ..."
+			if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then
+				eselect java-vm set --if-unset system 1
+			else
+				eselect java-vm set --if-unset user 1
+			fi
+		fi
+	fi
+EOT
+
+# http://www.gentoo.org/doc/en/prelink-howto.xml
+RUN <<-'EOT' /bin/sh
+	set -eux
+
+	set -o pipefail 2>/dev/null || true
+
+	if [ -x /usr/sbin/prelink ]; then
+		/usr/sbin/prelink -av -m -R -f
+		/usr/sbin/prelink -p
+	fi
+EOT
+
+EXPOSE ${service_ports}
+
+# linter ignore=EW0001
+WORKDIR "${service_cwd}"
+
+USER "${service_user}:${service_group}"
+
+# hadolint ignore=SC3028
+#RUN <<-'EOT' /bin/sh
+#	set -eux
+#
+#	set -o pipefail 2>/dev/null || true
+#
+#	if [ -x /usr/bin/eselect ]; then
+#		if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then
+#			echo "Setting Java VM as '${service_user:-"root"}' ..."
+#			if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then
+#				eselect java-vm set --if-unset system 1
+#			else
+#				eselect java-vm set --if-unset user 1
+#			fi
+#		fi
+#	fi
+#EOT
+
+#VOLUME ["/srv/${service_name_short}","/var/db/pkg","${ZEUSHOME}/zxtm-${zxtm_service_version}/conf_A"]
+VOLUME ["/srv/${service_name_short}","/var/db/pkg"]
+
+#ENTRYPOINT ["/usr/libexec/entrypoint.sh"]
+# Must be in shell-form to interpolate ARG/ENV values...
+#
+# linter ignore=EJ0002
+ENTRYPOINT "${ZEUSHOME}/runzeus.sh"
+
+# Must be in shell-form to interpolate ARG/ENV values...
+#
+# linter ignore=EJ0002
+#CMD "${service_cmd}"
+
+# linter ignore=ED0004
+# vi: set colorcolumn=80 noexpandtab shiftwidth=4 syntax=dockerfile tabstop=4 nowrap:
