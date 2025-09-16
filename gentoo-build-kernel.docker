@@ -28,7 +28,7 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 }
 
 # shellcheck disable=SC2154
-declare IMAGE="${build_name}:latest"
+declare IMAGE="${build_name}:${override_tag}"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh >/dev/null
 if [[ "$( type -t 'die' )" != 'function' ]]; then
@@ -2000,7 +2000,7 @@ mkdir -p "${log_dir:="log"}" ||
 					if type -pf emerge >/dev/null 2>&1; then
 						emerge --info 2>&1 | grep -- '^INSTALL_MASK=' | cut -d'"' -f 2
 					elif type -pf jq >/dev/null 2>&1; then
-						docker inspect localhost/gentoo-env:latest |
+						docker inspect "localhost/gentoo-env:${override_tag}" |
 							jq -M '.[].Config.Env[]' |
 							grep -- '^"INSTALL_MASK=' |
 							sed 's/^[^=]\+=// ; s/"$//'
@@ -2277,7 +2277,7 @@ mkdir -p "${log_dir:="log"}" ||
 		if type -pf emerge >/dev/null 2>&1; then
 			emerge --info 2>&1 | grep -- '^RUSTFLAGS=' | cut -d'"' -f 2
 		elif type -pf jq >/dev/null 2>&1; then
-			docker inspect localhost/gentoo-env:latest |
+			docker inspect "localhost/gentoo-env:${override_tag}" |
 				jq -M '.[].Config.Env[]' |
 				grep -- '^"RUSTFLAGS=' |
 				sed 's/^[^=]\+=// ; s/"$//'
@@ -2289,7 +2289,7 @@ mkdir -p "${log_dir:="log"}" ||
 		if type -pf emerge >/dev/null 2>&1; then
 			emerge --info 2>&1 | grep -- '^_LLVM_RUSTC_LTO=' | cut -d'"' -f 2
 		elif type -pf jq >/dev/null 2>&1; then
-			docker inspect localhost/gentoo-env:latest |
+			docker inspect "localhost/gentoo-env:${override_tag}" |
 				jq -M '.[].Config.Env[]' |
 				grep -- '^"_LLVM_RUSTC_LTO=' |
 				sed 's/^[^=]\+=// ; s/"$//'
