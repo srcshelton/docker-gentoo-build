@@ -762,11 +762,12 @@ case "${arch:-"${ARCH:-}"}" in
 		#
 		# FIXME: This patch could itself be trivially patched to account for
 		#        this...
+		#
 		if [[ "$( # <- Syntax
 				emerge --info 2>/dev/null |
 					grep -- '^USE=' |
 					cut -d'"' -f 2
-				)" =~ rpi[-cm]+4 ]]
+				)" =~ rpi(-cm)?4 ]]
 		then
 			kpatch="${kpatch:+"${kpatch} "}https://raw.githubusercontent.com/graysky2/kernel_compiler_patch/refs/heads/master/other/build-with-mcpu-for-cortex-a72.patch"
 		fi
@@ -811,6 +812,9 @@ if (( intel_patch )); then
 	#
 	until (( done )); do
 		print "Checking Clear Linux tags page ${page} ..."
+		# Community fork, but not currently tagged:
+		#response="$( curl -fLSs "https://api.github.com/repos/hanthor/clear-linux/tags?page=${page}" )"
+		# Read-only:
 		response="$( curl -fLSs "https://api.github.com/repos/clearlinux-pkgs/linux/tags?page=${page}" )"
 		if [[ -z "$( jq -r '.[]' <<<"${response:-}" )" ]]; then
 			# We're out of pages to check...
@@ -837,6 +841,7 @@ if (( intel_patch )); then
 		info >&2 "Clear Linux patches for kernel ${package_version%[_-][pr]*} are" \
 			"commit '${clear_commit}'"
 		while read -r clear_patch; do
+			#patch="${patch:+"${patch} "}https://raw.githubusercontent.com/hanthor/clear-linux/${clear_commit}/${clear_patch}"
 			patch="${patch:+"${patch} "}https://raw.githubusercontent.com/clearlinux-pkgs/linux/${clear_commit}/${clear_patch}"
 		done < <( # <- Syntax
 			# We replace '0133-novector.patch' with a more specific patch of
@@ -846,6 +851,7 @@ if (( intel_patch )); then
 			# them for future releases: the only harm is noise when we warn
 			# that a bad patch didn't apply cleanly.
 			#
+			#curl -fLSs "https://raw.githubusercontent.com/hanthor/clear-linux/${clear_commit}/linux.spec" |
 			curl -fLSs "https://raw.githubusercontent.com/clearlinux-pkgs/linux/${clear_commit}/linux.spec" |
 				grep -- '^Patch[0-9]' |
 				awk '{print $2}' |
