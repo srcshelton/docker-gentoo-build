@@ -48,7 +48,7 @@ fi
 unset rc
 
 # shellcheck disable=SC2154
-declare IMAGE="${build_name}:latest"
+declare IMAGE="${build_name}:${override_tag}"
 
 # shellcheck disable=SC1091
 [[ -s common/run.sh ]] && . common/run.sh >/dev/null
@@ -208,11 +208,11 @@ fi
 [[ -n "${cflags:-}" ]] || cflags='-O2 -pipe'
 [[ -n "${cxxflags:-}" ]] || cxxflags="${cflags}"
 
-# The addition of ${gcc_target_opts} here is only to prevent confusion - it
+# The addition of ${cc_target_opts} here is only to prevent confusion - it
 # should still be applied within build-containers!
 #
-print "Found CFLAGS '${gcc_target_opts:+"${gcc_target_opts} "}${cflags}'"
-print "Found CXXFLAGS '${gcc_target_opts:+"${gcc_target_opts} "}${cxxflags}'"
+print "Found CFLAGS '${cc_target_opts:+"${cc_target_opts} "}${cflags}'"
+print "Found CXXFLAGS '${cc_target_opts:+"${cc_target_opts} "}${cxxflags}'"
 
 # Temporarily throw away all other arguments to try to get a set of parameters
 # we can use to perform a manual service build (... which is largely deprecated
@@ -2096,6 +2096,8 @@ output >&2
 
 args=()
 args+=(
+	--build-arg BUILDKIT_PROGRESS="$(( trace ))"
+
 	--build-arg SET_TERM="${TERM}"
 )
 [[ -n "${ZEUSHOME:-}" ]] && args+=( --build-arg ZEUSHOME="${ZEUSHOME}" )
@@ -2151,7 +2153,7 @@ if [ $(( ${rc:-"1"} )) -eq 0 ]; then
 	docker image rm "${container_prefix}-${package_name}:${package_version}" 2>/dev/null || :
 	case "${package_name}" in
 		*eix*)
-			docker image tag "service.${package_name}:${package_version}" 'gentoo-helper:latest'
+			docker image tag "service.${package_name}:${package_version}" "gentoo-helper:${override_tag}"
 			;;
 	esac
 	trap - INT
