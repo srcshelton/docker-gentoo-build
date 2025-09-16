@@ -28,6 +28,7 @@ unset -v ARCH
 
 portage_kv_cache_root=''
 portage_kv_cache=''
+portage_kv_cache_changed=''
 
 output() {
 	# Use in place of 'echo' (or 'printf'?) to explicitly indicate that
@@ -53,7 +54,7 @@ die() {
 }  # die
 
 fatal() {
-	if [ -z "${*:-}" ]; then
+	if [ -z "${*:+"set"}" ]; then
 		output >&2
 	else
 		output >&2 'FATAL:  %s\n' "${*}"
@@ -61,7 +62,7 @@ fatal() {
 }  # fatal
 
 error() {
-	if [ -z "${*:-}" ]; then
+	if [ -z "${*:+"set"}" ]; then
 		output >&2
 	else
 		output >&2 'ERROR:  %s\n' "${*}"
@@ -69,7 +70,7 @@ error() {
 }  # error
 
 warn() {
-	if [ -z "${*:-}" ]; then
+	if [ -z "${*:+"set"}" ]; then
 		output >&2
 	else
 		output >&2 'WARN:  %s\n' "${*}"
@@ -77,7 +78,7 @@ warn() {
 }  # warn
 
 info() {
-	if [ -z "${*:-}" ]; then
+	if [ -z "${*:+"set"}" ]; then
 		output
 	else
 		output 'INFO:  %s\n' "${*}"
@@ -86,7 +87,7 @@ info() {
 
 print() {
 	if [ -n "${debug:-}" ]; then
-		if [ -z "${*:-}" ]; then
+		if [ -z "${*:+"set"}" ]; then
 			output >&2
 		else
 			output >&2 'DEBUG: %s\n' "${*}"
@@ -105,7 +106,7 @@ format() {
 	format_variable="${1:-}"
 	format_padding="${2:-"20"}"
 
-	[ -n "${format_variable:-}" ] || return 1
+	[ -n "${format_variable:+"set"}" ] || return 1
 
 	format_variable="$( # <- Syntax
 			echo "${format_variable}" | xargs -rn 1 | sort -d | xargs -r
@@ -134,12 +135,13 @@ export format_fn_code
 eval "${format_fn_code}"
 
 check() {
-	#extern ROOT
-	check_rc="${1:-}" ; shift
-
 	# Check that a given check_pkg (with build result code $check_rc) is
 	# actually installed...
 	#
+
+	#extern ROOT
+
+	check_rc="${1:-}" ; shift
 	[ -n "${check_rc:-}" ] || return 1
 
 	check_pkg='' check_fallback='' check_arg=''
@@ -186,6 +188,64 @@ check() {
 	# shellcheck disable=SC2086
 	return ${check_rc}
 }  # check
+
+validate_pkgdir_metadata() {
+	vpm='' vpm_rc=0
+
+	# extern PKGDIR ARCH arch target_cpu
+
+	if [ -z "${PKGDIR:-}" ]; then
+		warn "'PKGDIR' not set when validate_pkgdir_metadata called"
+		unset vpm_rc vpm
+		return 0
+	fi
+	if ! [ -s "${PKGDIR}/.metadata" ]; then
+		unset vpm_rc vpm
+		return 0
+	fi
+
+	vpm="$( cat "${PKGDIR}/.metadata" | grep -- '^ARCH=' | cut -d'=' -f 2 )"
+	if [ -z "${vpm:-}" ]; then
+		warn "Metadata file '${PKGDIR}/.metadata' exists but does not" \
+			"include ARCH directive"
+	elif [ -z "${ARCH:-"${arch:-}"}" ]; then
+		warn "Metadata file '${PKGDIR}/.metadata' includes ARCH directive" \
+			"but no ARCH value is set to compare this against"
+	elif [ "${ARCH:-"${arch}"}" = "${vpm}" ]; then
+		print "ARCH value from metadata file '${PKGDIR}/.metadata' matches" \
+			"active ARCH value '${ARCH:-"${arch}"}'"
+	else
+		error "ARCH value '${vpm}' from metadata file '${PKGDIR}/.metadata'" \
+			"does not match active ARCH value '${ARCH:-"${arch}"}'"
+		vpm_rc=1
+	fi
+
+	vpm="$( cat "${PKGDIR}/.metadata" | grep -- '^CPU=' | cut -d'=' -f 2 )"
+	if [ -z "${vpm:-}" ]; then
+		warn "Metadata file '${PKGDIR}/.metadata' exists but does not" \
+			"include CPU directive"
+	elif [ -z "${target_cpu:-}" ]; then
+		warn "Metadata file '${PKGDIR}/.metadata' includes CPU directive" \
+			"but no CPU value is set to compare this against"
+	elif [ "${target_cpu}" = "${vpm}" ]; then
+		print "CPU value from metadata file '${PKGDIR}/.metadata' matches" \
+			"active CPU value '${target_cpu}'"
+	else
+		error "CPU value '${vpm}' from metadata file '${PKGDIR}/.metadata'" \
+			"does not match active CPU value '${target_cpu}'"
+		vpm_rc=1
+	fi
+
+	unset vpm
+
+	if [ $(( vpm_rc )) -ne 0 ]; then
+		unset vpm_rc
+		return 1
+	else
+		unset vpm_rc
+		return 0
+	fi
+}  # validate_pkgdir_metadata
 
 get_stage3() {
 	# Extract a given list of get_values from the saved stage3 data...
@@ -241,13 +301,13 @@ get_stage3() {
 
 	get_result=''
 
-	if [ -z "${stage3_flags:-}" ]; then
+	if [ -z "${stage3_flags:+"set"}" ]; then
 		stage3_flags="$( cat "${stage3_flags_file}" )"
 		export stage3_flags
 
-		print "Caching stage3 data ..."
+		print "get_stage3: Caching stage3 data ..."
 	else
-		print "Using get_cached stage3 data ..."
+		print "get_stage3: Using get_cached stage3 data ..."
 	fi
 
 	if [ $(( get_cache )) -ne 0 ]; then
@@ -260,7 +320,7 @@ get_stage3() {
 				grep -- "^STAGE3_${get_type}=" |
 				cut -d'"' -f 2
 		)" # ' # <- Syntax
-	print "get_stage3 get_result for '${get_type}' is '${get_result}'"
+	print "get_stage3: get_result for '${get_type}' is '${get_result}'"
 
 	if [ "${get_type}" = 'USE' ]; then
 		# Remove USE flags which we know we don't want, or which
@@ -274,7 +334,7 @@ get_stage3() {
 					xargs -r
 				unset get_exclude
 			)"
-		print "get_stage3 get_result for USE('${get_type}') after filter is" \
+		print "get_stage3: get_result for USE('${get_type}') after filter is" \
 			"'${get_result}'"
 
 		entries='' entry=''
@@ -283,12 +343,12 @@ get_stage3() {
 					grep -- '^STAGE3_PYTHON_SINGLE_TARGET=' |
 					cut -d'"' -f 2
 			)" # ' # <- Syntax
-		print "get_stage3 entries for SINGLE_TARGET is '${entries}'"
+		print "get_stage3: entries for SINGLE_TARGET is '${entries}'"
 
 		for entry in ${entries}; do
 			get_result="${get_result:+"${get_result} "}python_single_target_${entry}"
 		done
-		print "get_stage3 get_result for USE('${get_type}') after single is" \
+		print "get_stage3: get_result for USE('${get_type}') after single is" \
 			"'${get_result}'"
 
 		entries="$( # <- Syntax
@@ -296,12 +356,12 @@ get_stage3() {
 					grep -- '^STAGE3_PYTHON_TARGETS=' |
 					cut -d'"' -f 2
 			)" # ' # <- Syntax
-		print "get_stage3 entries for TARGETS is '${entries}'"
+		print "get_stage3: entries for TARGETS is '${entries}'"
 
 		for entry in ${entries}; do
 			get_result="${get_result:+"${get_result} "}python_targets_${entry}"
 		done
-		print "get_stage3 get_result for USE('${get_type}') after targets is" \
+		print "get_stage3: get_result for USE('${get_type}') after targets is" \
 			"'${get_result}'"
 
 		unset entry entires
@@ -322,10 +382,164 @@ get_stage3() {
 	return 0
 }  # get_stage3
 
+setenv() {
+	# Set a portage environment variable and record the change for cache
+	# invalidation purposes...
+	#
+	# In more detail:
+	#
+	# For speed and efficiency purposes, when not passed '--env-only'
+	# get_portage_flags() calls 'emerge --info' once and saves the result as
+	# emerge can be slow.  The output should be the portage defaults overridden
+	# by files from ${SYSROOT}/etc/portage/ overridden by values
+	# in the environment - and this is saved once for SYSROOT='/' (or unset)
+	# and once for any other value (as SYSROOT must be either '/' or "${ROOT}")
+	# on the assumption that we're only ever going to see a maximum of one
+	# alternative ROOT in this script (${service_root} set to '/build',
+	# although if ${extra_root} is inadvertantly set to anything other than '/'
+	# then this assumption would break).
+	#
+	# However, this means that as soon as we /change/ and portage variable in
+	# the environment, the cache is stale (when not passed '--env-only') and
+	# get_portage_flags() returns misleading data.
+	#
+	# This could be resolved by liberally scattering calls to
+	# invalidate_get_portage_flags_cache throughout the script (which is bound
+	# to miss cases) - or this approach:
+	#
+	# If all variables affecting portage operation are changed via setenv()
+	# then we can track changes and only invalidate the cache if a changed
+	# variable is referenced (at the cost of some additional overhead in
+	# setenv() to determine whether the changed variable is already on the
+	# invalidation list).
+
+	if [ -z "${1:-}" ]; then
+		return 1
+	fi
+
+	se_var="${1}"
+	se_val=''
+	se_out=''
+
+	if echo "${se_var}" | grep -q -- '^[a-zA-Z_][a-zA-Z_0-9]*='; then
+		# 'setenv VAR=VAL'-style...
+		se_val="$( echo "${se_var}" | cut -d'=' -f 2- )"
+		se_var="$( echo "${se_var}" | cut -d'=' -f 1 )"
+		if [ -n "${2:-}" ]; then
+			print "setenv: '${*}' contains unexpected follow-on arguments," \
+				"appending to initial values '${se_val:-}'"
+			shift
+			set -- "${se_val:-}" "${@:-}"
+		else
+			set -- "${se_val:-}"
+		fi
+		se_val=''
+	else
+		# 'setenv VAR VAL'-style...
+		if [ -n "${2:-}" ]; then
+			shift
+		else
+			set --
+		fi
+	fi
+
+	se_val="$( eval "echo \${${se_var}:-}" )"
+
+	if [ -n "${se_val:+"set"}" ] && [ -n "${*:+"set"}" ] &&
+			[ "${se_val}" = "${*}" ]
+	then
+		print "setenv: ${se_var} value '${se_val}' is unchaged"
+	else
+		eval "${se_var}='${*:-}'"
+		export "${se_var?}"
+
+		se_val=0
+		if [ -z "${SYSROOT:-"${PORTAGE_CONFIGROOT:-""}"}" ] ||
+			[ "${SYSROOT:-"${PORTAGE_CONFIGROOT:-""}"}" = '/' ]
+		then
+			if [ -n "${portage_kv_cache_root:+"set"}" ]; then
+				se_val=1
+			fi
+		else
+			if [ -n "${portage_kv_cache:+"set"}" ]; then
+				se_val=1
+			fi
+		fi
+
+		if [ $(( se_val )) -eq 1 ]; then
+			if [ -z "${portage_kv_cache_changed:-}" ]; then
+				portage_kv_cache_changed="${se_var}"
+			elif ! echo "${portage_kv_cache_changed}" |
+					grep -Fqw -- "${se_var}"
+			then
+				portage_kv_cache_changed="${portage_kv_cache_changed} ${se_var}"
+			fi
+		fi
+
+		se_out="$( # <- Syntax
+				eval "echo \"\${${se_var}:-}\"" |
+					xargs -r
+			)"
+		print "setenv: ${se_var} updated to '${se_out:-}'," \
+			"portage_kv_cache_changed is now '${portage_kv_cache_changed}'"
+	fi
+
+	if [ "${se_var}" = 'PKGDIR' ]; then
+		validate_pkgdir_metadata ||
+			die "Failed to validate metadata for PKGDIR '${PKGDIR}'"
+	fi
+
+	unset se_out se_val se_var
+}  # setenv
+
+invalidate_get_portage_flags_cache() {
+	igpfc_root="${1:-}"
+	igpfc_rc=1
+
+	if [ -z "${igpfc_root:-}" ]; then
+		portage_kv_cache_root=''
+		portage_kv_cache=''
+		portage_kv_cache_changed=''
+		igpfc_rc=0
+	elif [ "${igpfc_root}" = '/' ]; then
+		if [ -z "${portage_kv_cache_root:+"set"}" ]; then
+			print "invalidate_get_portage_flags_cache: portage_kv_cache_root" \
+				"not set - nothing to do"
+		else
+			portage_kv_cache_root=''
+			portage_kv_cache_changed=''
+			igpfc_rc=0
+		fi
+	else
+		if [ -z "${portage_kv_cache:+"set"}" ]; then
+			print "invalidate_get_portage_flags_cache: portage_kv_cache not" \
+				"set - nothing to do"
+		else
+			portage_kv_cache=''
+			portage_kv_cache_changed=''
+			igpfc_rc=0
+		fi
+	fi
+	unset igpfc_root
+
+	if [ $(( igpfc_rc )) -eq 0 ]; then
+		unset igpfc_rc
+		return 0
+	else
+		unset igpfc_rc
+		return 1
+	fi
+}  # invalidate_get_portage_flags_cache
+
 get_portage_flags() {
+	# N.B. By default, this function *WILL CACHE* the first-seen values - so if
+	#      CFLAGS or PKGDIR (etc.) for a given ROOT are changed then the output
+	#      will be incorrect unless the cache is cleared!
+	#
 	gpf_cache='portage_kv_cache'
 	gpf_key=''
 	gpf_result=''
+	gpf_invalidate=0
 
 	#extern portage_kv_cache_root portage_kv_cache PORTAGE_CONFIGROOT SYSROOT
 
@@ -337,76 +551,108 @@ get_portage_flags() {
 			"when SYSROOT='${SYSROOT:-}'"
 		return 1
 	fi
+
+	if [ -n "${*:-}" ] && [ -n "${portage_kv_cache_changed:-}" ]
+	then
+		for gpf_key in "${@:-}"; do
+			if echo "${portage_kv_cache_changed:-}" | grep -Fqw "${gpf_key}"
+			then
+				print "get_portage_flags: portage_kv_cache_changed" \
+					"('${portage_kv_cache_changed}') contains specified key" \
+					"'${gpf_key}' - will invalidate cache ..."
+
+				gpf_invalidate=1
+				portage_kv_cache_changed=''
+
+				break
+			fi
+		done
+	fi
 	if [ -z "${SYSROOT:-"${PORTAGE_CONFIGROOT:-""}"}" ] ||
 		[ "${SYSROOT:-"${PORTAGE_CONFIGROOT:-""}"}" = '/' ]
 	then
-		if [ -z "${portage_kv_cache_root:-}" ]; then
-			print "Generating ROOT='${ROOT:-}' portage K/V cache" \
-				"'portage_kv_cache_root' ..."
+		if [ -z "${portage_kv_cache_root:+"set"}" ] ||
+				[ $(( gpf_invalidate )) -eq 1 ]
+		then
+			print "get_portage_flags: Generating SYSROOT='${SYSROOT:-"/"}'" \
+				"portage K/V cache 'portage_kv_cache_root' ..."
 			portage_kv_cache_root="$( # <- Syntax
 					LC_ALL='C' emerge --info --verbose=y 2>&1 |
 						grep -F -- '='
 				)"
-			readonly portage_kv_cache_root
+			#readonly portage_kv_cache_root
 			export portage_kv_cache_root
+		else
+			print "get_portage_flags: Using existing" \
+				"SYSROOT='${SYSROOT:-"/"}' portage K/V cache" \
+				"'portage_kv_cache_root'"
 		fi
 		gpf_cache='portage_kv_cache_root'
 	else
-		if [ -z "${portage_kv_cache:-}" ]; then
-			print "Generating ROOT='${ROOT:-}' portage K/V cache" \
-				"'portage_kv_cache' ..."
+		if [ $(( gpf_invalidate )) -eq 1 ] ||
+				[ -z "${portage_kv_cache:+"set"}" ]
+		then
+			print "get_portage_flags: Generating SYSROOT='${SYSROOT}'" \
+				"portage K/V cache 'portage_kv_cache' ..."
 			portage_kv_cache="$( # <- Syntax
 					LC_ALL='C' emerge --info --verbose=y 2>&1 |
 						grep -F -- '='
 				)"
-			readonly portage_kv_cache
+			#readonly portage_kv_cache
 			export portage_kv_cache
+		else
+			print "get_portage_flags: Using existing" \
+				"SYSROOT='${SYSROOT:-"/"}' portage K/V cache" \
+				"'portage_kv_cache'"
 		fi
 		gpf_cache='portage_kv_cache'
 	fi
 
 	if [ -z "${*:-}" ]; then
 		unset gpf_result gpf_key
-		if [ -n "$( eval "echo \$${gpf_cache}" )" ]; then
-			print "portage K/V cache '${gpf_cache:-}' contains $( # <- Syntax
-					eval "echo \"\$${gpf_cache}\"" |
-						wc -l
-				) keys"
-			unset gpf_result gpf_key gpf_cache
+		if [ -n "$( eval "echo \${${gpf_cache}:+\"set\"}" )" ]; then
+			print "get_portage_flags: portage K/V cache '${gpf_cache}'" \
+				"now contains $( # <- Syntax
+						eval "echo \"\${${gpf_cache}}\"" |
+							wc -l
+					) keys"
+			unset gpf_cache
 			return 0
 		else
-			warn "Unable to generate portage K/V cache '${gpf_cache:-}'"
-			unset gpf_result gpf_key gpf_cache
+			warn "Unable to generate portage K/V cache '${gpf_cache}'"
+			unset gpf_cache
 			return 1
 		fi
-	else
-		print "portage K/V cache '${gpf_cache:-}' contains $( # <- Syntax
-				eval "echo \"\$${gpf_cache}\"" |
-					wc -l
-			) keys"
+	#else
+	#	print "get_portage_flags: portage K/V cache '${gpf_cache}'" \
+	#		"contains $( # <- Syntax
+	#				eval "echo \"\${${gpf_cache}}\"" |
+	#					wc -l
+	#			) keys"
 	fi
 
 	if [ -z "${2:-}" ]; then
-		print "Checking portage K/V cache '${gpf_cache:-}' for key '${1:-}'" \
-			"..."
+		print "get_portage_flags: Checking portage K/V cache" \
+			"'${gpf_cache}' for key '${1}' ..."
 		gpf_key="${1}"
 		gpf_result="$( # <- Syntax
-				eval "echo \"\$${gpf_cache}\"" |
+				eval "echo \"\${${gpf_cache}}\"" |
 					grep -- "^${gpf_key}=" |
 					awk -F'"' '{print $2}'
 			)"
 	else
 		gpf_key="$( echo "${*}" | sed 's/\s\+/|/g' )"
-		print "Checking portage K/V cache '${gpf_cache:-}' for composite" \
-			"keys '${1:-}' ..."
+		print "get_portage_flags: Checking portage K/V cache" \
+			"'${gpf_cache}' for keys '${*}' ..."
 		gpf_result="$( # <- Syntax
-				eval "echo \"\$${gpf_cache}\"" |
+				eval "echo \"\${${gpf_cache}}\"" |
 					grep -E -- "^(${gpf_key})="
 			)"
 	fi
 
-	if [ -z "${gpf_result:-}" ]; then
-		print "No portage K/V result found for key(s) '${gpf_key:-}'"
+	if [ -z "${gpf_result:+"set"}" ]; then
+		print "get_portage_flags: No portage K/V result found for" \
+			"key(s) '${gpf_key:-}'"
 	else
 		if echo "${gpf_result}" | grep -Fq -- "'"; then
 			warn "get_portage_flags(): Value incorrectly quoted for" \
@@ -415,8 +661,8 @@ get_portage_flags() {
 		fi
 	fi
 
-	unset gpf_key gpf_cache
-	if [ -n "${gpf_result:-}" ]; then
+	unset gpf_invalidate gpf_key gpf_cache
+	if [ -n "${gpf_result:+"set"}" ]; then
 		echo "${gpf_result}"
 		unset gpf_result
 		return 0
@@ -428,7 +674,6 @@ get_portage_flags() {
 
 get_package_flags() {
 	gpfs_pkg="${1:-}"
-
 	[ -n "${gpf_pkg:-}" ] || return 1
 
 	emerge --ignore-default-opts --color=n --nodeps --pretend --verbose \
@@ -474,6 +719,25 @@ get_package_flag() {
 }  # get_package_flag
 
 filter_portage_flags() {
+	#
+	# filter_portage_flags [--env-only] <flag> [flag...] -- <value> [value...]
+	#
+	# With '--env-only' the source of current values is the environment,
+	# without 'emerge --info' may be called (or a cache consulted) to find the
+	# canonical values of the specified flags
+	#
+	# e.g.
+	#
+	#  $ USE='a b c'
+	#  $  filter_portage_flags USE -- 'b'
+	#  setenv USE="a c"; export USE;
+	#  $ echo "${USE}"
+	#  a b c
+	#  $ eval "$( filter_portage_flags USE -- 'b' )"
+	#  $ echo "${USE}"
+	#  a c
+	#
+
 	ftcf_env_only=0
 	ftcf_flags=''
 	ftcf_vars=''
@@ -509,9 +773,10 @@ filter_portage_flags() {
 		if [ $(( ftcf_env_only )) -eq 0 ]; then
 			ftcf_val="$( get_portage_flags "${ftcf_var}" )" || :
 		else
-			ftcf_val="$( eval "echo \"\$${ftcf_var}\"" )"
+			ftcf_val="$( eval "echo \"\${${ftcf_var}}\"" )"
 		fi
-		print "portage variable '${ftcf_var:-}' has value '${ftcf_val:-}'"
+		print "filter_portage_flags: portage variable '${ftcf_var:-}' has" \
+			"value '${ftcf_val:-}'"
 		if echo "${ftcf_val}" | grep -Fq -- "'"; then
 			warn "filter_portage_flags(): Value incorrectly quoted for" \
 				"variable '${ftcf_var}'"
@@ -522,13 +787,14 @@ filter_portage_flags() {
 		ftcf_flags="$( # <- Syntax
 				echo "${@:-}" |
 					xargs -rn 1 |
-					sort | uniq |
+					sort |
+					uniq |
 					xargs -r |
 					sed 's/\s\+/|/g'
 			)"
 		if echo " ${ftcf_val} " | grep -Eq -- " (${ftcf_flags}) "; then
-			print "Value '${ftcf_val}' for variable '${ftcf_var}' contains" \
-				"to-be-filtered flags '${ftcf_flags}'"
+			print "filter_portage_flags: Value '${ftcf_val}' for variable" \
+				"'${ftcf_var}' contains to-be-filtered flags '${ftcf_flags}'"
 			ftcf_rc=0
 			case "${ftcf_var}" in
 				*FLAGS)
@@ -547,13 +813,13 @@ filter_portage_flags() {
 				warn "filter_portage_flags(): After filtering, variable" \
 					"'${ftcf_var}' still contains flags to be removed"
 			fi
-			print "Updated variable '${ftcf_var}' has value" \
-				"'${ftcf_val}' after removing flags '${ftcf_flags}'"
-			echo "${ftcf_var}=\"${ftcf_val}\" ; export ${ftcf_var} ;"
+			print "filter_portage_flags: Updated variable '${ftcf_var}' has" \
+				"value '${ftcf_val}' after removing flags '${ftcf_flags}'"
+			echo "setenv ${ftcf_var}=\"${ftcf_val}\" ; export ${ftcf_var} ;"
 		elif [ $(( ftcf_corrected )) -eq 1 ]; then
-			print "Updated variable '${ftcf_var}' has value" \
-				"'${ftcf_val}' after correcting quoting"
-			echo "${ftcf_var}=\"${ftcf_val}\" ; export ${ftcf_var} ;"
+			print "filter_portage_flags: Updated variable '${ftcf_var}' has" \
+				"value '${ftcf_val}' after correcting quoting"
+			echo "setenv ${ftcf_var}=\"${ftcf_val}\" ; export ${ftcf_var} ;"
 		fi
 
 		ftcf_corrected=0
@@ -573,6 +839,9 @@ filter_portage_flags() {
 }  # filter_portage_flags
 
 filter_toolchain_flags() {
+	# N.B. filter_toolchain_flags only outputs the commands to be eval()'d, it
+	#      doesn't apply changes!
+
 	if [ -n "${1:-}" ] && [ -n "${2:-}" ] && [ "${1}" = '--env-only' ]; then
 		shift
 		filter_portage_flags --env-only \
@@ -589,6 +858,7 @@ filter_toolchain_flags() {
 	fi
 }  # filter_toolchain_flags
 
+# N.B. Round-bracket to run in sub-shell...
 filter_use_flags() (
 	if [ -n "${1:-}" ] && [ -n "${2:-}" ] && [ "${1}" = '--env-only' ]; then
 		shift
@@ -596,9 +866,11 @@ filter_use_flags() (
 	else
 		eval "$( filter_portage_flags USE -- "${@:-}" )"
 	fi
+
 	echo "${USE:-}"
 )  # filter_use_flags
 
+# N.B. Round-bracket to run in sub-shell...
 filter_features_flags() (
 	if [ -n "${1:-}" ] && [ -n "${2:-}" ] && [ "${1}" = '--env-only' ]; then
 		shift
@@ -606,6 +878,7 @@ filter_features_flags() (
 	else
 		eval "$( filter_portage_flags FEATURES -- "${@:-}" )"
 	fi
+
 	echo "${FEATURES:-}"
 )  # filter_features_flags
 
@@ -696,7 +969,7 @@ resolve_python_flags() {
 				;;
 		esac
 	done
-	printf '%s="%s"\n' 'USE' "$( # <- Syntax
+	printf 'setenv %s="%s"\n' 'USE' "$( # <- Syntax
 			echo "${resolve_use}" |
 				xargs -rn 1 |
 				sort |
@@ -704,14 +977,14 @@ resolve_python_flags() {
 				xargs -r
 		)"
 	# Auto-select greatest value... is this reasonable?
-	printf '%s="%s"\n' 'PYTHON_SINGLE_TARGET' "$( # <- Syntax
+	printf 'setenv %s="%s"\n' 'PYTHON_SINGLE_TARGET' "$( # <- Syntax
 			echo "${resolve_python_single_target}" |
 				xargs -rn 1 |
 				sort -V |
 				uniq |
 				tail -n 1
 		)"
-	printf '%s="%s"\n' 'PYTHON_TARGETS' "$( # <- Syntax
+	printf 'setenv %s="%s"\n' 'PYTHON_TARGETS' "$( # <- Syntax
 			echo "${resolve_python_targets}" |
 				xargs -rn 1 |
 				sort |
@@ -1022,7 +1295,7 @@ do_emerge() {
 		fi
 	fi
 
-	print "Running \"emerge ${*}\"${USE:+" with USE='${USE}'"}" \
+	print "do_emerge: Running \"emerge ${*}\"${USE:+" with USE='${USE}'"}" \
 		"${ROOT:+" with ROOT='${ROOT}'"}"
 	#FEATURES="${do_emerge_features:-}" \
 	emerge --ignore-default-opts --color=y "${@:-}" || do_emerge_rc="${?}"
@@ -1037,7 +1310,7 @@ do_emerge() {
 			else
 				do_emerge_li='' do_emerge_f='' do_emerge_s1=0 do_emerge_s2=0
 
-				print "Looking for kernel configuration hints in" \
+				print "do_emerge: Looking for kernel configuration hints in" \
 					"'${ROOT:-}/${do_emerge_dir}/' ..."
 
 				for do_emerge_li in "${ROOT:-}/${do_emerge_dir}"/*; do
@@ -1046,11 +1319,11 @@ do_emerge() {
 					[ "${do_emerge_f}" = '.keep' ] &&
 						continue
 
-					print ".. found file '${do_emerge_f}'"
+					print " .. found file '${do_emerge_f}'"
 
 					do_emerge_s1="$( stat -c '%s' "${do_emerge_li}" )"
 					if [ -s "/srv/host/${do_emerge_dir}/${do_emerge_f}" ]; then
-						print ".... comparing to exisiting file" \
+						print " .... comparing to exisiting file" \
 							"'/srv/host/${do_emerge_dir}/${do_emerge_f}'"
 
 						do_emerge_s2="$(
@@ -1061,7 +1334,7 @@ do_emerge() {
 						do_emerge_s2=0
 					fi
 					if [ $(( do_emerge_s1 )) -ne $(( do_emerge_s2 )) ]; then
-						print ".... file size has changed, saving" \
+						print " .... file size has changed, saving" \
 							"'${do_emerge_f}'"
 
 						cp -a "${do_emerge_li}" \
@@ -1070,7 +1343,7 @@ do_emerge() {
 								"'/srv/host/${do_emerge_dir}/${do_emerge_f}':" \
 								"${?}"
 					else
-						print "...... discarding identical file"
+						print " ...... discarding identical file"
 					fi
 				done
 				unset do_emerge_s2 do_emerge_s1 do_emerge_f do_emerge_li
@@ -1086,7 +1359,7 @@ do_emerge() {
 		LC_ALL='C' /usr/sbin/etc-update -q --automode -5
 		LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 	elif ! echo "${*:-}" | grep -qw -e '--unmerge' -e '--depclean'; then
-		warn "Build failed (${do_emerge_rc}):"
+		warn "Build failed (${do_emerge_rc}) in gentoo-base/entrypoint.sh:"
 		warn "  USE='${USE:-}'"
 		warn "  ROOT='${ROOT:-}'"
 		warn "  \${*}='${*:-}'"
@@ -1512,9 +1785,10 @@ default_repo_dir="$( portageq get_repo_path '/' gentoo )" || :
 unset default_repo_dir
 [ -s /etc/locale.gen ] ||
 	warn "'/etc/locale.gen' is missing or empty"
+# shellcheck disable=SC2153
 if ! [ -s "${PKGDIR}"/Packages ] || ! [ -d "${PKGDIR}"/virtual ]; then
 	warn "'${PKGDIR}/Packages' or '${PKGDIR}/virtual' are missing - package" \
-		"cache appears invalid"
+		"cache appears uninitialised or invalid"
 fi
 
 env | grep -F -- 'DIR=' | cut -d'=' -f 2- | while read -r d; do
@@ -1534,6 +1808,9 @@ env | grep -F -- 'DIR=' | cut -d'=' -f 2- | while read -r d; do
 		fi
 	fi
 done
+
+validate_pkgdir_metadata ||
+	die "Failed to validate metadata for PKGDIR '${PKGDIR}'"
 
 touch "${PKGDIR}/Packages" ||
 	die "Unable to write to file '${PKGDIR}/Packages': ${?}"
@@ -1701,15 +1978,15 @@ if portageq get_repos '/' | grep -Fq -- 'srcshelton'; then
 	output " * Building linted 'sys-apps/gentoo-functions' package for" \
 		"stage3 ..."
 	(
-		USE="-* $( get_stage3 --values-only USE )"
-		export USE
-		FEATURES="$( # <- Syntax
+		setenv USE="-* $( get_stage3 --values-only USE )"
+		setenv FEATURES="$( # <- Syntax
 				filter_features_flags 'clean' 'fail-clean' 'fakeroot'
 			) -clean -fail-clean -fakeroot"
-		export FEATURES
+
 		pkgdir="$( LC_ALL='C' portageq pkgdir )"
-		export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+		setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 		unset pkgdir
+
 		do_emerge --single-defaults 'sys-apps/gentoo-functions::srcshelton'
 	)
 fi
@@ -1725,14 +2002,13 @@ validate_python_installation "pre-remove"
 	# We're only removing packages here, but different USE flag combinations
 	# may affect dependencies...
 	#
-	USE="-* $( get_stage3 --values-only USE ) -udev"
-	export USE
-	FEATURES="$( # <- Syntax
+	setenv USE="-* $( get_stage3 --values-only USE ) -udev"
+	setenv FEATURES="$( # <- Syntax
 			filter_features_flags 'clean' 'fail-clean' 'fakeroot'
 		) -clean -fail-clean -fakeroot"
-	export FEATURES
+
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
-	export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+	setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 	unset pkgdir
 
 	# 'dhcpcd' is now built with USE='udev', and libmd needs 'split-usr'...
@@ -1740,10 +2016,10 @@ validate_python_installation "pre-remove"
 	# ... and /usr/$(get_libdir)/libmd.so is being preserved :(
 	#
 	(
-		FEATURES="$( # <- Syntax
+		setenv FEATURES="$( # <- Syntax
 				filter_features_flags --env-only 'preserve-libs'
 			) -preserve-libs"
-		export FEATURES
+
 		do_emerge --once-defaults app-crypt/libmd net-misc/dhcpcd
 	)
 
@@ -1822,39 +2098,42 @@ then
 		# First, let's try to get a working 'qatom' for map_p_to_pn from
 		# app-portage/portage-utils...
 		export QA_XLINK_ALLOWED='*'
-		FEATURES="$( # <- Syntax
+		setenv FEATURES="$( # <- Syntax
 				filter_features_flags 'clean' 'fail-clean' 'preserve-libs'
 			) -clean -fail-clean -preserve-libs"
-		export FEATURES
+
 		pkgdir="$( LC_ALL='C' portageq pkgdir )"
-		export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/python"
+		setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/python"
 		unset pkgdir
-		export USE='-clang -openmp -qmanifest -static'
+
+		setenv USE='-clang -openmp -qmanifest -static'
 		eval "$( filter_toolchain_flags --env-only -fopenmp )" || :
+
 		do_emerge --once-defaults \
 			app-portage/portage-utils || :
 	)
 	(
 		export QA_XLINK_ALLOWED='*'
-		FEATURES="$( # <- Syntax
+		setenv FEATURES="$( # <- Syntax
 				filter_features_flags 'clean' 'fail-clean' 'preserve-libs'
 			) -clean -fail-clean -preserve-libs"
-		export FEATURES
+
 		pkgdir="$( LC_ALL='C' portageq pkgdir )"
-		export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/python"
+		setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/python"
 		unset pkgdir
-		USE="-* $( get_stage3 --values-only USE ) -udev split-usr"
-		USE="$( # <- Syntax
-				echo "${USE}" |
+
+		setenv USE="$( # <- Syntax
+				echo "-* $( get_stage3 --values-only USE ) -udev split-usr" |
 					xargs -rn 1 |
 					grep -v -e '^python_single_target_' -e 'python_targets_' |
 					xargs -r
 				echo "python_single_target_${python_default_targets%%" "*}"
 				echo "python_targets_${python_default_targets%%" "*}"
 			)"
-		export USE
-		export PYTHON_DEFAULT_TARGET="${python_default_targets%%" "*}"
-		export PYTHON_TARGETS="${python_default_targets}"
+		setenv PYTHON_DEFAULT_TARGET="${python_default_targets%%" "*}"
+		setenv PYTHON_TARGETS="${python_default_targets}"
+
+		# This should be implicit, given the above?
 		eval "$( # <- Syntax
 				resolve_python_flags \
 					"${USE}" \
@@ -1938,14 +2217,13 @@ output
 output
 output " * Building 'sys-apps/fakeroot' package for stage3 ..."
 (
-	USE="-* $( get_stage3 --values-only USE )"
-	export USE
-	FEATURES="$( # <- Syntax
+	setenv USE="-* $( get_stage3 --values-only USE )"
+	setenv FEATURES="$( # <- Syntax
 			filter_features_flags 'clean' 'fail-clean' 'fakeroot'
 		) -clean -fail-clean -fakeroot"
-	export FEATURES
+
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
-	export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+	setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 	unset pkgdir
 
 	if echo " ${use_essential}" | grep -q -- ' rpi[0-9-]'; then
@@ -1957,10 +2235,9 @@ output " * Building 'sys-apps/fakeroot' package for stage3 ..."
 
 	do_emerge --single-defaults sys-apps/fakeroot
 )
-FEATURES="$( # <- Syntax
+setenv FEATURES="$( # <- Syntax
 		filter_features_flags 'clean' 'fail-clean' 'fakeroot' 'preserve-libs'
 	) -clean -fail-clean fakeroot -preserve-libs"
-export FEATURES
 
 export QA_XLINK_ALLOWED='*'
 
@@ -1969,14 +2246,14 @@ output
 output " * Building 'sys-apps/portage' package for stage3 (in case of" \
 	"downgrades) ..."
 (
-	USE="-* $( get_stage3 --values-only USE ) ${use_essential}"
-	export USE
+	setenv USE="-* $( get_stage3 --values-only USE ) ${use_essential}"
+
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
-	export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+	setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 	unset pkgdir
-	PYTHON_TARGETS="${python_default_targets}"
-	PYTHON_SINGLE_TARGET="${python_default_targets%%" "*}"
-	export PYTHON_TARGETS PYTHON_SINGLE_TARGET
+
+	setenv PYTHON_TARGETS="${python_default_targets}"
+	setenv PYTHON_SINGLE_TARGET="${python_default_targets%%" "*}"
 
 	do_emerge --single-defaults 'sys-apps/portage'
 )
@@ -1989,7 +2266,7 @@ usex() {
 	if [ -z "${usex_var:-}" ]; then
 		printf '%s' "${usex_false:-}"
 	else
-		usex_value="$( eval echo "\$${usex_var}" )"
+		usex_value="$( eval echo "\${${usex_var}}" )"
 		if [ -n "${usex_value:-}" ]; then
 			printf '%s' "${usex_true:-}"
 		else
@@ -2011,11 +2288,10 @@ for ithreads in 'ithreads' ''; do
 			usex ithreads '' 'out'
 		) ithreads) for stage3 ..."
 	(
-		USE="-* $( get_stage3 --values-only USE )"
-		USE="$( # <- Syntax
-				echo " berkdb gdbm $( # <- Syntax
+		setenv USE="$( # <- Syntax
+				echo "-* berkdb gdbm $( # <- Syntax
 							usex ithreads 'perl_features_ithreads ' ''
-						)${USE}$( # <- Syntax
+						)$( get_stage3 --values-only USE )$( # <- Syntax
 							usex ithreads '' ' -perl_features_ithreads'
 						) " |
 					sed "s/ $( # <- Syntax
@@ -2025,11 +2301,12 @@ for ithreads in 'ithreads' ''; do
 					sort -u |
 					xargs -r
 			)"
-		export USE
-		export PERL_FEATURES="${ithreads:-}"
+		setenv PERL_FEATURES="${ithreads:-}"
+
 		pkgdir="$( LC_ALL='C' portageq pkgdir )"
-		export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+		setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 		unset pkgdir
+
 		# shellcheck disable=SC2046
 		do_emerge --single-defaults dev-lang/perl dev-perl/libintl-perl $(
 				grep -lw 'perl_features_ithreads' \
@@ -2062,11 +2339,12 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		# state as possible.
 		#
 		# ('livecd' for patched busybox)
-		USE="-* livecd nptl $( get_stage3 --values-only USE )"
-		export USE
+		setenv USE="-* livecd nptl $( get_stage3 --values-only USE )"
+
 		pkgdir="$( LC_ALL='C' portageq pkgdir )"
-		export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+		setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 		unset pkgdir
+
 		do_emerge --chost-defaults '@system' '@world'
 	)
 	# For some reason, after dealing with /usr/sbin being a symlink to
@@ -2091,11 +2369,12 @@ if ! [ -d "/usr/${CHOST}" ]; then
 		)"
 	for pkg in 'sys-devel/binutils' 'sys-devel/gcc' 'sys-libs/glibc'; do
 		(
-			USE="-* nptl $( get_stage3 --values-only USE )"
-			export USE
+			setenv USE="-* nptl $( get_stage3 --values-only USE )"
+
 			pkgdir="$( LC_ALL='C' portageq pkgdir )"
-			export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+			setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 			unset pkgdir
+
 			do_emerge --single-defaults "${pkg}"
 		)
 		# For some reason, after dealing with /usr/sbin being a symlink to
@@ -2140,11 +2419,12 @@ if ! [ -d "/usr/${CHOST}" ]; then
 	# shellcheck disable=SC2041
 	for pkg in 'dev-build/libtool'; do
 		(
-			USE="-* $( get_stage3 --values-only USE )"
-			export USE
+			setenv USE="-* $( get_stage3 --values-only USE )"
+
 			pkgdir="$( LC_ALL='C' portageq pkgdir )"
-			export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+			setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 			unset pkgdir
+
 			do_emerge --single-defaults "${pkg}"
 		)
 		# For some reason, after dealing with /usr/sbin being a symlink to
@@ -2160,10 +2440,10 @@ if ! [ -d "/usr/${CHOST}" ]; then
 			--oldarch "${oldchost}"
 
 	(
-		USE="-* nptl $( get_stage3 --values-only USE )"
-		export USE
+		setenv USE="-* nptl $( get_stage3 --values-only USE )"
+
 		pkgdir="$( LC_ALL='C' portageq pkgdir )"
-		export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+		setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 		unset pkgdir
 
 		# clashing USE flags can't be resolved with current level of
@@ -2217,7 +2497,7 @@ output " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 
 (
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
-	export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+	setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 	unset pkgdir
 
 	# There's something weird happening with sys-libs/pam - if it's built
@@ -2240,7 +2520,7 @@ output " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 	#
 	# shellcheck disable=SC2046
 	(
-		export USE='-gmp -nls ssl'
+		setenv USE='-gmp -nls ssl'
 		do_emerge --single-defaults sys-libs/libxcrypt
 	)
 	do_emerge --unmerge-defaults sys-libs/pam sys-libs/libxcrypt
@@ -2248,7 +2528,7 @@ output " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 
 	# shellcheck disable=SC2046
 	(
-		USE="-gmp -nls asm cet ssl$( # <- Syntax
+		setenv USE="-gmp -nls asm cet ssl$( # <- Syntax
 				flag=''
 				if [ -n "${use_essential:-}" ]; then
 					for flag in ${os_headers_arch_flags}; do
@@ -2259,7 +2539,6 @@ output " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 					done
 				fi
 			)"
-		export USE
 		do_emerge --single-defaults sys-libs/libxcrypt
 
 		# app-arch/zstd is failing here because it can't find dev-build/ninja,
@@ -2330,10 +2609,10 @@ output " * Installing stage3 'sys-kernel/gentoo-sources' kernel source" \
 # Some packages require prepared kernel sources...
 #
 (
-	USE="-* symlink $( get_stage3 --values-only USE )"
-	export USE
+	setenv USE="-* symlink $( get_stage3 --values-only USE )"
+
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
-	export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+	setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 	unset pkgdir
 
 	if echo " ${use_essential}" | grep -q -- ' rpi[0-9-]'; then
@@ -2406,26 +2685,31 @@ do
 				echo "python_single_target_${python_default_targets%%" "*}"
 				echo "python_targets_${python_default_targets%%" "*}"
 			)"
+
+		# This should be implicit, given the above?
 		eval "$( # <- Syntax
 				resolve_python_flags \
 					"${USE}" \
 					"${PYTHON_SINGLE_TARGET:-"${python_default_targets%%" "*}"}" \
 					"${PYTHON_TARGETS:-"${python_default_targets}"}"
 			)"
+
 		# Add 'xml' to prevent an additional python install/rebuild for
 		# sys-process/audit (which pulls-in dev-lang/python without USE='xml')
 		# vs. dev-libs/libxml2 (which requires dev-lang/python[xml])
 		#
 		# shellcheck disable=SC2154
 		USE="xml ${USE} ${use_essential_gcc}"
+
 		# Requirement patched out for >=sys-devel/binutils-2.41
 		#if [ "${arch}" = 'arm64' ]; then
 		#	USE="gold ${USE}"
 		#fi
-		export USE
+
 		pkgdir="$( LC_ALL='C' portageq pkgdir )"
-		export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+		setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 		unset pkgdir
+
 		case "${pkg}" in
 			'dev-libs/libxml2')
 				# Don't install previous versions of python...
@@ -2451,6 +2735,8 @@ do
 				USE="${USE} -berkdb -ensurepip -gdbm -ncurses -python -readline -sqlite"
 				;;
 		esac
+		setenv USE "${USE}"
+
 		do_emerge --single-defaults "${pkg}"
 	)
 	#if LC_ALL='C' eselect --colour=yes news read new |
@@ -2480,9 +2766,9 @@ for cc_opt in \
 		FFLAGS FCFLAGS CGO_FFLAGS \
 		LDFLAGS CGO_LDFLAGS FLFLAGS
 do
-	if [ -n "$( eval "echo \"\$_o_${cc_opt}\"" )" ]; then
+	if [ -n "$( eval "echo \"\${_o_${cc_opt}:+\"set\"}\"" )" ]; then
 		export "$( # <- Syntax
-				eval echo "${cc_opt}=\"$( eval "echo \"\$_o_${cc_opt}\"" )\""
+				eval echo "${cc_opt}=\"$( eval "echo \"\${_o_${cc_opt}}\"" )\""
 			)"
 	fi
 done
@@ -2518,9 +2804,10 @@ if command -v portageq >/dev/null 2>&1; then
 fi
 unset repo_path repo_name
 
-export ROOT="${service_root}"
-export SYSROOT="${ROOT}"
-export PORTAGE_CONFIGROOT="${SYSROOT}"
+setenv ROOT="${service_root}"
+setenv SYSROOT="${ROOT}"
+setenv PORTAGE_CONFIGROOT="${SYSROOT}"
+invalidate_get_portage_flags_cache
 
 # Pre-load keys for new ROOT ...
 get_portage_flags
@@ -2593,7 +2880,7 @@ LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" 2>&1 |
 # Update: 'nptl' USE flag now seems to have been removed from current ebuilds,
 # but this can't do much harm...
 #
-export USE="nptl ${USE:+"${USE} "}${use_essential}"
+setenv USE="nptl ${USE:+"${USE} "}${use_essential}"
 
 # FIXME: Expose this somewhere?
 features_libeudev=0
@@ -2656,7 +2943,7 @@ if [ -n "${pkg_initial:-}" ]; then
 		# We need to include sys-devel/gcc flags here, otherwise portage has
 		# developed a tendancy to want to reinstall it even if present and not
 		# directly depended upon...
-		export USE="${pkg_initial_use}${use_essential:+" ${use_essential}"}${use_essential_gcc:+" ${use_essential_gcc}"}"
+		USE="${pkg_initial_use}${use_essential:+" ${use_essential}"}${use_essential_gcc:+" ${use_essential_gcc}"}"
 		if [ "${ROOT:-"/"}" = '/' ]; then
 			if [ -z "${stage3_flags:-}" ]; then
 				USE="${USE:+"${USE} "}$( get_stage3 --values-only USE )"
@@ -2685,11 +2972,13 @@ if [ -n "${pkg_initial:-}" ]; then
 							"${PYTHON_SINGLE_TARGET}" \
 							"${PYTHON_TARGETS}"
 				)"
-			export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 			print "'python_targets' is '${python_targets:-}'," \
 				"'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}'," \
 				"'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
 		fi
+		setenv USE "${USE}"
+		setenv PYTHON_SINGLE_TARGET "${PYTHON_SINGLE_TARGET}"
+		setenv PYTHON_TARGETS "${PYTHON_TARGETS}"
 
 		if eval "$( # <- Syntax
 				filter_toolchain_flags --env-only \
@@ -2786,9 +3075,10 @@ if [ -n "${pkg_initial:-}" ]; then
 							sort -u
 					)
 			do
-				export ROOT
-				export SYSROOT="${ROOT}"
-				export PORTAGE_CONFIGROOT="${SYSROOT}"
+				setenv ROOT "${ROOT}"
+				setenv SYSROOT="${ROOT}"
+				setenv PORTAGE_CONFIGROOT="${SYSROOT}"
+				invalidate_get_portage_flags_cache
 
 				done_python_deps=0
 
@@ -2823,15 +3113,15 @@ if [ -n "${pkg_initial:-}" ]; then
 					(
 						done_python_deps=1
 
-						ROOT='/'
-						SYSROOT="${ROOT}"
-						PORTAGE_CONFIGROOT="${SYSROOT}"
-						export ROOT SYSROOT PORTAGE_CONFIGROOT
+						setenv ROOT='/'
+						setenv SYSROOT="${ROOT}"
+						setenv PORTAGE_CONFIGROOT="${SYSROOT}"
+						invalidate_get_portage_flags_cache
 
 						case "${ROOT:-}" in
 							''|'/')
 								pkgdir="$( LC_ALL='C' portageq pkgdir )"
-								export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+								setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 								unset pkgdir
 								;;
 							*)
@@ -2853,12 +3143,14 @@ if [ -n "${pkg_initial:-}" ]; then
 									sed 's/ perl_features_ithreads / /g' |
 									sed 's/^ // ; s/ $//'
 							)"
+
 						# Requirement patched out for >=sys-devel/binutils-2.41
 						#if [ "${ARCH}" = 'arm64' ]; then
 						#	USE="gold ${USE:-}"
 						#fi
-						export USE PERL_FEATURES \
-							PYTHON_SINGLE_TARGET PYTHON_TARGETS
+
+						setenv USE "${USE}"
+						setenv PERL_FEATURES "${PERL_FEATURES:-}"
 
 						info="$( LC_ALL='C' emerge --info --verbose=y 2>&1 )"
 						output
@@ -3007,9 +3299,9 @@ if [ -n "${pkg_initial:-}" ]; then
 					# Install same dependencies again within our build ROOT...
 					#
 					(
-						SYSROOT="/"
-						PORTAGE_CONFIGROOT="${SYSROOT}"
-						export SYSROOT PORTAGE_CONFIGROOT
+						setenv SYSROOT="/"
+						setenv PORTAGE_CONFIGROOT="${SYSROOT}"
+						invalidate_get_portage_flags_cache
 
 						case "${ROOT:-}" in
 							''|'/')
@@ -3036,12 +3328,13 @@ if [ -n "${pkg_initial:-}" ]; then
 									sed 's/ perl_features_ithreads / /g' |
 									sed 's/^ // ; s/ $//'
 							)"
+
 						# Requirement patched out for >=sys-devel/binutils-2.41
 						#if [ "${ARCH}" = 'arm64' ]; then
 						#	USE="gold ${USE:-}"
 						#fi
-						export USE PERL_FEATURES PYTHON_SINGLE_TARGET \
-							PYTHON_TARGETS
+						setenv USE "${USE}"
+						setenv PERL_FEATURES "${PERL_FEATURES:-}"
 
 						# ROOT == '/build'
 						output
@@ -3280,7 +3573,7 @@ output ' * Building @system packages ...'
 		USE="nptl${USE:+" $( echo "${USE}" | sed 's/ \?-\?nptl \?/ /' ) "}"
 		print "USE is now '${USE}'"
 	fi
-	export USE
+	setenv USE "${USE}"
 
 	if eval "$( # <- Syntax
 			filter_toolchain_flags --env-only \
@@ -3300,14 +3593,15 @@ output ' * Building @system packages ...'
 					sort -u
 			)
 	do
-		export ROOT
-		export SYSROOT="${ROOT}"
-		export PORTAGE_CONFIGROOT="${SYSROOT}"
+		setenv ROOT "${ROOT}"
+		setenv SYSROOT="${ROOT}"
+		setenv PORTAGE_CONFIGROOT="${SYSROOT}"
+		invalidate_get_portage_flags_cache
 
 		case "${ROOT:-}" in
 			''|'/')
 				pkgdir="$( LC_ALL='C' portageq pkgdir )"
-				export PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/system"
+				setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/system"
 				unset pkgdir
 				;;
 			*)
@@ -3465,12 +3759,27 @@ output ' * Building @system packages ...'
 		# virtual/ssh?
 		#
 		# We get lots of:
+		#
 		#  * FEATURES=dedupdebug is enabled but the dwz binary could not be
 		#  * found. This feature will not work unless dwz is installed!
+		#
 		# ... here if this FEATURE isn't disabled.
 		#
 		# FIXME: Forcing 'openmp'?
 		#
+
+		# sys-devel/dwz relies on a configured sys-devel/binutils-config
+		# already being present...
+		#
+			FEATURES='-dedupdebug' \
+			USE="${arm64_use:+"${arm64_use} "}${root_use:+"${root_use} "}${USE:-}" \
+		do_emerge \
+				--system-defaults \
+			sys-devel/binutils sys-devel/binutils-config
+		binutils-config latest
+		# shellcheck disable=SC1091
+		. "${SYSROOT%"/"}/etc/profile"
+
 		# shellcheck disable=SC2086
 		#	debug=1 \
 			FEATURES='-dedupdebug' \
@@ -3669,10 +3978,9 @@ unset path
 unset format_fn_code
 
 unset QA_XLINK_ALLOWED
-FEATURES="$( # <- Syntax
+setenv FEATURES="$( # <- Syntax
 		filter_features_flags 'clean' 'fail-clean'
 	) -clean -fail-clean"
-export FEATURES
 
 # Save environment for later docker stages...
 printf "#FILTER: '%s'\n\n" \
@@ -3708,9 +4016,11 @@ case "${1:-}" in
 							sort -u
 					)
 			do
-				export ROOT
-				export SYSROOT="${ROOT}"
-				export PORTAGE_CONFIGROOT="${SYSROOT}"
+				setenv ROOT "${ROOT}"
+				setenv SYSROOT="${ROOT}"
+				setenv PORTAGE_CONFIGROOT="${SYSROOT}"
+				invalidate_get_portage_flags_cache
+
 				do_emerge --once-defaults "${package}" || rc=${?}
 				if [ $(( rc )) -ne 0 ]; then
 					error "Default package build for root '${ROOT}': ${rc}"
@@ -3752,9 +4062,11 @@ case "${1:-}" in
 							sort -u
 					)
 			do
-				export ROOT
-				export SYSROOT="${ROOT}"
-				export PORTAGE_CONFIGROOT="${SYSROOT}"
+				setenv ROOT "${ROOT}"
+				setenv SYSROOT="${ROOT}"
+				setenv PORTAGE_CONFIGROOT="${SYSROOT}"
+				invalidate_get_portage_flags_cache
+
 				# shellcheck disable=SC2086
 				do_emerge --multi-defaults "${@}" || rc=${?}
 				if [ $(( rc )) -ne 0 ]; then
@@ -3777,14 +4089,13 @@ case "${1:-}" in
 		output " * Building specified post-installation '${post_pkgs}'" \
 			"packages ${post_use:+"with USE='${post_use}' "}..."
 
-		[ -n "${post_use:-}" ] && export USE="${post_use}"
+		[ -n "${post_use:-}" ] && setenv USE="${post_use}"
 		eval "$( # <- Syntax
 				resolve_python_flags \
 					"${USE:-}" \
 					"${PYTHON_SINGLE_TARGET:-}" \
 					"${PYTHON_TARGETS:-}"
 			)"
-		export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
 		info="$( LC_ALL='C' emerge --info --verbose=y 2>&1 )"
 
@@ -3827,12 +4138,15 @@ case "${1:-}" in
 											sort -u
 									)
 							do
-								export ROOT
-								export SYSROOT="${ROOT}"
-								export PORTAGE_CONFIGROOT="${SYSROOT}"
+								setenv ROOT "${ROOT}"
+								setenv SYSROOT="${ROOT}"
+								setenv PORTAGE_CONFIGROOT="${SYSROOT}"
+								invalidate_get_portage_flags_cache
+
 								# shellcheck disable=SC2086
 								do_emerge --defaults ${parallel} \
 									--usepkg=y ${flags:-} ${arg} || rc=${?}
+
 								if [ $(( rc )) -ne 0 ]; then
 									error "Single post-package build" \
 										"for root '${ROOT}': ${rc}"
@@ -3853,9 +4167,11 @@ case "${1:-}" in
 								sort -u
 						)
 				do
-					export ROOT
-					export SYSROOT="${ROOT}"
-					export PORTAGE_CONFIGROOT="${SYSROOT}"
+					setenv ROOT "${ROOT}"
+					setenv SYSROOT="${ROOT}"
+					setenv PORTAGE_CONFIGROOT="${SYSROOT}"
+					invalidate_get_portage_flags_cache
+
 					output
 					output
 					output " * Building temporary post-packages" \
@@ -3921,7 +4237,7 @@ case "${1:-}" in
 						"${BUILD_USE}" \
 						"${BUILD_PYTHON_SINGLE_TARGET}" \
 						"${BUILD_PYTHON_TARGETS}" |
-					sed 's/^/BUILD_/'
+					sed 's/^setenv /BUILD_/'
 			)"
 		export BUILD_USE BUILD_PYTHON_SINGLE_TARGET BUILD_PYTHON_TARGETS
 
@@ -3937,7 +4253,7 @@ case "${1:-}" in
 						"${ROOT_USE}" \
 						"${ROOT_PYTHON_SINGLE_TARGET}" \
 						"${ROOT_PYTHON_TARGETS}" |
-					sed 's/^/ROOT_/'
+					sed 's/^setenv /ROOT_/'
 			)"
 		# FIXME: ROOT_PYTHON_SINGLE_TARGET, ROOT_PYTHON_TARGETS unused
 		export ROOT_USE ROOT_PYTHON_SINGLE_TARGET ROOT_PYTHON_TARGETS
@@ -3970,23 +4286,23 @@ case "${1:-}" in
 			targets="$( # <- Syntax
 					echo "${ROOT_USE}" |
 						grep -o -- 'python_targets_python[^ ]\+' |
-						sed 's/python_targets_//'
+						sed 's/python_targets_//' |
+						xargs -r
 				)"
-			print "targets: '${targets}'"
+			print "Current python_targets: '${targets}'"
 
 			remove="$( # <- Syntax
 					echo "${targets}" |
 						xargs -rn 1 |
-						grep -vx -- "${target}"
+						grep -vx -- "${target}" |
+						xargs -r
 				)"
-			print "remove: '${remove}'"
+			print "python_targets to remove: '${remove}'"
 
 			if [ -n "${remove:-}" ]; then
 				output
 				output
-				output " * Cleaning old python targets '$( # <- Syntax
-						echo "${remove}" | xargs -r
-					)' ..."
+				output " * Cleaning old python targets '${remove}' ..."
 				(
 					arg='' use='' pkgs=''
 
@@ -4005,17 +4321,17 @@ case "${1:-}" in
 									xargs -r
 							)
 					do
-						SYSROOT="${ROOT}"
-						PORTAGE_CONFIGROOT="${SYSROOT}"
-						export ROOT SYSROOT PORTAGE_CONFIGROOT
+						setenv ROOT "${ROOT}"
+						setenv SYSROOT="${ROOT}"
+						setenv PORTAGE_CONFIGROOT="${SYSROOT}"
+						invalidate_get_portage_flags_cache
 
-						PYTHON_SINGLE_TARGET="${BUILD_PYTHON_SINGLE_TARGET}"
+						setenv PYTHON_SINGLE_TARGET="${BUILD_PYTHON_SINGLE_TARGET}"
 						if [ "${ROOT}" = '/' ]; then
 							USE="$( get_stage3 --values-only USE )"
-							PYTHON_TARGETS="$( # <- Syntax
+							setenv PYTHON_TARGETS="$( # <- Syntax
 									get_stage3 --values-only PYTHON_TARGETS
 								)"
-							export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 							eval "$( # <- Syntax
 									resolve_python_flags \
 										"${USE}" \
@@ -4024,8 +4340,7 @@ case "${1:-}" in
 								)"
 						else
 							USE="${BUILD_USE}"
-							PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
-							export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
+							setenv PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
 							eval "$( # <- Syntax
 									resolve_python_flags \
 										"${USE}" \
@@ -4052,7 +4367,7 @@ case "${1:-}" in
 
 							if echo "${remove}" | grep -qw -- "${arg}"; then
 								use="${use:+"${use} "}-${arg}"
-								print "Matched - 'use' is now '${use}'"
+								print " .. matched - 'use' is now '${use}'"
 
 								pkgs="${pkgs:-} $( # <- Syntax
 										find "${ROOT%"/"}/var/db/pkg/" \
@@ -4099,6 +4414,8 @@ case "${1:-}" in
 									"${PYTHON_SINGLE_TARGET}" \
 									"${PYTHON_TARGETS}"
 							)"
+						setenv USE "${USE}"
+
 						pkgs="${pkgs:-} $( # <- Syntax
 								find "${ROOT%"/"}/var/db/pkg/dev-python/" \
 										-mindepth 1 \
@@ -4107,8 +4424,6 @@ case "${1:-}" in
 										-print |
 									sed 's|^.*/var/db/pkg/|>=| ; s|/$||'
 							)"
-
-						export USE PYTHON_SINGLE_TARGET PYTHON_TARGETS
 
 						info="$( # <- Syntax
 									LC_ALL='C' \
@@ -4167,8 +4482,8 @@ case "${1:-}" in
 							break
 						fi
 
-						export USE="${USE} -tmpfiles"
-						export PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
+						setenv USE="${USE} -tmpfiles"
+						setenv PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
 
 						info="$( # <- Syntax
 									LC_ALL='C' \
@@ -4283,7 +4598,7 @@ case "${1:-}" in
 					exit ${rc}  # from subshell
 				) || rc=${?}
 				if [ $(( rc )) -ne 0 ]; then
-					error "Old python targets: ${rc}"
+					error "Cleaning old python targets failed: ${rc}"
 				fi
 			fi # [ -n "${remove:-}" ]
 		fi # multiple python targets
@@ -4292,7 +4607,7 @@ case "${1:-}" in
 		#
 		output
 		output
-		output 'Final package cleanup for root '${ROOT}':'
+		output "Final package cleanup for root '${ROOT}':"
 		output '---------------------'
 		echo
 		do_emerge --unmerge-defaults \
