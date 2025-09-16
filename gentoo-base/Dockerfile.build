@@ -14,9 +14,16 @@ ARG TARGETARCH
 ARG TARGETOS
 ARG TARGETPLATFORM
 
+# This is a hack to enable xtrace output for container-builds, intending to be
+# the least invasive (albeit Docker-oriented) means to control this feature...
+ARG BUILDKIT_PROGRESS
+
 ARG base_name="localhost/gentoo-base"
 ARG env_name="localhost/gentoo-env"
 ARG env_id=""
+
+# Do we want to use a different tag to 'latest' for our own images?
+ARG override_tag="latest"
 
 ARG environment_file="/usr/libexec/environment.sh"
 ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
@@ -31,7 +38,7 @@ ARG PORTAGE_CONFIGROOT="${SYSROOT}"
 # Import system image
 #
 # linter ignore=EF0003
-FROM "${base_name}:latest" AS base
+FROM "${base_name}:${override_tag}" AS base
 
 ARG ROOT
 ARG environment_file
@@ -44,7 +51,9 @@ RUN test -s "${ROOT}${environment_file}"
 # Create a new container
 #
 # linter ignore=EF0003
-FROM "${env_name}:latest"
+FROM "${env_name}:${override_tag}"
+
+ARG BUILDKIT_PROGRESS
 
 ARG env_name
 ARG env_id
@@ -94,7 +103,9 @@ LABEL environment-from="${env_name}:${env_id}"
 # exec-form...
 #
 # linter ignore=SC2015,SC1091,ER0001
-RUN { set -o pipefail 2>/dev/null || true ; } ; \
+RUN set -e ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
     test -s "${environment_file}" && \
         . "${environment_file}" || \
         { \
@@ -133,13 +144,16 @@ ENV PORTAGE_CONFIGROOT="${SYSROOT}"
 # Rewrite filtered environment.sh with new values ...
 #
 # linter ignore=SC2094,SC2015,SC1091,ER0001
-RUN { set -o pipefail 2>/dev/null || true ; } ; \
+RUN set -e ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
     test -s "${environment_file}" && \
         . "${environment_file}" || \
         { \
             echo >&2 "FATAL: Unable to source '${environment_file}': ${?}" ; \
             exit 1 ; \
         } ; \
+    set -u ; \
     command -v grep >/dev/null 2>&1 || \
         { \
             echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
@@ -175,7 +189,10 @@ COPY entrypoint.sh.build /usr/libexec/entrypoint.sh
 RUN test -s /usr/libexec/entrypoint.sh
 
 # linter ignore=SC2015,SC1091
-RUN test -s "${environment_file}" && \
+RUN set -e ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    test -s "${environment_file}" && \
         . "${environment_file}" || \
         { \
             echo >&2 "FATAL: Unable to source '${environment_file}': ${?}" ; \

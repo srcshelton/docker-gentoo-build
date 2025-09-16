@@ -5,6 +5,11 @@
 
 # hadolint global ignore=DL4006,DL3025,SC3040,SC2174,SC2015,SC2012
 #
+
+# This is a hack to enable xtrace output for container-builds, intending to be
+# the least invasive (albeit Docker-oriented) means to control this feature...
+ARG BUILDKIT_PROGRESS
+
 ARG image_name
 ARG service_name
 ARG service_name_short
@@ -36,6 +41,8 @@ ARG CHOST="x86_64-pc-linux-gnu"
 #
 FROM "localhost/${image_name}:${service_version}" AS base
 
+ARG BUILDKIT_PROGRESS
+
 ARG ROOT
 ARG environment_file
 ARG environment_filter
@@ -45,7 +52,8 @@ RUN test -s "${environment_file}"
 
 # linter ignore=SC2094,SC2015,ER0001
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -84,6 +92,8 @@ EOT
 # Create a new container
 #
 FROM scratch
+
+ARG BUILDKIT_PROGRESS
 
 ARG image_name
 ARG service_name
@@ -147,7 +157,8 @@ RUN test -x /bin/busybox
 
 # linter ignore=SC2050,SC2012,ER0001
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -201,7 +212,8 @@ EOT
 
 # linter ignore=SC2174,SC2050
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -269,7 +281,8 @@ EOT
 COPY entrypoint.sh.service /usr/libexec/entrypoint.sh
 COPY entrypoint.d/ /usr/libexec/entrypoint.d/
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -287,7 +300,8 @@ EOT
 
 # linter ignore=ER0001,SC2015
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -304,7 +318,8 @@ EOT
 
 # linter ignore=ER0001
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -332,7 +347,8 @@ EOT
 #	sh -n /usr/libexec/entrypoint.sh
 
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -354,7 +370,8 @@ EOT
 
 # Create /var/cache/man/index.db when man-db is installed...
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -367,7 +384,8 @@ EOT
 #
 # hadolint ignore=SC3028
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -397,7 +415,8 @@ EOT
 
 # http://www.gentoo.org/doc/en/prelink-howto.xml
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -416,7 +435,8 @@ USER "${service_user}:${service_group}"
 
 # hadolint ignore=SC3028
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 

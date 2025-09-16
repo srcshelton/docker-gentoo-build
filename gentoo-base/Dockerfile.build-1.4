@@ -8,6 +8,10 @@
 # hadolint global ignore=SC2015,DL4006
 #
 
+# This is a hack to enable xtrace output for container-builds, intending to be
+# the least invasive (albeit Docker-oriented) means to control this feature...
+ARG BUILDKIT_PROGRESS
+
 # We're not using these, but defining them here prevents podman from
 # complaining about unconsumed build arguments...
 #
@@ -18,6 +22,9 @@ ARG TARGETPLATFORM
 ARG base_name="localhost/gentoo-base"
 ARG env_name="localhost/gentoo-env"
 ARG env_id=""
+
+# Do we want to use a different tag to 'latest' for our own images?
+ARG override_tag="latest"
 
 ARG environment_file="/usr/libexec/environment.sh"
 ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAME|LESS(OPEN)?LS_COLORS|(MAN)?PAGER|(OLD)?PWD|PATH|(|SYS|PORTAGE_CONFIG)ROOT|SHLVL|TERM)="
@@ -32,7 +39,7 @@ ARG PORTAGE_CONFIGROOT="${SYSROOT}"
 # Import system image
 #
 # linter ignore=EF0003
-FROM "${base_name}:latest" AS base
+FROM "${base_name}:${override_tag}" AS base
 
 ARG ROOT
 ARG environment_file
@@ -45,7 +52,9 @@ RUN test -s "${ROOT}${environment_file}"
 # Create a new container
 #
 # linter ignore=EF0003
-FROM "${env_name}:latest"
+FROM "${env_name}:${override_tag}"
+
+ARG BUILDKIT_PROGRESS
 
 ARG env_name
 ARG env_id
@@ -96,7 +105,8 @@ LABEL environment-from="${env_name}:${env_id}"
 #
 # linter ignore=SC2015,SC1091,ER0001
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -e
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -104,6 +114,10 @@ RUN <<-'EOT' /bin/sh
 		echo >&2 "FATAL: Unable to source '${environment_file}': ${?}"
 		exit 1
 	}
+
+	# Only enable unbound variable usage checking *after* having sourced the
+	# environment file above...
+	set -u
 
 	etc-update --quiet --preen 2>/dev/null
 
@@ -143,7 +157,8 @@ ENV PORTAGE_CONFIGROOT="${SYSROOT}"
 #
 # linter ignore=SC2094,SC2015,SC1091,ER0001
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -e
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -151,6 +166,11 @@ RUN <<-'EOT' /bin/sh
 		echo >&2 "FATAL: Unable to source '${environment_file}': ${?}"
 		exit 1
 	}
+
+	# Only enable unbound variable usage checking *after* having sourced the
+	# environment file above...
+	set -u
+
 	command -v grep >/dev/null 2>&1 || { \
 		echo >&2 "FATAL: Unable to locate 'grep' binary"
 		exit 1
@@ -194,7 +214,8 @@ RUN test -s /usr/libexec/entrypoint.sh
 
 # linter ignore=SC2015,SC1091
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -e
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -202,6 +223,10 @@ RUN <<-'EOT' /bin/sh
 		echo >&2 "FATAL: Unable to source '${environment_file}': ${?}"
 		exit 1
 	}
+
+	# Only enable unbound variable usage checking *after* having sourced the
+	# environment file above...
+	set -u
 
 	sed -i \
 		-e "s/__JOBS__/${JOBS}/" \

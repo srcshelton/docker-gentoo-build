@@ -471,13 +471,14 @@ fi
 _docker_setup() {
 	export -a args=() extra=()
 	export package='' package_version='' package_name='' repo=''
-	export name='' container_name='' image="${IMAGE:-"gentoo-build:latest"}"
+	export name='' container_name=''
+	export image="${IMAGE:-"gentoo-build:${override_tag:-"latest"}"}"
 
 	# 'docker_arch' is the 'ARCH' component of Docker's 'platform' string, and
 	# is used to ensure that the correct image is pulled when multi-arch images
 	# are employed.
 	#
-	# 'arch' is the default system architecutre, as featured in the Gentoo
+	# 'arch' is the default system architecture, as featured in the Gentoo
 	# ACCEPT_KEYWORDS declarations - for all permissible values, see
 	# the values of the portage 'USE_EXPAND_VALUES_ARCH' variable currently:
 	#
@@ -669,7 +670,7 @@ _docker_resolve() {
 		# obvious better solution here...
 		#
 		# shellcheck disable=SC2086
-		if docker ${DOCKER_VARS:-} image ls localhost/gentoo-helper:latest |
+		if docker ${DOCKER_VARS:-} image ls localhost/gentoo-helper |
 				grep -Eq -- '^(localhost/)?([^.]+\.)?gentoo-helper'
 		then
 			# shellcheck disable=SC2032  # Huh?
@@ -740,7 +741,7 @@ _docker_resolve() {
 
 	if ! [[ -x "$( type -pf equery )" ]]; then
 		# shellcheck disable=SC2086
-		if docker ${DOCKER_VARS:-} image ls localhost/gentoo-helper:latest |
+		if docker ${DOCKER_VARS:-} image ls localhost/gentoo-helper |
 				grep -Eq -- '^(localhost/)?([^.]+\.)?gentoo-helper'
 		then
 			equery() {
@@ -795,7 +796,7 @@ _docker_resolve() {
 						NO_MEMORY_LIMITS=1 \
 						DOCKER_EXTRA_MOUNTS="${extra_mounts:-}" \
 						image='' \
-						IMAGE='localhost/gentoo-helper:latest' \
+						IMAGE="localhost/gentoo-helper:${override_tag:-"latest"}" \
 						container_name='gentoo-helper' \
 							_docker_run equery "${@:-}"
 					)" || rc="${?}"
@@ -1252,11 +1253,11 @@ _docker_run() {
 			)" || :
 		[[ -n "${name:-}" ]] && name="${name#*"/"}"
 		case "${name}" in
-			"${init_name#*"/"}:latest"|"${base_name#*"/"}:latest")
+			"${init_name#*"/"}:"*|"${base_name#*"/"}:"*)
 				: ;;
-			"${build_name#*"/"}:latest")
+			"${build_name#*"/"}:"*)
 				ext='.build' ;;
-			"${build_name#*"/"}-root:latest")
+			"${build_name#*"/"}-root:"*)
 				ext='.build' ;;
 			service*:*)
 				ext='.service' ;;
@@ -1525,7 +1526,7 @@ _docker_run() {
 			warn "Using hard-coded defaults on non-Gentoo host system ..."
 			default_repo_path='/var/db/repos/gentoo /var/db/repos/srcshelton'
 			default_distdir_path='/var/cache/portage/dist'
-			default_pkgdir_path="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"container"}"
+			default_pkgdir_path="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${GENTOO_PKGHOST:-"container"}/${GENTOO_PROFILE:-"23.0"}"
 			if ! [[ -d /var/db/repos/gentoo || -L /var/db/repos/gentoo ]] &&
 					[[ -d /var/db/repo/gentoo || -L /var/db/repo/gentoo ]]
 			then
@@ -1566,6 +1567,14 @@ _docker_run() {
 				sudo chmod ug+rwX /var/lib/portage/eclass/linux-info
 				touch -a /var/lib/portage/eclass/linux-info/.keep
 			fi
+		else
+			# FIXME: This is slow :(
+			default_repo_path="$( # <- Syntax
+				# shellcheck disable=SC2046
+				portageq get_repo_path "${EROOT:-"/"}" $( # <- Syntax
+						portageq get_repos "${EROOT:-"/"}"
+					)
+				)"
 		fi
 		if [[ -n "${PKGDIR_OVERRIDE:-}" ]]; then
 			default_pkgdir_path="${PKGDIR_OVERRIDE}"
@@ -1576,11 +1585,7 @@ _docker_run() {
 			# We need write access to be able to update eclasses...
 			#/etc/portage/repos.conf
 
-			${default_repo_path:-"$( # <- Syntax
-					portageq get_repo_path "${EROOT:-"/"}" $( # <- Syntax
-						portageq get_repos "${EROOT:-"/"}"
-					)
-				)"}
+			${default_repo_path}
 
 			#/etc/locale.gen  # FIXME: Uncommented in inspect.docker?
 
@@ -1621,14 +1626,109 @@ _docker_run() {
 				_docker_setup
 			fi
 
-			#ENV PKGDIR="${PKGCACHE:-"/var/cache/portage/pkg"}/${ARCH:-"amd64"}/${PKGHOST:-"container"}"
+			#ENV PKGDIR="${PKGCACHE:-"/var/cache/portage/pkg"}/${ARCH:-"amd64"}/${GENTOO_PKGHOST:-"container"}"
 			#local PKGCACHE="${PKGCACHE:="/var/cache/portage/pkg"}"
-			#local PKGHOST="${PKGHOST:="container"}"
+			#local GENTOO_PKGHOST="${GENTOO_PKGHOST:="container"}"
 			local PKGDIR="${PKGDIR:="${default_pkgdir_path:-"$( portageq pkgdir )"}"}"
+			local release='' profile_path=''
+			local -i ve=0
 
 			# Allow use of 'ARCH' variable as an override...
 			print "Using architecture '${ARCH:-"${arch}"}' ..."
-			mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"container"}"
+
+			# Profiles, e.g.
+			#  [1]   default/linux/arm64/23.0 (stable)
+			#  [32]  default/linux/arm64/23.0/split-usr/musl/hardened/selinux (exp)
+			# ... also:
+			#/var/db/repo/gentoo/profiles/default/linux/arm64/23.0/parent
+			#
+			# Recommended PKGDIR, e.g.
+			#/storage/cache/portage/pkg/arm64/cortex-a72/23.0
+			#
+			# Pattern: (...)/${ARCH}/${target_cpu}/${release}(/...)
+			if [[ -z "${target_cpu:-}" ]]; then
+				warn "Target CPU architecture not set - unable to validate" \
+					"'PKGDIR' configuration"
+			else
+				# We can't rely on ${target_cpu} being correct...
+				#if [[ "${PKGDIR%/}" =~ /${ARCH:-"${arch}"}/${target_cpu}/ ]]
+				if [[ "${PKGDIR%/}/" =~ /${ARCH:-"${arch}"}/[^/]+/[0-9.]+/ ]]
+				then
+					release="$( # <- Syntax
+							grep -Eo "/${ARCH:-"${arch}"}/[^/]+/[^/]+/" \
+									<<<"${PKGDIR}/" |
+								cut -d'/' -f 4
+						)"
+					# FIXME: 'linux' hard-coded...
+					profile_path="${default_repo_path}/profiles/default/linux/${ARCH:-"${arch}"}/${release:-"__missing__"}"
+					if [[ -d "${profile_path}" ]] &&
+							[[ -s "${profile_path}/parent" ]]
+					then
+						print "Detected Gentoo release ${release} from" \
+							"PKGDIR '${PKGDIR}'"
+					else
+						unset profile_path release
+					fi
+				fi
+				if [[ -n "${release:-}" ]] && ! [[ -s "${PKGDIR}/.metadata" ]]
+				then
+					warn "PKGDIR '${PKGDIR}' does not contain" \
+						"architecture metadata"
+					if touch "${PKGDIR}/.metadata"; then
+						printf >"${PKGDIR}/.metadata" '%s\n%s\n' \
+								"ARCH=${ARCH:-"${arch}"}" \
+								"CPU=${target_cpu}" ||
+							die "Unable to write package metadata to" \
+								"'${PKGDIR}/.metadata': ${?}"
+						info "Wrote package metadata" \
+							"'(${ARCH:-"${arch}"},${target_cpu})'to" \
+							"'${PKGDIR}/.metadata'"
+					else
+						warn "Could not create '${PKGDIR}/.metadata'"
+					fi
+
+				# We can still check any metadata which might be present...
+				elif [[ -s "${PKGDIR}/.metadata" ]]; then
+					if [[ "${ARCH:-"${arch}"}" != "$( # <- Syntax
+								grep -- '^ARCH=' "${PKGDIR}/.metadata" |
+									cut -d'=' -f 2-
+							)" ]]
+					then
+						error "PKGDIR architecture $( # <- Syntax
+									grep -- '^ARCH=' "${PKGDIR}/.metadata" |
+										cut -d'=' -f 2-
+								)" \
+							"does not match architecture" \
+							"'${ARCH:-"${arch}"}' (from PKGDIR '${PKGDIR}')"
+						: $(( ve ++ ))
+					fi
+					if [[ "${target_cpu}" != "$( # <- Syntax
+								grep -- '^CPU=' "${PKGDIR}/.metadata" |
+									cut -d'=' -f 2-
+							)" ]]
+					then
+						error "PKGDIR target CPU '$( # <- Syntax
+									grep -- '^CPU=' "${PKGDIR}/.metadata" |
+										cut -d'=' -f 2-
+								)'" \
+							"does not match target CPU '${target_cpu}'" \
+							"(from PKGDIR '${PKGDIR}')"
+						: $(( ve ++ ))
+					fi
+					if (( ve )); then
+						die "${ve} error(s) occurred validating PKGDIR" \
+							"'${PKGDIR}'"
+					fi
+
+				else
+					warn "Unrecognised PKGDIR path format and no '.metadata'" \
+						"file present: Unable to validate configuration for" \
+						"PKGDIR '${PKGDIR}'"
+				fi
+			fi
+			unset ve profile_path release
+
+			mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${GENTOO_PKGHOST:-"container"}"
 			unset PKGDIR
 		fi
 		mountpointsro['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
@@ -1731,7 +1831,7 @@ _docker_run() {
 				[[ -n "${init_name:-}" ]]
 		then
 			if [[ "${name}" == "${base_name#*"/"}" ]] &&
-					[[ "${image}" == "${init_name}:latest" ]]
+					[[ "${image}" == "${init_name}:"* ]]
 			then
 				# Prevent portage from outputting:
 				#
@@ -1812,7 +1912,7 @@ _docker_run() {
 			docker ${DOCKER_VARS:-} container ps --noheading -a
 		fi
 
-		image="${image:-"${IMAGE:-"gentoo-build:latest"}"}"
+		image="${image:-"${IMAGE:-"gentoo-build:${override_tag:-"latest"}"}"}"
 
 		if (( debug )); then
 			local arg='' bn=''

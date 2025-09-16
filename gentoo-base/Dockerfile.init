@@ -8,6 +8,10 @@
 # hadolint global ignore=SC2015
 #
 
+# This is a hack to enable xtrace output for container-builds, intending to be
+# the least invasive (albeit Docker-oriented) means to control this feature...
+ARG BUILDKIT_PROGRESS
+
 # We're not using these, but defining them here prevents podman from
 # complaining about unconsumed build arguments...
 #
@@ -22,6 +26,9 @@ ARG gentoo_stage3_id=""
 ARG stage3_name="localhost/gentoo-stage3"
 ARG entrypoint_sum=""
 
+# Do we want to use a different tag to 'latest' for our own images?
+ARG override_tag="latest"
+
 ARG stage3_flags_file="/usr/libexec/stage3_flags.sh"
 
 ARG environment_file="/usr/libexec/environment.sh"
@@ -31,7 +38,9 @@ ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAM
 # -----------------------------------------------------------------------------
 
 # linter ignore=EF0003
-FROM "${stage3_name}:latest"
+FROM "${stage3_name}:${override_tag}"
+
+ARG BUILDKIT_PROGRESS
 
 ARG ARCH
 
@@ -61,15 +70,20 @@ ENV TERM="${SET_TERM}"
 
 # Perform initial setup ...
 #
-RUN echo >&2 "Creating initial image from '${gentoo_stage3_image}' for '${ARCH}' ..." ; \
-    set -u ; \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    echo >&2 "Creating initial image from '${gentoo_stage3_image}' for '${ARCH}' ..." ; \
     mkdir -p "${PKGDIR}" "${DISTDIR}" "${PORTAGE_LOGDIR}" "${PORTAGE_TMPDIR}" \
         "${RPMDIR}" && \
     rm -r /etc/portage && \
     mkdir /etc/portage
 
 COPY etc/ /etc/
-RUN for base in \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    for base in \
         package.accept_keywords \
         package.mask \
         package.unmask \
@@ -91,7 +105,10 @@ RUN for base in \
 
 # Confirm correct extraction...
 #
-RUN test -s /etc/timezone && \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    test -s /etc/timezone && \
     test -e /etc/portage/package.accept_keywords && \
     test -s /etc/portage/profile/package.provided && \
     if [ -n "${ARCH:-}" ]; then \
@@ -121,19 +138,26 @@ RUN test -s /etc/timezone && \
 # exec-form...
 #
 # linter ignore=SC2015
-RUN test -d /etc/portage/package.use.init && \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    test -d /etc/portage/package.use.init && \
     test ! -e /etc/portage/package.use && \
     mv /etc/portage/package.use.init /etc/portage/package.use || : ; \
     test -e /etc/portage/package.use
 
-RUN set -u ; \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
     ln -sf /usr/share/portage/config/make.globals /etc/portage/make.globals ; \
     ln -sf "/var/db/repo/gentoo/profiles/${GENTOO_PROFILE}" /etc/portage/make.profile
 
 COPY entrypoint.sh /usr/libexec/
 RUN test -s /usr/libexec/entrypoint.sh
 
-RUN set -u ; \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
     sed -i \
         -e "s|__JOBS__|${JOBS}|" \
         -e "s|__MAXLOAD__|${MAXLOAD}|" \

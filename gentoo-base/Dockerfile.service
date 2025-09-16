@@ -4,6 +4,11 @@
 
 # hadolint global ignore=DL4006,DL3025,SC3040,SC2174,SC2015,SC2012
 #
+
+# This is a hack to enable xtrace output for container-builds, intending to be
+# the least invasive (albeit Docker-oriented) means to control this feature...
+ARG BUILDKIT_PROGRESS
+
 ARG image_name
 ARG service_name
 ARG service_name_short
@@ -35,6 +40,8 @@ ARG CHOST="x86_64-pc-linux-gnu"
 #
 FROM "localhost/${image_name}:${service_version}" AS base
 
+ARG BUILDKIT_PROGRESS
+
 ARG ROOT
 ARG environment_file
 ARG environment_filter
@@ -43,8 +50,9 @@ ARG environment_filter
 RUN test -s "${environment_file}"
 
 # linter ignore=SC2094,SC2015,ER0001
-RUN { set -o pipefail 2>/dev/null || true ; } ; \
-    set -u ; \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
     command -v grep >/dev/null 2>&1 || \
         { \
             echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
@@ -73,6 +81,8 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
 # Create a new container
 #
 FROM scratch
+
+ARG BUILDKIT_PROGRESS
 
 ARG image_name
 ARG service_name
@@ -135,7 +145,9 @@ ENV ROOT="/"
 RUN test -x /bin/busybox
 
 # linter ignore=SC2050,SC2012,ER0001
-RUN { set -o pipefail 2>/dev/null || true ; } ; \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
     command -v grep >/dev/null 2>&1 || \
         { \
             echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
@@ -180,7 +192,10 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
     fi
 
 # linter ignore=SC2174,SC2050
-RUN for d in 'empty' 'log' 'run' 'lock'; do \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    for d in 'empty' 'log' 'run' 'lock'; do \
         if test -e "/var/${d}" && { test -L "/var/${d}" || ! test -d "/var/${d}"; }; then \
             rm "/var/${d}" ; \
         fi ; \
@@ -227,7 +242,10 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
 #
 COPY entrypoint.sh.service /usr/libexec/entrypoint.sh
 COPY entrypoint.d/ /usr/libexec/entrypoint.d/
-RUN test -s /usr/libexec/entrypoint.sh && \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    test -s /usr/libexec/entrypoint.sh && \
     chmod 0755 /usr/libexec/entrypoint.sh && \
     sed -i \
         -e "s|__ENVFILE__|${environment_file}|" \
@@ -236,16 +254,20 @@ RUN test -s /usr/libexec/entrypoint.sh && \
     chmod 0755 /usr/libexec/entrypoint.d/*.sh || :
 
 # linter ignore=ER0001,SC2015
-RUN { set -o pipefail 2>/dev/null || true ; } ; \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
     ldconfig ; \
     find / -xdev -type f -executable -not -name '*.sh' | while read -r x; do \
         ldd "${x}" 2>&1 | \
             sed "s|^|${x}: |" | \
-            grep 'not found' && exit 1 || : ; \
+            grep -- 'not found' && exit 1 || : ; \
     done
 
 # linter ignore=ER0001
-RUN { set -o pipefail 2>/dev/null || true ; } ; \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
     if ! [ "${service_cmd}" = '__wait__' ]; then \
         : echo "${service_cmd}" ; \
         test -x "${service_cmd}" && \
@@ -265,7 +287,10 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
 #RUN sed -i "s|^exec |exec '${service_cmd}' |" /usr/libexec/entrypoint.sh && \
 #    sh -n /usr/libexec/entrypoint.sh
 
-RUN mkdir -p "/srv/${service_name_short}/usr/share" ; \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    mkdir -p "/srv/${service_name_short}/usr/share" ; \
     if [ -d /usr/share/doc ]; then \
         mv /usr/share/doc "/srv/${service_name_short}/usr/share/" && \
         ln -s "../../srv/${service_name_short}/usr/share/doc" /usr/share/ ; \
@@ -280,13 +305,19 @@ RUN mkdir -p "/srv/${service_name_short}/usr/share" ; \
     fi
 
 # Create /var/cache/man/index.db when man-db is installed...
-RUN test ! -x /usr/bin/mandb || \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    test ! -x /usr/bin/mandb || \
     nice mandb --create
 
 # Run eselect for dependent components...
 #
 # hadolint ignore=SC3028
-RUN if [ -x /usr/bin/eselect ]; then \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    if [ -x /usr/bin/eselect ]; then \
         if [ -s /usr/share/eselect/modules/python.eselect ]; then \
             if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \
                 echo "Setting python implementation ..." ; \
@@ -310,7 +341,10 @@ RUN if [ -x /usr/bin/eselect ]; then \
     fi
 
 # http://www.gentoo.org/doc/en/prelink-howto.xml
-RUN if [ -x /usr/sbin/prelink ]; then \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    if [ -x /usr/sbin/prelink ]; then \
         /usr/sbin/prelink -av -m -R -f && \
         /usr/sbin/prelink -p ; \
     fi
@@ -323,7 +357,10 @@ WORKDIR "${service_cwd}"
 USER "${service_user}:${service_group}"
 
 # hadolint ignore=SC3028
-RUN if [ -x /usr/bin/eselect ]; then \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    if [ -x /usr/bin/eselect ]; then \
         if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
             echo "Setting Java VM as '${service_user:-"root"}' ..." ; \
             if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \

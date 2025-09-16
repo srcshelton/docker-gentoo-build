@@ -85,7 +85,7 @@ declare -i NOTIFY_MKDIR=0
 #declare environment_filter=''
 #declare base_dir=''
 #declare use_cpu_arch=''
-#declare gcc_target_opts=''
+#declare cc_target_opts=''
 #declare rust_target_opts=''
 #declare use_cpu_flags=''
 #declare use_cpu_flags_raw=''
@@ -127,7 +127,7 @@ declare -i NOTIFY_MKDIR=0
 [[ -e "${base_dir}"/Dockerfile.build ]]
 
 # shellcheck disable=SC2034
-IMAGE="${base_name}:latest"
+IMAGE="${base_name}:${override_tag}"
 # shellcheck disable=SC1091
 [[ -s common/run.sh ]] && . common/run.sh >/dev/null
 if [[ "$( type -t 'die' )" != 'function' ]]; then
@@ -355,7 +355,7 @@ checklabel() {
 		image="${image#"localhost/"}"
 	fi
 	if ! [[ "${image}" =~ : ]]; then
-		image="${image}:latest"
+		image="${image}:${override_tag}"
 	fi
 
 	label_value="$( # <- Syntax
@@ -373,7 +373,7 @@ checklabel() {
 
 checkids() {
 	local name="${1:-}"
-	local tag="${2:-"latest"}"
+	local tag="${2:-"${override_tag}"}"
 
 	#inherit docker stage3_name env_id env_name gentoo_stage3_id bold reset red
 	local repo='' images='' stage3_env_id='' stage3_src_id=''
@@ -568,9 +568,8 @@ if ! type -pf portageq >/dev/null 2>&1; then
 			"'${repo_path_srcshelton}' ..."
 
 		# shellcheck disable=SC2043,SC2066
-		for dir in "$( dirname "${repo_path_srcshelton}" )"; do
-			[[ -d "${dir}" ]] || makedir "${dir}"
-		done
+		dir="$( dirname "${repo_path_srcshelton}" )"
+		[[ -d "${dir}" ]] || makedir -p "${dir}"
 		unset dir
 
 		git clone \
@@ -647,7 +646,7 @@ if ! type -pf portageq >/dev/null 2>&1; then
         )"}"}"
 	for dir in /var/cache/portage/dist \
 			"${portage_log_dir:-"/var/log/portage"}" \
-			/var/cache/portage/pkg/${ARCH:-"${arch}"}/${PKGHOST:-"container"}
+			/var/cache/portage/pkg/${ARCH:-"${arch}"}/${GENTOO_PKGHOST:-"container"}
 	do
 		[[ -d "${dir}" ]] || makedir "${dir}"
 	done
@@ -800,21 +799,21 @@ case "${docker_arch}" in
 	'i386')
 		gentoo_stage3_tag='i686-openrc' ;;
 esac
-target_opt="${gcc_target_opts:-}"
+target_opt="${cc_target_opts:-}"
 case "${docker_arch}" in
 	'arm'*)
 		# See https://community.arm.com/developer/tools-software/tools/b/tools-software-ides-blog/posts/compiler-flags-across-architectures-march-mtune-and-mcpu
-		[[ -z "${gcc_target_opts:-}" ]] &&
+		[[ -z "${cc_target_opts:-}" ]] &&
 			target_opt='-mcpu=native' ;;
 esac
 rust_target_opt="${rust_target_opts:-}"
 env_id="$( docker image ls --noheading \
 		--format='{{.ID}}' \
-	"${env_name}:latest"
+	"${env_name}:${override_tag}"
 )" || die "Could not determine environment stage image name"
 local_stage3_id="$( docker image ls --noheading \
 		--format='{{.ID}}' \
-	"${stage3_name}:latest"
+	"${stage3_name}:${override_tag}"
 )" || die "Could not determine local stage3 image name"
 
 mkdir -p "${log_dir:="log"}" ||
@@ -827,7 +826,7 @@ mkdir -p "${log_dir:="log"}" ||
 if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 	output
 	# shellcheck disable=SC2154
-	output " ${blue}*${reset} Creating image '${env_name}:latest' ..."
+	output " ${blue}*${reset} Creating image '${env_name}:${override_tag}' ..."
 	output
 
 	# NAME:    env
@@ -853,38 +852,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		--build-arg ARCH="${arch}"
 		--build-arg PROFILE_PATH="${profile:-}"
 		--build-arg CHOST="${chost:-}"
-
-		# Optionally set below:
-		#--build-arg CPU_FLAGS_ARM
-		#--build-arg CPU_FLAGS_PPC
-		#--build-arg CPU_FLAGS_X86
-		#--build-arg TARGET_OPT
-		#--build-arg CPPFLAGS
-		#--build-arg CGO_CPPFLAGS
-		#--build-arg CFLAGS
-		#--build-arg CXXFLAGS
-		#--build-arg CGO_CFLAGS
-		#--build-arg CGO_CXXFLAGS
-		#--build-arg FFLAGS
-		#--build-arg FCFLAGS
-		#--build-arg FLFLAGS
-		#--build-arg CGO_FFLAGS
-		#--build-arg LDFLAGS
-		#--build-arg CGO_LDFLAGS
-		#--build-arg GOFLAGS
-		#--build-arg RUSTFLAGS
-
-		--compress
-		--file 'Dockerfile.env'
-		--network none
-		--no-cache
-		$( # <- Syntax
-				docker image build --squash-all --help >/dev/null 2>&1 &&
-					echo '--squash-all'
-			)
-		--tag "${env_name}:latest"
-		--rm
 	)
+
 	# shellcheck disable=SC2154
 	[[ -z "${use_cpu_arch:-}" ]] || build_args+=( # <- Syntax
 		--build-arg "CPU_FLAGS_${use_cpu_arch^^}=${use_cpu_flags_raw}"
@@ -1055,11 +1024,26 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 	unset cppflags cflags cxxflags fflags fcflags flflags ldflags \
 		cgo_cppflags cgo_cflags cgo_cxxflags cgo_fflags cgo_ldflags goflags \
 		rustflags
+
 	# shellcheck disable=SC2206
 	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
 		--loglevel 3
 		${DEBUG_EXTRA_ARGS:-}
 	)
+
+	build_args+=( # <- Syntax
+		--compress
+		--file 'Dockerfile.env'
+		--network none
+		--no-cache
+		$( # <- Syntax
+				docker image build --squash-all --help >/dev/null 2>&1 &&
+					echo '--squash-all'
+			)
+		--tag "${env_name}:${override_tag}"
+		--rm
+	)
+
 	docker image build "${build_args[@]}" . 2>&1 |
 		tee "${log_dir}/${env_name#*"/"}.log"
 	output " -> ${?}"
@@ -1069,7 +1053,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 
 	env_id="$( docker image ls --noheading \
 			--format='{{.ID}}' \
-		"${env_name}:latest" 2>/dev/null
+		"${env_name}:${override_tag}" 2>/dev/null
 	)"
 
 	output
@@ -1223,7 +1207,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	fi
 
 	output
-	output " ${blue}*${reset} Creating image '${stage3_name}:latest'" \
+	output " ${blue}*${reset} Creating image" \
+		"'${stage3_name}:${override_tag}'" \
 		"${debug:+"from image ID '${gentoo_stage3_id}' "}..."
 	output
 
@@ -1248,6 +1233,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	build_args+=( # <- Syntax
 		--platform "linux/${docker_arch}"
 
+		--build-arg BUILDKIT_PROGRESS="$(( debug ))"
+
 		--build-arg ARCH="${arch}"
 
 		--build-arg env_name="${env_name}"
@@ -1256,10 +1243,19 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 		--build-arg gentoo_stage3_tag="${gentoo_stage3_tag}"
 		--build-arg gentoo_stage3_id="${gentoo_stage3_id}"
 		--build-arg gentoo_stage3_image_ref="${gentoo_stage3_image}@${ref}"
+		--build-arg override_tag="${override_tag:-}"
+	)
+	[[ -z "${stage3_flags_file:-}" ]] || build_args+=( # <- Syntax
+		--build-arg stage3_flags_file="${stage3_flags_file}"
+	)
 
-		# Optionally set below:
-		#--build-arg stage3_flags_file
+	# shellcheck disable=SC2206
+	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
+		--loglevel 3
+		${DEBUG_EXTRA_ARGS:-}
+	)
 
+	build_args+=( # <- Syntax
 		--compress
 		--file "${container_file}"
 		--network none
@@ -1269,16 +1265,9 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 				docker image build --squash --help >/dev/null 2>&1 &&
 					echo '--squash'
 			)
-		--tag "${stage3_name}:latest"
+		--tag "${stage3_name}:${override_tag}"
 	)
-	[[ -z "${stage3_flags_file:-}" ]] || build_args+=( # <- Syntax
-		--build-arg stage3_flags_file="${stage3_flags_file}"
-	)
-	# shellcheck disable=SC2206
-	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
-		--loglevel 3
-		${DEBUG_EXTRA_ARGS:-}
-	)
+
 	docker image build "${build_args[@]}" . 2>&1 |
 		tee "${log_dir}/${stage3_name#*"/"}.log"
 	output " -> ${?}"
@@ -1287,23 +1276,24 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	# LABEL environment-from="${env_name}:${env_id}"
 	# LABEL stage3-from="${gentoo_stage3_image}:${gentoo_stage3_id}"
 	declare label=''
-	if ! label="$( checklabel "${stage3_name}:latest" \
+	if ! label="$( checklabel "${stage3_name}:${override_tag}" \
 				'environment-from' \
 				"${env_name}:${env_id}"
 		)"
 	then
 		die "'environment-from' label '${label:-}' does not match intended" \
-			"label '${env_name}:${env_id}' for image ${stage3_name}:latest"
+			"label '${env_name}:${env_id}' for image" \
+			"${stage3_name}:${override_tag}"
 	fi
 	label=''
-	if ! label="$( checklabel "${stage3_name}:latest" \
+	if ! label="$( checklabel "${stage3_name}:${override_tag}" \
 				'stage3-from' \
 				"${gentoo_stage3_image}:${gentoo_stage3_id}"
 		)"
 	then
 		die "'stage3-from' label '${label:-}' does not match intended label" \
 			"'${gentoo_stage3_image}:${gentoo_stage3_id}' for image" \
-			"${stage3_name}:latest"
+			"${stage3_name}:${override_tag}"
 	fi
 	unset label
 
@@ -1311,7 +1301,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 
 	local_stage3_id="$( docker image ls --noheading \
 			--format='{{.ID}}' \
-		"${stage3_name}:latest" 2>/dev/null
+		"${stage3_name}:${override_tag}" 2>/dev/null
 	)"
 
 	output
@@ -1338,13 +1328,13 @@ if [[ -n "${*:-}" ]] && ! grep -Fq -- ' --init ' <<<" ${*} "; then
 	if grep -Eq -- "^(localhost/)?${init_name}" <<<"${images}"; then
 		imagesum="$( docker image inspect \
 				--format='{{index .Config.Labels "entrypoint-sum"}}' \
-			"${init_name}:latest" 2>/dev/null
+			"${init_name}:${override_tag}" 2>/dev/null
 		)" || :
 		if [[ "${imagesum:-}" != "${sum}" ]]; then
 			if (( force )); then
 				output >&2
 				output >&2 "${bold}WARN${reset}:  ${red}'entrypoint.sh'" \
-					"checksum from '${init_name}:latest' image" \
+					"checksum from '${init_name}:${override_tag}' image" \
 					"(${imagesum:-"<unknown>"}) does not match file on disk" \
 					"(${sum}) - forcing continuation with existing embedded" \
 					"script ...${reset}"
@@ -1359,7 +1349,7 @@ if [[ -n "${*:-}" ]] && ! grep -Fq -- ' --init ' <<<" ${*} "; then
 				if (( add_init )); then
 					output >&2
 					output >&2 "${bold}WARN${reset}:  ${red}'entrypoint.sh'" \
-						"checksum from '${init_name}:latest' image" \
+						"checksum from '${init_name}:${override_tag}' image" \
 						"(${imagesum:-"<unknown>"}) does not match file on" \
 						"disk (${sum}) - rebuilding initial image ...${reset}"
 					set -- "${@:-}" --init
@@ -1386,14 +1376,15 @@ fi
 
 if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 	if [[ -z "${local_stage3_id:-}" ]]; then
-		die "Local stage 3 image '${stage3_name}:latest'" \
+		die "Local stage 3 image '${stage3_name}:${override_tag}'" \
 			"not found - please execute '$( # <- Syntax
 				basename "${0}"
 			) --stage3'"
 	fi
 
 	output
-	output " ${blue}*${reset} Creating image '${init_name}:latest' ..."
+	output " ${blue}*${reset} Creating image" \
+		"'${init_name}:${override_tag}' ..."
 	output
 
 	checkids "${stage3_name}"
@@ -1410,20 +1401,33 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 	build_args+=( # <- Syntax
 		--platform "linux/${docker_arch}"
 
+		--build-arg BUILDKIT_PROGRESS="$(( debug ))"
+
 		--build-arg ARCH="${arch}"
 
 		--build-arg gentoo_stage3_image="${gentoo_stage3_image}"
 		--build-arg gentoo_stage3_tag="${gentoo_stage3_tag}"
 		--build-arg gentoo_stage3_id="${gentoo_stage3_id}"
 		--build-arg stage3_name="${stage3_name}"
-
 		--build-arg entrypoint_sum="${sum}"
+		--build-arg override_tag="${override_tag:-}"
+
 		--build-arg environment_filter="${environment_filter}"
+	)
+	[[ -z "${stage3_flags_file:-}" ]] || build_args+=( # <- Syntax
+		--build-arg stage3_flags_file="${stage3_flags_file}"
+	)
+	[[ -z "${environment_file:-}" ]] || build_args+=( # <- Syntax
+		--build-arg environment_file="${environment_file}"
+	)
 
-		# Optionally set below:
-		#--build-arg stage3_flags_file
-		#--build-arg environment_file
+	# shellcheck disable=SC2206
+	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
+		--loglevel 3
+		${DEBUG_EXTRA_ARGS:-}
+	)
 
+	build_args+=( # <- Syntax
 		--compress
 		--file "${container_file}"
 		--network none
@@ -1433,19 +1437,9 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 				docker image build --squash --help >/dev/null 2>&1 &&
 					echo '--squash'
 			)
-		--tag "${init_name}:latest"
+		--tag "${init_name}:${override_tag}"
 	)
-	[[ -z "${stage3_flags_file:-}" ]] || build_args+=( # <- Syntax
-		--build-arg stage3_flags_file="${stage3_flags_file}"
-	)
-	[[ -z "${environment_file:-}" ]] || build_args+=( # <- Syntax
-		--build-arg environment_file="${environment_file}"
-	)
-	# shellcheck disable=SC2206
-	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
-		--loglevel 3
-		${DEBUG_EXTRA_ARGS:-}
-	)
+
 	docker image build "${build_args[@]}" . 2>&1 |
 		tee "${log_dir}/${init_name#*"/"}.log"
 	output " -> ${?}"
@@ -1454,23 +1448,23 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 	# LABEL stage3-from="${gentoo_stage3_image}:${gentoo_stage3_id}"
 	# LABEL entrypoint-sum="${entrypoint_sum}"
 	declare label=''
-	if ! label="$( checklabel "${init_name}:latest" \
+	if ! label="$( checklabel "${init_name}:${override_tag}" \
 				'stage3-from' \
 				"${gentoo_stage3_image}:${gentoo_stage3_id}"
 		)"
 	then
 		die "'stage3-from' label '${label:-}' does not match intended label" \
 			"'${gentoo_stage3_image}:${gentoo_stage3_id}' for image" \
-			"${init_name}:latest"
+			"${init_name}:${override_tag}"
 	fi
 	label=''
-	if ! label="$( checklabel "${init_name}:latest" \
+	if ! label="$( checklabel "${init_name}:${override_tag}" \
 				'entrypoint-sum' \
 				"${sum}"
 		)"
 	then
 		die "'entrypoint-sum' label '${label:-}' does not match intended" \
-			"label '${sum}' for image ${init_name}:latest"
+			"label '${sum}' for image ${init_name}:${override_tag}"
 	fi
 	unset label
 
@@ -1493,8 +1487,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 	fi
 
 	output
-	output " ${blue}*${reset} Deploying container '${base_name#*"/"}' from image" \
-		"'${init_name}:latest' ..."
+	output " ${blue}*${reset} Deploying container '${base_name#*"/"}' from" \
+		"image '${init_name}:${override_tag}' ..."
 	output
 
 	checkids "${init_name}"
@@ -1528,6 +1522,12 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 				python_pkgs+=" =python-$( sed 's/^python//' \
 					<<<"${python_target//_/.}" )*"
 			done
+			python_pkgs="$( # <- Syntax
+					xargs -rn 1 <<<"${python_pkgs:-}" |
+						sort -V |
+						uniq |
+						xargs -r
+				)"
 
 			declare -a docker_run_args=()
 			docker_run_args+=( # <- Syntax
@@ -1538,7 +1538,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 			)
 			eval "$( # <- Syntax
 				docker container run "${docker_run_args[@]}" \
-					"${init_name}:latest" -c "cat ${stage3_flags_file}"
+					"${init_name}:${override_tag}" -c \
+						"cat ${stage3_flags_file}"
 			)"
 			unset docker_run_args
 
@@ -1613,9 +1614,11 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		# shellcheck disable=SC2030
 		export name="${base_name#*"/"}"
 		# shellcheck disable=SC2030
-		export image="${init_name}:latest"
+		export image="${init_name}:${override_tag}"
 		# shellcheck disable=SC2031
-		export DOCKER_CMD_VARS="--env ARCH=${arch:-"${ARCH}"}"
+		DOCKER_CMD_VARS="--env ARCH=${arch:-"${ARCH}"}"
+		DOCKER_CMD_VARS+=" --env target_cpu=${target_cpu:-}"
+		export DOCKER_CMD_VARS
 
 		if [[ -d /var/lib/portage/eclass/linux-info ]]; then
 			declare DOCKER_EXTRA_MOUNTS=''
@@ -1644,7 +1647,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 
 	output
 	output " ${blue}*${reset} Saving container '${base_name#*"/"}' as image" \
-		"'${base_name}:latest' ..."
+		"'${base_name}:${override_tag}' ..."
 	output
 
 	# shellcheck disable=SC2086
@@ -1652,12 +1655,12 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 	if docker container commit --squash --help >/dev/null 2>&1; then
 		docker container commit \
 					--squash \
-				"${base_name#*"/"}" "${base_name}:latest" 2>&1 |
+				"${base_name#*"/"}" "${base_name}:${override_tag}" 2>&1 |
 			tee -a "${log_dir}/${base_name#*"/"}.log"
 	else
 		buildah commit \
 					--squash \
-				"${base_name#*"/"}" "${base_name}:latest" 2>&1 |
+				"${base_name#*"/"}" "${base_name}:${override_tag}" 2>&1 |
 			tee -a "${log_dir}/${base_name#*"/"}.log"
 	fi
 	docker container rm --volumes "${base_name#*"/"}" 2>&1 |
@@ -1705,10 +1708,11 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	fi
 	# shellcheck disable=SC2015
 	if docker image ls --noheading \
-			"${build_name}-root:latest" 2>/dev/null |
-		grep -Eq -- "^(localhost/)?${build_name}-root\s+latest\s"
+			"${build_name}-root:${override_tag}" 2>/dev/null |
+		grep -Eq -- "^(localhost/)?${build_name}-root\s+${override_tag}\s"
 	then
-		docker "${container_args[@]}" image rm "${build_name}-root:latest"
+		docker "${container_args[@]}" image rm \
+			"${build_name}-root:${override_tag}"
 	fi
 	trap - INT
 
@@ -1729,14 +1733,26 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	container_file="$( select_file 'Dockerfile.build' )"
 	# shellcheck disable=SC2207
 	build_args+=( # <- Syntax
+		--build-arg BUILDKIT_PROGRESS="$(( debug ))"
+
 		--build-arg env_id="${env_id}"
+		--build-arg override_tag="${override_tag:-}"
+
 		--build-arg environment_filter="${environment_filter}"
 
 		--build-arg ARCH="${arch}"
+	)
+	[[ -z "${environment_file:-}" ]] || build_args+=( # <- Syntax
+		--build-arg environment_file="${environment_file}"
+	)
 
-		# Optionally set below:
-		#--build-arg environment_file
+	# shellcheck disable=SC2206
+	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
+		--loglevel 3
+		${DEBUG_EXTRA_ARGS:-}
+	)
 
+	build_args+=( # <- Syntax
 		--compress
 		--file "${container_file}"
 		--network none
@@ -1746,16 +1762,9 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 				docker image build --squash-all --help >/dev/null 2>&1 &&
 					echo '--squash-all'
 			)
-		--tag "${build_name}-root:latest"
+		--tag "${build_name}-root:${override_tag}"
 	)
-	[[ -z "${environment_file:-}" ]] || build_args+=( # <- Syntax
-		--build-arg environment_file="${environment_file}"
-	)
-	# shellcheck disable=SC2206
-	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
-		--loglevel 3
-		${DEBUG_EXTRA_ARGS:-}
-	)
+
 	docker "${container_args[@]}" image build "${build_args[@]}" . 2>&1 |
 		tee "${log_dir}/${build_name#*"/"}.log"
 	unset container_file build_args
@@ -1792,7 +1801,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		# shellcheck disable=SC2031
 		export name="${build_name#*"/"}"
 		# shellcheck disable=SC2031
-		export image="${build_name}-root:latest"
+		export image="${build_name}-root:${override_tag}"
 		# shellcheck disable=SC2030
 		if [[ -n "${IMAGE_ROOT:-}" ]]; then
 			export DOCKER_VARS="${container_args[*]}"
@@ -1864,26 +1873,27 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 
 	output
 	output " ${blue}*${reset} Saving container '${build_name#*"/"}' as image" \
-		"'${build_name}-finalise:latest' ..."
+		"'${build_name}-finalise:${override_tag}' ..."
 	output
 	trap '' INT
 	# shellcheck disable=SC2031,SC2086,SC2140
 	if docker container commit --squash --help >/dev/null 2>&1; then
 		docker "${container_args[@]}" container commit \
 					--squash \
-				"${build_name#*"/"}" "${build_name}-finalise:latest" |
+				"${build_name#*"/"}" "${build_name}-finalise:${override_tag}" |
 			tee -a "${log_dir}/${build_name#*"/"}.log"
 	else
 		buildah "${container_args[@]}" commit \
 					--squash \
-				"${build_name#*"/"}" "${build_name}-finalise:latest" |
+				"${build_name#*"/"}" "${build_name}-finalise:${override_tag}" |
 			tee -a "${log_dir}/${build_name#*"/"}.log"
 	fi
 	# shellcheck disable=SC2031,SC2086,SC2140
 	docker "${container_args[@]}" container rm --volumes "${build_name#*"/"}" |
 		tee -a "${log_dir}/${build_name#*"/"}.log"
 	# shellcheck disable=SC2031,SC2086,SC2140
-	docker "${container_args[@]}" image rm "${build_name}-root:latest" |
+	docker "${container_args[@]}" image rm \
+			"${build_name}-root:${override_tag}" |
 		tee -a "${log_dir}/${build_name#*"/"}.log"
 	output " -> ${?}"
 	trap - INT
@@ -1895,32 +1905,32 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	#
 	output
 	output " ${blue}*${reset} Finalising image " \
-		"'${build_name#*"/"}-finalise:latest' ..."
+		"'${build_name#*"/"}-finalise:${override_tag}' ..."
 	output
 	trap '' INT
 	docker "${container_args[@]}" container run \
 				--name "${build_name#*"/"}-finalise" \
 				--net none \
-			"${build_name}-finalise:latest" --finalise-container |
+			"${build_name}-finalise:${override_tag}" --finalise-container |
 		tee -a "${log_dir}/${build_name#*"/"}.log"
 	output " -> ${?}"
 	trap - INT
 
 	output
 	output " ${blue}*${reset} Saving container '${build_name#*"/"}-finalise'" \
-		"as image '${build_name}:latest' ..."
+		"as image '${build_name}:${override_tag}' ..."
 	output
 	trap '' INT
 	# shellcheck disable=SC2031,SC2086,SC2140
 	if docker container commit --squash --help >/dev/null 2>&1; then
 		docker "${container_args[@]}" container commit \
 					--squash \
-				"${build_name#*"/"}-finalise" "${build_name}:latest" |
+				"${build_name#*"/"}-finalise" "${build_name}:${override_tag}" |
 			tee -a "${log_dir}/${build_name#*"/"}.log"
 	else
 		buildah "${container_args[@]}" commit \
 					--squash \
-				"${build_name#*"/"}-finalise" "${build_name}:latest" |
+				"${build_name#*"/"}-finalise" "${build_name}:${override_tag}" |
 			tee -a "${log_dir}/${build_name#*"/"}.log"
 	fi
 	# shellcheck disable=SC2031,SC2086,SC2140
@@ -1928,7 +1938,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 			"${build_name#*"/"}-finalise" |
 		tee -a "${log_dir}/${build_name#*"/"}.log"
 	# shellcheck disable=SC2031,SC2086,SC2140
-	docker "${container_args[@]}" image rm "${build_name}-finalise:latest" |
+	docker "${container_args[@]}" image rm \
+			"${build_name}-finalise:${override_tag}" |
 		tee -a "${log_dir}/${build_name#*"/"}.log"
 	output " -> ${?}"
 	trap - INT
@@ -1937,13 +1948,14 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 
 	# LABEL environment-from="${env_name}:${env_id}"
 	declare label=''
-	if ! label="$( checklabel "${build_name}:latest" \
+	if ! label="$( checklabel "${build_name}:${override_tag}" \
 				'environment-from' \
 				"${env_name}:${env_id}"
 		)"
 	then
 		die "'environment-from' label '${label:-}' does not match intended" \
-			"label '${env_name}:${env_id}' for image ${build_name}:latest"
+			"label '${env_name}:${env_id}' for image" \
+			"${build_name}:${override_tag}"
 	fi
 	unset label
 
@@ -1983,7 +1995,7 @@ then
 		else
 			#if ! ((
 			#	docker image ls --noheading \
-			#		"gentoo-helper:latest" 2>/dev/null | wc -l
+			#		"gentoo-helper:${override_tag}" 2>/dev/null | wc -l
 			#)); then
 				output " ${blue}*${reset} Building helper for non-Gentoo" \
 					"host systems ..."

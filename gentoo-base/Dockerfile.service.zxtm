@@ -4,6 +4,11 @@
 
 # hadolint global ignore=DL4006,DL3059,DL3025,SC3040,SC2174,SC2015,SC2012
 #
+
+# This is a hack to enable xtrace output for container-builds, intending to be
+# the least invasive (albeit Docker-oriented) means to control this feature...
+ARG BUILDKIT_PROGRESS
+
 ARG image_name
 ARG service_name
 ARG service_name_short
@@ -69,6 +74,8 @@ FROM "${zxtm_image_name}:${zxtm_service_version}" AS zxtm
 #
 FROM "localhost/${image_name}:${service_version}" AS base
 
+ARG BUILDKIT_PROGRESS
+
 ARG ROOT
 ARG environment_file
 ARG environment_filter
@@ -81,13 +88,17 @@ RUN test -s "${environment_file}"
 # Ensure nothing from the base image screws up the ultimate combined image...
 #
 # linter ignore=SC2050
-RUN if ! [ "${ZEUSHOME}" = '/usr/local/zeus' ]; then \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    if ! [ "${ZEUSHOME}" = '/usr/local/zeus' ]; then \
         rm -rf "${ZEUSHOME}" ; \
     fi
 
 # linter ignore=SC2094,SC2015,ER0001
-RUN { set -o pipefail 2>/dev/null || true ; } ; \
-    set -u ; \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
     command -v grep >/dev/null 2>&1 || \
         { \
             echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
@@ -116,6 +127,8 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
 # Create a new container
 #
 FROM scratch
+
+ARG BUILDKIT_PROGRESS
 
 ARG image_name
 ARG service_name
@@ -193,7 +206,9 @@ ENV ROOT="/"
 RUN test -x /bin/busybox
 
 # linter ignore=SC2050,SC2012,ER0001
-RUN { set -o pipefail 2>/dev/null || true ; } ; \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
     command -v grep >/dev/null 2>&1 || \
         { \
             echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
@@ -243,7 +258,10 @@ RUN { set -o pipefail 2>/dev/null || true ; } ; \
 # N.B. Not handling file group ownership, as there are too many and it's likely
 #      not significant.
 #
-RUN ln -s /proc/self/mounts /etc/mtab ; \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    ln -s /proc/self/mounts /etc/mtab ; \
     chown -R root:sys "${ZEUSHOME}" ; \
     chgrp root \
         "${ZEUSHOME}" \
@@ -274,7 +292,10 @@ RUN ln -s /proc/self/mounts /etc/mtab ; \
         -e "s|__ENVFILE__|${environment_file}|"
 
 # linter ignore=SC2174,SC2050
-RUN for d in 'empty' 'log' 'run' 'lock'; do \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    for d in 'empty' 'log' 'run' 'lock'; do \
         if test -e "/var/${d}" && { test -L "/var/${d}" || ! test -d "/var/${d}"; }; then \
             rm "/var/${d}" ; \
         fi ; \
@@ -308,7 +329,10 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
 #
 #COPY entrypoint.sh.service /usr/libexec/entrypoint.sh
 #COPY entrypoint.d/ /usr/libexec/entrypoint.d/
-#RUN test -s /usr/libexec/entrypoint.sh && \
+#RUN set -eu ; \
+#    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+#    { set -o pipefail 2>/dev/null || true ; } ; \
+#    test -s /usr/libexec/entrypoint.sh && \
 #    chmod 0755 /usr/libexec/entrypoint.sh && \
 #    sed -i \
 #        -e "s|__ENVFILE__|${environment_file}|" \
@@ -317,7 +341,9 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
 #    chmod 0755 /usr/libexec/entrypoint.d/*.sh || :
 
 # linter ignore=ER0001,SC2015
-#RUN { set -o pipefail 2>/dev/null || true ; } ; \
+#RUN set -eu ; \
+#    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+#    { set -o pipefail 2>/dev/null || true ; } ; \
 #    ldconfig ; \
 #    find / -xdev -type f -executable -not -name '*.sh' | while read -r x; do \
 #        ldd "${x}" 2>&1 | \
@@ -326,9 +352,11 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
 #    done
 
 # linter ignore=ER0001
-#RUN { set -o pipefail 2>/dev/null || true ; } ; \
+#RUN set -eu ; \
+#    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+#    { set -o pipefail 2>/dev/null || true ; } ; \
 #    if ! [ "${service_cmd}" = '__wait__' ]; then \
-#        echo "${service_cmd}" ; \
+#        : echo "${service_cmd}" ; \
 #        test -x "${service_cmd}" && \
 #            if ! [ "$( \
 #                head -n 1 "${service_cmd}" | \
@@ -336,14 +364,17 @@ RUN for d in 'empty' 'log' 'run' 'lock'; do \
 #                    tr -d '\0' \
 #            )" = '#!' ] ; \
 #            then \
-#                ldd "${service_cmd}" | \
+#                ldd "${service_cmd}" 2>&1 | \
 #                    tee /dev/stdout | \
 #                    grep -qv 'not found' ; \
 #            fi ; \
 #    fi
 
 # linter ignore=SC2140 # False positive (https://github.com/buddy-works/dockerfile-linter/issues/8)
-RUN test -s "${ZEUSHOME}/runzeus.sh" && \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    test -s "${ZEUSHOME}/runzeus.sh" && \
     sed -i -e "s|^zeushome=\"/usr/local/zeus\"$|zeushome=\"${ZEUSHOME}\"|" \
         "${ZEUSHOME}/runzeus.sh" && \
     chmod 0755 "${ZEUSHOME}/runzeus.sh" && \
@@ -353,7 +384,10 @@ RUN test -s "${ZEUSHOME}/runzeus.sh" && \
 #RUN sed -i "s|^exec |exec '${service_cmd}' |" /usr/libexec/entrypoint.sh && \
 #    sh -n /usr/libexec/entrypoint.sh
 
-RUN mkdir -p "/srv/${service_name_short}/usr/share" ; \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    mkdir -p "/srv/${service_name_short}/usr/share" ; \
     if [ -d /usr/share/doc ]; then \
         mv /usr/share/doc "/srv/${service_name_short}/usr/share/" && \
         ln -s "../../srv/${service_name_short}/usr/share/doc" /usr/share/ ; \
@@ -368,7 +402,10 @@ RUN mkdir -p "/srv/${service_name_short}/usr/share" ; \
     fi
 
 # linter ignore=SC2015,ER0001
-RUN for dir in updater stingrayafm; do \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    for dir in updater stingrayafm; do \
         if [ -d "${ZEUSHOME}/${dir}/current/doc" ]; then \
             mkdir -p "/srv/${service_name_short}/usr/share/doc/zxtm" && \
             cp -r \
@@ -402,37 +439,46 @@ RUN for dir in updater stingrayafm; do \
     done
 
 # Create /var/cache/man/index.db when man-db is installed...
-RUN test ! -x /usr/bin/mandb || \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    test ! -x /usr/bin/mandb || \
     nice mandb --create
 
 # Run eselect for dependent components...
 #
 # hadolint ignore=SC3028
-RUN if [ -x /usr/bin/eselect ]; then \
-#        if [ -s /usr/share/eselect/modules/python.eselect ]; then \
-#            if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \
-#                echo "Setting python implementation ..." ; \
-#                mkdir -p /etc/python-exec ; \
-#                eselect python cleanup ; \
-#                eselect python update --if-unset ; \
-#            fi ; \
-#        fi ; \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    if [ -x /usr/bin/eselect ]; then \
+        if [ -s /usr/share/eselect/modules/python.eselect ]; then \
+            if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \
+                echo "Setting python implementation ..." ; \
+                mkdir -p /etc/python-exec ; \
+                eselect python cleanup ; \
+                eselect python update --if-unset ; \
+            fi ; \
+        fi ; \
         if [ -s /usr/share/eselect/modules/iptables.eselect ]; then \
             echo "Setting NFS as default iptables back-end ..." ; \
             eselect iptables set xtables-nft-multi ; \
         fi ; \
-#        if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
-#            echo "Setting Java VM as initial user ..." ; \
-#            if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \
-#                eselect java-vm set --if-unset system 1 ; \
-#            else \
-#                eselect java-vm set --if-unset user 1 ; \
-#            fi ; \
-#        fi ; \
+        if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
+            echo "Setting Java VM as initial user ..." ; \
+            if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \
+                eselect java-vm set --if-unset system 1 ; \
+            else \
+                eselect java-vm set --if-unset user 1 ; \
+            fi ; \
+        fi ; \
     fi
 
 # http://www.gentoo.org/doc/en/prelink-howto.xml
-RUN if [ -x /usr/sbin/prelink ]; then \
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    if [ -x /usr/sbin/prelink ]; then \
         /usr/sbin/prelink -av -m -R -f && \
         /usr/sbin/prelink -p ; \
     fi
@@ -445,16 +491,19 @@ WORKDIR "${service_cwd}"
 USER "${service_user}:${service_group}"
 
 # hadolint ignore=SC3028
-#RUN if [ -x /usr/bin/eselect ]; then \
-#        if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
-#            echo "Setting Java VM as '${service_user:-"root"}' ..." ; \
-#            if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \
-#                eselect java-vm set --if-unset system 1 ; \
-#            else \
-#                eselect java-vm set --if-unset user 1 ; \
-#            fi ; \
-#        fi ; \
-#    fi
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    { set -o pipefail 2>/dev/null || true ; } ; \
+    if [ -x /usr/bin/eselect ]; then \
+        if [ -s /usr/share/eselect/modules/java-vm.eselect ]; then \
+            echo "Setting Java VM as '${service_user:-"root"}' ..." ; \
+            if [ $(( ${EUID:-"$( id -u )"} )) -eq 0 ]; then \
+                eselect java-vm set --if-unset system 1 ; \
+            else \
+                eselect java-vm set --if-unset user 1 ; \
+            fi ; \
+        fi ; \
+    fi
 
 #VOLUME ["/srv/${service_name_short}","/var/db/pkg","${ZEUSHOME}/zxtm-${zxtm_service_version}/conf_A"]
 VOLUME ["/srv/${service_name_short}","/var/db/pkg"]

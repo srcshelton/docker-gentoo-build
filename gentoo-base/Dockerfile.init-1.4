@@ -9,6 +9,10 @@
 # hadolint global ignore=SC2015
 #
 
+# This is a hack to enable xtrace output for container-builds, intending to be
+# the least invasive (albeit Docker-oriented) means to control this feature...
+ARG BUILDKIT_PROGRESS
+
 # We're not using these, but defining them here prevents podman from
 # complaining about unconsumed build arguments...
 #
@@ -23,6 +27,9 @@ ARG gentoo_stage3_id=""
 ARG stage3_name="localhost/gentoo-stage3"
 ARG entrypoint_sum=""
 
+# Do we want to use a different tag to 'latest' for our own images?
+ARG override_tag="latest"
+
 ARG stage3_flags_file="/usr/libexec/stage3_flags.sh"
 
 ARG environment_file="/usr/libexec/environment.sh"
@@ -32,7 +39,9 @@ ARG environment_filter="^(declare -x|export) (EDITOR|GENTOO_PROFILE|HOME|HOSTNAM
 # -----------------------------------------------------------------------------
 
 # linter ignore=EF0003
-FROM "${stage3_name}:latest"
+FROM "${stage3_name}:${override_tag}"
+
+ARG BUILDKIT_PROGRESS
 
 ARG ARCH
 
@@ -63,7 +72,10 @@ ENV TERM="${SET_TERM}"
 # Perform initial setup ...
 #
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
+
+	set -o pipefail 2>/dev/null || true
 
 	echo >&2 "Creating initial image from '${gentoo_stage3_image}' for" \
 		"'${ARCH:-"<undefined>"}' ..."
@@ -76,7 +88,10 @@ EOT
 
 COPY etc/ /etc/
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
+
+	set -o pipefail 2>/dev/null || true
 
 	for base in \
 		package.accept_keywords \
@@ -104,7 +119,10 @@ EOT
 # Confirm correct extraction...
 #
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
+
+	set -o pipefail 2>/dev/null || true
 
 	test -s /etc/timezone
 	test -e /etc/portage/package.accept_keywords
@@ -140,7 +158,10 @@ EOT
 #
 # linter ignore=SC2015
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
+
+	set -o pipefail 2>/dev/null || true
 
 	test -d /etc/portage/package.use.init
 	test ! -e /etc/portage/package.use
@@ -149,7 +170,10 @@ RUN <<-'EOT' /bin/sh
 EOT
 
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
+
+	set -o pipefail 2>/dev/null || true
 
 	ln -sf /usr/share/portage/config/make.globals /etc/portage/make.globals
 	ln -sf "/var/db/repo/gentoo/profiles/${GENTOO_PROFILE}" \
@@ -160,7 +184,10 @@ COPY entrypoint.sh /usr/libexec/
 RUN test -s /usr/libexec/entrypoint.sh
 
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x
+
+	set -o pipefail 2>/dev/null || true
 
 	sed -i \
 		-e "s|__JOBS__|${JOBS}|" \

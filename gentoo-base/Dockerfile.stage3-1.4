@@ -12,6 +12,10 @@
 # hadolint global ignore=DL4006,SC3040
 #
 
+# This is a hack to enable xtrace output for container-builds, intending to be
+# the least invasive (albeit Docker-oriented) means to control this feature...
+ARG BUILDKIT_PROGRESS
+
 # We're not using these, but defining them here prevents podman from
 # complaining about unconsumed build arguments...
 #
@@ -35,6 +39,9 @@ ARG gentoo_stage3_id=""
 # work-around until this is fixed...
 ARG gentoo_stage3_image_ref="docker.io/gentoo/stage3:latest"
 
+# Do we want to use a different tag to 'latest' for our own images?
+ARG override_tag="latest"
+
 ARG stage3_flags_file="/usr/libexec/stage3_flags.sh"
 
 # amd64 images are now merged-usr :(
@@ -49,6 +56,8 @@ ARG new_root_name=""
 #FROM "${gentoo_stage3_image}:${gentoo_stage3_tag}" AS stage3
 FROM "${gentoo_stage3_image_ref}" AS stage3
 
+ARG BUILDKIT_PROGRESS
+
 ARG ARCH
 ARG stage3_flags_file
 
@@ -59,9 +68,10 @@ ARG new_root_name
 #
 # linter ignore=ER0001,SC2028,SC2046
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ge 2 ] && set -x
 
-	set -o pipefail 2>/dev/null || :
+	set -o pipefail 2>/dev/null || true
 
 	command -v grep >/dev/null 2>&1 || {
 		echo >&2 "FATAL: Unable to locate 'grep' binary"
@@ -133,7 +143,8 @@ EOT
 #         /usr/bin symlink is rolled-back :(
 #
 RUN <<-'EOT' /bin/sh
-	set -eux
+	set -eu
+	[ $(( BUILDKIT_PROGRESS )) -ge 2 ] && set -x
 
 	set -o pipefail 2>/dev/null || true
 
@@ -282,7 +293,7 @@ EOT
 # -----------------------------------------------------------------------------
 
 # linter ignore=EF0003
-FROM "${env_name}:latest"
+FROM "${env_name}:${override_tag}"
 
 ARG env_name
 ARG env_id
