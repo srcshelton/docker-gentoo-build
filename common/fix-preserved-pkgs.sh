@@ -16,17 +16,17 @@ list="$( emerge -p @preserved-rebuild --with-bdeps=n |
 	cut -d':' -f 1
 )"
 
-test -n "${list:-}" || exit 0
+test -n "${list:+"set"}" || exit 0
 
 echo "${list}" | while read -r p; do
 	pn="$( basename "${p}" )"
 
 	rm -fv "${pkgdir}/${p}.tbz2" 2>/dev/null ||
-		sudo rm -fv "${pkgdir}/${p}.tbz2"
+		sudo rm -fv "${pkgdir}/${p}.tbz2" || :
 	find "${pkgdir}/" \
 		-mindepth 3 \
 		-maxdepth 3 \
-		-name "${pn}-[0-9].xpak" \
+		-name "${pn}-[0-9]*.xpak" -or -name "${pn}-[0-9]*.gpkg.tar" \
 		-type f \
 		\( \
 				-exec \
