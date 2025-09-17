@@ -153,10 +153,11 @@ dev-vcs/subversion			 ctypes-python
 gnome-base/librsvg			-vala
 # move sys-devel/clang llvm-core/clang
 llvm-core/clang				-extra -static-analyzer default-compiler-rt default-libcxx default-lld llvm-libunwind system-cxx-headers
-# move sys-devel/clang-runtime llvm-core/clang-runtime
-llvm-core/clang-runtime			compiler-rt default-compiler-rt default-libcxx default-lld llvm-libunwind libcxx polly sanitize  # sanitize required for pgo
 # move sys-devel/llvm llvm-core/llvm
 llvm-core/llvm				 clang llvm-gcc udis86
+# move sys-devel/clang-runtime llvm-core/clang-runtime
+# move llvm-core/clang-runtime llvm-runtimes/clang-runtime
+llvm-runtimes/clang-runtime		compiler-rt default-compiler-rt default-libcxx default-lld llvm-libunwind libcxx polly sanitize  # sanitize required for pgo
 # move sys-libs/compiler-rt llvm-runtimes/compiler-rt
 llvm-runtimes/compiler-rt		 clang
 # move sys-libs/compiler-rt-sanitizers llvm-runtimes/compiler-rt-sanitizers

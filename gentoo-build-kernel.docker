@@ -1496,7 +1496,7 @@ case "${compiler}" in
 			$( pkgslot llvm-core/llvm-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
 
 			$( pkgslot llvm-core/clang-common ${llvm_slot} ${limit:-} ) # SLOT=0
-			$( pkgslot llvm-core/clang-runtime ":${inconsistent_slot}" ) # SLOT=14.0.6, 16
+			$( pkgslot llvm-runtimes/clang-runtime ":${inconsistent_slot}" ) # SLOT=14.0.6, 16
 			$( pkgslot llvm-core/clang ":${llvm_slot}" ) # SLOT=14, 16/16
 			$( pkgslot llvm-core/clang-toolchain-symlinks ":${llvm_slot}" ) # SLOT=14, 16
 		)
@@ -1511,7 +1511,7 @@ case "${compiler}" in
 					'-libcxx' \
 					'static-libs' -- "${pre_use}"
 			)"
-		pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}llvm-core/clang-common llvm-core/clang-runtime llvm-runtimes/libcxx"
+		pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}llvm-core/clang-common llvm-runtimes/clang-runtime llvm-runtimes/libcxx"
 
 		if [[ "${unwind:-}" == 'llvm' ]]; then
 			pre_use="$( replace_flags '-clang' '-llvm-libunwind' 'static-libs' -- "${pre_use}" )"
@@ -1927,7 +1927,7 @@ mkdir -p "${log_dir:="log"}" ||
 						cat <<-EOF
 							--with-pkg-mask=>=llvm-core/clang-${llvm_next}
 							--with-pkg-mask=>=llvm-core/clang-common-${llvm_next}
-							--with-pkg-mask=>=llvm-core/clang-runtime-${llvm_next}
+							--with-pkg-mask=>=llvm-runtimes/clang-runtime-${llvm_next}
 							--with-pkg-mask=>=llvm-core/clang-toolchain-symlinks-${llvm_next_slot}
 							--with-pkg-mask=>=llvm-core/lld-${llvm_next}
 							--with-pkg-mask=>=llvm-core/lld-toolchain-symlinks-${llvm_next_slot}
