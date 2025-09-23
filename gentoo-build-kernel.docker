@@ -617,8 +617,11 @@ print "Using package '=${package}' ..."
 container_name="$( echo "${package}" | sed 's|/|.|' )"
 export container_name
 case "${package}" in
-	*gentoo*)
+	*'gentoo'*)
 		distro='-gentoo'
+		;;
+	*)
+		warn "No recognised distribution in package name '${package}' - not adding kernel LOCALVERSION"
 		;;
 esac
 
@@ -2162,6 +2165,11 @@ mkdir -p "${log_dir:="log"}" ||
 			$( add_mount --dir --no-ro --print '/lib/modules/' '/host/...' )
 			$( add_mount --dir --no-ro --print '/boot' '/host/...' )
 		) || :
+		if [[ -d /boot/efi ]]; then
+			docker_extra_mounts+=( # <- Syntax
+				$( add_mount --dir --no-ro --print '/boot/efi' '/host/...' )
+			) || :
+		fi
 	fi
 
 	declare -i rc=0
@@ -2640,6 +2648,7 @@ mkdir -p "${log_dir:="log"}" ||
 		new_localversion='' ;
 		localversion='' ;
 		if echo '${package_version}' | grep -Fq -- '_'; then
+			: e.g. raspberrypi-sources-6.6.74_p20250127 -> p20250127 ;
 			pkg_version='${package_version%"_"*}' ;
 			pkg_localversion='_${package_version#*"_"}' ;
 			localversion="LOCALVERSION=\${pkg_localversion}" ;
@@ -2661,11 +2670,11 @@ mkdir -p "${log_dir:="log"}" ||
 		echo "INFO:  Kernel version is '\${kernel_version}'" ;
 		if [ -e .config ]; then
 			echo "INFO:  Configuration changes from '.config':" ;
-			make ${kernel_make_opts[@]} O=../build \${localversion} listnewconfig 2>/dev/null | grep -- '^CONFIG' || echo '<none>' ;
+			make ${kernel_make_opts[@]} O=../build \${localversion}${distro:+" EXTRAVERSION=${distro}"} listnewconfig 2>/dev/null | grep -- '^CONFIG' || echo '<none>' ;
 		fi ;
 		success=0 ;
 		set -x ;
-		make ${kernel_make_opts[@]} O=../build \${localversion} ${deforoldconfig} \
+		make ${kernel_make_opts[@]} O=../build \${localversion}${distro:+" EXTRAVERSION=${distro}"} ${deforoldconfig} \
 				prepare \
 				${menuconfig:+"menuconfig"} \
 				${nconfig:+"nconfig"} ;
@@ -2685,19 +2694,19 @@ mkdir -p "${log_dir:="log"}" ||
 		fi ;
 		unset new_localversion ;
 		set -x ;
-		time make ${kernel_make_opts[@]} O=../build \${localversion} ${deforoldconfig} \
+		time make ${kernel_make_opts[@]} O=../build \${localversion}${distro:+" EXTRAVERSION=${distro}"} ${deforoldconfig} \
 				vmlinux \
 				modules \
 				\${dtb:+"dtbs"} \
 				\${kernel} &&
 			rm -rf "/lib/modules/\${kernel_version}" &&
-			time make ${kernel_make_opts[@]} O=../build \${localversion} INSTALL_MOD_STRIP=1 modules_install &&
+			time make ${kernel_make_opts[@]} O=../build \${localversion}${distro:+" EXTRAVERSION=${distro}"} INSTALL_MOD_STRIP=1 modules_install &&
 			success=1 ;
 		set +x ;
 		if [ "\${success}" = '1' ] && [ "\{extract}" = '1' ]; then
 			set -x ;
 			sh scripts/extract-vmlinux ../build/arch/\${dir}/boot/\${kernel} > vmlinux &&
-				[ -f vmlinux ] && mv vmlinux ../build/ || success=0 ;
+				[ -f vmlinux ] && mv -v vmlinux ../build/ || success=0 ;
 			set +x ;
 		fi ;
 		if [ "\${success}" = '0' ]; then
@@ -2707,7 +2716,7 @@ mkdir -p "${log_dir:="log"}" ||
 			dracut "/boot/initramfs.img-\${kernel_version}" "\${kernel_version}" ;
 		fi ;
 		if [ -s /host/boot/boot.config ]; then
-			cp /host/boot/boot.config /boot/boot.config ;
+			cp -v /host/boot/boot.config /boot/boot.config ;
 		fi ;
 		if [ -s /boot/boot.config -o -s /proc/bootconfig ] && [ -e "/boot/initramfs.img-\${kernel_version}" ]; then
 			if make ${kernel_make_opts[@]} O=../build -C tools/bootconfig; then
@@ -2722,7 +2731,7 @@ mkdir -p "${log_dir:="log"}" ||
 			fi ;
 		fi ;
 		if [ "\${dtb}" = '1' ]; then
-			make ${kernel_make_opts[@]} O=../build \${localversion} dtbs_install ;
+			make ${kernel_make_opts[@]} O=../build \${localversion}${distro:+" EXTRAVERSION=${distro}"} dtbs_install ;
 		fi ;
 		unset localversion ;
 		if command -v kernel-hardening-checker >/dev/null 2>&1; then
@@ -2738,11 +2747,14 @@ mkdir -p "${log_dir:="log"}" ||
 				find /lib/modules/${package_version}${distro:-}/ -type f -print |
 						while read -r file; do
 					echo >&2 "WARN:  '\${file}' is incorrectly installed to '/lib/modules/${package_version}${distro:-}' ..." ;
-					mv "\${file}" "/lib/modules/\${kernel_version}/" ;
+					mv -v "\${file}" "/lib/modules/\${kernel_version}/" ;
 				done ;
 				unset file ;
 				rmdir '/lib/modules/${package_version}${distro:-}' ;
 			fi ;
+		fi ;
+		if [ -n "${distro:-}" ] && [ -d "/lib/modules/${package_version}" ]; then
+			echo >&2 "WARN:  Some files have been installed to '/lib/modules/${package_version}' instead of '/lib/modules/${package_version}${distro}'" ;
 		fi ;
 		if ! [ '${bundle}' = '1' ]; then
 			cp -v ../build/.config "/boot/config-\${kernel_version}" ;
@@ -2805,6 +2817,15 @@ mkdir -p "${log_dir:="log"}" ||
 				fi ;
 			fi ;
 			unset tar_extra_args ;
+			if [ -f ../build/arch/arm64/boot/Image ]; then
+				if [ -d /host/boot/efi ]; then
+					if findmnt -fnu /host/boot/efi/ | grep -Fq -- 'ro,'; then
+						echo >&2 "ERROR: /boot/efi/ is mounted read-only, not attempting ARM64 EFI 'Image' install" ;
+					else
+						cp -v ../build/arch/arm64/boot/Image /host/boot/efi/Image-\${kernel_version%"${distro:-}"} ;
+					fi ;
+				fi ;
+			fi ;
 		elif [ '${bundle}' = '0' ]; then
 			echo >&2 "WARN:  Linux kernel-\${kernel_version} successfully built (but not installed due to '--no-install' argument)" ;
 		fi ;
