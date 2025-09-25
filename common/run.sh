@@ -1189,8 +1189,8 @@ _docker_run() {
 							case "${pn:-}" in
 								'CIX P1 CD8180')
 									warn "Applying cpuset ring-fencing for" \
-										"${pn} system ..."
-									echo '--cpuset-cpus 0,5-11'
+										"${pn} system 'big' cores ..."
+									echo '--cpuset-cpus 0-1,6-11'
 									;;
 								*)
 									print "Not applying cpuset ring-fencing" \
