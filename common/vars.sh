@@ -492,7 +492,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			use_cpu_arch='arm'
 			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
 			target_cpu='cortex-a76'
-			cc_target_opts="-mcpu${target_cpu}6+crypto"
+			cc_target_opts="-mcpu=${target_cpu}+crypto"
 			rust_target_opts="-C target-cpu=${target_cpu}"
 			rpi_model='rpi5' ;;
 		*': Raspberry Pi 500 '*)
@@ -502,7 +502,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			use_cpu_arch='arm'
 			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
 			target_cpu='cortex-a76'
-			cc_target_opts="-mcpu${target_cpu}6+crypto"
+			cc_target_opts="-mcpu=${target_cpu}+crypto"
 			rust_target_opts="-C target-cpu=${target_cpu}"
 			rpi_model='rpi500' ;;
 
