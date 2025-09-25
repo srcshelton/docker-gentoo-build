@@ -43,6 +43,7 @@ declare -ir build_space_reqiured=750
 declare -ir temp_space_required=2800
 declare -ir graph_space_required=8500
 
+# () {  # Fold platform-specific package selection
 declare pkg_use=''
 declare pre_remove=''
 declare package_default='sys-kernel/gentoo-sources'
@@ -64,7 +65,9 @@ then
 	pre_remove="${pre_remove:+"${pre_remove} "}sys-kernel/linux-headers virtual/os-headers"
 fi
 readonly package_default
+# }  # End of platform-specific package selection
 
+# () {  # Fold firmware and microcode determination
 declare firmware=''
 declare microcode=''
 declare microcode_blob=''
@@ -102,6 +105,7 @@ then
 	esac
 fi
 readonly microcode microcode_blob
+# }  # End of firmware and microcode determination
 
 pkgslot() {
 	local pkg="${1:-}"
@@ -161,7 +165,7 @@ pkgslot() {
 
 _docker_setup
 
-if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
+if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then # () {  # Fold 'help' output
 	declare usage='' options=''
 	usage="Usage: $( basename "${0}" ) "
 	# shellcheck disable=SC2116 # echo used for line-splitting
@@ -222,7 +226,7 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
 	output >&2 '[1]: https://github.com/clearlinux-pkgs/linux/blob/main/0133-novector.patch'
 	output >&2
 	exit 0
-fi
+fi # }  # End of 'help' output
 
 declare _output=''
 # shellcheck disable=SC2154
@@ -245,6 +249,7 @@ then
 fi
 unset _output
 
+# () {  # Start variable declaration
 declare -i keep_build=1
 declare -i bundle=0
 declare -i clean=0
@@ -271,7 +276,9 @@ declare extra_packages=''
 declare patch=''
 declare rust_llvm_use=''
 declare unwind=''
+# }  # End of variable declaration
 
+# () { # Fold argument handling
 if [[ -s .kbuild_opt ]]; then
 	info "Including build options from '.kbuild_opt' ..."
 	kbuild_opt="${kbuild_opt:-} $( < .kbuild_opt )"
@@ -877,9 +884,10 @@ elif echo " ${*:-} " | grep -q -- ' --no-firmware'; then
 	firmware=''
 fi
 
-# End of argument handling
+# }  # End of argument handling
 
 
+# () {  # Fold version validation
 #declare binutils_min_ver='2.25.0'  # 2.30.0 from 6.16.0
 #declare gcc_min_ver='5.1.0'  # 8.1.0 on x86 and from 6.16.0, 12.0.0 on PA-RISC
 #declare llvm_min_ver='13.0.1'  # 11.0.0 before 6.9.0, 15.0.0 on S390 and x86, 18.0.0 on loongarch
@@ -1199,7 +1207,7 @@ if [[ "${compiler}" == 'clang' ]]; then
 		fi
 	fi
 
-	if (( llvm_slot_override )) && [[ -n "${llvm_sub_slot_override:-}" ]] then
+	if (( llvm_slot_override )) && [[ -n "${llvm_sub_slot_override:-}" ]]; then
 		# Command-line overrides in llvm_sub_slot_override &
 		# llvm_slot_override...
 		declare last_unsuitable_llvm_ver="$(( llvm_slot - 1 )).9999.9999"
@@ -1244,6 +1252,7 @@ if [[ "${compiler}" == 'clang' ]]; then
 
 	print "Building with LLVM ${llvm_slot} (${llvm_sub_slot}) ..."
 fi # [[ "${compiler}" == 'clang' ]]
+# }  # End of version validation
 
 # shellcheck disable=SC2154
 $_command image list "${IMAGE%":"*}" |
@@ -1265,6 +1274,7 @@ if (( install )); then
 	fi
 fi
 
+# () {  # Fold ${build_dir} & ${config_file} setup
 declare build_version=''
 build_version="$( echo "${package_version}" | cut -d'.' -f 1-2 )"
 if [[ -z "${build_dir:-}" ]]; then
@@ -1365,9 +1375,11 @@ if [[ -n "${config_file:-}" ]]; then
 		fi
 	fi
 fi
+# }  # End of ${build_dir} & ${config_file} setup
 
 [ -d log ] || mkdir log
 
+# () {  # Fold compiler flags setup
 declare openmp='openmp'
 declare pkg_mask=''
 declare pre_pkgs=''
@@ -1377,6 +1389,7 @@ declare -a compiler_pkgs=()
 declare compiler_USE="${rust_llvm_use:-}"
 declare container_CC='gcc'
 declare container_CXX='g++'
+declare container_LD='ld'
 declare container_LLVM=''
 declare container_KCFLAGS=''
 if (( opt_o3 )); then
@@ -1434,7 +1447,9 @@ if (( opt_o3 )); then
 	container_KCFLAGS="KCFLAGS=\"${add_flags}\""
 	unset add_flags
 fi
+# }  # End of compiler flags setup
 
+# () {  # Fold compiler package setup
 compiler_pkgs=(
 	$( pkgslot sys-devel/binutils "${binutils_min_ver}" )
 	sys-devel/binutils-config
@@ -1587,13 +1602,14 @@ case "${compiler}" in
 		container_CXX='clang++'
 		#container_LD='ld.bfd'
 		container_LD='ld.lld' # lld required for LTO
-		container_LLVM='1'
+		container_LLVM='__set__'
 		#LLVM_TARGETS='-* BPF X86' - moved to ${base_dir}/etc/portage/package.use.build/00_package.use
 		;;
 	*)
 		die "Unknown compiler '${compiler}'"
 		;;
 esac
+# }  # End of compiler package setup
 
 mkdir -p "${log_dir:="log"}" ||
 	die "Could not create log directory '${log_dir}': ${?}"
@@ -1610,6 +1626,7 @@ mkdir -p "${log_dir:="log"}" ||
 #
 # shellcheck disable=SC2207
 {
+	# () {  # Fold Docker/podman arguments setup
 	# FIXME: Standardise on host or container configuration files
 	#
 	declare -a docker_extra_mounts=()
@@ -2345,7 +2362,9 @@ mkdir -p "${log_dir:="log"}" ||
 					cut -d',' -f 1
 			)"
 	fi
+	# }  # End of Docker/podman arguments setup
 
+	# () {  # Fold kernel-build script
 	# Confirm line-endings, highlight:
 	#   ^.*\()\|\s\(;\|;;\|\$( # <- Syntax\|then\|else\|do\|in\|&&\||\|||\|{\|\\\|\$(\|\\\$(\)\)$
 	#
@@ -2867,6 +2886,7 @@ mkdir -p "${log_dir:="log"}" ||
 	nl="$( printf '\n' )"
 	DOCKER_SCRIPT="$( echo "${DOCKER_SCRIPT}" | tr "${nl}" ' ' )"
 	unset nl
+	# }  # End fo kernel-build script
 
 	export DOCKER_ENTRYPOINT DOCKER_INTERACTIVE DOCKER_VOLUMES DOCKER_SCRIPT
 	# shellcheck disable=SC2031
@@ -2876,6 +2896,7 @@ mkdir -p "${log_dir:="log"}" ||
 }
 
 
+# () {  # Fold container run
 if (( raise_mem )); then
 	# DEBUG-enabled 'LD vmlinux.o' step fails with OOM with 2G
 	# reservation :(
@@ -2919,6 +2940,7 @@ else
 		output " -> ${rc}"
 	}
 fi
+# }  # End of container run
 
 if [[ -d /boot/dtbs ]] &&
 		[[ "$( find /boot/dtbs -maxdepth 0 -empty )" == '/boot/dtbs' ]]
@@ -2930,4 +2952,4 @@ fi
 
 exit ${rc}
 
-# vi: set noet nowrap sw=4 ts=4:
+# vi: set noet foldmarker=()\ {,}\ \ #\  foldmethod=marker sw=4 ts=4 nowrap:
