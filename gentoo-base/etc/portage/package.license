@@ -25,6 +25,7 @@ app-crypt/rhash				 0BSD
 app-containers/netavark			 0BSD Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boost-1.0 Unicode-DFS-2016 Unlicense ZLIB
 app-containers/aardvark-dns		 0BSD Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Unicode-DFS-2016 Unlicense ZLIB
 app-containers/skopeo			 CC-BY-SA-4.0
+dev-util/cargo-c			 MPL-2.0 MPL-2.0 Unicode-3.0 ZLIB
 dev-util/cargo-ebuild			 Apache-2.0-with-LLVM-exceptions Boost-1.0 MPL-2.0 Unicode-DFS-2016 Unlicense ZLIB
 #dev-libs/libbsd			 BSD-4
 #app-arch/libarchive			 BSD-4 public-domain
@@ -190,9 +191,10 @@ dev-php/pecl-redis			 PHP-3.01
 
 # required by services dev-lang/php & www-server/lighttpd
 dev-lang/tcl				 tcltk
+dev-libs/libgit2			 GPL-2-with-linking-exception
 dev-php/Masterminds-HTML5		 HTML5-PHP
 dev-php/pecl-imagick			 PHP-3.01
-gnome-base/librsvg			 Apache-2.0-with-LLVM-exceptions MPL-2.0 Unicode-DFS-2016
+gnome-base/librsvg			 Apache-2.0-with-LLVM-exceptions MPL-2.0 Unicode-3.0 Unicode-DFS-2016
 mail-filter/libmilter			 Sendmail
 media-gfx/imagemagick			 imagemagick
 
