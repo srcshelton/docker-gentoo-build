@@ -35,6 +35,7 @@ net-dns/bind				 tools
 net-firewall/firehol			-firehol fireqos ipset
 net-firewall/iptables			 nftables
 net-libs/ngtcp2				-openssl gnutls  # openssl is currently masked due to lack of stable QUIC support
+net-misc/curl				 http2
 sys-apps/iproute2			-minimal
 sys-apps/nvme-cli			 json
 sys-apps/smartmontools			-caps  # ... or +daemon
