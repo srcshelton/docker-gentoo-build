@@ -38,7 +38,10 @@
 
 # Latest is gentoo-sources-6.16.9
 ~sys-kernel/gentoo-sources-6.16.9			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/vanilla-sources-6.16.9			~amd64 ~arm ~arm64 ~x86
+
+# Latest is gentoo-sources-6.17.0
+~sys-kernel/gentoo-sources-6.17.0			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-6.17.0			~amd64 ~arm ~arm64 ~x86
 
 ~dev-util/perf-6.16					~amd64 ~arm ~arm64 ~x86
 
