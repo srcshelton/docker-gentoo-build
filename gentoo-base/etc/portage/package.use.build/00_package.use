@@ -74,6 +74,7 @@ app-admin/rasdaemon			-sqlite experimental
 app-admin/syslog-ng			-snmp spoof-source
 app-admin/sysstat			 lm-sensors
 app-admin/ulogd				 nfacct pcap
+app-alternatives/gpg			-ssl  # Keep in sync with app-crypt/gnupg, below
 app-arch/libarchive			 acl e2fsprogs iconv nettle
 #app-arch/unzip				 natspec
 app-arch/xz-utils			-extra-filters

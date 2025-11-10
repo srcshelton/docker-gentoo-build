@@ -29,6 +29,7 @@ media-gfx/imagemagick			-truetype bzip2 jpeg perl png # svg webp (+xml)
 # dependency required by dev-php/PEAR-PEAR-1.10.13
 dev-lang/php				 zlib
 
+app-alternatives/gpg			-ssl  # Keep in sync with app-crypt/gnupg, below
 app-crypt/gnupg				-ssl
 # dependency required by dev-php/PEAR-Crypt_GPG-1.6.4
 # dependency required by app-crypt/gnupg-2.2.27[ssl]

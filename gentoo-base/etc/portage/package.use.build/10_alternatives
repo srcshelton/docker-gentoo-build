@@ -3,8 +3,10 @@ app-alternatives/awk			 gawk  # busybox mawk nawk
 app-alternatives/bc			 gnu  # gh
 app-alternatives/bzip2			 reference  # pbzip2 lbzip2
 app-alternatives/cpio			 gnu  # libarchive
+app-alternatives/gpg			 reference  # ssl -nls
 app-alternatives/gzip			 reference  # pigz
 app-alternatives/lex			 flex  # reflex
+app-alternatives/lzip			 reference  # plzip
 app-alternatives/ninja			 reference  # samurai
 app-alternatives/sh			 bash  # busybox dash ksh lksh mksh
 app-alternatives/tar			 gnu  # libarchive

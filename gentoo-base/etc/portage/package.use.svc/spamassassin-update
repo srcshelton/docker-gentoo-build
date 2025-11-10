@@ -24,6 +24,7 @@ sys-devel/gcc				-fortran -lib-only -nls -sanitize -vtv default-stack-clash-prot
 sys-devel/gcc-config			 native-symlinks
 sys-devel/binutils-config		 native-symlinks
 
+app-alternatives/gpg			-ssl  # Keep in sync with app-crypt/gnupg, below
 app-crypt/gnupg				-ssl
 # dependency required by app-crypt/gnupg-2.2.27[ssl]
 # dependency required by net-libs/gnutls-3.6.15
