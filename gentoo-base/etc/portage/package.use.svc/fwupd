@@ -45,7 +45,7 @@ media-libs/harfbuzz			 glib truetype
 
 # required by x11-libs/pango-1.42.4-r2
 # required by x11-libs/cairo-1.16.0-r4
-media-libs/freetype			 png
+media-libs/freetype			 harfbuzz png
 
 # required by sys-apps/fwupd-1.8.10
 # required by x11-libs/pango-1.50.14
