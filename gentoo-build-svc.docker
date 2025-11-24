@@ -1542,7 +1542,7 @@ case " ${pre_pkgs} " in
 				warn
 				warning=1
 			fi
-			post_pkgs="${post_pkgs:+"${post_pkgs} "}sys-devel/gcc sys-libs/zlib virtual/libiconv --nodeps"
+			post_pkgs="${post_pkgs:+"${post_pkgs} "}sys-devel/gcc sys-libs/zlib virtual/libiconv virtual/zlib --nodeps"
 			with_use="$( replace_flags '-lib-only' -- "${with_use}" )"
 			pre_use="$( replace_flags 'graphite' '-lib-only' '-openmp' -- "${pre_use:-}" )"
 			post_use="$( replace_flags '-graphite' '-lib-only' '-openmp' -- "${post_use:-}" )"
@@ -1605,7 +1605,7 @@ esac
 (( warning )) && sleep 5
 
 if ! grep -Fq ' sys-devel/gcc ' <<<" ${post_pkgs} "; then
-	post_pkgs="sys-libs/zlib${post_pkgs:+" ${post_pkgs}"} --nodeps --with-bdeps=n"
+	post_pkgs="sys-libs/zlib virtual/zlib${post_pkgs:+" ${post_pkgs}"} --nodeps --with-bdeps=n"
 	# FIXME: What packages require these updated flags?
 	post_use="$( replace_flags '-minizip' 'xml' -- "${post_use}" )"
 fi
