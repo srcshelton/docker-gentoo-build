@@ -19,6 +19,12 @@
 # Overrides applied to build-images (e.g. gentoo-base, gentoo-build)
 #
 
+# Use vendor sources?
+#
+#*/*					 cix
+#*/*					 mixtile rockchip
+#*/*					 raspberrypi
+
 # See profiles/desc/cpu_flags_*.desc and app-portage/cpuid2cpuflags
 #
 #*/*					 CPU_FLAGS_ARM:
@@ -30,7 +36,7 @@
 
 # See profiles/desc/video_cards.desc
 #
-#*/*					 VIDEO_CARDS: dummy
+*/*					 VIDEO_CARDS: dummy
 #*/*					 VIDEO_CARDS: lima         # Mali 200/400
 #*/*					 VIDEO_CARDS: panfrost     # Mali 600/700/800
 #*/*					 VIDEO_CARDS: vc4          # Raspberry Pi VideoCore IV
