@@ -184,31 +184,34 @@ replace_flags() {
 	for arg in "${@:-}"; do
 		case "${arg:-}" in
 			--)
+				# 'flags' are the flags to add/remove, 'list' is the list of
+				# flags which should be updated...
 				print 2 "Switching state from 'flags' ('${flags[*]:-}') to" \
 					"'list' ('${list[*]:-}') ..."
 				state=1
 				continue
 				;;
 			''|' ')
-				print 2 "Dropping arg '${arg:-}' ..."
+				print 2 "Dropping (blank) arg '${arg:-}' ..."
 				:
 				;;
 			*' '*)
+				# Support multi-flag arguments...
 				arg="$( sed 's/^ \+// ; s/ \+$//' <<<"${arg}" )"
 				if (( state )); then
-					print 2 "Adding multi arg list '${arg:-}' to list" \
+					print 2 "Adding multi-arg list '${arg:-}' to list" \
 						"'${list[*]:-}' ..."
 					readarray -O "${#list[@]}" -t list < <( # <- Syntax
 							xargs -rn 1 <<<"${arg}"
 						)
 					print 2 "... updated list is '${list[*]:-}'"
 				else
-					print 2 "Adding multi arg flags '${arg:-}' to flags" \
+					print 2 "Adding multi-arg flags '${arg:-}' to flags" \
 						"'${flags[*]:-}' ..."
 					readarray -O "${#flags[@]}" -t flags < <( # <- Syntax
 							xargs -rn 1 <<<"${arg}"
 						)
-					print 2 "... updated flags is '${flags[*]:-}'"
+					print 2 "... updated flags are '${flags[*]:-}'"
 				fi
 				;;
 			*)
@@ -221,7 +224,7 @@ replace_flags() {
 					print 2 "Adding flag '${arg:-}' to flags" \
 						"'${flags[*]:-}' ..."
 					flags+=( "${arg}" )
-					print 2 "... updated flags is '${flags[*]:-}'"
+					print 2 "... updated flags are '${flags[*]:-}'"
 				fi
 				;;
 		esac
@@ -234,26 +237,45 @@ replace_flags() {
 		return 1
 	fi
 
+	# Pre-populate ${seen[@]} with stripped ${flags[@]}, to prevent
+	# multi-flag invocations adding unintended arguments when processing flags
+	# individually...
+	#
+	for flag in "${flags[@]}"; do
+		seen["${flag#"-"}"]=1
+	done
+
 	for flag in "${flags[@]}"; do
 		# Remove existing instances of '(-)flag'...
 		#
 		for arg in "${list[@]}"; do
 			case "${arg}" in
-				"-${flag#"-"}"|"${flag#"-"}"|'')
-					print 2 "Will add flag '${arg}' to list later ..."
-					# Do nothing, as we add the flag below...
+				'')
 					:
-					# N.B. This means that if we have '-flag flag' then the
-					#      second occurence is dropped...
-					#seen["${arg#"-"}"]=1  # <- This loses the flag!
+					;;
+				"-${flag#"-"}"|"${flag#"-"}")
+					if ! (( seen["${arg#"-"}"] )); then
+						# Do nothing, as we will add the flag below...
+						#
+						# N.B. This means that if we have '-flag flag' then the
+						#      second occurence is dropped...
+						#
+						print 2 "Will add flag '${arg}' to list later ..."
+						seen["${arg#"-"}"]=1
+					else
+						print 3 "Dropping duplicate or updated flag '${arg}'" \
+							"from list"
+					fi
+					continue
 					;;
 				*)
 					if ! (( seen["${arg}"] )); then
-						print 2 "Adding flag '${arg}' to list"
+						print 3 "Adding flag '${arg}' to output list"
 						output+=( "${arg}" )
 						seen["${arg}"]=1
 					else
-						print 2 "Dropping duplicate flag '${arg}' from list"
+						print 3 "Dropping duplicate or updated flag '${arg}'" \
+							"from list"
 					fi
 					continue
 					;;
@@ -267,7 +289,7 @@ replace_flags() {
 				:
 				;;
 			-*)
-				print 2 "Adding flag '${flag}' to start of list ..."
+				print 2 "Adding flag '${flag}' to start of output list ..."
 				if [[ -z "${output[*]:-}" ]]; then
 					output=( "${flag}" )
 				else
@@ -275,14 +297,8 @@ replace_flags() {
 				fi
 				;;
 			*)
-				if ! (( seen["${flag}"] )); then
-					print 2 "Adding flag '${flag}' to end of list ..."
-					output+=( "${flag}" )
-					seen["${flag}"]=1
-				else
-					print 2 "Dropping duplicate flag '${flag}' from end of" \
-						"list"
-				fi
+				print 2 "Adding flag '${flag}' to end of list ..."
+				output+=( "${flag}" )
 				;;
 		esac
 	done
@@ -1191,6 +1207,10 @@ _docker_run() {
 									warn "Applying cpuset ring-fencing for" \
 										"${pn} system 'big' cores ..."
 									echo '--cpuset-cpus 0-1,6-11'
+									[[ -d /sys/fs/cgroup/arm_big ]] &&
+										echo '--cgroup-parent' \
+											'/sys/fs/cgroup/arm_big'
+									#echo '--cgroups no-conmon'
 									;;
 								*)
 									print "Not applying cpuset ring-fencing" \
@@ -1376,8 +1396,8 @@ _docker_run() {
 	fi
 
 	if [[ -z "${NO_MEMORY_LIMITS:-}" ]]; then
-		if [[ -r /proc/cgroups ]] &&
-				grep -q -- '^memory.*\s1$' /proc/cgroups &&
+		if [[ -r /sys/fs/cgroup/cgroup.controllers ]] &&
+				grep -qw -- 'memory' /sys/fs/cgroup/cgroup.controllers &&
 				[[ -n "${PODMAN_MEMORY_RESERVATION:-}" || -n "${PODMAN_MEMORY_LIMIT}" || -n "${PODMAN_SWAP_LIMIT}" ]]
 		then
 			# FIXME: Assume that PODMAN_{SWAP_LIMIT,MEMORY_{LIMIT,RESERVATION}}
