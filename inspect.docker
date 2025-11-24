@@ -249,6 +249,9 @@ docker_run() {
 							warn "Applying cpuset ring-fencing for ${pn}" \
 								"system 'big' cores ..."
 							echo '--cpuset-cpus 0-1,6-11'
+							[[ -d /sys/fs/cgroup/arm_big ]] &&
+								echo '--cgroup-parent /sys/fs/cgroup/arm_big'
+							#echo '--cgroups no-conmon'
 							;;
 						*)
 							print "Not applying cpuset ring-fencing on" \
@@ -283,7 +286,8 @@ docker_run() {
 		  ${DOCKER_EXTRA_MOUNTS:-}
 		  ${DOCKER_VOLUMES:-}
 	)
-	if [[ -r /proc/cgroups ]] && grep -q -- '^memory.*1$' /proc/cgroups && [[
+	if [[ -r /sys/fs/cgroup/cgroup.controllers ]] &&
+			grep -qw -- 'memory' /sys/fs/cgroup/cgroup.controllers && [[
 				-n "${PODMAN_MEMORY_RESERVATION:-}" ||
 				-n "${PODMAN_MEMORY_LIMIT}" ||
 				-n "${PODMAN_SWAP_LIMIT}"
