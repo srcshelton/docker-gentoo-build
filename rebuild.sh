@@ -394,6 +394,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 					app-crypt/libmd \
 					dev-libs/mpfr \
 					sys-libs/zlib \
+					virtual/zlib \
 					dev-libs/expat \
 					dev-libs/libffi \
 					sys-apps/gentoo-functions \
