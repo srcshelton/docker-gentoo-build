@@ -47,7 +47,19 @@ declare -ir graph_space_required=8500
 declare pkg_use=''
 declare pre_remove=''
 declare package_default='sys-kernel/gentoo-sources'
-if [ -n "${rpi_model:-}" ] || grep -q -- 'Model.*Raspberry Pi' /proc/cpuinfo
+if [ -z "${USE:-}" ]; then
+	declare USE=''
+fi
+USE="${USE:+"${USE} "}$( # <- Syntax
+		emerge --info 2>/dev/null |
+			grep '^USE="' |
+			cut -d'"' -f 2 |
+			grep -w -e cix -e mixtile -e raspberrypi -e rockchip |
+			xargs -r
+	)"
+if [ -n "${rpi_model:-}" ] ||
+		echo " ${USE:-} " | grep -q -- ' raspberrypi ' ||
+		grep -q -- 'Model.*Raspberry Pi' /proc/cpuinfo
 then
 	echo "NOTE:  Building for Raspberry Pi platforms ..." ;
 	if [ -z "${rpi_model:-}" ]; then
@@ -57,11 +69,18 @@ then
 	package_default='sys-kernel/raspberrypi-sources'
 	USE="${USE:+"${USE} "}raspberrypi"
 	pre_remove="${pre_remove:+"${pre_remove} "}sys-kernel/linux-headers virtual/os-headers"
-elif grep -q -- 'cpu model.*Rockchip RK3588' /proc/cpuinfo
+elif echo " ${USE:-} " | grep -q -e ' mixtile ' -e ' rockchip ' ||
+		grep -q -- 'cpu model.*Rockchip RK3588' /proc/cpuinfo
 then
 	echo "NOTE:  Building for Mixtile Rockchip RK3588 platform ..." ;
 	package_default='sys-kernel/mixtile-sources'
 	USE="${USE:+"${USE} "}rockchip"
+	pre_remove="${pre_remove:+"${pre_remove} "}sys-kernel/linux-headers virtual/os-headers"
+elif echo " ${USE:-} " | grep -q -- ' cix '
+then
+	echo "NOTE:  Building for CIX P1 CD8180 platform ..." ;
+	package_default='sys-kernel/cix-sources'
+	USE="${USE:+"${USE} "}cix git"
 	pre_remove="${pre_remove:+"${pre_remove} "}sys-kernel/linux-headers virtual/os-headers"
 fi
 readonly package_default
@@ -1526,9 +1545,19 @@ case "${compiler}" in
 					'-default-compiler-rt' \
 					'-default-libcxx' \
 					'-default-lld' \
+					'-gd' \
+					'-jpeg' \
 					'-libcxx' \
 					'static-libs' -- "${pre_use}"
 			)"
+
+		# Debug sense-check: no harm in leaving this active...
+		if [[ "${pre_use}" =~ \ gd\  || "${pre_use}" =~ \ jpeg\  ]]; then
+			echo >&2 "ERROR: replace_flags() failed to replace-update 'gd'" \
+				"and 'jpeg' in \${pre_use} '${pre_use}'"
+			exit 1
+		fi
+
 		pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}llvm-core/clang-common llvm-runtimes/clang-runtime llvm-runtimes/libcxx"
 
 		if [[ "${unwind:-}" == 'llvm' ]]; then
@@ -1860,6 +1889,11 @@ mkdir -p "${log_dir:="log"}" ||
 				pre_use="$( replace_flags '-cryptsetup' '-lvm' 'systemd' '-tmpfiles' 'udev' -- "${pre_use:-}" )"
 			fi
 
+			# With the creation of virtual/zlib, managing the 'static-libs' USE
+			# flag on this and sys-libs/zlib has become problematic...
+			pkg_use="${pkg_use:+"${pkg_use},"}sys-libs/zlib static-libs"
+			pkg_use="${pkg_use:+"${pkg_use},"}virtual/zlib static-libs"
+
 			# shellcheck disable=SC2206
 			declare -a pkgs=( # <- Syntax
 				${compiler_pkgs[@]:-}
@@ -1987,6 +2021,13 @@ mkdir -p "${log_dir:="log"}" ||
 					fi
 				)
 				--with-pkg-mask=">${package}"
+				$( # <- Syntax
+					if [[ "${package}" != "${package_default}"* ]]; then
+						cat <<-EOF
+							--with-pkg-mask=${package_default}
+						EOF
+					fi
+				)
 				${pkg_mask:-}
 				--changed-use
 				--update
@@ -2722,14 +2763,19 @@ mkdir -p "${log_dir:="log"}" ||
 			time make ${kernel_make_opts[@]} O=../build \${localversion}${distro:+" EXTRAVERSION=${distro}"} INSTALL_MOD_STRIP=1 modules_install &&
 			success=1 ;
 		set +x ;
-		if [ "\${success}" = '1' ] && [ "\{extract}" = '1' ]; then
+		if [ "\${success}" = '0' ]; then
+			: exit 1 ;
+			: Drop to shell to allow for fix... ;
+			if /usr/bin/env bash; then
+				exit 1 ;
+			else
+				exit \${?} ;
+			fi ;
+		elif [ "\${success}" = '1' ] && [ "\{extract}" = '1' ]; then
 			set -x ;
 			sh scripts/extract-vmlinux ../build/arch/\${dir}/boot/\${kernel} > vmlinux &&
 				[ -f vmlinux ] && mv -v vmlinux ../build/ || success=0 ;
 			set +x ;
-		fi ;
-		if [ "\${success}" = '0' ]; then
-			exit 1 ;
 		fi ;
 		if [ '${initramfs}' = '1' ]; then
 			dracut "/boot/initramfs.img-\${kernel_version}" "\${kernel_version}" ;
@@ -2869,6 +2915,8 @@ mkdir -p "${log_dir:="log"}" ||
 					tar -C /usr/src/linux/ -xpf - ;
 			emerge -kv --buildpkg=y \${extra_packages} || bash ;
 		fi ;
+		: Drop to shell to allow for inspection... ;
+		:/usr/bin/env bash ;
 	EOF
 	)"
 		#echo 'Detected packages:' ;
