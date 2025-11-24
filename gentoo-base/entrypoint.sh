@@ -1396,9 +1396,9 @@ do_emerge() {
 	return ${do_emerge_rc}
 }  # do_emerge
 
-# Modified from sys-apps/portage phase-helpers.sh:
+# (Heavily) modified from sys-apps/portage phase-helpers.sh:
 get_libdir() {
-	if ! [ -n "${libdir:-}" ]; then
+	if [ -z "${libdir:-}" ]; then
 		libdir_data="$( # <- Syntax
 				LC_ALL='C' emerge --info --verbose=y 2>&1 |
 					grep -e 'ABI=' -e '^LIBDIR'
@@ -1413,7 +1413,6 @@ get_libdir() {
 						head -n 1
 				)"
 		fi
-		libdir="lib"
 
 		if [ -n "${libdir_ABI:-}" ] &&
 				echo "${libdir_data}" |
@@ -1426,6 +1425,17 @@ get_libdir() {
 						uniq |
 						head -n 1
 				)"
+		fi
+		if [ -z "${libdir:-}" ]; then
+			libdir="$( ld.so --help |
+					grep -o '/lib[^ ]* ' |
+					sort |
+					uniq |
+					sed 's|^/|| ; s| $||'
+				)"
+		fi
+		if [ -z "${libdir:-}" ]; then
+			libdir="lib64"
 		fi
 
 		unset libdir_ABI libdir_data

@@ -1335,9 +1335,9 @@ do_emerge() {
 	return ${do_emerge_rc}
 }  # do_emerge
 
-# Modified from sys-apps/portage phase-helpers.sh:
+# (Heavily) modified from sys-apps/portage phase-helpers.sh:
 get_libdir() {
-	if ! [ -n "${libdir:-}" ]; then
+	if [ -z "${libdir:-}" ]; then
 		libdir_data="$( # <- Syntax
 				LC_ALL='C' emerge --info --verbose=y 2>&1 |
 					grep -e 'ABI=' -e '^LIBDIR'
@@ -1352,7 +1352,6 @@ get_libdir() {
 						head -n 1
 				)"
 		fi
-		libdir="lib"
 
 		if [ -n "${libdir_ABI:-}" ] &&
 				echo "${libdir_data}" |
@@ -1365,6 +1364,17 @@ get_libdir() {
 						uniq |
 						head -n 1
 				)"
+		fi
+		if [ -z "${libdir:-}" ]; then
+			libdir="$( ld.so --help |
+					grep -o '/lib[^ ]* ' |
+					sort |
+					uniq |
+					sed 's|^/|| ; s| $||'
+				)"
+		fi
+		if [ -z "${libdir:-}" ]; then
+			libdir="lib64"
 		fi
 
 		unset libdir_ABI libdir_data
@@ -1652,7 +1662,7 @@ COLLISION_IGNORE="$( echo "${COLLISION_IGNORE:-"/lib/modules/*"}
 	" | xargs -r )"
 export COLLISION_IGNORE
 
-TUSE='' pkg_use_pkg='' pkg_use_use='' pkg_use_file=''
+TUSE='' pkg_use_line='' pkg_use_pkg='' pkg_use_use='' pkg_use_file=''
 pkg_mask_pkg='' pkg_mask_file='' extra_file='' extra_files=''
 force_python=''
 pre_remove='' pre_pkgs='' pre_use=''
@@ -1764,30 +1774,61 @@ for arg in "${@}"; do
 			# e.g. --with-pkg-use='sys-apps/coreutils -hostname'
 			#
 			pkg_use=1
-			pkg_use_use="$( # <- Syntax
+			pkg_use_line="$( # <- Syntax
 					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
-				)"
-			pkg_use_pkg="$( # <- Syntax
-					echo "${pkg_use_use:-}" | cut -d' ' -f 1
-				)"
-			pkg_use_use="$( # <- Syntax
-					echo "${pkg_use_use:-}" | cut -d' ' -f 2-
-				)"
-			if [ -z "${pkg_use_pkg:-}" ] || [ -z "${pkg_use_use:-}" ]; then
-				die "Unable to extract package and USE flags from '${arg}'"
+				),__END__"
+
+			pkg_use_use="$( echo "${pkg_use_line}" | cut -d',' -f 1 )"
+			pkg_use_line="$( echo "${pkg_use_line}" | cut -d',' -f 2- )"
+			until [ -z "${pkg_use_use:-}" ] || [ "${pkg_use_use}" = '__END__' ]
+			do
+				pkg_use_pkg="$( # <- Syntax
+						echo "${pkg_use_use:-}" | cut -d' ' -f 1
+					)"
+				pkg_use_use="$( # <- Syntax
+						echo "${pkg_use_use:-}" | cut -d' ' -f 2-
+					)"
+				if [ -z "${pkg_use_pkg:-}" ] || [ -z "${pkg_use_use:-}" ]; then
+					die "Unable to extract package and USE flags from '${arg}'"
+				fi
+				mkdir -p /etc/portage/package.use
+				pkg_use_file="/etc/portage/package.use/$( # <- Syntax
+						echo "${pkg_use_pkg}" | cut -d'/' -f 2-
+					)"
+				printf '%s %s\n' \
+					"${pkg_use_pkg}" \
+					"${pkg_use_use}" >> "${pkg_use_file}"
+				if ! echo " ${extra_files:-} " |
+						grep -Fq -- " ${pkg_use_file} "
+				then
+					extra_files="${extra_files:+"${extra_files} "}${pkg_use_file}"
+				fi
+
+				pkg_use_file='' pkg_use_pkg=''
+
+				pkg_use_use="$( echo "${pkg_use_line}" | cut -d',' -f 1 )"
+				pkg_use_line="$( echo "${pkg_use_line}" | cut -d',' -f 2- )"
+			done
+			pkg_use_use='' pkg_use_line=''
+
+			if [ -n "${extra_files:-}" ]; then
+				for extra_file in ${extra_files}; do
+					if echo "${extra_file:-}" | grep -Fq -- 'package.mask'
+					then
+						continue
+					elif ! [ -s "${extra_file:-}" ]; then
+						warn "extra_file '${extra_file:-}' is missing or empty"
+					else
+						warn "Applied override USE flag(s):"
+						warn "  ${extra_file}:"
+						line=''
+						while read -r line; do
+							warn "    ${line}"
+						done < "${extra_file}"
+						unset line
+					fi
+				done
 			fi
-			mkdir -p /etc/portage/package.use
-			pkg_use_file="/etc/portage/package.use/$( # <- Syntax
-					echo "${pkg_use_pkg}" | cut -d'/' -f 2-
-				)"
-			printf '%s %s\n' \
-				"${pkg_use_pkg}" \
-				"${pkg_use_use}" >> "${pkg_use_file}"
-			warn "Applied override USE flag(s):"
-			warn "  ${pkg_use_file}:"
-			warn "$( sed 's/^/    /' < "${pkg_use_file}" )"
-			extra_files="${extra_files:+"${extra_files} "}${pkg_use_file}"
-			pkg_use_file='' pkg_use_pkg='' pkg_use_use=''
 			continue
 			;;
 		--with-pkg-mask=*|--with-package-mask=*)
@@ -1796,19 +1837,8 @@ for arg in "${@}"; do
 					printf '%s' "${arg}" | sed -z 's/^[^=]*=//' | tr -d '\n'
 				)"
 			mkdir -p /etc/portage/package.mask
-			#pkg_mask_file="/etc/portage/package.mask/$( # <- Syntax
-			#		echo "${pkg_mask_pkg}" | cut -d'/' -f 2-
-			#	)"
 			pkg_mask_file="/etc/portage/package.mask/extra.mask"
 			printf '%s\n' "${pkg_mask_pkg}" >> "${pkg_mask_file}"
-			#warn "Applied package mask(s):"
-			#warn "  ${pkg_mask_file}:"
-			##warn "$( sed 's/^/    /' < "${pkg_mask_file}" )"
-			#line=''
-			#cat "${pkg_mask_file}" | while read -r line; do
-			#	warn "    ${line}"
-			#done
-			#unset line
 			if ! echo " ${extra_files:-} " |
 					grep -Fq -- " ${pkg_mask_file} "
 			then
@@ -1853,7 +1883,6 @@ fi
 if [ $(( pkg_mask )) -ne 0 ]; then
 	warn "Applied package mask(s):"
 	warn "  ${pkg_mask_file}:"
-	#warn "$( sed 's/^/    /' < "${pkg_mask_file}" )"
 	line=''
 	while read -r line; do
 		warn "    ${line}"
@@ -3335,7 +3364,8 @@ if [ $(( depclean )) -ne 0 ]; then
 			'sys-apps/help2man' \
 			'sys-apps/kbd' \
 			'sys-apps/locale-gen' \
-			'sys-libs/zlib'
+			'sys-libs/zlib' \
+			'virtual/zlib'
 	) || :
 
 	if [ -n "${depclean_extra:-}" ]; then
