@@ -142,6 +142,7 @@
 ~app-containers/podman-5.6.2				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-5.7.0_rc2			 **
 #~app-containers/podman-5.7.0_rc3			 **
+~app-containers/podman-5.7.0				~amd64 ~arm ~arm64 ~x86
 
 #~app-containers/podman-tui-0.14.0			~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-tui-0.17.0			~amd64 ~arm ~arm64 ~x86
@@ -274,6 +275,8 @@
 #~app-containers/buildah-1.39.2				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.39.3				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.39.4				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.39.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.39.6				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.40.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.40.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.41.0				~amd64 ~arm ~arm64 ~x86
@@ -281,8 +284,10 @@
 #~app-containers/buildah-1.41.2				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.41.3				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.41.4				~amd64 ~arm ~arm64 ~x86
-~app-containers/buildah-1.41.5				~amd64 ~arm ~arm64 ~x86
-~app-containers/buildah-1.42.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.41.5				~amd64 ~arm ~arm64 ~x86
+~app-containers/buildah-1.41.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.42.0				~amd64 ~arm ~arm64 ~x86
+~app-containers/buildah-1.42.1				~amd64 ~arm ~arm64 ~x86
 
 # originally required by app-emulation/buildah-1.15.0
 # move app-emulation/skopeo app-containers/skopeo
@@ -393,8 +398,10 @@
 #~app-containers/crun-1.21				~amd64 ~arm ~arm64 ~x86
 #~app-containers/crun-1.22				~amd64 ~arm ~arm64 ~x86
 #~app-containers/crun-1.23				~amd64 ~arm ~arm64 ~x86
-~app-containers/crun-1.23.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.23.1				~amd64 ~arm ~arm64 ~x86
 ~app-containers/crun-1.24				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.25				~amd64 ~arm ~arm64 ~x86
+~app-containers/crun-1.25.1				~amd64 ~arm ~arm64 ~x86
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -509,9 +516,10 @@
 #~app-containers/netavark-1.14.1			~amd64 ~arm ~arm64 ~x86
 #~app-containers/netavark-1.15.0			~amd64 ~arm ~arm64 ~x86
 #~app-containers/netavark-1.15.1			~amd64 ~arm ~arm64 ~x86
-~app-containers/netavark-1.15.2				~amd64 ~arm ~arm64 ~x86
-~app-containers/netavark-1.16.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.15.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.16.0				~amd64 ~arm ~arm64 ~x86
 ~app-containers/netavark-1.16.1				~amd64 ~arm ~arm64 ~x86
+~app-containers/netavark-1.17.0				~amd64 ~arm ~arm64 ~x86
 
 #~app-containers/aardvark-dns-1.0.2			~amd64 ~arm ~arm64 ~x86
 #~app-containers/aardvark-dns-1.0.3			~amd64 ~arm ~arm64 ~x86
@@ -533,8 +541,9 @@
 #~app-containers/aardvark-dns-1.13.0			~amd64 ~arm ~arm64 ~x86
 # crate missing: https://crates.io/crates/aardvark-dns/1.13.1
 #~app-containers/aardvark-dns-1.14.0			~amd64 ~arm ~arm64 ~x86
-~app-containers/aardvark-dns-1.15.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/aardvark-dns-1.15.0			~amd64 ~arm ~arm64 ~x86
 ~app-containers/aardvark-dns-1.16.0			~amd64 ~arm ~arm64 ~x86
+~app-containers/aardvark-dns-1.17.0			~amd64 ~arm ~arm64 ~x86
 
 # required for <=app-containers/podman-3.4.7
 # optional for <=podman/podman-4.5.0_rc2:4
