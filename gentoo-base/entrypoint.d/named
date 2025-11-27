@@ -10,30 +10,34 @@ set +u
 #set -u
 
 regenerateconfig() {
-	rc=0
+	basedir=''
+	found=0
 
-	# FIXME: Remove hard-coding of zone file name...
-	if \
-		[ -d /var/bind/pri/internal ] &&
-		[ -x /var/bind/pri/internal/generate-ptr.sh ] &&
-		[ -s /var/bind/pri/internal/miltonroad.net.zone ]
-	then
-		(
-			set +e
+	for basedir in /var/state/bind /var/lib/bind /var/bind; do
+		if [ -d "${basedir}"/pri/internal ] &&
+				[ -x "${basedir}"/pri/internal/generate-ptr.sh ]
+		then
+			found=1
+			(
+				rc=0
 
-			cd /var/bind/pri/internal || return 1
+				set +e
 
-			ebegin "Regenerating reverse mappings for internal zones"
+				cd "${basedir}"/pri/internal || return 1
 
-			mkdir -p backup
-			/var/bind/pri/internal/generate-ptr.sh \
-					/var/bind/pri/internal/miltonroad.net.zone ||
-				rc=${?}
-			mv -- ./*-20????????.zone backup/ 2>/dev/null
+				ebegin "Regenerating reverse mappings for internal zones"
 
-			eend ${rc} "Reverse map generation failed: ${rc}"
-		)
-	else
+				mkdir -p backup
+				"${basedir}"/pri/internal/generate-ptr.sh ||
+					rc=${?}
+				mv -- *-20????????.zone backup/ 2>/dev/null
+
+				eend ${rc} "Reverse map generation failed: ${rc}"
+			) && break
+		fi
+	done
+
+	if [ $(( found )) -eq 0 ]; then
 		ewarn "Not regenerating internal zones"
 	fi
 } # regenerateconfig
@@ -42,4 +46,4 @@ regenerateconfig || exit ${?}
 
 set -u
 
-# vi: set syntax=sh:
+# vi: set sw=4 ts=4 syntax=sh:
