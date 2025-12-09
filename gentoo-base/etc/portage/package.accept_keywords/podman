@@ -287,7 +287,8 @@
 #~app-containers/buildah-1.41.5				~amd64 ~arm ~arm64 ~x86
 ~app-containers/buildah-1.41.6				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.42.0				~amd64 ~arm ~arm64 ~x86
-~app-containers/buildah-1.42.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.42.1				~amd64 ~arm ~arm64 ~x86
+~app-containers/buildah-1.42.2				~amd64 ~arm ~arm64 ~x86
 
 # originally required by app-emulation/buildah-1.15.0
 # move app-emulation/skopeo app-containers/skopeo
@@ -334,8 +335,9 @@
 #~app-containers/skopeo-1.16.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/skopeo-1.17.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/skopeo-1.18.0				~amd64 ~arm ~arm64 ~x86
-~app-containers/skopeo-1.19.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.19.0				~amd64 ~arm ~arm64 ~x86
 ~app-containers/skopeo-1.20.0				~amd64 ~arm ~arm64 ~x86
+~app-containers/skopeo-1.21.0				~amd64 ~arm ~arm64 ~x86
 
 # move app-emulation/crun app-containers/crun
 #~app-containers/crun-0.14.1				~amd64 ~arm ~arm64 ~x86
@@ -519,7 +521,8 @@
 #~app-containers/netavark-1.15.2				~amd64 ~arm ~arm64 ~x86
 #~app-containers/netavark-1.16.0				~amd64 ~arm ~arm64 ~x86
 ~app-containers/netavark-1.16.1				~amd64 ~arm ~arm64 ~x86
-~app-containers/netavark-1.17.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/netavark-1.17.0			~amd64 ~arm ~arm64 ~x86
+~app-containers/netavark-1.17.1				~amd64 ~arm ~arm64 ~x86
 
 #~app-containers/aardvark-dns-1.0.2			~amd64 ~arm ~arm64 ~x86
 #~app-containers/aardvark-dns-1.0.3			~amd64 ~arm ~arm64 ~x86
