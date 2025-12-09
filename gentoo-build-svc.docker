@@ -153,6 +153,7 @@ services=(
 	unifi93
 	unifi94
 	unifi95
+	unifi100
 	vim
 	watchdog
 	xmrig
@@ -363,7 +364,7 @@ if (( installed )); then
 				awk -F '/' 'NF-1 { print $(NF-1) }' |
 				sed \
 					-e 's/^php-\([0-9]\).\([0-9]\)\(.*\)$/php\1\2-\1.\2\3/g' \
-					-e 's/^unifi\(-controller\(-bin\)\?\)\?-\([0-9]\).\([0-9]\)\(.*\)$/unifi\3\4-\3.\4\5/g' |
+					-e 's/^unifi\(-controller\(-bin\)\?\)\?-\([1-9][0-9]*\).\([0-9]\+\)\(.*\)$/unifi\3\4-\3.\4\5/g' |
 				sed -r 's/-[0-9][0-9.]*(_p[0-9]+)?(-r[0-9]+)?//'
 
 		# Build list based on present images...
@@ -374,14 +375,14 @@ if (( installed )); then
 			cut -d'.' -f 3- |
 			sed \
 				-e 's/^php-\([0-9]\).\([0-9]\)\(.*\)$/php\1\2-\1.\2\3/g' \
-				-e 's/^unifi\(-controller\(-bin\)\?\)\?-\([0-9]\).\([0-9]\)\(.*\)$/unifi\3\4-\3.\4\5/g' |
+				-e 's/^unifi\(-controller\(-bin\)\?\)\?-\([1-9][0-9]*\).\([0-9]\+\)\(.*\)$/unifi\3\4-\3.\4\5/g' |
 			sed -r 's/-[0-9][0-9.]*(_p[0-9]+)?(-r[0-9]+)?//'
 	)" | sort | uniq )
 fi
 
 if (( tools )); then
 	service_list=1
-	set -- "${@}" 'distcc' 'less' 'lynis' 'man' 'pinfo' 'powertop' 'vim' # 'fwupd'
+	set -- "${@}" 'distcc' 'fwupd' 'less' 'lynis' 'man' 'pinfo' 'powertop' 'vim'
 fi
 
 for arg in "${@:-}"; do
@@ -643,6 +644,8 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-9.4*' ;;
 	unifi95|unifi-controller95|unifi-controller-95|unifi-controller-bin95|unifi-controller-bin-95)
 		service='=net-misc/unifi-controller-bin-9.5*' ;;
+	unifi100|unifi-controller100|unifi-controller-100|unifi-controller-bin100|unifi-controller-bin-100)
+		service='=net-misc/unifi-controller-bin-10.0*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
