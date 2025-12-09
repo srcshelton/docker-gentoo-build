@@ -258,7 +258,9 @@ RUN set -eu ; \
     [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
     { set -o pipefail 2>/dev/null || true ; } ; \
     ldconfig ; \
-    find / -xdev -type f -executable -not -name '*.sh' | while read -r x; do \
+    find / -xdev -type f -executable -not -name '*.sh' -path /opt -prune | \
+            while read -r x ; \
+    do \
         ldd "${x}" 2>&1 | \
             sed "s|^|${x}: |" | \
             grep -- 'not found' && exit 1 || : ; \

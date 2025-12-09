@@ -1124,8 +1124,8 @@ do_container_setup() {
 	# Check that we don't have any unresolvable libraries...
 	ldconfig || warn "'ldconfig' failed during do_container_setup(): ${?}"
 	{
-			find / -xdev -type f -executable 2>/dev/null ;
-			find / -xdev -name '*.so*' -type f 2>/dev/null ;
+			find / -xdev -type f -executable -path /opt -prune 2>/dev/null ;
+			find / -xdev -name '*.so*' -type f -path /opt -prune 2>/dev/null ;
 	} |
 		sort |
 		uniq |

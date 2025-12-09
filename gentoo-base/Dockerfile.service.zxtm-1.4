@@ -412,12 +412,13 @@ EOT
 #	ldconfig
 #
 #	set +x
-#	find / -xdev -type f -executable -not -name '*.sh' |
-#		while read -r x; do
-#			ldd "${x}" 2>&1 |
-#				sed "s|^|${x}: |" |
-#				grep 'not found' && exit 1 || :
-#		done
+#	find / -xdev -type f -executable -not -name '*.sh' -path /opt -prune |
+#			while read -r x
+#	do
+#		ldd "${x}" 2>&1 |
+#			sed "s|^|${x}: |" |
+#			grep 'not found' && exit 1 || :
+#	done
 #EOT
 
 # linter ignore=ER0001
