@@ -197,6 +197,7 @@
 ~sci-libs/blis-2.0					~arm64
 ~sys-apps/cracklib-words-2.10.3				 **
 ~sys-apps/dtc-1.7.2					~arm64
+~sys-apps/fbset-2.1					~arm64
 ~sys-apps/haveged-1.9.19				~arm64
 ~sys-apps/ifplugd-0.28					~arm64
 ~sys-apps/kexec-tools-2.0.32				~arm64
