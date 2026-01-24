@@ -172,7 +172,7 @@
 # $ ACCEPT_LICENSE='*' ACCEPT_KEYWORDS='~arm64' emerge --ignore-default-opts -p --nodeps app-benchmarks/stress app-benchmarks/stress-ng app-misc/colordiff app-misc/splitvt app-text/lesspipe app-text/pinfo app-vim/help-extra-syntax app-vim/info app-vim/json app-vim/vim-spell-en dev-debug/bpftrace dev-lang/pypy dev-lang/pypy3-exe dev-lang/pypy3-exe-bin dev-util/ltrace mail-filter/dcc net-analyzer/arpwatch net-analyzer/darkstat net-analyzer/mping net-misc/autossh net-misc/linuxptp net-misc/usbip sci-libs/blis sys-apps/cracklib-words sys-apps/dtc sys-apps/haveged sys-apps/ifplugd sys-apps/kexec-tools sys-apps/memtester sys-apps/watchdog sys-auth/pam_mobile_otp sys-cluster/hpl sys-power/powertop sys-process/incron dev-libs/log4cplus
 
 ~app-benchmarks/stress-1.0.7				~arm64
-~app-benchmarks/stress-ng-0.19.05			~arm64
+~app-benchmarks/stress-ng-0.19.06			~arm64
 ~app-misc/colordiff-1.0.21				~arm64
 ~app-misc/splitvt-1.6.6_p7				 **
 ~app-text/lesspipe-2.13					~arm64
