@@ -14,7 +14,7 @@
 /portage-cache.tar
 
 # Allow easier setting of kernel-build defaults
-/.kbuild_opt
+/.kbuild_opt*
 
 # Exclude developer reminders!
 /TODO
