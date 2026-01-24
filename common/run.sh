@@ -1194,10 +1194,12 @@ _docker_run() {
 								"ring-fencing"
 						else
 							local pn=''
+							# 'dmidecode' fields change between vendor and
+							# upstream kernels :(
 							pn="$( # <- Syntax
 									dmidecode -t processor |
-										grep 'Part Number: [^ ]' |
-										sed 's/^.*Part Number: //' |
+										grep -E '(Part Number|Version): [^ ]' |
+										sed -r 's/^.*(Part Number|Version):\s+//' |
 										sort |
 										uniq |
 										head -n 1
