@@ -2,7 +2,8 @@
 # The re-write of 'locale-gen' in perl seems to be broken (even though it is
 # actually sys-libs/glibc's 'localedef' which is exiting with, e.g.:
 #
-#   localedef --prefix . --quiet --add-to-archive -- C.UTF-8 en_GB en_GB.ISO-8859-15 en_GB.UTF-8 en_US en_US.UTF-8
+#   localedef --prefix . --quiet --add-to-archive -- \
+#       C.UTF-8 en_GB en_GB.ISO-8859-15 en_GB.UTF-8 en_US en_US.UTF-8
 #   locale-gen: Aborting because the execution of 'localedef' was unsuccessful
 >=sys-apps/locale-gen-3
 
