@@ -1,8 +1,12 @@
 
 # Intentionally unversioned unstable mask:
 # We want to be using the latest roundcube release always, for security reasons
-
-mail-client/roundcube					~amd64 ~arm ~arm64 ~x86
+#
+# Update:
+# There are now unstable beta and release-candidate packages in the upstream
+# portage tree, so we'll have to declare a specific version after all.
+#
+~mail-client/roundcube-1.6.11					~amd64 ~arm ~arm64 ~x86
 
 ~dev-php/PEAR-Auth_SASL-1.2.0				            ~arm64
 ~dev-php/PEAR-Mail_Mime-1.10.12				            ~arm64

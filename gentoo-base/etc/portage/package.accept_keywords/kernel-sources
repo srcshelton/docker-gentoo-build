@@ -5,16 +5,16 @@
 ~sys-kernel/gentoo-sources-5.10.247			~amd64             ~x86
 
 # Current stable package is gentoo-sources-5.15.196
-~sys-kernel/gentoo-sources-5.15.197			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-5.15.198			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.1.158
-~sys-kernel/gentoo-sources-6.1.159			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.1.160			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.6.116
-~sys-kernel/gentoo-sources-6.6.119			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.6.121			~amd64 ~arm ~arm64 ~x86
 
 # Current stable package is gentoo-sources-6.12.58
-~sys-kernel/gentoo-sources-6.12.61			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-6.12.67			~amd64 ~arm ~arm64 ~x86
 
 # Clear Linux is up to date with linux-6.15.5
 # https://www.phoronix.com/news/Intel-Ends-Clear-Linux
@@ -23,16 +23,16 @@
 # isn't tagged or branched :(
 #~sys-kernel/gentoo-sources-6.15.9-r1			~amd64 ~arm ~arm64 ~x86
 
-# Latest is gentoo-sources-6.17.11
-~sys-kernel/gentoo-sources-6.17.11			~amd64 ~arm ~arm64 ~x86
+# Latest is gentoo-sources-6.17.13
+~sys-kernel/gentoo-sources-6.17.13			~amd64 ~arm ~arm64 ~x86
 
-# Latest is gentoo-sources-6.18.0
-~sys-kernel/gentoo-sources-6.18.0			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/vanilla-sources-6.18.0			~amd64 ~arm ~arm64 ~x86
+# Latest is gentoo-sources-6.18.7
+~sys-kernel/gentoo-sources-6.18.7			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-6.18.7			~amd64 ~arm ~arm64 ~x86
 
-~dev-util/perf-6.16					~amd64 ~arm ~arm64 ~x86
+~dev-util/perf-6.18.5					~amd64 ~arm ~arm64 ~x86
 
-~dev-libs/libbpf-1.6.1					~amd64 ~arm ~arm64 ~x86
+~dev-libs/libbpf-1.6.2					~amd64 ~arm ~arm64 ~x86
 
 # Required for rust modules...
 #
@@ -72,8 +72,9 @@ dev-lang/rust-bin:1.79.0				~amd64
 
 # Additional kernel-modules...
 ~net-firewall/xtables-addons-3.27			       ~arm ~arm64
+~net-firewall/xtables-addons-3.29			~amd64 ~arm ~arm64 ~x86
 ~sys-fs/linux-apfs-rw-0.3.13				~amd64      ~arm64
 
-~app-admin/kernel-hardening-checker-0.6.10.2		~amd64 ~arm ~arm64 ~x86
+~app-admin/kernel-hardening-checker-0.6.17.1		~amd64 ~arm ~arm64 ~x86
 
 # vi: set colorcolumn=56 syntax=gentoo-package-keywords sw=8 ts=8:

@@ -142,7 +142,8 @@
 ~app-containers/podman-5.6.2				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-5.7.0_rc2			 **
 #~app-containers/podman-5.7.0_rc3			 **
-~app-containers/podman-5.7.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-5.7.0				~amd64 ~arm ~arm64 ~x86
+~app-containers/podman-5.7.1				~amd64 ~arm ~arm64 ~x86
 
 #~app-containers/podman-tui-0.14.0			~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-tui-0.17.0			~amd64 ~arm ~arm64 ~x86
@@ -180,6 +181,7 @@
 #~app-containers/buildah-1.21.3				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.21.4				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.21.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.21.6				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.22.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.22.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.22.2				~amd64 ~arm ~arm64 ~x86
@@ -212,6 +214,7 @@
 #~app-containers/buildah-1.26.7				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.26.8				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.26.9				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.26.10			~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.27.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.27.1				       ~arm        ~x86
 #~app-containers/buildah-1.27.2				~amd64 ~arm ~arm64 ~x86
@@ -219,6 +222,7 @@
 #~app-containers/buildah-1.27.4				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.27.5				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.27.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.27.7				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.28.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.28.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.28.2				~amd64 ~arm ~arm64 ~x86
@@ -228,6 +232,8 @@
 #~app-containers/buildah-1.29.3				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.29.4				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.29.5				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.29.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.29.7				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.30.0				       ~arm        ~x86
 #~app-containers/buildah-1.31.0				       ~arm        ~x86
 #~app-containers/buildah-1.31.1				       ~arm        ~x86
@@ -250,6 +256,8 @@
 #~app-containers/buildah-1.33.10			       ~arm        ~x86
 #~app-containers/buildah-1.33.11			       ~arm        ~x86
 #~app-containers/buildah-1.33.12			       ~arm        ~x86
+#~app-containers/buildah-1.33.13			       ~arm        ~x86
+#~app-containers/buildah-1.33.14			       ~arm        ~x86
 #~app-containers/buildah-1.34.0				 **
 #~app-containers/buildah-1.34.1				       ~arm        ~x86
 #~app-containers/buildah-1.34.2				       ~arm        ~x86
@@ -268,6 +276,8 @@
 #~app-containers/buildah-1.37.4				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.37.5				       ~arm        ~x86
 #~app-containers/buildah-1.37.6				       ~arm        ~x86
+#~app-containers/buildah-1.37.7				       ~arm        ~x86
+#~app-containers/buildah-1.37.8				       ~arm        ~x86
 #~app-containers/buildah-1.38.0				       ~arm        ~x86
 #~app-containers/buildah-1.38.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.39.0				~amd64 ~arm ~arm64 ~x86
@@ -277,6 +287,8 @@
 #~app-containers/buildah-1.39.4				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.39.5				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.39.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.39.7				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.39.8				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.40.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.40.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.41.0				~amd64 ~arm ~arm64 ~x86
@@ -285,7 +297,9 @@
 #~app-containers/buildah-1.41.3				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.41.4				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.41.5				~amd64 ~arm ~arm64 ~x86
-~app-containers/buildah-1.41.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.41.6				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.41.7				~amd64 ~arm ~arm64 ~x86
+~app-containers/buildah-1.41.8				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.42.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.42.1				~amd64 ~arm ~arm64 ~x86
 ~app-containers/buildah-1.42.2				~amd64 ~arm ~arm64 ~x86
@@ -317,6 +331,8 @@
 #~app-containers/skopeo-1.11.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/skopeo-1.11.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/skopeo-1.11.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.11.3				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.11.4				~amd64 ~arm ~arm64 ~x86
 #~app-containers/skopeo-1.12.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/skopeo-1.13.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/skopeo-1.13.1				~amd64 ~arm ~arm64 ~x86
@@ -401,9 +417,10 @@
 #~app-containers/crun-1.22				~amd64 ~arm ~arm64 ~x86
 #~app-containers/crun-1.23				~amd64 ~arm ~arm64 ~x86
 #~app-containers/crun-1.23.1				~amd64 ~arm ~arm64 ~x86
-~app-containers/crun-1.24				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.24				~amd64 ~arm ~arm64 ~x86
 #~app-containers/crun-1.25				~amd64 ~arm ~arm64 ~x86
 ~app-containers/crun-1.25.1				~amd64 ~arm ~arm64 ~x86
+~app-containers/crun-1.26				~amd64 ~arm ~arm64 ~x86
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -467,7 +484,7 @@
 #~app-containers/conmon-2.0.29				~amd64 ~arm ~arm64 ~x86
 #~app-containers/conmon-2.0.30				       ~arm        ~x86
 #~app-containers/conmon-2.0.31				       ~arm        ~x86
-~app-containers/conmon-2.0.32				       ~arm        ~x86
+#~app-containers/conmon-2.0.32				       ~arm        ~x86
 #~app-containers/conmon-2.1.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/conmon-2.1.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/conmon-2.1.2				~amd64 ~arm ~arm64 ~x86
@@ -482,6 +499,7 @@
 #~app-containers/conmon-2.1.11				~amd64 ~arm ~arm64 ~x86
 #~app-containers/conmon-2.1.12				~amd64 ~arm ~arm64 ~x86
 ~app-containers/conmon-2.1.13				~amd64 ~arm ~arm64 ~x86
+~app-containers/conmon-2.2.0				~amd64 ~arm ~arm64 ~x86
 
 # move app-emulation/catatonit app-containers/catatonit
 # originally required by app-emulation/podman-2.0.0_rc7
