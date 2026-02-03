@@ -281,7 +281,7 @@ RUN set -eu ; \
             then \
                 ldd "${service_cmd}" 2>&1 | \
                     tee /dev/stdout | \
-                    grep -qv 'not found' ; \
+                    grep -q 'not found' && exit 1 || : ; \
             fi ; \
     fi
 
