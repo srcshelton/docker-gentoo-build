@@ -7,6 +7,8 @@ net-mail/mailbase			 pam
 
 app-alternatives/sh			-busybox bash
 
+dev-libs/libpcre2			 pcre32
+
 virtual/mta				 no-mta
 #virtual/mta				 msmtp
 #mail-mta/msmtp				-ssl

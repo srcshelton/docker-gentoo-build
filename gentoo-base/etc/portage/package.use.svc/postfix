@@ -17,6 +17,7 @@ mail-filer/maildrop			 dovecot fam
 acct-user/postfix			 milter opendkim
 
 app-alternatives/sh			-busybox bash
+dev-libs/libpcre2			 pcre32
 
 virtual/mta				 postfix
 

@@ -2,6 +2,11 @@
 */*					 caps eselect-ldso filecaps http2 ipv6 lapack ssl zlib
 */*					 PERL_FEATURES: ithreads
 
+# Needed only if packages require rebuilding...
+*/*					 GUILE_TARGETS: 3-0
+*/*					 GUILE_SINGLE_TARGET: 3-0
+dev-scheme/guile			 deprecated
+
 # If postfix is included here then netdata tries to run a postfix server, which
 # then misinteracts with the system's *actual* postfix instance (presumably
 # because postfix service sockets exist in both containers via bind-mounts?)
@@ -22,6 +27,7 @@ acct-user/netdata			 podman
 app-alternatives/sh			-busybox bash
 app-containers/netavark			 dns
 app-containers/podman			 seccomp wrapper
+app-crypt/gnupg				 alternatives
 dev-lang/python				 ncurses
 dev-libs/libbpf				 static-libs
 dev-libs/libpcre2			 unicode

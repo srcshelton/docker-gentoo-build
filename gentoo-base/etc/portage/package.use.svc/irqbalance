@@ -1,6 +1,6 @@
 
-#sys-apps/irqbalance			 caps +numa (-selinux) systemd tui
-sys-apps/irqbalance			 caps tui
+#sys-apps/irqbalance			 caps +numa (-selinux) systemd thermal tui udev
+sys-apps/irqbalance			 caps thermal tui
 
 dev-libs/libpcre2			 unicode
 

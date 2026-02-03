@@ -15,6 +15,14 @@ sys-apps/flashrom			 atahpt atapromise atavia internal it8212 linux-mtd nic3com 
 sys-auth/polkit				 daemon duktape
 x11-libs/pango				 introspection
 
+# required by =sys-apps/fwupd-2.0.16
+# required by sys-apps/fwupd-2.0.16
+# required by dev-libs/libjcat-0.2.3
+# required by app-crypt/gpgme-2.0.1-r1
+# required by app-alternatives/gpg-1-r3
+app-alternatives/gpg			 ssl
+app-crypt/gnupg				 alternatives ssl
+
 # required by sys-apps/fwupd-1.9.24
 # required by sys-fs/udisks-2.10.1-r1
 # required by sys-libs/libblockdev-3.1.1
