@@ -33,6 +33,7 @@ dev-util/cargo-ebuild			 Apache-2.0-with-LLVM-exceptions Boost-1.0 MPL-2.0 Unico
 net-libs/libpcap			 BSD-with-attribution
 app-arch/bzip2				 BZIP2
 app-crypt/mit-krb5			 CC-BY-SA-3.0 HPND openafs-krb5-a OPENLDAP RSA
+app-arch/xz-utils			 CC-BY-SA-4.0
 app-containers/buildah			 CC-BY-SA-4.0 MPL-2.0
 app-containers/podman			 CC-BY-SA-4.0 MPL-2.0
 app-crypt/libb2				 CC0-1.0
@@ -74,6 +75,7 @@ sys-auth/passwdqc			 Openwall
 dev-python/typing-extensions		 PSF-2
 dev-lang/php				 PHP-3.01 Zend-2.0 gd
 dev-lang/python				 PSF-2
+dev-python/backports-zstd		 PSF-2
 dev-python/docutils			 PSF-2.4
 #app-arch/lzma				 public-domain
 #app-arch/xz-utils			 public-domain
@@ -259,8 +261,8 @@ net-analyzer/gvm			 AGPL-3+
 net-analyzer/gvmd			 AGPL-3+
 net-analyzer/ospd-openvas		 AGPL-3+
 
-# required by net-analyzer/netdata
-app-misc/jq				 CC-BY-3.0
+# required by service net-analyzer/netdata
+app-misc/jq				 CC-BY-3.0 icu
 dev-libs/libbsd				 BEER-WARE
 dev-python/python-ldap			 PSF-2
 # required by net-analyzer/netdata[nodejs]
@@ -303,6 +305,7 @@ container-services/zxtm			 Pulse
 app-text/docbook-sgml-dtd		 docbook
 app-text/docbook-xml-simple-dtd		 docbook
 app-text/xhtml1				 W3C
+dev-libs/libtasn1			 FDL-1.3+
 dev-python/pillow			 HPND
 sys-apps/dbus				 tcltk
 sys-apps/miscfiles			 unicode
@@ -337,6 +340,9 @@ mail-client/roundcube			 PHP-2.02 PHP-3
 dev-libs/boehm-gc			 boehm-gc
 # required by dev-libs/boehm-gc
 dev-libs/libatomic_ops			 boehm-gc
+
+# required by media-gfx/imagemagick-7.1.2.3-r1
+media-fonts/urw-fonts			 AGPL-3
 
 # required by sys-power/apcupsd-3.14.14-r2
 net-analyzer/net-snmp			 HPND
