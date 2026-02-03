@@ -11,7 +11,7 @@ cd "$( dirname "$( realpath -e "${0}" )" )" || exit 1
 
 #(( trace )) && set -o xtrace
 
-# Set in vars.sh
+# Set by common/vars.sh, sourced below...
 #
 #declare build_name=''
 #declare base_dir=''
@@ -22,7 +22,7 @@ cd "$( dirname "$( realpath -e "${0}" )" )" || exit 1
 
 # Set in run.sh
 #
-#declare docker='docker'
+#declare _command='docker'
 #declare docker_readonly=''
 #declare environment_file=''
 #declare environment_filter=''
@@ -59,6 +59,7 @@ if [[ "$( type -t 'die' )" != 'function' ]]; then
 fi
 
 declare docker_version=''
+# shellcheck disable=SC2154
 docker_version="$( docker version --format '{{.Client.Version}}' )" ||
 	die "Cannot determine ${_command} version: ${?}"
 readonly docker_version
@@ -502,10 +503,10 @@ fi
 #	# Moved to common/run.sh!
 #} # replace_flags
 
-[ -n "${trace:-}" ] && set -o xtrace
+[[ -n "${trace:-}" ]] && set -o xtrace
 
 images="$( docker image list --noheading "${IMAGE%":"*}" 2>&1 )"
-if ! echo "${images}" | grep -Eq -- "^(localhost/)?${IMAGE%":"*}"; then
+if ! grep -Eq -- "^(localhost/)?${IMAGE%":"*}" <<<"${images}"; then
 	die "svc stage: docker image '${IMAGE%":"*}' not found"
 fi
 unset images
@@ -678,24 +679,24 @@ case "${service:-}" in
 		info "Building manually-specified service '${service}'" ;;
 esac
 
-package=''
-package_name=''
-package_version=''
-repo=''
-container_name=''
-container_prefix='buildsvc'
+declare package=''
+declare package_name=''
+declare package_version=''
+declare repo=''
+declare container_name=''
+declare container_prefix='buildsvc'
 _docker_resolve "${service%"::"*}" "${container_prefix}"
-# shellcheck disable=SC2001 # POSIX sh compatibility
-container_name="$( echo "${package}" | sed 's|/|.|' )"
-# shellcheck disable=SC2001 # POSIX sh compatibility
-package_name="$( echo "${package_name}" | sed 's|/|.|' )"
+container_name="${package/\//.}"
+package_name="${package_name/\//.}"
 keep_base='yes'
 
 case "${package_name}" in
 	'net-misc.zxtm-init-scripts')
 		package_name='net-misc.zxtm' ;;
 	'mail-filter.spamassassin')
-		if [ "${original_service}" = 'spamassassin-update' ] || [  "${original_service}" = 'sa-update' ]; then
+		if [[ "${original_service}" == 'spamassassin-update' ]] ||
+				[[  "${original_service}" == 'sa-update' ]]
+		then
 			pkgname='mail-filter.spamassassin-update'
 			alt_log="${pkgname}${container_name#"${package_name}"}"
 			package_name="${pkgname}"
@@ -704,24 +705,26 @@ case "${package_name}" in
 		;;
 esac
 export container_name package_name
-echo "${service}" | grep -Fq -- '::' && repo="${service#*"::"}"
+grep -Fq -- '::' <<<"${service}" && repo="${service#*"::"}"
 
-if [ "${container_name}" = 'podman' ]; then
+if [[ "${container_name}" == 'podman' ]]; then
 	die "Suspicious container name '${container_name}'"
 else
 	print "Using container name '${container_name}'"
 fi
 
-if [ -z "${package_name:-}" ]; then
-	die "Cannot extract package name from service name '${service}' (${package})"
+if [[ -z "${package_name:-}" ]]; then
+	die "Cannot extract package name from service name '${service}'" \
+		"(${package})"
 fi
-if [ -z "${package_version:-}" ]; then
-	die "Cannot extract package version from service name '${service}' (${package})"
+if [[ -z "${package_version:-}" ]]; then
+	die "Cannot extract package version from service name '${service}'" \
+		"(${package})"
 fi
 
-if [ $(( ${force:-"0"} )) -eq 0 ]; then
+if (( force == 0 )); then
 	images="$( docker image list --noheading "service.${package_name}:${package_version}" 2>&1 )"
-	if echo "${images:-}" | grep -q -- "service.${package_name}\s\+${package_version}\s"; then
+	if grep -q -- "service.${package_name}\s\+${package_version}\s" <<<"${images:-}"; then
 		note "Container image 'service.${package_name}:${package_version}' already exists - remove or use --force to rebuild"
 		exit 0
 	else
@@ -736,18 +739,19 @@ fi
 #use_essential="asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions split-usr ssp threads$ ${use_cpu_flags:-}
 #use_essential_gcc='default-stack-clash-protection default-znow graphite -jit nptl openmp pch pie -sanitize ssp -vtv zstd'
 
-force_python=''
-pre_remove='' pre_pkgs='' pre_use=''
-with_use='' extra_pkgs=''
-post_pkgs='' post_use='' post_remove=''
-gcc_extra_use_flags='pch'  # N.B. 'pch' now masked due to fragility...
-python_target='' etcdir=''
+declare force_python=''
+declare pre_remove='' pre_pkgs='' pre_use=''
+declare with_use='' extra_pkgs=''
+# shellcheck disable=SC2034
+declare post_pkgs='' post_use='' post_remove=''
+declare gcc_extra_use_flags='pch'  # N.B. 'pch' now masked due to fragility...
+declare python_target='' etcdir=''
 
 # There's probably a better way of doing this, but for now let's assume that
-# the python configuration for the root system and the python confguration for
-# the container build environment is the same (... which is reasonable, unless
+# the php & python configurations for the root system and the confgurations for
+# the container build environment are the same (... which is reasonable, unless
 # overridden, as they share a common portage tree and therefore base set of
-# python defaults).
+# python and php defaults).
 if type -fp portageq >/dev/null 2>&1; then
 	python_target="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
 	case "${original_service:-}" in
@@ -755,7 +759,13 @@ if type -fp portageq >/dev/null 2>&1; then
 			php_targets="${original_service%[0-9]}-${original_service#"php"[0-9]}"
 			;;
 		*)
-			php_targets="$( for t in $( portageq envvar 'PHP_TARGETS' ); do echo "php_targets_${t}"; done | sort -V | tail -n 1 )"
+			php_targets="$( # <- Syntax
+					for t in $( portageq envvar 'PHP_TARGETS' ); do
+							echo "php_targets_${t}"
+					done |
+						sort -V |
+						tail -n 1
+				)"
 			;;
 	esac
 else
@@ -773,7 +783,7 @@ else
 	esac
 fi
 print "Building for python version '${python_target}'"
-print "Building for PHP versions '${php_targets}'"
+print "Building for PHP version(s) '${php_targets}'"
 
 case "${package_name}" in
 	*.bind)
@@ -1130,7 +1140,13 @@ case "${package_name}" in
 				with_use="php_targets_php${PHP_SLOT/./-}"
 				;;
 			*)
-				PHP_SLOT="$( for t in $( portageq envvar 'PHP_TARGETS' ); do echo "${t/-/.}"; done | sort -V | tail -n 1 )"
+				PHP_SLOT="$( # <- Syntax
+						for t in $( portageq envvar 'PHP_TARGETS' ); do
+								echo "${t/-/.}"
+						done |
+							sort -V |
+							tail -n 1
+					)"
 				;;
 		esac
 		output "Setting build variables for package 'php' ..."
@@ -1248,7 +1264,9 @@ case "${package_name}" in
 		;;
 	*.spamassassin|*.spamassassin-update)
 		pre_pkgs='sys-apps/help2man acct-group/spamd acct-user/spamd'
-		if [ "${original_service}" = 'spamassassin-update' ] || [ "${original_service}" = 'sa-update' ]; then
+		if [[ "${original_service}" == 'spamassassin-update' ]] ||
+				[[ "${original_service}" == 'sa-update' ]]
+		then
 			output "Setting build variables for package 'spamassassin-update' ..."
 			# 'srcshelton' repo relocates gawk to /bin/
 			impl='::srcshelton'
@@ -1359,6 +1377,7 @@ case "${package_name}" in
 	*.subversion)
 		output "Setting build variables for package 'svnserve' ..."
 		pre_pkgs='sys-apps/help2man acct-group/svnusers acct-user/svn'
+		# shellcheck disable=SC2034
 		force_python="${python_target}"
 		extra_pkgs='dev-lang/python'
 		with_use='xml'
@@ -1457,7 +1476,7 @@ with_use="${use_cpu_flags}${with_use:+" ${with_use}"}"
 #        ... although the only affected packages seem to be sys-apps/shadow
 #        (/bin/login) and sys-libs/libxcrypt (/lib64/libcrypt.so.1.1.0)
 #
-if ! echo " ${pre_pkgs:-} " | grep -q -- ' sys-devel/gcc '; then
+if ! grep -q -- ' sys-devel/gcc ' <<<"${pre_pkgs:-}"; then
 	if
 			echo " ${use_essential:-} ${use_essential_gcc:-}" \
 						"${pre_use:-} ${with_use:-} ${post_use:-}" \
@@ -1537,7 +1556,7 @@ case " ${pre_pkgs} " in
 			# in the container, hpl requires a compiler...
 			print "Applying settings for containers which require a" \
 				"functional toolchain ..."
-			if [ -n "${post_pkgs:-}" ]; then
+			if [[ -n "${post_pkgs:-}" ]]; then
 				warn "sys-devel/gcc needs to be rebuilt (without" \
 					"dependencies) but 'post_pkgs' is non-empty... suggest" \
 					"moving 'post_pkgs' to 'extra_pkgs'"
@@ -1639,12 +1658,6 @@ case " ${pre_pkgs} " in
 esac
 unset pkg
 
-# prelink no longer has any effect as it can't run against PIE binaries :(
-#pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}net-misc/ethertypes sys-apps/baselayout sys-devel/prelink"
-#pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}net-misc/ethertypes sys-apps/baselayout"
-# Why were we installing ethertypes, which only net-firewall/iptables depends
-# upon?
-#pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}net-misc/ethertypes sys-apps/baselayout"
 pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}sys-apps/baselayout"
 
 # Ensure we have a shell...
@@ -1654,10 +1667,9 @@ case " ${extra_pkgs:-} " in
 		extra_pkgs="${extra_pkgs/sys-libs\/readline} sys-libs/readline"
 		;;
 esac
-if [ -n "${build_debug:-}" ]; then
+if [[ -n "${build_debug:-}" ]]; then
 	extra_pkgs="${extra_pkgs:+"${extra_pkgs} "}dev-util/strace"
 fi
-#extra_pkgs="${extra_pkgs:+"${extra_pkgs} "}sys-devel/prelink"
 with_use="$( replace_flags 'make-symlinks' -- "${with_use}" )"
 
 case " ${gcc_extra_use_flags:-} " in
@@ -1670,11 +1682,10 @@ if [[ -z "${post_use:-}" && -n "${with_use:-}" ]]; then
 	post_use="$( replace_flags 'lib-only' 'openmp' -- "${with_use}" )"
 fi
 
-if
-		echo " ${use_essential:-} ${use_essential_gcc:-}" \
-				"${pre_use:-} ${with_use:-} ${post_use:-}" \
-				"${gcc_extra_use_flags:-} " |
-			grep -Fqe ' compile-locales ' -e ' minimal '
+if echo " ${use_essential:-} ${use_essential_gcc:-}" \
+			"${pre_use:-} ${with_use:-} ${post_use:-}" \
+			"${gcc_extra_use_flags:-} " |
+		grep -Fqe ' compile-locales ' -e ' minimal '
 then
 	pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}sys-libs/glibc"
 	extra_pkgs="${extra_pkgs:+"${extra_pkgs} "}sys-libs/glibc"
@@ -1699,9 +1710,9 @@ print "pre_pkgs: ${pre_pkgs:-"<none>"}"
 print "extra_pkgs: ${extra_pkgs:-"<none>"}"
 print "post_pkgs: ${post_pkgs:-"<none>"}"
 
-if [ -z "${container_cmd:-}" ]; then
+if [[ -z "${container_cmd:-}" ]]; then
 	die 'No container command provided'
-elif [ "${container_cmd}" = 'podman' ]; then
+elif [[ "${container_cmd}" == 'podman' ]]; then
 	die "Invalid container command '${container_cmd}'"
 fi
 
@@ -1718,14 +1729,15 @@ fi
 # shellcheck disable=SC2207
 {
 declare -a docker_extra_mounts=()
-if [ -n "${etcdir:-}" ]; then
+declare dir=''
+if [[ -n "${etcdir:-}" ]]; then
 	for dir in ${etcdir}; do
 		sudo mkdir -p "/etc/${dir}"
 		docker_extra_mounts+=( $( add_mount --print --no-ro \
 				"/etc/${dir}/" \
 				'/service/...'
 			) )
-		if [ "${dir}" = 'mail/spamassassin' ]; then
+		if [[ "${dir}" == 'mail/spamassassin' ]]; then
 			sudo mkdir -p /var/lib/spamassassin /usr/share/spamassassin
 			docker_extra_mounts+=( # <- Syntax
 				$( add_mount --print --no-ro \
@@ -1759,16 +1771,18 @@ if ! docker_extra_mounts+=( $( add_mount --dir --print \
 			'%base%/etc/portage/package.accept_keywords'
 		) )
 then
-	note "No 'package.accept_keywords' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/'"
+	note "No 'package.accept_keywords' override found in" \
+		"'${PWD}/${base_dir:+"${base_dir}/"}etc/portage/'"
 fi
 
 # package.license
 #
-if ! docker_extra_mounts+=( $( add_mount --dir --print \
+if ! docker_extra_mounts+=( $( add_mount --print \
 			'%base%/etc/portage/package.license'
 		) )
 then
-	note "No 'package.license' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/'"
+	note "No 'package.license' override found in" \
+		"'${PWD}/${base_dir:+"${base_dir}/"}etc/portage/'"
 fi
 
 declare package_mask_svc_name=''
@@ -1783,7 +1797,7 @@ case "${package_mask_svc_name}-${package_version}" in
 	#php-8.4.*) package_mask_svc_name='php84' ;;
 esac
 
-# package.unmask*
+# package.unmask
 #
 if \
 		! docker_extra_mounts+=( $( add_mount --print \
@@ -1794,12 +1808,13 @@ if \
 				'%base%/etc/portage/package.unmask.svc/package.unmask' \
 				'/etc/portage/package.unmask/package.unmask.service'
 			) ) &&
-		! docker_extra_mounts+=( $( add_mount --print \
+		! docker_extra_mounts+=( $( add_mount --dir --print \
 				'%base%/etc/portage/package.unmask.svc' \
 				'/etc/portage/package.unmask/package.unmask.service'
 			) )
 then
-	note "No 'package.unmask' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc/'"
+	note "No 'package.unmask' override found in" \
+		"'${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask.svc/'"
 fi
 [[ -z "${arch:-}" ]] || docker_extra_mounts+=( $( add_mount --print \
 		"%base%/etc/portage/package.unmask.${arch}" \
@@ -1825,11 +1840,12 @@ if \
 				'%base%/etc/portage/package.mask.svc/package.mask' \
 				'/etc/portage/package.mask/package.mask.svc'
 			) ) &&
-		! docker_extra_mounts+=( $( add_mount --print \
+		! docker_extra_mounts+=( $( add_mount --dir --print \
 				'%base%/etc/portage/package.mask.svc'
 			) )
 then
-	note "No 'package.mask' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/'"
+	note "No 'package.mask' override found in" \
+		"'${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask.svc/'"
 fi
 unset package_mask_svc_name
 
@@ -1848,7 +1864,8 @@ if \
 				'.../package.mask.base'
 			) )
 then
-	note "No 'package.mask' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/'"
+	note "No 'package.mask' override found in" \
+		"'${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.mask/'"
 fi
 [[ -z "${arch:-}" ]] || docker_extra_mounts+=( $( add_mount --print \
 		"%base%/etc/portage/package.mask.${arch}" \
@@ -1856,7 +1873,7 @@ fi
 	) ) || :
 
 # host additional package.mask
-#if [ -d /etc/portage/package.mask ]; then
+#if [[ -d /etc/portage/package.mask ]]; then
 #	declare extra_mask='' file=''
 #	while read -r extra_mask; do
 #		file="$( basename "${extra_mask}" )"
@@ -1930,12 +1947,15 @@ elif ! docker_extra_mounts+=( $( add_mount --print \
 		'/etc/portage/package.use.override/00_package.use'
 	) )
 then
-	note "No 'package.use' override found in '${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/'"
+	note "No 'package.use' override found in" \
+		"'${PWD}/${base_dir:+"${base_dir}/"}etc/portage/package.use.svc/'"
 fi
 unset have_package_use_svc_name package_use_svc_name_extra package_use_svc_name
 
-if [ -n "${arch:-}" ] &&
-	[ -s "${base_dir:+"${base_dir}/"}etc/portage/profile/use.mask.${arch}" ]
+# use.mask
+#
+if [[ -n "${arch:-}" ]] &&
+		[[ -s "${base_dir:+"${base_dir}/"}etc/portage/profile/use.mask.${arch}" ]]
 then
 	docker_extra_mounts+=( $( add_mount --print \
 			"%base%/etc/portage/profile/use.mask.${arch}" \
@@ -1946,6 +1966,9 @@ else
 			'%base%/etc/portage/profile/use.mask'
 		) ) || :
 fi
+
+# package.use.force & package.use.mask
+#
 docker_extra_mounts+=( # <- Syntax
 		$( add_mount --print '%base%/etc/portage/profile/package.use.force' )
 		$( add_mount --print '%base%/etc/portage/profile/package.use.mask' )
@@ -1977,26 +2000,39 @@ mkdir -p "${log_dir:="log"}" ||
 
 export log_dir
 
-images="$( docker image list --noheading "${container_prefix}-${package_name}:${package_version}" 2>&1 )"
-if echo "${images:-}" | grep -q -- "${container_prefix}-${package_name}\s\+${package_version}\s"; then
+images="$( # <- Syntax
+		docker image list --noheading \
+			"${container_prefix}-${package_name}:${package_version}" 2>&1
+	)"
+if grep -q -- \
+		"${container_prefix}-${package_name}\s\+${package_version}\s" \
+			<<<"${images:-}"
+then
 	output >&2
 	# shellcheck disable=SC2154
-	output >&2 " ${blue}*${reset} Re-using existing '${package_name}:${package_version}' root image ..."
+	output >&2 " ${blue}*${reset} Re-using existing" \
+		"'${package_name}:${package_version}' root image ..."
 else
 	output >&2
 	# shellcheck disable=SC2154
-	output >&2 " ${blue}*${reset} Building '${package_name}:${package_version}' root image ..."
+	output >&2 " ${blue}*${reset} Building" \
+		"'${package_name}:${package_version}' root image ..."
 	output >&2
 
 	trap '' INT
-	docker container stop "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -v 'no such container' || :
-	docker container rm --volumes "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -Fv -- 'no such container' || :
+	docker container stop "${container_prefix}-${container_name}" \
+		2>&1 >/dev/null | grep -v 'no such container' || :
+	docker container rm --volumes "${container_prefix}-${container_name}" \
+		2>&1 >/dev/null | grep -Fv -- 'no such container' || :
 	trap - INT
 
 	# Remove glibc dependencies on gzip, grep, awk...
 	#build_use="${USE:+"${USE} "}compile-locales minimal -ssp timezone-tools"
 
 	DOCKER_CMD_VARS="${DOCKER_CMD_VARS:+"${DOCKER_CMD_VARS} "}--env VERY_BRAVE_OR_VERY_DUMB=\"yes\""
+	if [[ -n "${container_caps[*]:-}" ]]; then
+		DOCKER_CMD_VARS+=" ${container_caps[*]:-}"
+	fi
 	# shadow needed for /sbin/nologin; coreutils needed for chmod
 	# shellcheck disable=SC2089
 	if [[ -n "${L10N:-}" ]]; then
@@ -2014,16 +2050,16 @@ else
 	done
 	unset arg
 
-	args+=( --depclean --with-bdeps=n --depclean-exclude="${pre_pkgs} ${extra_pkgs}" )
-	[[ -n "${post_remove:-}" ]] && args+=( --post-remove="${post_remove}" )
 	args+=(  # <- Syntax
-			--no-package-use
+			--depclean
 			--usepkg=y
 			--with-bdeps=n
 			--with-bdeps-auto=n
-		"=${package}${repo:+"::${repo}"}"
-		sys-libs/glibc
+			--depclean-exclude="${pre_pkgs} ${extra_pkgs}"
+			--no-package-use
+		"=${package}${repo:+"::${repo}"}" sys-libs/glibc
 	)
+	# We don't want a null argument if there are no ${extra_pkgs} items
 	if [[ -n "${extra_pkgs:-}" ]]; then
 		declare -a additional_args=()
 		read -r -a additional_args <<<"${extra_pkgs}"
@@ -2031,16 +2067,16 @@ else
 		unset additional_args
 	fi
 
+			#USE="${build_use:-}" \
 			ROOT='/service' \
 			name="${container_prefix}-${container_name}" \
 			image="${IMAGE}" \
-			DOCKER_CMD_VARS="${container_caps[*]:-}" \
 	_docker_run "${args[@]}" 2>&1 |
 		tee "${log_dir}/${container_prefix}.${alt_log:-"${container_name}"}.log"
 	rc=${?}
 	output " -> ${rc}"
 
-	[ "${rc}" = '0' ] || exit 1
+	(( ! rc )) || exit 1
 
 	# podman is fragile :(
 	#
@@ -2057,16 +2093,18 @@ else
 	trap - INT
 	output " -> ${rc}"
 
-	[ "${rc}" = '0' ] || exit 1
+	(( ! rc )) || exit 1
 fi
 unset images
 
 trap '' INT
-docker container rm --volumes "${container_prefix}-${container_name}" 2>&1 >/dev/null | grep -Fv -- 'no such container' || :
+docker container rm --volumes "${container_prefix}-${container_name}" \
+	2>&1 >/dev/null | grep -Fv -- 'no such container' || :
 trap - INT
 
 cd "${base_dir}" || die "chdir() to '${base_dir}' failed: ${?}"
 
+declare file='' dockerfile_tmp='' port='' exposedports=''
 case "${package_name}" in
 	*zxtm*)
 		file="$( select_file 'Dockerfile.service.zxtm' )" ||
@@ -2081,7 +2119,6 @@ case "${package_name}" in
 esac
 dockerfile_tmp="$( mktemp --tmpdir 'Dockerfile.service.XXXXXXXX' )" ||
 	die "mktemp() failed: ${?}"
-exposedports=''
 for port in ${ports:-}; do
 	if [[ -n "${port:-}" ]] && (( ${port%"/"*} )); then
 		exposedports+="${exposedports:+"\\n"}EXPOSE ${port}"
@@ -2090,17 +2127,19 @@ done
 unset port
 
 if [[ -n "${exposedports:-}" ]]; then
-	awk -v p="${exposedports}" '{gsub("^EXPOSE .*$", p); print}' <"${file}" >"${dockerfile_tmp}"
+	awk -v p="${exposedports}" \
+		'{gsub("^EXPOSE .*$", p); print}' <"${file}" >"${dockerfile_tmp}"
 else
 	grep -Fv 'EXPOSE' "${file}" >"${dockerfile_tmp}"
 fi
-unset exposedports
+unset exposedports file
 
 output >&2
-output >&2 " ${blue}*${reset} Building ${package_name}:${package_version} (${container_cmd}) service image ..."
+output >&2 " ${blue}*${reset} Building ${package_name}:${package_version}" \
+	"(${container_cmd}) service image ..."
 output >&2
 
-args=()
+declare -a args=()
 args+=(
 	--build-arg BUILDKIT_PROGRESS="$(( trace ))"
 
@@ -2108,16 +2147,13 @@ args+=(
 )
 [[ -n "${ZEUSHOME:-}" ]] && args+=( --build-arg ZEUSHOME="${ZEUSHOME}" )
 [[ -n "${environment_file:-}" ]] && args+=( --build-arg environment_file="${environment_file}" )
-# shellcheck disable=SC2154
+# shellcheck disable=SC2154,SC2207
 args+=(
 	--build-arg environment_filter="${environment_filter}"
 	--build-arg image_name="${container_prefix}-${package_name}"
 	--build-arg service_cmd="${container_cmd}"
-)
-[[ -n "${container_cwd:-}" ]] && args+=( --build-arg service_cwd="${container_cwd}" )
-[[ -n "${fs_name:-}" ]] && args+=( --build-arg service_fs_name="${fs_name}" )
-# shellcheck disable=SC2154
-args+=(
+	  $( add_arg container_cwd --build-arg "service_cwd=${container_cwd}" )
+	  $( add_arg fs_name --build-arg "service_fs_name=${fs_name}" )
 	--build-arg service_group="${group}"
 	--build-arg service_name="${package_name/.//}"
 	--build-arg service_name_short="${package_name#*"."}"
@@ -2145,8 +2181,8 @@ fi
 # re-squashed when 'gentoo-build'-svc.docker invokes 'Dockerfile.*service' to
 # produce the service-container image.
 #
-# shellcheck disable=SC2001  # POSIX sh compatibility
-docker ${IMAGE_ROOT:+"--storage-opt='' --root '${IMAGE_ROOT}'"} \
+# shellcheck disable=SC2046
+docker $( add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT}" ) \
 		image build "${args[@]}" . 2>&1 |
 	tee "${log_dir}/service.${alt_log:-"${container_name}"}.log"
 rc=${?}
@@ -2154,12 +2190,15 @@ rm "${dockerfile_tmp}"
 unset dockerfile_tmp
 output " -> ${rc}"
 
-if [ $(( ${rc:-"1"} )) -eq 0 ]; then
+if ! (( rc )); then
 	trap '' INT
-	docker image rm "${container_prefix}-${package_name}:${package_version}" 2>/dev/null || :
+	docker image rm "${container_prefix}-${package_name}:${package_version}" \
+		2>/dev/null || :
 	case "${package_name}" in
 		*eix*)
-			docker image tag "service.${package_name}:${package_version}" "gentoo-helper:${override_tag}"
+			docker image tag \
+				"service.${package_name}:${package_version}" \
+				"gentoo-helper:${override_tag}"
 			;;
 	esac
 	trap - INT
