@@ -2538,6 +2538,12 @@ output " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 
 	# shellcheck disable=SC2046
 	(
+		# sys-libs/glibc and sys-devel/gcc are now required to have the same
+		# 'cet' USE flag state, and upstream builds force this flag on for
+		# amd64 - so we do either build both here (which is non-ideal for a
+		# throw-away package given how long sys-devel/gcc takes to build), add
+		# USE='cet' or exclude glibc.
+		#
 		setenv USE="-gmp -nls asm cet ssl$( # <- Syntax
 				flag=''
 				if [ -n "${use_essential:-}" ]; then
@@ -2562,8 +2568,7 @@ output " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 				# gen_usr_ldscript call...
 				#
 				# ... and sys-libs/glibc and sys-devel/gcc are now required to
-				# have the same 'cet' USE flag, so we do either build both
-				# here, add USE='cet' or exclude glibc also.
+				# have the same 'cet' USE flag - see above.
 				#
 				# N.B. Using 'grep -lm 1' and so not having to read the whole
 				#      file where there is no match is about twice as fast as
