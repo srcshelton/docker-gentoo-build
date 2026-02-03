@@ -135,6 +135,10 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#
 	base_dir='gentoo-base'
 	export base_dir
+	if [ -L "${base_dir}" ]; then
+		echo >&2 "WARN:  base_dir '${base_dir}' is a symlink, broken" \
+			"behaviour may occur..."
+	fi
 	if ! [ -d "${base_dir}" ]; then
 		#base_dir=''
 		unset base_dir

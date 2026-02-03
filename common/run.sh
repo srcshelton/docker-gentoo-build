@@ -413,7 +413,7 @@ add_mount() {
 	fi
 
 	if [[ "${src}" == '%base%/'* ]]; then
-		src="${PWD}/${base_dir:+"${base_dir}/"}${src_path#"/"}"
+		src="${PWD%"${base_dir:-}"}/${base_dir:+"${base_dir}/"}${src_path#"/"}"
 	fi
 	if [[ "${src}" == *'/' ]]; then
 		# FIXME: Warn if auto-enabling directory mode?
