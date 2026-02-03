@@ -36,6 +36,14 @@
 
 # See profiles/desc/video_cards.desc
 #
+# The file $(portageq get_repo_path / gentoo)/profiles/arch/amd64/make.defaults
+# contains 'VIDEO_CARDS="amdgpu fbdev intel nouveau radeon radeonsi vesa"', and
+# portage complains if any package.use file includes 'VIDEO_CARDS: -xxx' whilst
+# a 'VIDEO_CARDS: xxx' doesn't override the defaults... so we can only really
+# implement a kludge to deselect all video cards via USE flags so that
+# VIDEO_CARDS defined below can have the desired effect :(
+#
+*/*					-video_cards_amdgpu -video_cards_asahi -video_cards_ast -video_cards_d3d12 -video_cards_dummy -video_cards_exynos -video_cards_freedreno -video_cards_fbdev -video_cards_geode -video_cards_i915 -video_cards_i965 -video_cards_imagination -video_cards_intel -video_cards_lavapipe -video_cards_lima -video_cards_mga -video_cards_nouveau -video_cards_nvidia -video_cards_nvk -video_cards_omap -video_cards_qxl -video_cards_panfrost -video_cards_panthor -video_cards_r100 -video_cards_r128 -video_cards_r200 -video_cards_r300 -video_cards_r600 -video_cards_radeon -video_cards_radeonsi -video_cards_siliconmotion -video_cards_tegra -video_cards_v3d -video_cards_vc4 -video_cards_vesa -video_cards_via -video_cards_virgl -video_cards_virtualbox -video_cards_vivante -video_cards_vmware -video_cards_zink
 */*					 VIDEO_CARDS: dummy
 #*/*					 VIDEO_CARDS: lima         # Mali 200/400
 #*/*					 VIDEO_CARDS: panfrost     # Mali 600/700/800

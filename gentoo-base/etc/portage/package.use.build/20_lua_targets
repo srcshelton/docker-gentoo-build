@@ -1,11 +1,13 @@
 
 # See $( portageq get_repo_path / gentoo )/profiles/desc/lua_targets.desc
 #
+*/*					-lua_targets_lua5-1 -lua_targets_lua5-3 -lua_targets_lua5-4 -lua_targets_lua5-luajit
 #*/*					 LUA_TARGETS: lua5-1 lua5-3 lua5-4 luajit
 */*					 LUA_TARGETS: luajit
 
 # See $( portageq get_repo_path / gentoo )/profiles/desc/lua_single_target.desc
 #
+*/*					-lua_single_target_lua5-1 -lua_single_target_lua5-3 -lua_single_target_lua5-4 -lua_single_target_lua5-luajit
 #*/*					 LUA_SINGLE_TARGET: lua5-1 lua5-3 lua5-4 luajit
 */*					 LUA_SINGLE_TARGET: luajit
 
