@@ -55,10 +55,10 @@ USE="${USE:+"${USE} "}$( # <- Syntax
 			grep '^USE="' |
 			cut -d'"' -f 2 |
 			grep -w -e cix -e mixtile -e raspberrypi -e rockchip |
-			xargs -r
+			xargs -r || :
 	)"
 if [ -n "${rpi_model:-}" ] ||
-		echo " ${USE:-} " | grep -q -- ' raspberrypi ' ||
+		grep -q -- ' raspberrypi ' <<<" ${USE:-} " ||
 		grep -q -- 'Model.*Raspberry Pi' /proc/cpuinfo
 then
 	echo "NOTE:  Building for Raspberry Pi platforms ..." ;
@@ -69,15 +69,14 @@ then
 	package_default='sys-kernel/raspberrypi-sources'
 	USE="${USE:+"${USE} "}raspberrypi"
 	pre_remove="${pre_remove:+"${pre_remove} "}sys-kernel/linux-headers virtual/os-headers"
-elif echo " ${USE:-} " | grep -q -e ' mixtile ' -e ' rockchip ' ||
+elif grep -q -e ' mixtile ' -e ' rockchip ' <<<" ${USE:-} " ||
 		grep -q -- 'cpu model.*Rockchip RK3588' /proc/cpuinfo
 then
 	echo "NOTE:  Building for Mixtile Rockchip RK3588 platform ..." ;
 	package_default='sys-kernel/mixtile-sources'
 	USE="${USE:+"${USE} "}rockchip"
 	pre_remove="${pre_remove:+"${pre_remove} "}sys-kernel/linux-headers virtual/os-headers"
-elif echo " ${USE:-} " | grep -q -- ' cix '
-then
+elif grep -q -- ' cix ' <<<" ${USE:-} "; then
 	echo "NOTE:  Building for CIX P1 CD8180 platform ..." ;
 	package_default='sys-kernel/cix-sources'
 	USE="${USE:+"${USE} "}cix git"
