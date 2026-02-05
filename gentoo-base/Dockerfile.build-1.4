@@ -88,7 +88,8 @@ RUN sh -n "${environment_file}" || { cat -n "${environment_file}" ; false ; }
 #
 # ... alternatively (using -f so as not to error if either of the arguments
 # doesn't exist):
-RUN rm -rf /var/db/pkg/acct-* /var/empty/.keep_acct-user_sshd-0
+RUN rm -rf /etc/portage/*.host /var/db/pkg/acct-* \
+        /var/empty/.keep_acct-user_sshd-0
 
 #RUN printf >&2 " * 'build' stage imported environment:\n\n%s\n\n" "$( cat "${environment_file}" )"
 
@@ -124,7 +125,7 @@ RUN <<-'EOT' /bin/sh
 	find /etc/ -type f -regex '.*\._\(cfg\|mrg\)[0-9]+_.*' -delete
 
 	for dir in "${PORTAGE_TMPDIR}/portage" "${PORTAGE_LOGDIR}" "${DISTDIR}" \
-			"${PKGDIR}" "${ROOT}" '/var/db/repo'
+			"${PKGDIR}" "${ROOT}" '/var/db/repo' '/etc/portage/repos.conf.host'
 	do
 		test ! -d "${dir}" ||
 			rm -r "${dir}"
@@ -143,8 +144,8 @@ RUN <<-'EOT' /bin/sh
 		mkdir -- /boot
 
 	test -d /etc/portage/package.use.build &&
-	    rm -r /etc/portage/package.use &&
-    	mv /etc/portage/package.use.build /etc/portage/package.use
+		rm -r /etc/portage/package.use &&
+		mv /etc/portage/package.use.build /etc/portage/package.use
 EOT
 
 # Reset ROOT to install packages directly into container ...

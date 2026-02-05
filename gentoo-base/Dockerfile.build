@@ -87,7 +87,8 @@ RUN sh -n "${environment_file}" || { cat -n "${environment_file}" ; false ; }
 #
 # ... alternatively (using -f so as not to error if either of the arguments
 # doesn't exist):
-RUN rm -rf /var/db/pkg/acct-* /var/empty/.keep_acct-user_sshd-0
+RUN rm -rf /etc/portage/*.host /var/db/pkg/acct-* \
+        /var/empty/.keep_acct-user_sshd-0
 
 #RUN printf >&2 " * 'build' stage imported environment:\n\n%s\n\n" "$( cat "${environment_file}" )"
 
@@ -121,6 +122,7 @@ RUN set -e ; \
     test ! -d "${PKGDIR}" || rm -r "${PKGDIR}" ; \
     test ! -d "${ROOT}" || rm -r "${ROOT}" ; \
     test ! -d /var/db/repo || rm -r /var/db/repo ; \
+    test ! -d /etc/portage/repos.conf.host || rm -r /etc/portage/repos.conf.host ; \
     mkdir -p -- "${PORTAGE_LOGDIR}" "${DISTDIR}" "${PKGDIR}" /var/db/repo ; \
     find /tmp/ -type f -delete ; \
     find /tmp/ -mindepth 1 -type d -delete ; \
