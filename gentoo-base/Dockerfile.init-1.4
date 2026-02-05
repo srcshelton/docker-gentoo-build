@@ -135,7 +135,7 @@ RUN <<-'EOT' /bin/sh
 			echo >&2 "NOTE:  Found architecture-specific keywords file" \
 				"'/etc/portage/package.accept_keywords.${ARCH}' ..."
 			if [ -d /etc/portage/package.accept_keywords ] ; then
-				mv -v \
+				cp -av \
 					"/etc/portage/package.accept_keywords.${ARCH}" \
 					"/etc/portage/package.accept_keywords/${ARCH}"
 			else
