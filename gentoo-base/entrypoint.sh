@@ -53,16 +53,8 @@ die() {
 	exit 1
 }  # die
 
-fatal() {
-	if [ -z "${*:+"set"}" ]; then
-		output >&2
-	else
-		output >&2 'FATAL:  %s\n' "${*}"
-	fi
-}  # fatal
-
 error() {
-	if [ -z "${*:+"set"}" ]; then
+	if [ -z "${*:-}" ]; then
 		output >&2
 	else
 		output >&2 'ERROR:  %s\n' "${*}"
@@ -70,7 +62,7 @@ error() {
 }  # error
 
 warn() {
-	if [ -z "${*:+"set"}" ]; then
+	if [ -z "${*:-}" ]; then
 		output >&2
 	else
 		output >&2 'WARN:  %s\n' "${*}"
@@ -78,7 +70,7 @@ warn() {
 }  # warn
 
 info() {
-	if [ -z "${*:+"set"}" ]; then
+	if [ -z "${*:-}" ]; then
 		output
 	else
 		output 'INFO:  %s\n' "${*}"
@@ -87,7 +79,7 @@ info() {
 
 print() {
 	if [ -n "${debug:-}" ]; then
-		if [ -z "${*:+"set"}" ]; then
+		if [ -z "${*:-}" ]; then
 			output >&2
 		else
 			output >&2 'DEBUG: %s\n' "${*}"
@@ -106,7 +98,7 @@ format() {
 	format_variable="${1:-}"
 	format_padding="${2:-"20"}"
 
-	[ -n "${format_variable:+"set"}" ] || return 1
+	[ -n "${format_variable:-}" ] || return 1
 
 	format_variable="$( # <- Syntax
 			echo "${format_variable}" | xargs -rn 1 | sort -d | xargs -r
@@ -134,17 +126,17 @@ EOF
 export format_fn_code
 eval "${format_fn_code}"
 
+
 check() {
+	#inherit ROOT
+	check_rc="${1:-}" ; shift
+
 	# Check that a given check_pkg (with build result code $check_rc) is
 	# actually installed...
 	#
-
-	#extern ROOT
-
-	check_rc="${1:-}" ; shift
 	[ -n "${check_rc:-}" ] || return 1
 
-	check_pkg='' check_fallback='' check_arg=''
+	check_arg='' check_pkg='' check_fallback=''
 	check_op='die'
 
 	if [ $(( check_rc )) -eq 0 ]; then
@@ -153,7 +145,7 @@ check() {
 		for check_arg in "${@}"; do
 			case "${check_arg}" in
 				-*)	continue ;;
-				'*')
+				*'*'*)
 					[ -n "${check_fallback:-}" ] ||
 						check_fallback="${check_arg}"
 					;;
@@ -192,7 +184,7 @@ check() {
 validate_pkgdir_metadata() {
 	vpm='' vpm_rc=0
 
-	# extern PKGDIR ARCH arch target_cpu
+	#inherit PKGDIR ARCH arch target_cpu
 
 	if [ -z "${PKGDIR:-}" ]; then
 		warn "'PKGDIR' not set when validate_pkgdir_metadata called"
@@ -541,7 +533,7 @@ get_portage_flags() {
 	gpf_result=''
 	gpf_invalidate=0
 
-	#extern portage_kv_cache_root portage_kv_cache PORTAGE_CONFIGROOT SYSROOT
+	#inherit portage_kv_cache_root portage_kv_cache PORTAGE_CONFIGROOT SYSROOT
 
 	if [ -n "${PORTAGE_CONFIGROOT:-}" ] &&
 		[ "${PORTAGE_CONFIGROOT}" != "${SYSROOT:-}" ] &&
@@ -914,7 +906,7 @@ resolve_python_flags() {
 	resolve_python_single_target="${2:-}"
 	resolve_python_targets="${3:-}"
 
-	#extern USE PYTHON_SINGLE_TARGET PYTHON_TARGETS python_targets
+	#inherit USE PYTHON_SINGLE_TARGET PYTHON_TARGETS python_targets
 
 	resolve_target=''
 
@@ -999,7 +991,7 @@ resolve_python_flags() {
 }  # resolve_python_flags
 
 save_failed() {
-	#extern PORTAGE_LOGDIR PORTAGE_LOGDIR
+	#inherit PORTAGE_LOGDIR PORTAGE_LOGDIR
 	sf_rc=0
 
 	# Save failed build logs...
@@ -1096,12 +1088,29 @@ save_failed() {
 }  # save_failed
 
 do_emerge() {
+	#inherit USE ROOT
 	do_emerge_arg=''
-	do_emerge_opts=''
+	do_emerge_args=''
+	#do_emerge_opts=''
 	#do_emerge_features=''
 	do_emerge_rc=0
 
-	[ "${#}" -gt 0 ] || return 1
+	for do_emerge_arg in "${@:-}"; do
+		[ -n "${do_emerge_arg:-}" ] &&
+			do_emerge_args="${do_emerge_args:+"${do_emerge_args} "}'${do_emerge_arg}'"
+	done
+
+	[ -n "${do_emerge_args:-}" ] || return 1
+
+	if [ $(( $(
+				localedef --list-archive 2>/dev/null |
+					grep -cF -e 'utf8' -e 'UTF-8'
+			) )) -eq 0 ]
+	then
+		mkdir -p /usr/lib/locale
+		mkdir -p /var/cache/locale
+		localedef --replace -f UTF-8 -i C C.UTF-8 --force 2>/dev/null
+	fi
 
 	# '--root-deps' also appears to be broken similarly to '--deep' and
 	# '--usepkgonly', but is supposed only to affect packages with EAPI 6 and
@@ -1112,7 +1121,6 @@ do_emerge() {
 	#if [ -n "${ROOT:-}" ] && [ "${ROOT}" != '/' ]; then
 	#	do_emerge_opts='--root-deps'
 	#fi
-
 
 	for do_emerge_arg in "${@}"; do
 		shift
@@ -1153,8 +1161,8 @@ do_emerge() {
 					--quiet-build=y \
 					  ${opts:-} \
 					--verbose=y \
-					--verbose-conflicts \
-					  ${do_emerge_opts}
+					--verbose-conflicts  # \
+					  #${do_emerge_opts}
 
 				case "${do_emerge_arg}" in
 					'--defaults')
@@ -1295,8 +1303,13 @@ do_emerge() {
 		fi
 	fi
 
-	print "do_emerge: Running \"emerge ${*}\"${USE:+" with USE='${USE}'"}" \
+	print "do_emerge: Running \"emerge ${do_emerge_args}\"${USE:+" with USE='${USE}'"}" \
 		"${ROOT:+" with ROOT='${ROOT}'"}"
+
+	# Not required when all arguments are quoted...
+	#
+	#do_emerge_args="$( echo "${do_emerge_args}" | sed -r 's/(<|>)/\\\1/g' )"
+
 	#FEATURES="${do_emerge_features:-}" \
 	emerge --ignore-default-opts --color=y "${@:-}" || do_emerge_rc="${?}"
 	output "   -> ${do_emerge_rc}"
@@ -1358,11 +1371,13 @@ do_emerge() {
 		# in $PATH...
 		LC_ALL='C' /usr/sbin/etc-update -q --automode -5
 		LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
-	elif ! echo "${*:-}" | grep -qw -e '--unmerge' -e '--depclean'; then
+	elif ! echo "${do_emerge_args:-}" |
+			grep -qw -e '--unmerge' -e '--depclean'
+	then
 		warn "Build failed (${do_emerge_rc}) in gentoo-base/entrypoint.sh:"
 		warn "  USE='${USE:-}'"
 		warn "  ROOT='${ROOT:-}'"
-		warn "  \${*}='${*:-}'"
+		warn "  \${*}='${*:-} (do_emerge_args='${do_emerge_args}')'"
 		warn "  PKGDIR='$( get_portage_flags 'PKGDIR' )'"
 		warn "  CFLAGS='$( get_portage_flags 'CFLAGS' )'"
 		warn "  CXXFLAGS='$( get_portage_flags 'CXXFLAGS' )'"
@@ -1389,9 +1404,10 @@ do_emerge() {
 			unset de_f
 		fi
 		unset de_d
-	fi
+	fi  # [ $(( do_emerge_rc )) -eq 0 ]
 
-	unset do_emerge_opts do_emerge_arg
+	#unset do_emerge_opts do_emerge_args do_emerge_arg
+	unset do_emerge_args do_emerge_arg
 
 	return ${do_emerge_rc}
 }  # do_emerge
@@ -1556,7 +1572,11 @@ fi
 
 # For reasons I can't fathom, even with a verifiably correct
 # /etc/portage/repos.conf structure in place, 'portageq get_repo_path / <repo>'
-# is picking up '/var/db/repo/<repo>' rather than the 'location' from the file.
+# is picking up '/var/db/repo/<repo>' rather than the 'location' from the file,
+# and eclass overrides are also looking in the wrong place (... which feels
+# like a portage bug, since the packages referring to those overrides are read
+# correctly and the non-overlay eclasses in the default repo aren't being used
+# either!)
 #
 # Update: It's because PORTDIR in /etc/portage/make.conf overrides anything in
 #         /etc/portage/repos.conf
@@ -1692,33 +1712,24 @@ fi
 service_root='/build'
 
 COLLISION_IGNORE="$( echo "${COLLISION_IGNORE:-"/lib/modules/*"}
-	/bin/cpio
-	/etc/env.d/04gcc-x86_64-pc-linux-gnu
-	/etc/env.d/gcc/config-x86_64-pc-linux-gnu
-	/usr/bin/awk
-	/usr/bin/bc
-	/usr/bin/dc
-	/usr/bin/lexx
-	/usr/bin/ninja
-	/usr/bin/yacc
-	/usr/lib/locale/locale-archive
-	/var/lib/portage/home/*
-	/build/bin/awk
-	/build/bin/bunzip2
-	/build/bin/bzcat
-	/build/bin/bzip2
-	/build/bin/gunzip
-	/build/bin/gzip
-	/build/bin/sh
-	/build/bin/tar
-	/build/bin/zcat
-	${service_root}/bin/*
-	${service_root}/etc/php/*/ext-active/*
-	${service_root}/sbin/*
-	${service_root}/usr/bin/*
-	${service_root}/usr/share/*/*
-	${service_root}/var/lib/*/*
-" | xargs -r )"
+		/bin/cpio
+		/etc/env.d/04gcc-*
+		/etc/env.d/gcc/config-*
+		/usr/bin/awk
+		/usr/bin/bc
+		/usr/bin/dc
+		/usr/bin/lexx
+		/usr/bin/ninja
+		/usr/bin/yacc
+		/usr/lib/locale/locale-archive
+		/var/lib/portage/home/*
+		${service_root}/bin/*
+		${service_root}/etc/php/*/ext-active/*
+		${service_root}/sbin/*
+		${service_root}/usr/bin/*
+		${service_root}/usr/share/*/*
+		${service_root}/var/lib/*/*
+	" | xargs -r )"
 export COLLISION_IGNORE
 
 post_pkgs='' post_use='' python_targets="${python_default_targets:-}" rc=0
@@ -1759,6 +1770,218 @@ for arg in "${@}"; do
 done
 print "'python_targets' is '${python_targets:-}'"
 
+# We currently support four methods of portage configuration override:
+#
+#  /etc/portage/[.]?<conf>.override replaces /etc/portage/<conf>
+#  /etc/portage/[.]?<conf>.header.override prepended to /etc/portage/<conf>
+#  /etc/portage/[.]?<conf>.override/file replaces /etc/portage/<conf>/file
+#  /etc/portage/[.]?<conf>.override/file.header prepended to
+#    /etc/portage/<conf>/file
+#
+# ... others may be added as necessary.
+#
+override='' target='' override_dir='' target_dir='' override_file=''
+find '/etc/portage/' \
+		-mindepth 1 -maxdepth 1 \
+		-name '*.override' \
+		-print |
+	while read -r override
+do
+	if [ -f "${override}" ]; then
+		[ -s "${override}" ] || continue
+
+		target="$( dirname "${override}" )/$( #<- Syntax
+				basename "${override}" |
+					sed 's/^\.// ; s/\.override$//'
+			)"
+
+		if [ $(( debug )) -ne 0 ] && [ -e "${target}" ]; then
+			warn "'${override}' will update or replace '${target%".header"}'" \
+				"..."
+		fi
+
+		if [ "${target%".header"}" = "${target}" ]; then
+			# File '${target}' does *not* end in '.header' ...
+			target_dir="$( dirname "${target}" )"
+			override_file="$( basename "${target}" )"
+			[ -d "${target_dir}" ] ||
+				mkdir -p "${target_dir}"
+			if [ -f "${target_dir}/${override_file}" ]; then
+				if diff -q \
+						"${override}" \
+						"${target_dir}/${override_file}" \
+							>/dev/null 2>&1
+				then
+					print "Original file '${target_dir}/${override_file}'" \
+						"and replacement '${override}' are identical, skipping"
+					continue
+				fi
+				info "Overwriting file '${target_dir}/${override_file}' with" \
+					"'${override}' from host ..."
+			elif [ -e "${target_dir}/${override_file}" ]; then
+				warn "Replacing non-file object" \
+					"'${target_dir}/${override_file}' with file" \
+					"'${override}' ..."
+			else
+				print "Adding '${override}' as new file" \
+					"'${target_dir}/${override_file}' ..."
+			fi
+			[ -e "${target_dir}/${override_file}" ] &&
+				rm -rf "${target_dir:?}/${override_file}"
+			cp -a "${override}" "${target_dir}/${override_file}" ||
+				die "File copy from '${override}' to" \
+					"'${target_dir}/${override_file}' failed: ${?}"
+		else  # [ "${target%".header"}" != "${target}" ]
+			# File '${target}' *does* end in '.header' ...
+			target_dir="$( dirname "${target}" )"
+			override_file="$( basename "${target%".header"}" )"
+			[ -d "${target_dir}" ] ||
+				mkdir -p "${target_dir}"
+			if ! [ -e "${target_dir}/${override_file}" ]; then
+				warn "No pre-existing source file for header" \
+					"'${override}', deploying as new file" \
+					"'${target_dir}/${override_file}' ..."
+				cp -a "${override}" \
+						"${target_dir}/${override_file}" ||
+					die "File copy from" \
+						"'${override}' to" \
+						"'${target_dir}/${override_file}' failed: ${?}"
+			elif ! [ -f "${target_dir}/${override_file}" ]; then
+				die "Could not append to '${target_dir}/${override_file}'," \
+					"which exists but is not a file"
+			else
+				if ! cat "${override}" \
+						"${target_dir}/${override_file}" > \
+						"${target_dir}/${override_file}.new" &&
+					mv "${target_dir}/${override_file}.new" \
+							"${target_dir}/${override_file}"
+				then
+					die "Could not append" \
+						"'${override}' to existing file" \
+						"'${target_dir}/${override_file}': ${?}"
+				fi
+			fi
+		fi
+	else  # ! [ -f "${override}" ]
+		override_dir="${override}"
+		target_dir="$( dirname "${override_dir}" )/$(
+				basename "${override_dir}" |
+					sed 's/^.// ; s/\.override$//'
+			)"
+
+		if [ $(( debug )) -ne 0 ] && [ -e "${target_dir}" ]; then
+			warn "Files deployed from '${override_dir}' will update or" \
+				"replace files in '${target_dir}' ..."
+		fi
+
+		find "${override_dir}/" \
+				-mindepth 1 -maxdepth 1 \
+				-type f \
+				-not -name '*.header' \
+				-print |
+			while read -r override_file
+		do
+			[ -s "${override_file}" ] || continue
+
+			override_file="$( basename "${override_file}" )"
+			[ -d "${target_dir}" ] ||
+				mkdir -p "${target_dir}"
+			if [ -f "${target_dir}/${override_file}" ]; then
+				if diff -q \
+						"${override_dir}/${override_file}" \
+						"${target_dir}/${override_file}" \
+							>/dev/null 2>&1
+				then
+					print "Original file '${target_dir}/${override_file}'" \
+						"and replacement '${override_dir}/${override_file}'" \
+						"are identical, skipping"
+					continue
+				fi
+				info "Overwriting file '${target_dir}/${override_file}' with" \
+					"'${override_dir}/${override_file}' from host ..."
+			elif [ -e "${target_dir}/${override_file}" ]; then
+				warn "Replacing non-file object" \
+					"'${target_dir}/${override_file}' with file" \
+					"'${override_dir}/${override_file}' ..."
+			else
+				print "Adding new file '${override_dir}/${override_file}' as" \
+					"'${target_dir}/${override_file}' ..."
+			fi
+			[ -e "${target_dir}/${override_file}" ] &&
+				rm -rf "${target_dir:?}/${override_file}"
+			cp -a "${override_dir}/${override_file}" "${target_dir}/" ||
+				die "File copy from '${override_dir}/${override_file}' to" \
+					"'${target_dir}/' failed: ${?}"
+		done  # override_file
+
+		find "${override_dir}/" \
+				-mindepth 1 -maxdepth 1 \
+				-type f \
+				-name '*.header' \
+				-print |
+			while read -r override_file
+		do
+			[ -s "${override_file}" ] || continue
+
+			override_file="$( basename "${override_file%".header"}" )"
+			[ -d "${target_dir}" ] ||
+				mkdir -p "${target_dir}"
+			if ! [ -e "${target_dir}/${override_file}" ]; then
+				warn "No pre-existing source file for header" \
+					"'${override_dir}/${override_file}.header', deploying as" \
+					"new file ..."
+				cp -a "${override_dir}/${override_file}.header" \
+						"${target_dir}/${override_file}" ||
+					die "File copy from" \
+						"'${override_dir}/${override_file}.header' to" \
+						"'${target_dir}/${override_file}' failed: ${?}"
+			elif ! [ -f "${target_dir}/${override_file}" ]; then
+				die "Could not append to '${target_dir}/${override_file}'," \
+					"which exists but is not a file"
+			else
+				if ! cat "${override_dir}/${override_file}.header" \
+						"${target_dir}/${override_file}" > \
+						"${target_dir}/${override_file}.new" &&
+					mv "${target_dir}/${override_file}.new" \
+							"${target_dir}/${override_file}"
+				then
+					die "Could not append" \
+						"'${override_dir}/${override_file}.header' to" \
+						"existing file '${target_dir}/${override_file}': ${?}"
+				fi
+			fi
+		done  # override_file
+	fi # if ! [ -f "${override}" ]
+done  # override
+unset target_dir override_dir override
+
+# FIXME: Is the 'package' qualifier too restrictive?
+find '/etc/portage/' \
+		-mindepth 1 -maxdepth 1 \
+		-type f \
+		-name "package.*.${ARCH:-"${arch}"}" \
+		-or \
+		-name ".package.*.${ARCH:-"${arch}"}" \
+		-print |
+	while read -r override_file
+do
+	[ -s "${override_file}" ] || continue
+
+	target="$( dirname "${override_file}" )/$(
+			basename "${override_file}" |
+				sed 's/^.//'
+		)"
+	mkdir -p "'${target%".${ARCH:-"${arch}"}"}"
+	print "Redeploying file '${override_file}' as" \
+		"'${target%".${ARCH:-"${arch}"}"}/$( basename "${target}" )"
+	# override_file is likely a mountpoint, so don't try to 'mv' it ...
+	cat "${override_file}" > \
+			"${target%".${ARCH:-"${arch}"}"}/$( basename "${target}" )" ||
+		die "copy failed from '${override_file}' to" \
+			"'${target%".${ARCH:-"${arch}"}"}/$( basename "${target}" )"
+done
+unset override_file target
+
 #warn >&2 "Inherited USE flags: '${USE:-}'"
 
 # post_use should be based on the original USE flags, without --with-use
@@ -1776,7 +1999,7 @@ if [ -n "${use_essential:-}" ]; then
 	if ! echo "${post_use:-}" |
 			grep -Fq -- "${use_essential}"
 	then
-		post_use="${post_use:+"${post_use} "}${use_essential}"
+		post_use="${use_essential}${post_use:+" ${post_use}"}"
 	fi
 fi
 
@@ -2846,13 +3069,13 @@ mkdir -p "${SYSROOT}"/etc
 #        select a minimal set here and rely on mounting the appropriate files
 #        into the container?
 #
-cp -r /etc/portage "${SYSROOT}"/etc/
+cp -R /etc/portage "${SYSROOT}"/etc/
 #f='' d=''
 #for f in color.map make.conf suidctl.conf; do
 #	cp /etc/portage/"${f}" "${SYSROOT}"/etc/portage/
 #done
 #for dir in profile repos.conf savedconfig; do
-#	cp -r /etc/portage/"${d}" "${SYSROOT}"/etc/portage/
+#	cp -R /etc/portage/"${d}" "${SYSROOT}"/etc/portage/
 #done
 #unset d f
 
@@ -2975,7 +3198,7 @@ if [ -n "${pkg_initial:-}" ]; then
 								"${PYTHON_TARGETS}"
 					)"
 			fi
-		else # [ "${ROOT:-"/"}" != '/' ]; then
+		else  # [ "${ROOT:-"/"}" != '/' ]; then
 			print "'python_targets' is '${python_targets:-}'," \
 				"'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}'," \
 				"'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
@@ -4174,7 +4397,7 @@ case "${1:-}" in
 				esac
 			done  # for arg in ${post_pkgs}
 
-		else # ! grep -Eq -- ' --single(-post)? ' <<<" ${EMERGE_OPTS} "
+		else  # ! grep -Eq -- ' --single(-post)? ' <<<" ${EMERGE_OPTS} "
 			(
 				for ROOT in $(
 							echo "${extra_root:-}" "${ROOT}" |

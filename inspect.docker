@@ -13,6 +13,24 @@ export NO_REPO_MASKS
 
 [[ -n "${trace:-}" ]] && set -o xtrace
 
+if [[ "$( uname -s )" == 'Darwin' ]]; then
+	# Darwin/BSD lacks GNU readlink - either realpath or perl's Cwd module will
+	# do at a pinch, although both lack the additional options of GNU
+	# binaries...
+	#
+	readlink() {
+		if type -pf realpath >/dev/null 2>&1; then
+			realpath "${2}" 2>/dev/null
+		else
+			# The perl statement below returns $PWD if the supplied
+			# path doesn't exist :(
+			[[ -e "${2}" ]] || return 1
+			perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
+		fi
+	}  # readlink
+	export -f readlink
+fi
+
 cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 
 # Set by common/vars.sh, sourced below...
@@ -35,24 +53,6 @@ if [[ "$( type -t 'die' )" != 'function' ]]; then
 	echo >&2 "FATAL: Unable to source shared functions from" \
 		"'common/run.sh': ${?}"
 	exit 127
-fi
-
-if [[ "$( uname -s )" == 'Darwin' ]]; then
-	# Darwin/BSD lacks GNU readlink - either realpath or perl's Cwd module will
-	# do at a pinch, although both lack the additional options of GNU
-	# binaries...
-	#
-	readlink() {
-		if type -pf realpath >/dev/null 2>&1; then
-			realpath "${2}" 2>/dev/null
-		else
-			# The perl statement below returns $PWD if the supplied
-			# path doesn't exist :(
-			[[ -e "${2}" ]] || return 1
-			perl -MCwd -le 'print Cwd::abs_path shift' "${2}"
-		fi
-	}  # readlink
-	export -f readlink
 fi
 
 
@@ -498,25 +498,29 @@ docker_run() {
 			readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}"
 		)" )"
 	print "Volume/mount base directory is '${cwd}'"
-	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords"]='/etc/portage/package.accept_keywords'
+	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords"]='/etc/portage/.package.accept_keywords.override'
 
 	# FIXME: crun errors when rootless due to lack of write support into
 	#        /etc/portage...
 	#
+	#if [[ -s "${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]
+	#then
+	#	if [[ -w /etc/portage/package.accept_keywords ]] &&
+	#			[[ ! -e "/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]
+	#	then
+	#		mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/.package.accept_keywords.override/${ARCH:-"${arch}"}"
+	#	else
+	#		warn "Cannot mount" \
+	#			"'${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
+	#			"due to lack of write permission for '$( id -nu )' on" \
+	#			"'/etc/portage/package.accept_keywords', or" \
+	#			"'/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
+	#			"already exists (due to another running container?)"
+	#	fi
+	#fi
 	if [[ -s "${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]
 	then
-		if [[ -w /etc/portage/package.accept_keywords ]] &&
-				[[ ! -e "/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]
-		then
-			mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/package.accept_keywords/${ARCH:-"${arch}"}"
-		else
-			warn "Cannot mount" \
-				"'${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
-				"due to lack of write permission for '$( id -nu )' on" \
-				"'/etc/portage/package.accept_keywords', or" \
-				"'/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
-				"already exists (due to another running container?)"
-		fi
+		mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/.package.accept_keywords.${ARCH:-"${arch}"}"
 	fi
 
 	declare mask_file=''
@@ -528,14 +532,16 @@ docker_run() {
 	[[ -z "${mask_file:-}" ]] &&
 		mask_file="${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/use.mask"
 	[[ -s "${mask_file}" ]] &&
-		mountpointsro["${mask_file}"]='/etc/portage/profile/use.mask'
+		mountpointsro["${mask_file}"]='/etc/portage/.profile.override/use.mask'
 	unset mask_file
-	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.mask"]='/etc/portage/profile/package.use.force'
-	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.mask"]='/etc/portage/profile/package.use.mask'
-	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.license"]='/etc/portage/package.license'
-	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.use.build"]='/etc/portage/package.use'
-	#mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask"]='/etc/portage/package.unmask'
-	#mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask/package.unmask"]='/etc/portage/package.unmask/host.unmask'
+	# FIXME: We can't currently use the override system here since is only
+	#        supports a single directory-tree depth below /etc/portage/...
+	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.mask"]='/etc/portage/.profile.override/package.use.force'
+	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.mask"]='/etc/portage/.profile.override/package.use.mask'
+	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.license"]='/etc/portage/.package.license.override'
+	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.use.build"]='/etc/portage/.package.use.override'
+	#mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask"]='/etc/portage/.package.unmask.override'
+	#mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.unmask/package.unmask"]='/etc/portage/.package.unmask.override/host.unmask'
 	#if [[ -s "/lib/modules/$( uname -r )/build/arch/x86/boot/vmlinux.bin" ]]
 	#then
 	#	mountpointsro["/lib/modules/$( uname -r )/build/arch/x86/boot/vmlinux.bin"]="/boot/vmlinux-$( uname -r )"
@@ -558,6 +564,15 @@ docker_run() {
 				: $(( skipped = skipped + 1 ))
 				continue
 			fi
+			if [[ "${mp}" == '/etc/portage'* ]] &&
+					[[ "${mp}" != *'.override'* ]] &&
+					[[ "${mp}" != *'.host'* && "${mp}" != *'/host.'* ]] &&
+					[[ "${mp}" != *".${ARCH:-"${arch}"}" ]]
+			then
+				die 2 "Cowardly refusing to mount '${src}' on to '${mp}'" \
+					"- please update '$( readlink -e "${0}" )' to use" \
+					"'${mp}.override'"
+			fi
 			runargs+=(
 					--mount "type=bind,source=${src},destination=${mp}${docker_readonly:+",${docker_readonly}"}"
 				)
@@ -573,6 +588,14 @@ docker_run() {
 				: $(( skipped = skipped + 1 ))
 				continue
 			fi
+			if [[ "${mp}" == '/etc/portage'* && "${mp}" != *'.override'* ]] &&
+					[[ "${mp}" != *'.host'* && "${mp}" != *'/host.'* ]] &&
+					[[ "${mp}" != *".${ARCH:-"${arch}"}" ]]
+			then
+				die 3 "Cowardly refusing to mount '${src}' on to '${mp}'" \
+					"- please update '$( readlink -e "${0}" )' to use" \
+					"'${mp}.override'"
+			fi
 			runargs+=( --mount "type=bind,source=${src},destination=${mp}" )
 		done
 	done
@@ -587,6 +610,17 @@ docker_run() {
 					"mountpoint '${mp}' -> '${mountpointsro[${mp}]}'"
 				: $(( skipped = skipped + 1 ))
 				continue
+			fi
+			if [[ "${mountpointsro[${mp}]}" == '/etc/portage'* ]] &&
+					[[ "${mountpointsro[${mp}]}" != *'.override'* ]] &&
+					[[ "${mountpointsro[${mp}]}" != *'.host'* &&
+						"${mountpointsro[${mp}]}" != *'/host.'* ]] &&
+					[[ "${mountpointsro[${mp}]}" != *".${ARCH:-"${arch}"}" ]]
+			then
+				die 4 "Cowardly refusing to mount '${src}' to" \
+					"'${mountpointsro[${mp}]}' - please update '$( # <- Syntax
+							readlink -e "${0}"
+						)' to use '${mountpointsro[${mp}]}.override'"
 			fi
 			runargs+=(
 					--mount "type=bind,source=${src},destination=${mountpointsro[${mp}]}${docker_readonly:+",${docker_readonly}"}"
@@ -604,6 +638,17 @@ docker_run() {
 					"mountpoint '${mp}' -> '${mountpoints[${mp}]}'"
 				: $(( skipped = skipped + 1 ))
 				continue
+			fi
+			if [[ "${mountpoints[${mp}]}" == '/etc/portage'* ]] &&
+					[[ "${mountpoints[${mp}]}" != *'.override'* ]] &&
+					[[ "${mountpointsro[${mp}]}" != *'.host'* &&
+						"${mountpointsro[${mp}]}" != *'/host.'* ]] &&
+					[[ "${mountpoints[${mp}]}" != *".${ARCH:-"${arch}"}" ]]
+			then
+				die 5 "Cowardly refusing to mount '${src}' to" \
+					"'${mountpoints[${mp}]}' - please update '$( # <- Syntax
+							readlink -e "${0}"
+						)' to use '${mountpoints[${mp}]}.override'"
 			fi
 			runargs+=(
 					--mount "type=bind,source=${src},destination=${mountpoints[${mp}]}"
@@ -623,6 +668,13 @@ docker_run() {
 	if (( ${#mount[@]} )); then
 		for mp in "${mount[@]}"; do
 			if [[ -n "${mp:-}" ]]; then
+				if [[ "${mp}" == '/etc/portage'* ]] &&
+						[[ "${mp}" != *'.override'* ]] &&
+						[[ "${mp}" != *'.host'* && "${mp}" != *'/host.'* ]] &&
+						[[ "${mp}" != *".${ARCH:-"${arch}"}" ]]
+				then
+					die 6 "Cowardly refusing to mount '${mp}'"
+				fi
 				print "Adding command line mount option '--mount ${mp}' ..."
 				runargs+=( --mount "${mp}" )
 			fi
@@ -737,7 +789,7 @@ docker_run() {
 		mp="${mountpoints[${mp}]}" || continue
 		files+=( "${cwd}/${base_dir:+"${base_dir}"}${mp}" )
 	done
-	files+=( /etc/portage/package.accept_keywords/arm64 )
+	#files+=( /etc/portage/package.accept_keywords/arm64 )
 	for mp in "${files[@]}"; do
 		src="$( readlink -e "${mp}" )"
 		if [[ -n "${src:-}" ]]; then

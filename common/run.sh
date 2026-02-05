@@ -81,10 +81,22 @@ output() {
 }  # output
 
 die() {
+	local -i rc=1
+
+	if (( ${1:-0} > 1 && ${1:-0} < 256 )); then
+		(( rc = ${1} ))
+		if [[ -n "${2:-}" ]]; then
+			shift
+		else
+			set --
+		fi
+	fi
+
 	#output >&2 "FATAL: ${BASH_SOURCE[0]:-"$( basename "${0}" )"}:" \
 	#		"${*:-"Unknown error"}"
 	output >&2 "FATAL: ${*:-"Unknown error"}"
-	exit 1
+
+	exit ${rc}
 }  # die
 
 error() {
@@ -437,6 +449,18 @@ add_mount() {
 	elif (( 0 == dir )) && ! [[ -s "${src}" ]]; then
 		print "${FUNCNAME[0]} skipping source file '${src}': is empty"
 		return 1
+	fi
+
+	if [[ -z "${arch:-}" ]]; then
+		_docker_setup
+	fi
+
+	if [[ "${dst}" == '/etc/portage'* && "${dst}" != *'.override'* ]] &&
+			[[ "${dst}" != *'.host'* && "${dst}" != *'/host.'* ]] &&
+			[[ "${dst}" != *".${ARCH:-"${arch}"}" ]]
+	then
+		die 2 "Cowardly refusing to mount '${src}' to '${dst}' - please update" \
+			"'$( readlink -e "${0}" )' to use '${dst}.override'"
 	fi
 
 	# [[ -e "${src}" && ( (( 1 == dir )) || ! -d "${src}" && -s "${src}" ) ]]
@@ -795,7 +819,7 @@ _docker_resolve() {
 				fi
 
 				if [[ -e /etc/portage/package.accept_keywords ]]; then
-					extra_mounts='--mount type=bind,src=/etc/portage/package.accept_keywords,dst=/etc/portage/package.accept_keywords,ro'
+					extra_mounts='--mount type=bind,src=/etc/portage/package.accept_keywords,dst=/etc/portage/.package.accept_keywords.override,ro'
 				fi
 
 				# We'll execute this container via _docker_run rather than by
@@ -1757,17 +1781,22 @@ _docker_run() {
 
 		# FIXME: crun errors when rootless due to lack of write support into
 		#        /etc/portage...
+		#if [[ -s "gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]; then
+		#	if [[ -w /etc/portage/package.accept_keywords && ! -e "/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]; then
+		#		mountpointsro["${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/package.accept_keywords/${ARCH:-"${arch}"}"
+		#	else
+		#		warn "Cannot mount" \
+		#			"'${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
+		#			"due to lack of write permission for '$( id -nu )' on" \
+		#			"'/etc/portage/package.accept_keywords', or" \
+		#			"'/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
+		#			"already exists (due to another running container?)"
+		#	fi
+		#fi
 		if [[ -s "gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]; then
-			if [[ -w /etc/portage/package.accept_keywords && ! -e "/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]; then
-				mountpointsro["${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/package.accept_keywords/${ARCH:-"${arch}"}"
-			else
-				warn "Cannot mount" \
-					"'${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
-					"due to lack of write permission for '$( id -nu )' on" \
-					"'/etc/portage/package.accept_keywords', or" \
-					"'/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
-					"already exists (due to another running container?)"
-			fi
+			# Directory moves are now handled in entrypoint.sh ...
+			#mountpointsro["${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/package.accept_keywords.override/${ARCH:-"${arch}"}"
+			mountpointsro["${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/.package.accept_keywords.${ARCH:-"${arch}"}"
 		fi
 
 		#cwd="$( dirname "$( readlink -e "${BASH_SOURCE[$(( ${#BASH_SOURCE[@]} - 1 ))]}" )" )"
@@ -1791,6 +1820,15 @@ _docker_run() {
 					: $(( skipped = skipped + 1 ))
 					continue
 				fi
+				if [[ "${mp}" == '/etc/portage'* ]] &&
+						[[ "${mp}" != *'.override'* ]] &&
+						[[ "${mp}" != *'.host'* && "${mp}" != *'/host.'* ]] &&
+						[[ "${mp}" != *".${ARCH:-"${arch}"}" ]]
+				then
+					die 3 "Cowardly refusing to mount '${src}' to '${mp}'" \
+						"- please update '$( readlink -e "${0}" )' to use" \
+						"'${mp}.override'"
+				fi
 				runargs+=( --mount "type=bind,source=${src},destination=${mp}${ro}" )
 			done
 		done
@@ -1807,6 +1845,16 @@ _docker_run() {
 					warn "Skipping mountpoint '${mp}'"
 					: $(( skipped = skipped + 1 ))
 					continue
+				fi
+				if [[ "${mp}" == '/etc/portage'* ]] &&
+						[[ "${mp}" != *'.override'* ]] &&
+						[[ "${mp}" != *'.host'* && "${mp}" != *'/host.'* ]] &&
+						[[ "${mp}" != *'/savedconfig' ]] &&
+						[[ "${mp}" != *".${ARCH:-"${arch}"}" ]]
+				then
+					die 4 "Cowardly refusing to mount '${src}' to '${mp}'" \
+						"- please update '$( readlink -e "${0}" )' to use" \
+						"'${mp}.override'"
 				fi
 				runargs+=( --mount "type=bind,source=${src},destination=${mp}" )
 			done
@@ -1826,6 +1874,16 @@ _docker_run() {
 					: $(( skipped = skipped + 1 ))
 					continue
 				fi
+				if [[ "${mp}" == '/etc/portage'* ]] &&
+						[[ "${mp}" != *'.override'* ]] &&
+						[[ "${mp}" != *'.host'* && "${mp}" != *'/host.'* ]] &&
+						[[ "${mp}" != *'/repos.conf' ]] &&
+						[[ "${mp}" != *".${ARCH:-"${arch}"}" ]]
+				then
+					die 5 "Cowardly refusing to mount '${src}' to '${mp}'" \
+						"- please update '$( readlink -e "${0}" )' to use" \
+						"'${mp}.override'"
+				fi
 				runargs+=( --mount "type=bind,source=${src},destination=${mountpointsro[${mp}]}${ro}" )
 			done
 		done
@@ -1843,6 +1901,15 @@ _docker_run() {
 						"'${mountpoints[${mp}]}'"
 					: $(( skipped = skipped + 1 ))
 					continue
+				fi
+				if [[ "${mp}" == '/etc/portage'* ]] &&
+						[[ "${mp}" != *'.override'* ]] &&
+						[[ "${mp}" != *'.host'* && "${mp}" != *'/host.'* ]] &&
+						[[ "${mp}" != *".${ARCH:-"${arch}"}" ]]
+				then
+					die 6 "Cowardly refusing to mount '${src}' to '${mp}'" \
+						"- please update '$( readlink -e "${0}" )' to use" \
+						"'${mp}.override'"
 				fi
 				runargs+=( --mount "type=bind,source=${src},destination=${mountpoints[${mp}]}" )
 			done

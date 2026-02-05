@@ -1659,26 +1659,30 @@ mkdir -p "${log_dir:="log"}" ||
 	#
 	declare -a docker_extra_mounts=()
 	docker_extra_mounts+=( $( add_mount --dir --print \
-			'/etc/portage/package.accept_keywords'
+			'/etc/portage/package.accept_keywords' \
+			'/etc/portage/.package.accept_keywords.override'
 		) ) || :
 	docker_extra_mounts+=( $( add_mount --print \
-			'/etc/portage/package.license'
+			'/etc/portage/package.license' \
+			'/etc/portage/.package.license.override'
 		) ) || :
 
 	if ! [[ -d /etc/portage/package.mask ]]; then
 		docker_extra_mounts+=( $( add_mount --print \
-				'/etc/portage/package.mask'
+				'/etc/portage/package.mask' \
+				'/etc/portage/.package.mask.override'
 			) ) || :
 	else
 		docker_extra_mounts+=( $( add_mount --print \
 				'/etc/portage/package.mask/package.mask' \
-				'/etc/portage/package.mask/host.mask'
+				'/etc/portage/.package.mask.override/host.mask'
 			) ) || :
 		declare extra_mask='' file=''
 		while read -r extra_mask; do
 			file="$( basename "${extra_mask}" )"
 			docker_extra_mounts+=( $( add_mount --print \
-					"/etc/portage/package.mask/${file}"
+					"/etc/portage/package.mask/${file}" \
+					"/etc/portage/.package.mask.override/${file}"
 				) ) || :
 		done < <( # <- Syntax
 			find /etc/portage/package.mask/ \
@@ -1694,30 +1698,31 @@ mkdir -p "${log_dir:="log"}" ||
 	if ! [[ -d "${base_dir:+"${base_dir}/"}etc/portage/package.mask" ]]; then
 		docker_extra_mounts+=( $( add_mount --print \
 				'%base%/etc/portage/package.mask' \
-				'.../base.mask'
+				'/etc/portage/.package.mask.override/base.mask'
 			) ) || :
 	else
 		docker_extra_mounts+=( $( add_mount --print \
 				'%base%/etc/portage/package.mask/package.mask' \
-				'/etc/portage/package.mask/base.mask'
+				'/etc/portage/.package.mask.override/base.mask'
 			) ) || :
 	fi
 
 	if ! [[ -d /etc/portage/package.unmask ]]; then
 		docker_extra_mounts+=( $( add_mount --print \
 				'/etc/portage/package.unmask' \
-				'.../host.unmask'
+				'/etc/portage/.package.unmask.override/host.unmask'
 			) ) || :
 	else
 		docker_extra_mounts+=( $( add_mount --print \
 				'/etc/portage/package.unmask/package.unmask' \
-				'.../host.unmask'
+				'/etc/portage/.package.unmask.override/host.unmask'
 			) ) || :
 		declare extra_unmask='' file=''
 		while read -r extra_unmask; do
 			file="$( basename "${extra_unmask}" )"
 			docker_extra_mounts+=( $( add_mount --print \
-					"/etc/portage/package.unmask/${file}"
+					"/etc/portage/package.unmask/${file}" \
+					"/etc/portage/.package.unmask.override/${file}"
 				) ) || :
 		done < <( # <- Syntax
 			find /etc/portage/package.unmask/ \
@@ -1732,20 +1737,32 @@ mkdir -p "${log_dir:="log"}" ||
 
 	docker_extra_mounts+=( $( add_mount --print \
 			'%base%/etc/portage/package.mask.kernel-sources' \
-			'/etc/portage/package.mask/kernel-sources.mask'
-	) ) || :
+			'/etc/portage/.package.mask.override/kernel-sources.mask'
+		) ) || :
 
 	if ! [[ -d /etc/portage/package.use ]]; then
 		docker_extra_mounts+=( $( add_mount --print \
 				'/etc/portage/package.use' \
-				'.../package.use'
-		) ) || :
+				'/etc/portage/.package.use.override/package.use'
+			) ) || :
 	else
 		docker_extra_mounts+=( # <- Syntax
-			$( add_mount --print '/etc/portage/package.use/00_package.use' )
-			$( add_mount --print '/etc/portage/package.use/01_package.use.local' )
-			#$( add_mount --print '/etc/portage/package.use/05_host.use' )
-			$( add_mount --print '/etc/portage/package.use/20_python_targets' )
+			$( add_mount --print \
+					'/etc/portage/package.use/00_package.use' \
+					'/etc/portage/.package.use.override/00_package.use'
+				)
+			$( add_mount --print \
+					'/etc/portage/package.use/01_package.use.local' \
+					'/etc/portage/.package.use.override/01_package.use.local'
+				)
+			#$( add_mount --print \
+			#		'/etc/portage/package.use/05_host.use' \
+			#		'/etc/portage/.package.use.override/05_host.use'
+			#	)
+			$( add_mount --print \
+					'/etc/portage/package.use/20_python_targets' \
+					'/etc/portage/.package.use.override/20_python_targets'
+				)
 		) || :
 	fi
 
@@ -1766,10 +1783,21 @@ mkdir -p "${log_dir:="log"}" ||
 	#      file (if one exists) to the host filesystem, so it isn't too much of
 	#      an issue to use both.
 	#
+	# FIXME: We can't currently use the override system here since is only
+	#        supports a single directory-tree depth below /etc/portage/...
 	docker_extra_mounts+=(
-		$( add_mount --print '/etc/portage/profile/package.use.force' )
-		$( add_mount --print '/etc/portage/profile/package.use.mask' )
-		$( add_mount --print '/etc/portage/profile/use.mask' )
+		$( add_mount --print \
+				'/etc/portage/profile/package.use.force' \
+				'/etc/portage/.profile.override/package.use.force'
+			)
+		$( add_mount --print \
+				'/etc/portage/profile/package.use.mask' \
+				'/etc/portage/.profile.override/package.use.mask'
+			)
+		$( add_mount --print \
+				'/etc/portage/profile/use.mask' \
+				'/etc/portage/.profile.override/use.mask'
+			)
 	) || :
 
 	declare patch_file='' patch_dir=''

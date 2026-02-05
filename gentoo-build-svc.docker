@@ -279,7 +279,7 @@ usage() {
 	output >&2 '  installed'
 	output >&2 '  all'
 	output >&2
-} # usage
+}  # usage
 
 if [[ -z "${*:-}" ]] || grep -Eq -- ' -(h|-help) ' <<<" ${*:-} "; then
 	usage
@@ -501,7 +501,7 @@ fi
 
 #replace_flags() {
 #	# Moved to common/run.sh!
-#} # replace_flags
+#}  # replace_flags
 
 [[ -n "${trace:-}" ]] && set -o xtrace
 
@@ -1768,7 +1768,8 @@ unset dir
 #        other!
 #
 if ! docker_extra_mounts+=( $( add_mount --dir --print \
-			'%base%/etc/portage/package.accept_keywords'
+			'%base%/etc/portage/package.accept_keywords' \
+			'/etc/portage/.package.accept_keywords.override'
 		) )
 then
 	note "No 'package.accept_keywords' override found in" \
@@ -1778,7 +1779,8 @@ fi
 # package.license
 #
 if ! docker_extra_mounts+=( $( add_mount --print \
-			'%base%/etc/portage/package.license'
+			'%base%/etc/portage/package.license' \
+			'/etc/portage/.package.license.override'
 		) )
 then
 	note "No 'package.license' override found in" \
@@ -1802,15 +1804,15 @@ esac
 if \
 		! docker_extra_mounts+=( $( add_mount --print \
 				"%base%/etc/portage/package.unmask.svc/${package_mask_svc_name}" \
-				"/etc/portage/package.unmask/${package_mask_svc_name}"
+				"/etc/portage/.package.unmask.override/${package_mask_svc_name}"
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
 				'%base%/etc/portage/package.unmask.svc/package.unmask' \
-				'/etc/portage/package.unmask/package.unmask.service'
+				'/etc/portage/.package.unmask.override/package.unmask.service'
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --dir --print \
 				'%base%/etc/portage/package.unmask.svc' \
-				'/etc/portage/package.unmask/package.unmask.service'
+				'/etc/portage/.package.unmask.override/package.unmask.service'
 			) )
 then
 	note "No 'package.unmask' override found in" \
@@ -1818,15 +1820,16 @@ then
 fi
 [[ -z "${arch:-}" ]] || docker_extra_mounts+=( $( add_mount --print \
 		"%base%/etc/portage/package.unmask.${arch}" \
-		"/etc/portage/package.unmask/${arch}"
+		"/etc/portage/.package.unmask.override/${arch}"
 	) ) || :
 # Error: OCI runtime error: crun: open `/mnt/podman-storage/btrfs/subvolumes/ddc60a734ca210eb4ecc5f20e488b6d0e37064d3368ba80744cab07ef97b7bbd/etc/portage/package.unmask/package.unmask`: Not a directory
 docker_extra_mounts+=( $( add_mount --print \
 		'%base%/etc/portage/package.unmask' \
-		'.../package.unmask'
+		'/etc/portage/.package/unmask.override/package.unmask'
 	) ) || :
 #docker_extra_mounts+=( $( add_mount --print \
-#		'%base%/etc/portage/package.unmask'
+#		'%base%/etc/portage/package.unmask' \
+#		'/etc/portage/.package.unmask.override'
 #	) ) || :
 
 # package.mask.svc
@@ -1834,14 +1837,15 @@ docker_extra_mounts+=( $( add_mount --print \
 if \
 		! docker_extra_mounts+=( $( add_mount --print \
 				"%base%/etc/portage/package.mask.svc/${package_mask_svc_name}" \
-				"/etc/portage/package.mask/${package_mask_svc_name}"
+				"/etc/portage/.package.mask.override/${package_mask_svc_name}"
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
 				'%base%/etc/portage/package.mask.svc/package.mask' \
-				'/etc/portage/package.mask/package.mask.svc'
+				'/etc/portage/.package.mask.override/package.mask.svc'
 			) ) &&
-		! docker_extra_mounts+=( $( add_mount --dir --print \
-				'%base%/etc/portage/package.mask.svc'
+		! docker_extra_mounts+=( $( add_mount --print \
+				'%base%/etc/portage/package.mask.svc' \
+				'/etc/portage/.package.mask.svc.override' \
 			) )
 then
 	note "No 'package.mask' override found in" \
@@ -1853,15 +1857,16 @@ unset package_mask_svc_name
 #
 if \
 		! docker_extra_mounts+=( $( add_mount --print \
-				"%base%/etc/portage/package.mask/${package_name#*"."}"
+				"%base%/etc/portage/package.mask/${package_name#*"."}" \
+				"/etc/portage/.package.mask.override/${package_name#*"."}" \
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
 				'%base%/etc/portage/package.mask/package.mask' \
-				'/etc/portage/package.mask/package.mask.base'
+				'/etc/portage/.package.mask.override/package.mask.base'
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
 				'%base%/etc/portage/package.mask' \
-				'.../package.mask.base'
+				'/etc/portage/.package.mask.override/package.mask.base'
 			) )
 then
 	note "No 'package.mask' override found in" \
@@ -1869,7 +1874,7 @@ then
 fi
 [[ -z "${arch:-}" ]] || docker_extra_mounts+=( $( add_mount --print \
 		"%base%/etc/portage/package.mask.${arch}" \
-		"/etc/portage/package.mask/${arch}"
+		"/etc/portage/.package.mask.override/${arch}"
 	) ) || :
 
 # host additional package.mask
@@ -1878,17 +1883,25 @@ fi
 #	while read -r extra_mask; do
 #		file="$( basename "${extra_mask}" )"
 #		docker_extra_mounts+=( $( add_mount --print \
-#				"/etc/portage/package.mask/${file}"
+#				"/etc/portage/package.mask/${file}" \
+#				"/etc/portage/.package.mask.override/${file}"
 #			) )
 #	done < <( find /etc/portage/package.mask/ -mindepth 1 -maxdepth 1 -type f -not -name 'package.mask' | grep -v -- "repo-${ECLASS_OVERRIDE:-"__IGNORE__"}-mask" )
 #	unset file extra_mask
 #fi
 
+# package.use Host 01_package.use.local
+#
+docker_extra_mounts+=( $( add_mount --print \
+		'/etc/portage/package.use/01_package.use.local' \
+		'/etc/portage/.package.use.override/01_package.use.local'
+	) ) || :
+
 # package.use alternatives
 #
 docker_extra_mounts+=( $( add_mount --print \
 		'%base%/etc/portage/package.use.svc/10_alternatives' \
-		'/etc/portage/package.use.override/10_alternatives'
+		'/etc/portage/.package.use.override/10_alternatives'
 	) ) || :
 
 # package.use.svc
@@ -1920,7 +1933,7 @@ esac
 if [[ -n "${package_use_svc_name:-}" ]] && docker_extra_mounts+=( $( # <- Syntax
 			add_mount --print \
 				"%base%/etc/portage/package.use.svc/${package_use_svc_name}" \
-				"/etc/portage/package.use.override/${package_use_svc_name}"
+				"/etc/portage/.package.use.override/${package_use_svc_name}"
 		) )
 then
 	have_package_use_svc_name=1
@@ -1930,7 +1943,7 @@ if (( ${#package_use_svc_name_extras[@]} )); then
 		if docker_extra_mounts+=( $( # <- Syntax
 					add_mount --print \
 						"%base%/etc/portage/package.use.svc/${package_use_svc_name_extra}" \
-						"/etc/portage/package.use.override/${package_use_svc_name_extra}"
+						"/etc/portage/.package.use.override/${package_use_svc_name_extra}"
 				) )
 		then
 			have_package_use_svc_name=1
@@ -1940,11 +1953,11 @@ fi
 if (( have_package_use_svc_name )); then
 	docker_extra_mounts+=( $( add_mount --print \
 			'%base%/etc/portage/package.use.svc/00_package.use.header' \
-			'/etc/portage/package.use.override/00_package.use.header'
+			'/etc/portage/.package.use.override/00_package.use.header'
 		) ) || :
 elif ! docker_extra_mounts+=( $( add_mount --print \
 		'%base%/etc/portage/package.use.svc/00_package.use.header' \
-		'/etc/portage/package.use.override/00_package.use'
+		'/etc/portage/.package.use.override/00_package.use'
 	) )
 then
 	note "No 'package.use' override found in" \
@@ -1959,19 +1972,26 @@ if [[ -n "${arch:-}" ]] &&
 then
 	docker_extra_mounts+=( $( add_mount --print \
 			"%base%/etc/portage/profile/use.mask.${arch}" \
-			'/etc/portage/profile/use.mask'
+			'/etc/portage/.profile.override/use.mask'
 		) ) || :
 else
 	docker_extra_mounts+=( $( add_mount --print \
-			'%base%/etc/portage/profile/use.mask'
+			'%base%/etc/portage/profile/use.mask' \
+			'/etc/portage/.profile.override/use.mask' \
 		) ) || :
 fi
 
 # package.use.force & package.use.mask
 #
 docker_extra_mounts+=( # <- Syntax
-		$( add_mount --print '%base%/etc/portage/profile/package.use.force' )
-		$( add_mount --print '%base%/etc/portage/profile/package.use.mask' )
+		$( add_mount --print \
+				'%base%/etc/portage/profile/package.use.force' \
+				'/etc/portage/.profile.override/package.use.force' 
+			)
+		$( add_mount --print \
+				'%base%/etc/portage/profile/package.use.mask' \
+				'/etc/portage/.profile.override/package.use.mask'
+			)
 	) || :
 if [[ -d '/var/lib/portage/eclass/linux-info' ]]; then
 	docker_extra_mounts+=(
@@ -2208,4 +2228,4 @@ fi
 
 exit ${rc}
 
-# vi: set colorcolumn=80 syntax=bash:
+# vi: set colorcolumn=80 foldmarker=()\ {,}\ \ #\  foldmethod=marker sw=4 ts=4 syntax=bash noexpandtab nowrap:

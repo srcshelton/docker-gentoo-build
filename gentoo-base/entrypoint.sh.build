@@ -1144,6 +1144,7 @@ do_emerge() {
 	#inherit USE ROOT
 	do_emerge_arg=''
 	do_emerge_args=''
+	#do_emerge_features=''
 	do_emerge_rc=0
 
 	for do_emerge_arg in "${@:-}"; do
@@ -1167,9 +1168,9 @@ do_emerge() {
 
 	if ! [ -f /srv/host/var/lib/portage/eclass/linux-info/.keep ]; then
 		warn
-		warn "Running emerge with ROOT='${ROOT}' without 'eclass/linux-info'" \
-			"mounted into '/srv/host/var/lib/portage' - kernel configuration" \
-			"dependencies will not be recorded"
+		warn "Running emerge with ROOT='${ROOT:-"/"}' without" \
+			"'eclass/linux-info' mounted into '/srv/host/var/lib/portage' -" \
+			"kernel configuration dependencies will not be recorded"
 		if [ -n "${debug:-}" ]; then
 			warn
 			warn "Mounts:"
@@ -1249,7 +1250,7 @@ do_emerge() {
 		unset devar
 	fi
 
-	print "Running \"emerge ${do_emerge_args}\"${USE:+" with USE='${USE}'"}" \
+	print "do_emerge: Running \"emerge ${do_emerge_args}\"${USE:+" with USE='${USE}'"}" \
 		"with ROOT='${ROOT}'"
 
 	# Not required when all arguments are quoted...
@@ -1280,6 +1281,7 @@ do_emerge() {
 	fi
 	eval "${do_emerge_str}" ||
 		do_emerge_rc=${?}
+	output "   -> ${do_emerge_rc}"
 
 	if [ $(( do_emerge_rc )) -eq 0 ]; then
 		do_emerge_dir='var/lib/portage/eclass/linux-info'
@@ -1290,7 +1292,7 @@ do_emerge() {
 			else
 				do_emerge_li='' do_emerge_f='' do_emerge_s1=0 do_emerge_s2=0
 
-				print "Looking for kernel configuration hints in" \
+				print "do_emerge: Looking for kernel configuration hints in" \
 					"'${ROOT:-}/${do_emerge_dir}/' ..."
 
 				for do_emerge_li in "${ROOT:-}/${do_emerge_dir}"/*; do
@@ -1299,11 +1301,11 @@ do_emerge() {
 					[ "${do_emerge_f}" = '.keep' ] &&
 						continue
 
-					print ".. found file '${do_emerge_f}'"
+					print " .. found file '${do_emerge_f}'"
 
 					do_emerge_s1="$( stat -c '%s' "${do_emerge_li}" )"
 					if [ -s "/srv/host/${do_emerge_dir}/${do_emerge_f}" ]; then
-						print ".... comparing to exisiting file" \
+						print " .... comparing to exisiting file" \
 							"'/srv/host/${do_emerge_dir}/${do_emerge_f}'"
 
 						do_emerge_s2="$(
@@ -1314,7 +1316,7 @@ do_emerge() {
 						do_emerge_s2=0
 					fi
 					if [ $(( do_emerge_s1 )) -ne $(( do_emerge_s2 )) ]; then
-						print ".... file size has changed, saving" \
+						print " .... file size has changed, saving" \
 							"'${do_emerge_f}'"
 
 						cp -a "${do_emerge_li}" \
@@ -1323,7 +1325,7 @@ do_emerge() {
 								"'/srv/host/${do_emerge_dir}/${do_emerge_f}':" \
 								"${?}"
 					else
-						print "...... discarding identical file"
+						print " ...... discarding identical file"
 					fi
 				done
 				unset do_emerge_s2 do_emerge_s1 do_emerge_f do_emerge_li
@@ -1331,7 +1333,8 @@ do_emerge() {
 		fi  # [ -d "${ROOT:-}/${do_emerge_dir}/" ]
 	fi  # [ $(( do_emerge_rc )) -eq 0 ]
 
-	unset do_emerge_args
+	unset do_emerge_args do_emerge_arg
+
 	return ${do_emerge_rc}
 }  # do_emerge
 
@@ -1496,7 +1499,7 @@ fi
 # Update: It's because PORTDIR in /etc/portage/make.conf overrides anything in
 #         /etc/portage/repos.conf
 #
-repo_name=''
+repo_path=''
 if sed 's/#.*$//' /etc/portage/make.conf |
 		grep -Fq -- 'PORTDIR='
 then
@@ -1516,7 +1519,7 @@ fi
 
 # Let's symlink the actual location back regardless...
 #
-repo_path=''
+repo_name=''
 : $(( created = 0 )) || :
 for repo_name in $( portageq get_repos '/' ); do
 	if ! [ -s "/etc/portage/repos.conf/${repo_name}.conf" ]; then
@@ -1571,6 +1574,26 @@ if [ -s "${environment_file}" ] && ! [ -s /etc/portage/make.conf ]; then
 	. "${environment_file}" ||
 		die "gentoo-build:entrypoint.sh Unable to source" \
 			"'${environment_file}': ${?}"
+fi
+
+if [ -f /etc/env.d/50baselayout ] && [ -s /etc/env.d/50baselayout ]; then
+	changed=0
+	if ! grep -q -- 'PATH.*[":]/sbin[":]' /etc/env.d/50baselayout; then
+		sed -e '/PATH/s|:/opt/bin"|:/sbin:/opt/bin"|' \
+			-i /etc/env.d/50baselayout
+		changed=1
+	fi
+	if ! grep -q -- 'PATH.*[":]/bin[":]' /etc/env.d/50baselayout; then
+		sed -e '/PATH/s|:/opt/bin"|:/bin:/opt/bin"|' \
+			-i /etc/env.d/50baselayout
+		changed=1
+	fi
+	if [ $(( changed )) -eq 1 ]; then
+		cp /etc/ld.so.conf /etc/ld.so.conf.saved
+		LC_ALL='C' env-update || :
+		mv /etc/ld.so.conf.saved /etc/ld.so.conf
+	fi
+	unset changed
 fi
 
 # shellcheck disable=SC1091
@@ -1643,14 +1666,14 @@ if [ -n "${debug:-}" ]; then
 fi
 COLLISION_IGNORE="$( echo "${COLLISION_IGNORE:-"/lib/modules/*"}
 		/bin/cpio
+		/etc/env.d/04gcc-*
+		/etc/env.d/gcc/config-*
 		/usr/bin/awk
 		/usr/bin/bc
 		/usr/bin/dc
 		/usr/bin/lexx
 		/usr/bin/ninja
 		/usr/bin/yacc
-		/etc/env.d/04gcc-x86_64-pc-linux-gnu
-		/etc/env.d/gcc/config-x86_64-pc-linux-gnu
 		/usr/lib/locale/locale-archive
 		/var/lib/portage/home/*
 		${service_root}/bin/*
@@ -1905,93 +1928,223 @@ if [ $(( no_use )) -ne 0 ]; then
 	fi
 fi
 
-# We currently support two methods of portage configuration override:
+# We currently support four methods of portage configuration override:
 #
-#  /etc/portage/<conf>.override/file replaces /etc/portage/<conf>/file
-#  /etc/portage/<conf>.override/file.header prepended to
+#  /etc/portage/[.]?<conf>.override replaces /etc/portage/<conf>
+#  /etc/portage/[.]?<conf>.header.override prepended to /etc/portage/<conf>
+#  /etc/portage/[.]?<conf>.override/file replaces /etc/portage/<conf>/file
+#  /etc/portage/[.]?<conf>.override/file.header prepended to
 #    /etc/portage/<conf>/file
 #
 # ... others may be added as necessary.
 #
-override_dir='' target_dir='' override_file=''
+override='' target='' override_dir='' target_dir='' override_file=''
 find '/etc/portage/' \
 		-mindepth 1 -maxdepth 1 \
-		-type d \
 		-name '*.override' \
 		-print |
-	while read -r override_dir
+	while read -r override
 do
-	target_dir="$( echo "${override_dir}" | sed 's/\.override$//' )"
+	if [ -f "${override}" ]; then
+		[ -s "${override}" ] || continue
 
-	if [ -e "${target_dir}" ]; then
-		warn "Files deployed from '${override_dir}' will update or replace" \
-			"files in '${target_dir}' ..."
-	fi
+		target="$( dirname "${override}" )/$( #<- Syntax
+				basename "${override}" |
+					sed 's/^\.// ; s/\.override$//'
+			)"
 
-	find "${override_dir}/" \
-			-mindepth 1 -maxdepth 1 \
-			-type f \
-			-not -name '*.header' \
-			-print |
-		while read -r override_file
-	do
-		override_file="$( basename "${override_file}" )"
-		[ -d "${target_dir}" ] ||
-			mkdir -p "${target_dir}"
-		if [ -f "${target_dir}/${override_file}" ]; then
-			info "Overwriting file '${target_dir}/${override_file}' with" \
-				"data from '${override_dir}/${override_file}' ..."
-		elif [ -e "${target_dir}/${override_file}" ]; then
-			warn "Replacing non-file object" \
-				"'${target_dir}/${override_file}' with file" \
-				"'${override_dir}/${override_file}' ..."
-		else
-			print "Adding new file '${override_dir}/${override_file}' as" \
-				"'${target_dir}/${override_file}' ..."
+		if [ $(( debug )) -ne 0 ] && [ -e "${target}" ]; then
+			warn "'${override}' will update or replace '${target%".header"}'" \
+				"..."
 		fi
-		[ -e "${target_dir}/${override_file}" ] &&
-			rm -rf "${target_dir:?}/${override_file}"
-		cp -a "${override_dir}/${override_file}" "${target_dir}/" ||
-			die "File copy from '${override_dir}/${override_file}' to" \
-				"'${target_dir}/' failed: ${?}"
-	done  # override_file
 
-	find "${override_dir}/" \
-			-mindepth 1 -maxdepth 1 \
-			-type f \
-			-name '*.header' \
-			-print |
-		while read -r override_file
-	do
-		override_file="$( basename "${override_file%".header"}" )"
-		[ -d "${target_dir}" ] ||
-			mkdir -p "${target_dir}"
-		if ! [ -e "${target_dir}/${override_file}" ]; then
-			warn "No source file for header" \
-				"'${override_dir}/${override_file}.header', deploying as new" \
-				"file ..."
-			cp -a "${override_dir}/${override_file}.header" \
-					"${target_dir}/${override_file}" ||
-				die "File copy from '${override_dir}/${override_file}.header'" \
-					"to '${target_dir}/${override_file}' failed: ${?}"
-		elif ! [ -f "${target_dir}/${override_file}" ]; then
-			die "Could not append to '${target_dir}/${override_file}', which" \
-				"exists but is not a file"
-		else
-			if ! cat "${override_dir}/${override_file}.header" \
-					"${target_dir}/${override_file}" > \
-					"${target_dir}/${override_file}.new" &&
-				mv "${target_dir}/${override_file}.new" \
-						"${target_dir}/${override_file}"
-			then
-				die "Could not append" \
-					"'${override_dir}/${override_file}.header' to existing" \
-					"file '${target_dir}/${override_file}': ${?}"
+		if [ "${target%".header"}" = "${target}" ]; then
+			# File '${target}' does *not* end in '.header' ...
+			target_dir="$( dirname "${target}" )"
+			override_file="$( basename "${target}" )"
+			[ -d "${target_dir}" ] ||
+				mkdir -p "${target_dir}"
+			if [ -f "${target_dir}/${override_file}" ]; then
+				if diff -q \
+						"${override}" \
+						"${target_dir}/${override_file}" \
+							>/dev/null 2>&1
+				then
+					print "Original file '${target_dir}/${override_file}'" \
+						"and replacement '${override}' are identical, skipping"
+					continue
+				fi
+				info "Overwriting file '${target_dir}/${override_file}' with" \
+					"'${override}' from host ..."
+			elif [ -e "${target_dir}/${override_file}" ]; then
+				warn "Replacing non-file object" \
+					"'${target_dir}/${override_file}' with file" \
+					"'${override}' ..."
+			else
+				print "Adding '${override}' as new file" \
+					"'${target_dir}/${override_file}' ..."
+			fi
+			[ -e "${target_dir}/${override_file}" ] &&
+				rm -rf "${target_dir:?}/${override_file}"
+			cp -a "${override}" "${target_dir}/${override_file}" ||
+				die "File copy from '${override}' to" \
+					"'${target_dir}/${override_file}' failed: ${?}"
+		else  # [ "${target%".header"}" != "${target}" ]
+			# File '${target}' *does* end in '.header' ...
+			target_dir="$( dirname "${target}" )"
+			override_file="$( basename "${target%".header"}" )"
+			[ -d "${target_dir}" ] ||
+				mkdir -p "${target_dir}"
+			if ! [ -e "${target_dir}/${override_file}" ]; then
+				warn "No pre-existing source file for header" \
+					"'${override}', deploying as new file" \
+					"'${target_dir}/${override_file}' ..."
+				cp -a "${override}" \
+						"${target_dir}/${override_file}" ||
+					die "File copy from" \
+						"'${override}' to" \
+						"'${target_dir}/${override_file}' failed: ${?}"
+			elif ! [ -f "${target_dir}/${override_file}" ]; then
+				die "Could not append to '${target_dir}/${override_file}'," \
+					"which exists but is not a file"
+			else
+				if ! cat "${override}" \
+						"${target_dir}/${override_file}" > \
+						"${target_dir}/${override_file}.new" &&
+					mv "${target_dir}/${override_file}.new" \
+							"${target_dir}/${override_file}"
+				then
+					die "Could not append" \
+						"'${override}' to existing file" \
+						"'${target_dir}/${override_file}': ${?}"
+				fi
 			fi
 		fi
-	done  # override_file
-done  # override_dir
-unset override_file target_dir override_dir
+	else  # ! [ -f "${override}" ]
+		override_dir="${override}"
+		target_dir="$( dirname "${override_dir}" )/$(
+				basename "${override_dir}" |
+					sed 's/^.// ; s/\.override$//'
+			)"
+
+		if [ $(( debug )) -ne 0 ] && [ -e "${target_dir}" ]; then
+			warn "Files deployed from '${override_dir}' will update or" \
+				"replace files in '${target_dir}' ..."
+		fi
+
+		find "${override_dir}/" \
+				-mindepth 1 -maxdepth 1 \
+				-type f \
+				-not -name '*.header' \
+				-print |
+			while read -r override_file
+		do
+			[ -s "${override_file}" ] || continue
+
+			override_file="$( basename "${override_file}" )"
+			[ -d "${target_dir}" ] ||
+				mkdir -p "${target_dir}"
+			if [ -f "${target_dir}/${override_file}" ]; then
+				if diff -q \
+						"${override_dir}/${override_file}" \
+						"${target_dir}/${override_file}" \
+							>/dev/null 2>&1
+				then
+					print "Original file '${target_dir}/${override_file}'" \
+						"and replacement '${override_dir}/${override_file}'" \
+						"are identical, skipping"
+					continue
+				fi
+				info "Overwriting file '${target_dir}/${override_file}' with" \
+					"'${override_dir}/${override_file}' from host ..."
+			elif [ -e "${target_dir}/${override_file}" ]; then
+				warn "Replacing non-file object" \
+					"'${target_dir}/${override_file}' with file" \
+					"'${override_dir}/${override_file}' ..."
+			else
+				print "Adding new file '${override_dir}/${override_file}' as" \
+					"'${target_dir}/${override_file}' ..."
+			fi
+			[ -e "${target_dir}/${override_file}" ] &&
+				rm -rf "${target_dir:?}/${override_file}"
+			cp -a "${override_dir}/${override_file}" "${target_dir}/" ||
+				die "File copy from '${override_dir}/${override_file}' to" \
+					"'${target_dir}/' failed: ${?}"
+		done  # override_file
+
+		find "${override_dir}/" \
+				-mindepth 1 -maxdepth 1 \
+				-type f \
+				-name '*.header' \
+				-print |
+			while read -r override_file
+		do
+			[ -s "${override_file}" ] || continue
+
+			override_file="$( basename "${override_file%".header"}" )"
+			[ -d "${target_dir}" ] ||
+				mkdir -p "${target_dir}"
+			if ! [ -e "${target_dir}/${override_file}" ]; then
+				warn "No pre-existing source file for header" \
+					"'${override_dir}/${override_file}.header', deploying as" \
+					"new file ..."
+				cp -a "${override_dir}/${override_file}.header" \
+						"${target_dir}/${override_file}" ||
+					die "File copy from" \
+						"'${override_dir}/${override_file}.header' to" \
+						"'${target_dir}/${override_file}' failed: ${?}"
+			elif ! [ -f "${target_dir}/${override_file}" ]; then
+				die "Could not append to '${target_dir}/${override_file}'," \
+					"which exists but is not a file"
+			else
+				if ! cat "${override_dir}/${override_file}.header" \
+						"${target_dir}/${override_file}" > \
+						"${target_dir}/${override_file}.new" &&
+					mv "${target_dir}/${override_file}.new" \
+							"${target_dir}/${override_file}"
+				then
+					die "Could not append" \
+						"'${override_dir}/${override_file}.header' to" \
+						"existing file '${target_dir}/${override_file}': ${?}"
+				fi
+			fi
+		done  # override_file
+	fi # if ! [ -f "${override}" ]
+done  # override
+unset target_dir override_dir override
+
+# We need to know what architecture we're running on for this to work...
+case "$( uname -m )" in
+	'aarch64')	arch='arm64' ;;
+	'x86_64')	arch='amd64' ;;
+	*)			arch="$( uname -m )" ;;
+esac
+# FIXME: Is the 'package' qualifier too restrictive?
+find '/etc/portage/' \
+		-mindepth 1 -maxdepth 1 \
+		-type f \
+		-name "package.*.${ARCH:-"${arch}"}" \
+		-or \
+		-name ".package.*.${ARCH:-"${arch}"}" \
+		-print |
+	while read -r override_file
+do
+	[ -s "${override_file}" ] || continue
+
+	target="$( dirname "${override_file}" )/$(
+			basename "${override_file}" |
+				sed 's/^.//'
+		)"
+	mkdir -p "'${target%".${ARCH:-"${arch}"}"}"
+	print "Redeploying file '${override_file}' as" \
+		"'${target%".${ARCH:-"${arch}"}"}/$( basename "${target}" )"
+	# override_file is likely a mountpoint, so don't try to 'mv' it ...
+	cat "${override_file}" > \
+			"${target%".${ARCH:-"${arch}"}"}/$( basename "${target}" )" ||
+		die "copy failed from '${override_file}' to" \
+			"'${target%".${ARCH:-"${arch}"}"}/$( basename "${target}" )"
+done
+unset override_file target
 
 if command -v pypy3 >/dev/null 2>&1; then
 	print "Enabling pypy3 support for portage ..."
