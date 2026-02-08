@@ -163,6 +163,11 @@ RUN <<-'EOT' /bin/sh
 
 	set -o pipefail 2>/dev/null || true
 
+	if [ -s /etc/profile.d/00-prompt-command.sh ]; then
+		sed -e '/BASH/ s|\[ "${BASH}" \]|[ -n "${BASH:-}" ]|' \
+			-i /etc/profile.d/00-prompt-command.sh
+	fi
+
 	test -s "${environment_file}" && . "${environment_file}" || {
 		echo >&2 "FATAL: Unable to source '${environment_file}': ${?}"
 		exit 1

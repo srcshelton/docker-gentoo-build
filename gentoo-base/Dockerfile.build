@@ -149,6 +149,9 @@ ENV PORTAGE_CONFIGROOT="${SYSROOT}"
 RUN set -e ; \
     [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
     { set -o pipefail 2>/dev/null || true ; } ; \
+    test -s /etc/profile.d/00-prompt-command.sh && \
+        sed -e '/BASH/ s|\[ "${BASH}" \]|[ -n "${BASH:-}" ]|' \
+            -i /etc/profile.d/00-prompt-command.sh ; \
     test -s "${environment_file}" && \
         . "${environment_file}" || \
         { \
