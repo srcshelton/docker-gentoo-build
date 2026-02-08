@@ -99,6 +99,7 @@ sys-libs/zlib				 ZLIB
 # Optional packages:
 #
 
+app-containers/podman-tui		 MPL-2.0
 dev-go/golangci-lint			 MPL-2.0
 net-nds/openldap			 OPENLDAP
 sci-libs/mkl				 ISSL

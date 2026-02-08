@@ -145,12 +145,17 @@
 #~app-containers/podman-5.7.0				~amd64 ~arm ~arm64 ~x86
 ~app-containers/podman-5.7.1				~amd64 ~arm ~arm64 ~x86
 
+#~app-containers/podman-tui-0.12.0			~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-tui-0.14.0			~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-tui-0.17.0			~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-tui-0.18.0			~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-tui-1.0.0			~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-tui-1.0.1			~amd64 ~arm ~arm64 ~x86
-~app-containers/podman-tui-1.1.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-tui-1.1.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-tui-1.4.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-tui-1.5.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/podman-tui-1.6.1			~amd64 ~arm ~arm64 ~x86
+~app-containers/podman-tui-1.9.0			~amd64 ~arm ~arm64 ~x86
 
 # move app-emulation/buildah app-containers/buildah
 #~app-containers/buildah-1.16.0				~amd64 ~arm ~arm64 ~x86
