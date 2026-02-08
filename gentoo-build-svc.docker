@@ -1845,7 +1845,7 @@ if \
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
 				'%base%/etc/portage/package.mask.svc' \
-				'/etc/portage/.package.mask.svc.override' \
+				'/etc/portage/.package.mask.svc.override'
 			) )
 then
 	note "No 'package.mask' override found in" \
@@ -1858,7 +1858,7 @@ unset package_mask_svc_name
 if \
 		! docker_extra_mounts+=( $( add_mount --print \
 				"%base%/etc/portage/package.mask/${package_name#*"."}" \
-				"/etc/portage/.package.mask.override/${package_name#*"."}" \
+				"/etc/portage/.package.mask.override/${package_name#*"."}"
 			) ) &&
 		! docker_extra_mounts+=( $( add_mount --print \
 				'%base%/etc/portage/package.mask/package.mask' \
@@ -1977,7 +1977,7 @@ then
 else
 	docker_extra_mounts+=( $( add_mount --print \
 			'%base%/etc/portage/profile/use.mask' \
-			'/etc/portage/.profile.override/use.mask' \
+			'/etc/portage/.profile.override/use.mask'
 		) ) || :
 fi
 
@@ -2202,7 +2202,7 @@ fi
 # produce the service-container image.
 #
 # shellcheck disable=SC2046
-docker $( add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT}" ) \
+docker $( add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT:-}" ) \
 		image build "${args[@]}" . 2>&1 |
 	tee "${log_dir}/service.${alt_log:-"${container_name}"}.log"
 rc=${?}
