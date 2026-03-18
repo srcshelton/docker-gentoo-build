@@ -15,8 +15,10 @@ dev-scheme/guile			 deprecated
 #net-analyzer/netdata			 aclk ap apcups bind bpf cloud +compression cups +dbengine dhcp dovecot +go ipmi +jsonc lxc mongodb mysql nfacct nginx nodejs nvme podman postfix postgres prometheus +python qos sensors smart systemd tor xen
 # 2.x.x:
 #net-analyzer/netdata			 ap apcups -beanstalkd bind bpf +compression cups +dashboard +dbengine dhcp dovecot +go ipmi +jsonc lto lxc mongodb mysql nfacct nginx nodejs nvme podman postfix postgres prometheus +python qos sensors smart snmp systemd tor xen
+# 2.8.x+:
+#net-analyzer/netdata			 ap apcups -beanstalkd bind bpf +compression cups +dashboard +dbengine debug demo dhcp dovecot filecaps firehol +go ipmi ipset +jsonc lto lxc machine-learning mongodb mysql nfacct nginx nodejs nvme opentelemetry podman postfix postgres prometheus +python qos sensors smart snmp systemd tor xen
 #
-net-analyzer/netdata			-postfix aclk apcups bind bpf cloud compression dashboard dbengine dhcp dovecot go ipmi jsonc lto mysql nfacct nodejs nvme podman python qos sensors smart snmp
+net-analyzer/netdata			-lto -postfix aclk apcups bind bpf cloud compression dashboard dbengine dhcp dovecot go ipmi jsonc machine-learning mysql nfacct nodejs nvme podman python qos sensors smart snmp
 
 net-analyzer/tcpdump			 suid
 #net-libs/libwebsockets			 access-log caps cgi client dbus extensions generic-sessions http-proxy http2 (+ipv6) +lejp libev libevent libuv mbedtls peer-limits server-status smtp socks5 sqlite3 (+ssl) (+threads) zip
