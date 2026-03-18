@@ -3368,7 +3368,7 @@ case "${1:-}" in
 							USE="${USE} $( # <- Syntax
 									echo " ${use_essential_gcc} " |
 										sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
-								) lto pgo"
+								)"
 						else
 							USE="${USE} ${use_essential_gcc}"
 						fi
