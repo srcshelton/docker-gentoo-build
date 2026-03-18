@@ -1,0 +1,46 @@
+# See https://wiki.gentoo.org/wiki//etc/portage/bashrc
+#
+# N.B. Do not rely on use of the EBUILD_PHASE or EBUILD_PHASE_FUNC variables.
+#      Their value in global scope is not supposed to be the name of a phase.
+#      See https://bugs.gentoo.org/908552
+#
+# N.B. Defining a function without a pre_ or post_ prefix, e.g. a function
+#      named pkg_postinst, would override the default expected eclass
+#      implementations.
+#
+# Available variables:
+#
+# CATEGORY, CFLAGS, COMMON_FLAGS, CXXFLAGS, D, EBUILD, LDFLAGS, MAKEOPTS, S, T,
+# P, PF, PN, PR, PV, PVR
+#
+
+_reduce_optimisation() {
+	local -r min_file='minimal_optimisation.conf'
+	local -r configroot="${SYSROOT:-"${PORTAGE_CONFIGROOT:-}"}/etc/portage"
+
+	if [[ "$( uname -m )" == 'aarch64' ]]; then
+		if \
+				[[ "${CATEGORY:-}" == 'llvm-'* ]] ||
+				[[ "${CATEGORY:-}" == 'sys-devel' ]] ||
+				[[ "${CATEGORY:-}/${PN}" == 'sys-libs/binutils-libs' ]]
+		then
+			if ! [[ -s "${configroot}/env/${min_file}" ]]
+			then
+				die "'${configroot}/env/${min_file}' is missing or empty"
+			fi
+
+			ewarn "Minimising compiler flags to avoid build failures ..."
+			. "${configroot}/env/${min_file}" ||
+				die "Sourcing '${min_file}' failed: ${?}"
+		fi
+	fi
+
+	return 0
+}  # _reduce_optimisation
+
+pre_src_configure() {
+	_reduce_optimisation ||
+		die "_reduce_optimisation() failed: ${?}"
+}  # pre_src_configure
+
+# vi: set syntax=bash:
