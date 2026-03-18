@@ -7,12 +7,16 @@ dev-libs/cyrus-sasl			 gdbm srp urandom
 #mail-mta/postfix			+berkdb cdb dovecot-sasl +eai hardened ldap ldap-bind lmdb memcached mbox mysql nis pam postgres sasl selinux sqlite (+ssl)
 mail-mta/postfix			 berkdb cdb dovecot-sasl eai lmdb mbox memcached sasl sqlite
 
+# Since dovecot-2.4.0, if any plugin (e.g. sieve) is enabled in
+# /etc/dovecot/dovecot.conf then it must also be enabled here, otherwise the
+# dovecot configuration check performed when attempting to start postfix will
+# fail...
+#
 #net-mail/dovecot			 argon2 bzip2 caps doc (+ipv6) kerberos ldap lua lucene lz4 lzma managesieve mysql pam postgres selinux sieve solr sqlite static-libs suid tcpd textcat unwind vpopmail (+zlib)
-net-mail/dovecot			 caps sieve
+net-mail/dovecot			 caps pam sieve
+net-mail/mailbase			 pam
 
 mail-filer/maildrop			 dovecot fam
-
-#net-mail/mailbase			 pam
 
 acct-user/postfix			 milter opendkim
 
