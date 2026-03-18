@@ -2,7 +2,7 @@
 # General USE flags:
 #
 
-#*/*					-* asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
+#*/*					-* asm [cet] ipv6 perl_features_ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
 */*					-* pie split-usr
 
 #*/*					 ADA_TARGET: gcc_14
@@ -44,6 +44,7 @@ app-crypt/gnupg				-smartcard -tofu
 #dev-lang/perl				 ithreads
 dev-lang/python-exec			 native-symlinks
 dev-lang/python				 ssl xml
+dev-libs/elfutils			-debuginfod -libarchive
 dev-libs/libgcrypt			 getentropy
 dev-libs/nettle				 gmp
 dev-util/pkgconf			 pkg-config
@@ -61,6 +62,7 @@ sys-apps/texinfo			 standalone
 sys-apps/util-linux			-pam -su  # conflicts sys-apps/shadow[su]
 #sys-auth/pambase			-passwdqc pwquality  # Has many dependencies, python ones are fragile...
 sys-auth/pambase			 passwdqc -pwquality
+>=sys-devel/binutils-2.44		-debuginfod xxhash -pgo  # xxhash and pgo are mutually exclusive
 sys-libs/glibc				 clone3
 sys-libs/ncurses			 unicode
 sys-process/audit			-python  # incompatible with python:3.12, requires dev-lang/swig but only as a DEPEND

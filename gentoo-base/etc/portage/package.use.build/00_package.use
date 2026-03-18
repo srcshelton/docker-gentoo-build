@@ -19,10 +19,10 @@
 # General USE flags:
 #
 
-#*/*					-* asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
+#*/*					-* asm [cet] ipv6 perl_features_ithreads ktls mdev multiarch native-extensions nptl split-usr ssp threads ${use_cpu_flags}  # from 'use_essential'
 */*					-apache2 -awt acpi adns aio ao asm audit
 */*					-berkdb bash-completion bzip2
-*/*					-cairo -cdb -cet -common-lisp -cups caps chroot curl cxx
+*/*					-cairo -cdb -common-lisp -cups caps chroot curl cxx
 */*					-dbi
 */*					 encode expat
 */*					-fontconfig fam fftw filecaps ftp
@@ -278,7 +278,7 @@ sys-block/parted			 device-mapper
 sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
 sys-cluster/galera			 garbd
 #sys-devel/bc				-libedit
->=sys-devel/binutils-2.44		-xxhash pgo  # mutually exclusive
+>=sys-devel/binutils-2.44		 xxhash -pgo  # xxhash and pgo are mutually exclusive
 #sys-devel/gcc				 go mudflap
 # gccgo from gcc-6.4.0 tries to include a deprecated glibc header, ustat.h, and fails.
 #~sys-devel/gcc-6.4.0			-go

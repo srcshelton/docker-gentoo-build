@@ -46,5 +46,5 @@ dev-util/pkgconf			 pkg-config
 net-misc/curl				-adns -ares -http2 -httpsrr openssl ssl
 sys-apps/busybox			-savedconfig
 sys-apps/portage			-rsync-verify
-sys-devel/gcc				-cet -nls default-stack-clash-protection default-znow lto pgo ssp zstd
+sys-devel/gcc				-nls default-stack-clash-protection default-znow lto pgo ssp zstd
 sys-libs/glibc				 clone3 compile-locales minimal multiarch ssp timezone-tools

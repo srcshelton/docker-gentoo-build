@@ -319,7 +319,28 @@ get_stage3() {
 		# apply to multiple packages, but can (problematically) only be present
 		# for one package per installation ROOT...
 		get_result="$( # <- Syntax
-				get_exclude='cet|cpudetection|egrep-fgrep|ensurepip|hostname|installkernel|kill|pcre16|pcre32|pop3|qmanifest|qtegrity|smartcard|su|test-rust|tmpfiles|tofu'
+				# 'cet' is a post-2020 feature on Intel and Zen 3+ AMD CPUs.
+				#
+				# However, the same flag enables the
+				# '--enable-standard-branch-protection' flag when building
+				# sys-devel/gcc on arm64 platforms, so we don't want to
+				# unilaterally exclude it (on arm, at least) – and even
+				# disabling the feature on amd64 is a minor optimisation for
+				# older (pre-2020) processors.
+				#
+				get_exclude=''
+				case "$( # <- Syntax
+						echo "${ARCH:-"${arch:-}"}" |
+							tr '[:upper:]' '[:lower:]'
+					)" in
+						'amd64')
+							if ! grep -Fiqw 'cet' /proc/cpuinfo; then
+								get_exclude='cet|'
+							fi
+							;;
+				esac
+				# net-mail/dovecot now depends on dev-libs/libpcre2[pcre32]...
+				get_exclude="${get_exclude:-}cpudetection|egrep-fgrep|ensurepip|hostname|installkernel|kill|pcre16|pcre32|pop3|qmanifest|qtegrity|smartcard|su|test-rust|tmpfiles|tofu"
 				echo "${get_result}" |
 					xargs -rn 1 |
 					grep -Ev "^(${get_exclude})$" |
@@ -1669,6 +1690,12 @@ if [ -f /etc/env.d/50baselayout ] && [ -s /etc/env.d/50baselayout ]; then
 	unset changed
 fi
 
+# As-of 17/02/2026 (eaffbac), dev-libs/elfutils installs an
+# /etc/profile/debuginfod.sh which triggers an 'unbound variable' error when
+# /etc/profile is sourced with 'set -u'.
+#
+find /etc/profile.d/ -name 'debuginfod.*' -type f -delete
+
 # shellcheck disable=SC1091
 [ -s /etc/profile ] && . /etc/profile
 
@@ -1959,9 +1986,11 @@ unset target_dir override_dir override
 find '/etc/portage/' \
 		-mindepth 1 -maxdepth 1 \
 		-type f \
-		-name "package.*.${ARCH:-"${arch}"}" \
-		-or \
-		-name ".package.*.${ARCH:-"${arch}"}" \
+		\( \
+			-name "package.*.${ARCH:-"${arch}"}" \
+			-or \
+			-name ".package.*.${ARCH:-"${arch}"}" \
+		\) \
 		-print |
 	while read -r override_file
 do
@@ -2198,6 +2227,18 @@ if [ -n "${CFLAGS:-}${CXXFLAGS:-}" ]; then
 			)" || :
 	fi
 fi
+
+# >=sys-apps/locale-gen-3 is currently masked as it causes 'localedef' to fail
+# with:
+#
+#  locale-gen: Aborting because the execution of 'localedef' was unsuccessful
+#
+# ... until we fix this, let's remove it early (to avoid masked-package
+# warnings throughout the rest of the build) to allow an alternative to be
+# pulled-in later.
+#
+do_emerge --depclean-defaults '>=sys-apps/locale-gen-3' ||
+	do_emerge --unmerge-defaults '>=sys-apps/locale-gen-3' || :
 
 # As-of sys-libs/zlib-1.2.11-r3, zlib builds without error but then the portage
 # merge process aborts with 'unable to read SONAME from libz.so' in src_install
@@ -2763,7 +2804,7 @@ output " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 	(
 		# sys-libs/glibc and sys-devel/gcc are now required to have the same
 		# 'cet' USE flag state, and upstream builds force this flag on for
-		# amd64 - so we do either build both here (which is non-ideal for a
+		# amd64 - so we either build both here (which is non-ideal for a
 		# throw-away package given how long sys-devel/gcc takes to build), add
 		# USE='cet' or exclude glibc.
 		#
@@ -2860,6 +2901,7 @@ output " * Installing stage3 'sys-kernel/gentoo-sources' kernel source" \
 		USE="${USE} ${use_essential}" \
 	do_emerge --single-defaults virtual/os-headers
 
+		USE='-libarchive symlink' \
 	do_emerge --single-defaults sys-kernel/gentoo-sources
 )
 

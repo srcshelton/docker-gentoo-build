@@ -155,6 +155,8 @@ services=(
 	unifi94
 	unifi95
 	unifi100
+	unifi101
+	unifi102
 	vim
 	watchdog
 	xmrig
@@ -191,7 +193,7 @@ else
 	eval "$( # <- Syntax
 		# shellcheck disable=SC2034
 		[[ -n "${LDFLAGS:-}" ]] || case "${arch:-"$( uname -m )"}" in
-			amd64|ppc64|x86)
+			'amd64'|'ppc64'|'x86'*)
 				LDFLAGS='-Wl,-O1 -Wl,--as-needed -Wl,-z,pack-relative-relocs'
 				;;
 			*)
@@ -647,6 +649,10 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-9.5*' ;;
 	unifi100|unifi-controller100|unifi-controller-100|unifi-controller-bin100|unifi-controller-bin-100)
 		service='=net-misc/unifi-controller-bin-10.0*' ;;
+	unifi101|unifi-controller101|unifi-controller-101|unifi-controller-bin101|unifi-controller-bin-101)
+		service='=net-misc/unifi-controller-bin-10.1*' ;;
+	unifi102|unifi-controller102|unifi-controller-102|unifi-controller-bin102|unifi-controller-bin-102)
+		service='=net-misc/unifi-controller-bin-10.2*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
@@ -1187,6 +1193,8 @@ case "${package_name}" in
 			sys-apps/help2man
 			acct-group/hugetlb
 			acct-group/postfix
+			acct-user/dovecot
+			acct-user/dovenull
 			acct-user/memcached
 			acct-user/postfix
 			dev-build/automake
@@ -1682,10 +1690,26 @@ if [[ -z "${post_use:-}" && -n "${with_use:-}" ]]; then
 	post_use="$( replace_flags 'lib-only' 'openmp' -- "${with_use}" )"
 fi
 
+case "${ARCH:-"${arch:-"$( uname -m )"}"}" in
+	'amd64'|'x86_64')
+		if ! grep -Fiqw 'cet' /proc/cpuinfo; then
+			pre_use="$( replace_flags '-cet' -- "${pre_use}" )"
+			with_use="$( replace_flags '-cet' -- "${with_use}" )"
+			post_use="$( replace_flags '-cet' -- "${post_use}" )"
+		fi
+		;;
+esac
+if ! [[ " ${pre_use} ${with_use} ${post_use} " == *'-cet '*'-cet '*'-cet '* ]]
+then
+	pre_use="$( replace_flags 'cet' -- "${pre_use}" )"
+	with_use="$( replace_flags 'cet' -- "${with_use}" )"
+	post_use="$( replace_flags 'cet' -- "${post_use}" )"
+fi
+
 if echo " ${use_essential:-} ${use_essential_gcc:-}" \
 			"${pre_use:-} ${with_use:-} ${post_use:-}" \
 			"${gcc_extra_use_flags:-} " |
-		grep -Fqe ' compile-locales ' -e ' minimal '
+		grep -Fq -e ' compile-locales ' -e ' minimal '
 then
 	pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}sys-libs/glibc"
 	extra_pkgs="${extra_pkgs:+"${extra_pkgs} "}sys-libs/glibc"

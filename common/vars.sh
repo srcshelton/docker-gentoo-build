@@ -705,10 +705,18 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 		)"
 	fi
 	case "${use_cpu_arch:-"x86"}" in
+		amd64)
+			if grep -Fiqw 'cet' /proc/cpuinfo; then
+				use_cpu_flags="cet${use_cpu_flags:+" ${use_cpu_flags}"}"
+			fi
+			;;
 		arm)
 			if [ -z "${target_arch:-}" ]; then
 				cc_target_opts="${cc_target_opts:+"${cc_target_opts} "}-mfloat-abi=hard"
 			fi
+			;;
+		arm64)
+			use_cpu_flags="cet${use_cpu_flags:+" ${use_cpu_flags}"}"
 			;;
 	esac
 	export use_cpu_arch use_cpu_flags use_cpu_flags_raw \
@@ -731,14 +739,17 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#          'postfix' in their own container rather than any container-local
 	#          binaries) then we may wish not to force this flag here...
 	#
-	#  dev-lang/perl:	    perl_features_ithreads
-	#  dev-libs/openssl:    asm ktls ~tls-heartbeat~ ~zlib~
-	#  net-misc/curl:	   ~curl_ssl_openssl~
-	#  sys-apps/busybox:    mdev
-	#  sys-apps/portage:    native-extensions
-	# (sys-devel/gcc:	   ~nptl~ ssp)
-	#  sys-libs/glibc	    multiarch ssp
-	# (General:			    ipv6 ~openssl~ split-usr ~ssl~ threads)
+	#  dev-lang/perl:			 perl_features_ithreads
+	#  dev-libs/openssl:		 asm ktls ~tls-heartbeat~ ~zlib~
+	#  llvm-core/clang-common:	[cet]
+	#  net-misc/curl:			~curl_ssl_openssl~
+	#  sys-apps/busybox:		 mdev
+	#  sys-apps/portage:		 native-extensions
+	#  sys-devel/binutils		[cet]
+	# (sys-devel/gcc:			[cet] ~nptl~ ssp)
+	#  sys-libs/binutils-libs	[cet]
+	#  sys-libs/glibc			[cet] multiarch ssp
+	# (General:					 ipv6 ~openssl~ split-usr ~ssl~ threads)
 	#
 	use_essential="${rpi_model:+"raspberrypi ${rpi_model} "}asm ipv6 perl_features_ithreads ktls mdev multiarch native-extensions split-usr ssp threads${use_cpu_flags:+" ${use_cpu_flags}"}"
 	export use_essential
