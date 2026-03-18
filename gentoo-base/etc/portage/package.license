@@ -20,6 +20,8 @@ app-alternatives/*			 CC0-1.0
 # System packages:
 #
 
+sys-firmware/cix-sky1-firmware		 Arm-Mali
+
 app-arch/xz-utils			 0BSD CC-BY-SA-4.0
 app-crypt/rhash				 0BSD
 app-containers/netavark			 0BSD Apache-2.0-with-LLVM-exceptions BSD-2-with-patent Boost-1.0 Unicode-DFS-2016 Unlicense ZLIB
