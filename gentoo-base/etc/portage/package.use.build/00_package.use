@@ -34,7 +34,7 @@
 */*					 mariadb mbox mdev memcached mmap mpfr mysql mysqli
 */*					 ncurses network nfs nntp nptl  # nls
 */*					 odbc openmp openssl
-*/*					-pango -policykit pcre perl pgo php pie  # python
+*/*					-pango -policykit pcre pgo php pie  # perl python
 */*					 readline rpc
 */*					-samba -sasl -slang -smartcard -source -startup-notification sctp
 */*					 seccomp server slp smtp snmp spell split-usr sql sqlite ssl syslog
@@ -125,6 +125,7 @@ dev-lang/rust-bin			 rustfmt  # 'rustfmt' required by dev-util/bindgen
 dev-libs/cyrus-sasl			 srp
 dev-libs/geoip				 city perl-geoipupdate
 dev-libs/glib				-elf -mime
+dev-libs/elfutils			-debuginfod
 dev-libs/jemalloc			 lazy-lock xmalloc
 dev-libs/leveldb			-snappy
 dev-libs/libmemcached			 hsieh
@@ -197,7 +198,7 @@ net-analyzer/fping			 suid
 net-analyzer/munin			 cgi dhcpd http
 net-analyzer/nagios-plugins		-radius nagios-dns nagios-ntp nagios-ping nagios-ssh smart ssh sudo  # radius plugin confilcts with radiusclient-ng
 net-analyzer/netdata			 fping nfacct
-net-analyzer/net-snmp			-perl -python diskio elf mfd-rewrites netlink pci smux
+net-analyzer/net-snmp			 diskio elf mfd-rewrites netlink pci smux  # -perl -python
 net-analyzer/nmap			-nse ncat ndiff nmap-update nping  # disable NSE to avoid lua dependencies
 net-analyzer/ossec-hids			-server agent
 net-analyzer/rrdtool			 rrdcgi
@@ -206,7 +207,7 @@ net-analyzer/tcpdump			-smi suid
 net-analyzer/wireshark			-adns -gtk2 -qt -qt4 -qt5 -ssl ares gcrypt libxml2 randpkt randpktdump smi snappy tfshark  # exclude SSL to remove final consumer of gnutls
 net-analyzer/zabbix			-odbc -postgres -sqlite agent frontend libxml2 openipmi ssh
 net-dialup/freeradius			 pcap udpfromto
-net-dns/avahi				-python autoipd  # howl-compat # mdnsresponder-compat
+net-dns/avahi				 autoipd  # -python howl-compat mdnsresponder-compat
 net-dns/bind				-geoip -idn -mysql -odbc dnstap filter-aaaa lmdb nslint rpz tools
 net-dns/bind-tools			-gssapi -idn pkcs11
 net-dns/unbound				 dnscrypt dnstap ecs
@@ -218,9 +219,9 @@ net-fs/samba				-avahi async automount ldb libclamav oav quota quotas smbsharemo
 net-im/bitlbee				 libevent twitter
 net-libs/gnutls				 dane tools  # requires net-dns/unbound
 #net-libs/ldns				-python dane  # requires dev-lang/swig, but only as a DEPEND
-net-libs/ldns				-python # incompatible with python:3.12, requires dev-lang/swig, but only as a DEPEND
+#net-libs/ldns				-python # incompatible with python:3.12, requires dev-lang/swig, but only as a DEPEND
 net-libs/libpcap			-netlink libnl
-net-libs/miniupnpc			-python
+#net-libs/miniupnpc			-python
 net-mail/dovecot			 cydir dbox managesieve imapc lucene mdbox sdbox sieve solr  # suid
 net-mail/fetchmail			 hesiod
 net-misc/bfgminer			-adl -opencl
@@ -248,17 +249,17 @@ sys-apps/busybox			-pam -savedconfig -sep-usr -split-usr math openrc  # static
 sys-apps/coreutils			-hostname  # conflicts sys-apps/net-tools[hostname]
 sys-apps/debianutils			-installkernel
 sys-apps/earlyoom			 man
-sys-apps/file				-python
+#sys-apps/file				-python
 sys-apps/grep				-egrep-fgrep
 sys-apps/hal				 disk-partition
-sys-apps/help2man			-nls  # requires dev-perl/Locale-gettext, but then can't find it in many cases :(
+#sys-apps/help2man			-nls  # requires dev-perl/Locale-gettext, but then can't find it in many cases :(
 sys-apps/hwids				 usb
 sys-apps/hwloc				-svg
 sys-apps/ipmitool			 openipmi
 sys-apps/irqbalance			-numa
 sys-apps/kmod				 lzma pkcs7
 sys-apps/lm-sensors			-sensord
-sys-apps/man-db				-nls
+#sys-apps/man-db			-nls
 sys-apps/memtest86			 serial
 sys-apps/memtest86+			 serial
 sys-apps/module-init-tools		 no-old-linux
@@ -279,33 +280,33 @@ sys-block/parted			 device-mapper
 sys-boot/grub				-fonts -mount -sdl -themes -truetype device-mapper
 sys-cluster/galera			 garbd
 #sys-devel/bc				-libedit
->=sys-devel/binutils-2.44		 xxhash -pgo  # xxhash and pgo are mutually exclusive
+>=sys-devel/binutils-2.44		-debuginfod -pgo xxhash  # xxhash and pgo are mutually exclusive
 #sys-devel/gcc				 go mudflap
 # gccgo from gcc-6.4.0 tries to include a deprecated glibc header, ustat.h, and fails.
 #~sys-devel/gcc-6.4.0			-go
 #sys-devel/gcc				-graphite -lto -pgo -sanitize -ssp -vtv pch  # graphite has a runtime dependency on dev-libs/isl
 #sys-devel/gcc				-graphite -nls -sanitize -vtv default-stack-clash-protection lto pch pgo ssp zstd  # graphite has a runtime dependency on dev-libs/isl
-sys-devel/gcc				-nls -sanitize -vtv default-stack-clash-protection default-znow lto pch pgo ssp zstd
+sys-devel/gcc				-sanitize -vtv default-stack-clash-protection default-znow lto pch pgo ssp zstd  # -nls
 sys-devel/gettext			 cvs git
 # move sys-apps/microcode-data sys-firmware/intel-microcode
 sys-firmware/intel-microcode		 hostonly split-ucode
-sys-fs/btrfs-progs			-python
+#sys-fs/btrfs-progs			-python
 sys-fs/cryptsetup			-static dynamic
 sys-fs/e2fsprogs			-udev tools
 sys-fs/lvm2				-lvm1 -static -static-libs -thin
 sys-fs/udev				-extras action_modeswitch edd hwdb keymap
 sys-kernel/scx				 openrc
-sys-libs/cracklib			-python
+#sys-libs/cracklib			-python
 sys-libs/gdbm				 berkdb
 sys-libs/glibc				-gd clone3 compile-locales nscd ssp
 #sys-libs/libcap-ng			-python  # requires dev-lang/swig, but only as a DEPEND
 sys-libs/libnvme			-ssl  # keyutils
-sys-libs/libseccomp			-python  # requires static-libs
+#sys-libs/libseccomp			-python  # requires static-libs
 sys-libs/ncurses			 trace unicode
 sys-libs/pam				-debug
 sys-libs/timezone-data			 leaps-timezone leaps_timezone right_timezone # zic-slim
 sys-power/powertop			-X
-sys-process/audit			-python  # incompatible with python:3.12, requires dev-lang/swig, but only as a DEPEND
+#sys-process/audit			-python  # incompatible with python:3.12, requires dev-lang/swig, but only as a DEPEND
 sys-process/cronie			-anacron
 sys-process/glances			-doc
 sys-process/procps			 modern-top
@@ -343,6 +344,7 @@ sys-kernel/linux-firmware		-firmware_amd_gpu -firmware_intel_gpu -firmware_nvidi
 net-libs/libwebsockets			-lejp -smtp
 
 # required by sys-apps/busybox[static]
+# required by virtual/dev-manager
 #virtual/libcrypt			 static-libs
 #sys-libs/libxcrypt			 static-libs
 
