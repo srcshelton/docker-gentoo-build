@@ -467,8 +467,8 @@ setenv() {
 		export "${se_var?}"
 
 		se_val=0
-		if [ -z "${SYSROOT:-"${PORTAGE_CONFIGROOT:-""}"}" ] ||
-			[ "${SYSROOT:-"${PORTAGE_CONFIGROOT:-""}"}" = '/' ]
+		if [ -z "${SYSROOT:-"${PORTAGE_CONFIGROOT:-}"}" ] ||
+			[ "${SYSROOT:-"${PORTAGE_CONFIGROOT:-}"}" = '/' ]
 		then
 			if [ -n "${portage_kv_cache_root:+"set"}" ]; then
 				se_val=1
@@ -581,8 +581,8 @@ get_portage_flags() {
 			fi
 		done
 	fi
-	if [ -z "${SYSROOT:-"${PORTAGE_CONFIGROOT:-""}"}" ] ||
-		[ "${SYSROOT:-"${PORTAGE_CONFIGROOT:-""}"}" = '/' ]
+	if [ -z "${SYSROOT:-"${PORTAGE_CONFIGROOT:-}"}" ] ||
+		[ "${SYSROOT:-"${PORTAGE_CONFIGROOT:-}"}" = '/' ]
 	then
 		if [ -z "${portage_kv_cache_root:+"set"}" ] ||
 				[ $(( gpf_invalidate )) -eq 1 ]
@@ -2179,6 +2179,13 @@ if printf ' %s ' "${*}" | grep -Fq -- ' --nodeps '; then
 	opts=''
 fi
 
+# Try to silence '!!! You have no world file.' output...
+touch "${ROOT:-}"/var/lib/portage/world >/dev/null 2>&1 || :
+if ! [ -s "${ROOT:-}"/var/lib/portage/world ]; then
+	printf '%s\n' 'sys-apps/baselayout' > "${ROOT:-}"/var/lib/portage/world \
+		2>/dev/null
+fi
+
 LC_ALL='C' eselect --colour=yes profile list | grep -- 'stable'
 LC_ALL='C' eselect --colour=yes profile set "${DEFAULT_PROFILE}" # 2>/dev/null
 info "Selected profile '$( # <- Syntax
@@ -2808,7 +2815,7 @@ output " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 		# throw-away package given how long sys-devel/gcc takes to build), add
 		# USE='cet' or exclude glibc.
 		#
-		setenv USE="-gmp -nls asm cet ssl$( # <- Syntax
+		setenv USE="-debuginfod -gmp -libarchive -nls asm cet ssl$( # <- Syntax
 				flag=''
 				if [ -n "${use_essential:-}" ]; then
 					for flag in ${os_headers_arch_flags}; do
@@ -2827,7 +2834,7 @@ output " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 		# explicitly in the ebuild...
 		#
 		do_emerge --single-defaults dev-build/libtool dev-build/ninja \
-			sys-libs/pam $(
+			sys-libs/pam sys-devel/binutils $(
 				# sys-devel/gcc is a special case with a conditional
 				# gen_usr_ldscript call...
 				#
