@@ -206,6 +206,8 @@
 ~sys-apps/watchdog-5.16					~arm64
 ~sys-auth/pam_mobile_otp-0.6.2				 **
 ~sys-cluster/hpl-2.3					 **
+~sys-power/acpi_call-1.2.2				 **
+~sys-power/pmtools-20130209				 **
 ~sys-power/powertop-2.15				~arm64
 ~sys-process/incron-0.5.12_p20171113			~arm64
 
