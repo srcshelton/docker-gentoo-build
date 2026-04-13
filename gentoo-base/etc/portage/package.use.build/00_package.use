@@ -183,7 +183,7 @@ media-fonts/dejavu			-X -fontforge
 media-fonts/liberation-fonts		-X -fontforge
 media-gfx/imagemagick			-X -corefonts webp
 media-libs/alsa-lib			 alisp
-media-libs/freetype			-svg
+media-libs/freetype			-svg harfbuzz  # harfbuzz no longer needed by media-libs/freetype, but transitively required by x11-libs/pango :(
 media-libs/harfbuzz			-graphite
 media-libs/libpng			 apng
 media-libs/libsdl			-joystick -sound -video
