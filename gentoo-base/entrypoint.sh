@@ -2294,14 +2294,35 @@ validate_python_installation "pre-remove"
 
 	# 'dhcpcd' is now built with USE='udev', and libmd needs 'split-usr'...
 	#
-	# ... and /usr/$(get_libdir)/libmd.so is being preserved :(
+	# ... and /usr/$(get_libdir)/libmd.so is being preserved.
+	#
+	# As-of 17/02/2026 (eaffbac), dev-libs/elfutils installs an
+	# /etc/profile/debuginfod.sh which triggers an 'unbound variable' error
+	# when /etc/profile is sourced with 'set -u', however we can't simply
+	# rebuild without USE='debuginfod' as sys-devel/binutils now has
+	# 'debuginfod' set by default, creaing a depenency violation without
+	# rebuilding binutils too.
+	#
+	# sys-libs/zlib is a dependency of dev-libs/elfutils, and must be installed
+	# first with 'split-usr' in order for dev-libs/elfutils to be
+	# cross-filesystem linked.
+	#
+	# Put simply, enabling 'debuginfod' by default has entailed a lot more work
+	# here to fix the consequences :(
 	#
 	(
 		setenv FEATURES="$( # <- Syntax
 				filter_features_flags --env-only 'preserve-libs'
 			) -preserve-libs"
+		setenv USE="-* $(
+				get_stage3 --values-only USE
+			) -bzip2 -debuginfod -libarchive -lzma -minizip -nls -pgo -plugins -utils -zstd"
 
-		do_emerge --once-defaults app-crypt/libmd net-misc/dhcpcd
+		do_emerge --once-defaults \
+			sys-libs/zlib
+		do_emerge --once-defaults \
+			app-crypt/libmd dev-libs/elfutils net-misc/dhcpcd \
+			sys-devel/binutils
 	)
 
 	list='virtual/dev-manager virtual/tmpfiles'
@@ -3353,6 +3374,29 @@ if [ -n "${pkg_initial:-}" ]; then
 		if ! get_portage_flags USE | grep -Eq -- '(^|[^-])openmp'; then
 			warn "'openmp' USE flag is not set: app-crypt/libb2 may" \
 				"encounter unresolvable dependency conflicts :("
+		fi
+
+		# We are hitting:
+		#
+		#  Error: changed section attributes for .eh_frame
+		#
+		# ... errors on amd64 (arm64 seems okay?) when attempting to (re)build
+		# sys-libs/glibc - but only during this initial image-build: from a
+		# 'gentoo-build' container the process succeeds reliably.  This  may be
+		# due to USE flag or version mis-matches (possibly related to
+		# USE='debuginfod', which seems to be causing issues right now?) or an
+		# issue with the upstream stage3 image around commit 'eaffbac'?
+		#
+		if [ "${ARCH}" = 'amd64' ]; then
+			(
+				setenv ROOT "${ROOT}"
+				setenv SYSROOT="${ROOT}"
+				setenv PORTAGE_CONFIGROOT="${SYSROOT}"
+				invalidate_get_portage_flags_cache
+
+				do_emerge --build-defaults \
+					sys-devel/binutils sys-devel/gcc sys-libs/glibc
+			)
 		fi
 
 		for pkg in ${pkg_initial:-}; do
