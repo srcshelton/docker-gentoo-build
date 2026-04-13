@@ -149,6 +149,7 @@ dev-scheme/guile			 discouraged elisp networking
 #>=dev-util/ltrace-0.7.91_p195		-elfutils unwind
 dev-util/ltrace				-unwind
 dev-util/pkgconf			 pkg-config
+dev-vcs/git				 rust
 dev-vcs/git-lfs				 doc
 dev-vcs/subversion			 ctypes-python
 gnome-base/librsvg			-vala
