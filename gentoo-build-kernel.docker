@@ -906,9 +906,12 @@ fi
 
 
 # () {  # Fold version validation
-#declare binutils_min_ver='2.25.0'  # 2.30.0 from 6.16.0
-#declare gcc_min_ver='5.1.0'  # 8.1.0 on x86 and from 6.16.0, 12.0.0 on PA-RISC
-#declare llvm_min_ver='13.0.1'  # 11.0.0 before 6.9.0, 15.0.0 on S390 and x86, 18.0.0 on loongarch
+#declare binutils_min_ver='2.25.0'  # 2.30.0 from 6.16
+#declare gcc_min_ver='5.1.0'  # 8.1.0 on x86 and from 6.16; 12.0.0 on PA-RISC
+#declare llvm_min_ver='13.0.1'  # 11.0.0 before 6.9; 13.0.1 for everything
+                                # except loongarch, S390 and x86, 15.0.0 on
+                                # S390 and x86 before 6.18; 15.0.0 for
+                                # everything except 18.0.0 on loongarch
 declare binutils_min_ver='' gcc_min_ver='' llvm_min_ver=''
 
 # scripts/min-tool-version.sh first appeared in Linux v5.12
@@ -1085,8 +1088,7 @@ case "${package_version}" in
 				;;
 		esac
 		;;
-	#6.16.*)
-	*)
+	6.1[67].*)
 		binutils_min_ver='2.30.0'
 		case "${arch:-"${ARCH:-}"}" in
 			hppa)
@@ -1105,6 +1107,26 @@ case "${package_version}" in
 				;;
 			*)
 				llvm_min_ver='13.0.1'
+				;;
+		esac
+		;;
+	#6.18.*)
+	*)
+		binutils_min_ver='2.30.0'
+		case "${arch:-"${ARCH:-}"}" in
+			hppa)
+				gcc_min_ver='12.0.0'
+				;;
+			*)
+				gcc_min_ver='8.1.0'
+				;;
+		esac
+		case "${arch:-"${ARCH:-}"}" in
+			loong)
+				llvm_min_ver='18.0.0'
+				;;
+			*)
+				llvm_min_ver='15.0.0'
 				;;
 		esac
 		;;
@@ -1887,7 +1909,7 @@ mkdir -p "${log_dir:="log"}" ||
 				${rpi_model:+"raspberrypi"}
 				${rustext:+"rust-src"}
 				'symlink'
-				${rustext:+"system-llvm"}
+				${rustext:+"-system-llvm"}
 				'threads'
 				'zlib'
 				${compiler_USE}
@@ -1970,7 +1992,8 @@ mkdir -p "${log_dir:="log"}" ||
 				#
 				#${rustext:+"${rust_ver:+">="}dev-lang/rust${rust_ver:+":${rust_ver}"}"}
 				#${rustext:+"dev-lang/rust${rust_slot:+":${rust_slot}"}"}
-				${rustext:+"${rust_slot:+">="}dev-lang/rust${rust_slot:+"-${rust_slot}"}"}
+				#${rustext:+"${rust_slot:+">="}dev-lang/rust${rust_slot:+"-${rust_slot}"}"}
+				${rustext:+"${rust_slot:+">="}dev-lang/rust-bin${rust_slot:+"-${rust_slot}"}"}
 
 				${rustext:+"${bindgen_ver:+">="}dev-util/bindgen${bindgen_ver:+"-${bindgen_ver}"}"}
 
@@ -2793,7 +2816,8 @@ mkdir -p "${log_dir:="log"}" ||
 		if [ "\${success}" = '0' ]; then
 			: exit 1 ;
 			: Drop to shell to allow for fix... ;
-			if /usr/bin/env bash; then
+			echo "INFO: Kernel build command was 'make ${kernel_make_opts[*]} O=../build \${localversion}${distro:+" EXTRAVERSION=${distro}"} ${deforoldconfig}'" ;
+			if bash; then
 				exit 1 ;
 			else
 				exit \${?} ;
@@ -2825,7 +2849,6 @@ mkdir -p "${log_dir:="log"}" ||
 		if [ "\${dtb}" = '1' ]; then
 			make ${kernel_make_opts[@]} O=../build \${localversion}${distro:+" EXTRAVERSION=${distro}"} dtbs_install ;
 		fi ;
-		unset localversion ;
 		if command -v kernel-hardening-checker >/dev/null 2>&1; then
 			kernel-hardening-checker -m show_fail -c ../build/.config ;
 			echo ;
@@ -2940,10 +2963,19 @@ mkdir -p "${log_dir:="log"}" ||
 				export modargs='${modargs}' BUILD_FIXES='${modargs}' ;
 			tar -C /usr/src/build/ -cpf - --exclude Makefile . |
 					tar -C /usr/src/linux/ -xpf - ;
-			emerge -kv --buildpkg=y \${extra_packages} || bash ;
+			if ! emerge -kv --buildpkg=y \${extra_packages}; then
+				set +x ;
+				echo "INFO:  Kernel build command was 'make ${kernel_make_opts[*]} O=../build \${localversion}${distro:+" EXTRAVERSION=${distro}"} ${deforoldconfig}'" ;
+				echo "INFO:  Package build command was 'emerge -kv --buildpkg=y \${extra_packages}'" ;
+				bash ;
+			fi ;
+			set +x ;
 		fi ;
 		: Drop to shell to allow for inspection... ;
-		:/usr/bin/env bash ;
+		echo "INFO:  Kernel build command was 'make ${kernel_make_opts[*]} O=../build \${localversion}${distro:+" EXTRAVERSION=${distro}"} ${deforoldconfig}'" ;
+		echo "INFO:  Package build command was 'emerge -kv --buildpkg=y \${extra_packages}'" ;
+		bash ;
+		unset localversion ;
 	EOF
 	)"
 		#echo 'Detected packages:' ;
