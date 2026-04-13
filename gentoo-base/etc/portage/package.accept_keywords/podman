@@ -306,10 +306,12 @@
 #~app-containers/buildah-1.41.5				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.41.6				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.41.7				~amd64 ~arm ~arm64 ~x86
-~app-containers/buildah-1.41.8				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.41.8				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.42.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/buildah-1.42.1				~amd64 ~arm ~arm64 ~x86
 ~app-containers/buildah-1.42.2				~amd64 ~arm ~arm64 ~x86
+#~app-containers/buildah-1.43.0				~amd64 ~arm ~arm64 ~x86
+~app-containers/buildah-1.43.1				~amd64 ~arm ~arm64 ~x86
 
 # originally required by app-emulation/buildah-1.15.0
 # move app-emulation/skopeo app-containers/skopeo
@@ -361,8 +363,10 @@
 #~app-containers/skopeo-1.17.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/skopeo-1.18.0				~amd64 ~arm ~arm64 ~x86
 #~app-containers/skopeo-1.19.0				~amd64 ~arm ~arm64 ~x86
-~app-containers/skopeo-1.20.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.20.0				~amd64 ~arm ~arm64 ~x86
 ~app-containers/skopeo-1.21.0				~amd64 ~arm ~arm64 ~x86
+#~app-containers/skopeo-1.22.0				~amd64 ~arm ~arm64 ~x86
+~app-containers/skopeo-1.22.1				~amd64 ~arm ~arm64 ~x86
 
 # move app-emulation/crun app-containers/crun
 #~app-containers/crun-0.14.1				~amd64 ~arm ~arm64 ~x86
@@ -428,8 +432,9 @@
 #~app-containers/crun-1.23.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/crun-1.24				~amd64 ~arm ~arm64 ~x86
 #~app-containers/crun-1.25				~amd64 ~arm ~arm64 ~x86
-~app-containers/crun-1.25.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.25.1				~amd64 ~arm ~arm64 ~x86
 ~app-containers/crun-1.26				~amd64 ~arm ~arm64 ~x86
+~app-containers/crun-1.27				~amd64 ~arm ~arm64 ~x86
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
@@ -481,8 +486,10 @@
 #~app-containers/runc-1.4.0_rc2				 **
 #~app-containers/runc-1.4.0_rc3				 **
 #~app-containers/runc-1.4.0				       ~arm        ~x86
-~app-containers/runc-1.4.1				       ~arm        ~x86
+#~app-containers/runc-1.4.1				       ~arm        ~x86
+~app-containers/runc-1.4.2				       ~arm        ~x86
 #~app-containers/runc-1.5.0_rc1				 **
+#~app-containers/runc-1.5.0_rc2				 **
 
 # originally required by app-emulation/podman-1.9.3
 # move app-emulation/conmon app-containers/conmon
@@ -578,7 +585,8 @@
 #~app-containers/aardvark-dns-1.14.0			~amd64 ~arm ~arm64 ~x86
 #~app-containers/aardvark-dns-1.15.0			~amd64 ~arm ~arm64 ~x86
 ~app-containers/aardvark-dns-1.16.0			~amd64 ~arm ~arm64 ~x86
-~app-containers/aardvark-dns-1.17.0			~amd64 ~arm ~arm64 ~x86
+#~app-containers/aardvark-dns-1.17.0			~amd64 ~arm ~arm64 ~x86
+~app-containers/aardvark-dns-1.17.1			~amd64 ~arm ~arm64 ~x86
 
 # required for <=app-containers/podman-3.4.7
 # optional for <=podman/podman-4.5.0_rc2:4

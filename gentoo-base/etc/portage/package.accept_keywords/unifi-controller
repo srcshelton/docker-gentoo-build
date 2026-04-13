@@ -61,6 +61,7 @@
 #~net-misc/unifi-controller-bin-10.1.84			~amd64
 ~net-misc/unifi-controller-bin-10.1.85			~amd64
 ~net-misc/unifi-controller-bin-10.2.93			~amd64
+~net-misc/unifi-controller-bin-10.2.105			~amd64
 
 # Ensure the host package matches the version of the target container
 #
@@ -113,5 +114,6 @@
 #~container-services/unifi-controller-10.1.84		~amd64
 ~container-services/unifi-controller-10.1.85		~amd64
 ~container-services/unifi-controller-10.2.93		~amd64
+~container-services/unifi-controller-10.2.105		~amd64
 
 # vi: set syntax=gentoo-package-keywords:
