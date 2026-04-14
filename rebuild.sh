@@ -236,7 +236,7 @@ if [ "${rebuildutils:-"0"}" = '1' ]; then
 	fi
 fi
 
-if [ "${rebuildimgs:-"0"}" = '1' ]; then
+if [ "${rebuildimgs:-"0"}" = '1' ]; then  # {
 	if ! mkdir -p "${log_dir:="log"}"; then
 		echo >&2 "FATAL: Could not create log directory '${log_dir}': ${?}"
 		exit 1
@@ -308,9 +308,9 @@ if [ "${rebuildimgs:-"0"}" = '1' ]; then
 			failures="${failures:+"${failures} "}gentoo-init:${err}"
 		fi
 	fi
-fi
+fi  # } [ "${rebuildimgs:-"0"}" = '1' ]
 
-if [ "${pkgcache:-"0"}" = '1' ]; then
+if [ "${pkgcache:-"0"}" = '1' ]; then  # {
 	if ! mkdir -p "${log_dir:="log"}"; then
 		echo >&2 "FATAL: Could not create log directory '${log_dir}': ${?}"
 		exit 1
@@ -697,9 +697,9 @@ if [ "${pkgcache:-"0"}" = '1' ]; then
 		# shellcheck disable=SC2031
 		failures="${failures:+"${failures} "}init-pkg-cache:${err}"
 	fi
-fi
+fi  # } [ "${pkgcache:-"0"}" = '1' ]
 
-if [ "${update:-"0"}" = '1' ]; then
+if [ "${update:-"0"}" = '1' ]; then  # {
 	if ! mkdir -p "${log_dir:="log"}"; then
 		echo >&2 "FATAL: Could not create log directory '${log_dir}': ${?}"
 		exit 1
@@ -713,8 +713,9 @@ if [ "${update:-"0"}" = '1' ]; then
 
 	# Adding awk squashes blank lines (which portage seems to like to add), but
 	# adds buffering and so lengthy pauses before output is rendered.  Adding
-	# 'stdbuf' intended to fix this - and did so partially - but also sometimes
-	# lead to output being delayed indefinitely for long-running builds :(
+	# 'stdbuf' was intended to fix this - and did so partially - but also
+	# sometimes lead to output being delayed indefinitely for long-running
+	# builds :(
 
 	# shellcheck disable=SC2046
 	#USE='-natspec pkg-config' \
@@ -738,6 +739,14 @@ if [ "${update:-"0"}" = '1' ]; then
 	# Look for "build" gcc USE-flags in package.use only (or use defaults
 	# above) ...
 	#
+	# FIXME: These flags are later injected as environment USE flags, and so
+	#        can't be overridden.  This has recently caused issues because
+	#        sys-devel/binutils the flags 'pgo' and 'xxhash' are
+	#        mutually-exclusive, leading to build failures if GCC uses 'pgo'
+	#        and sys-devel/binutils has 'xxhash' enabled.  USE flags should
+	#        still come from files beneath /etc/portage/package.use/, so
+	#        reducing safe GCC USE flags should have little downside.
+	#
 	if ! [ -s /etc/portage/package.use/00_package.use ]; then
 		if ! echo "${CFLAGS:-} ${CXXFLAGS:-}" |
 				grep -Fqw \
@@ -748,7 +757,11 @@ if [ "${update:-"0"}" = '1' ]; then
 		then
 			gcc_use="$( # <- Syntax
 				echo " ${use_essential_gcc} " |
-					sed 's/ graphite / -graphite /g ; s/^ // ; s/ $//'
+					sed '
+							s/ graphite / -graphite /g ;
+							s/ pgo / /g ;
+							s/^ // ; s/ $// ;
+						'
 			)"
 		fi
 	else
@@ -757,9 +770,10 @@ if [ "${update:-"0"}" = '1' ]; then
 			tr -s '[:space:]' |
 			grep -E '^\s?([<>=~]=?)?sys-devel/gcc' |
 			cut -f 2- |
-			xargs -n 1 echo |
+			xargs -rn 1 |
 			sort |
-			uniq
+			uniq |
+			grep -vx 'pgo'
 		)"
 	fi
 
@@ -900,9 +914,9 @@ if [ "${update:-"0"}" = '1' ]; then
 			"${_command}" container rm --volumes 'buildpkg.hostpkgs.gcc.update'
 		trap - INT
 	fi
-fi
+fi  # } [ "${update:-"0"}" = '1' ]
 
-if [ "${system:-"0"}" = '1' ]; then
+if [ "${system:-"0"}" = '1' ]; then  # {
 	if [ $(( pretend )) -ne 0 ]; then
 		echo >&2 'Checking for updated packages ...'
 		pretend='--pretend'
@@ -961,7 +975,7 @@ if [ "${system:-"0"}" = '1' ]; then
 	: $(( err = ${?} ))
 	: $(( rc = rc + err ))
 	failures="${failures:+"${failures} "}emerge:${err}"
-fi
+fi  # } [ "${system:-"0"}" = '1' ]
 
 [ -n "${trace:-}" ] && set +o xtrace
 
@@ -971,4 +985,4 @@ fi
 
 exit "${rc}"
 
-# vi: set colorcolumn=80 noet sw=4 ts=4:
+# vi: set colorcolumn=80 foldmarker=\ \ #\ {,\ \ #\ } foldmethod=marker sw=4 ts=4 syntax=sh noexpandtab nowrap:
