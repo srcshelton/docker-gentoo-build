@@ -102,6 +102,7 @@ sys-libs/zlib				 ZLIB
 
 app-containers/podman-tui		 MPL-2.0
 dev-go/golangci-lint			 MPL-2.0
+net-analyzer/ookla-speedtest		 Ookla
 net-nds/openldap			 OPENLDAP
 sci-libs/mkl				 ISSL
 sys-apps/memtest86-bin			 PassMark-EULA
