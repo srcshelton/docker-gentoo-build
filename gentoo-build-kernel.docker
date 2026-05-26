@@ -297,31 +297,78 @@ declare unwind=''
 # }  # End of variable declaration
 
 # () { # Fold argument handling
+# Allow 'kbuild_opt="..." ./gentoo-build-kernel.docker ...':
+# shellcheck disable=SC2206  # Preserve legacy kbuild_opt whitespace splitting
+declare -a kbuild_opts=( ${kbuild_opt:-} )
 if [[ -s .kbuild_opt ]]; then
 	info "Including build options from '.kbuild_opt' ..."
-	kbuild_opt="${kbuild_opt:-} $( < .kbuild_opt )"
+	kbuild_opts+=( $( < .kbuild_opt ) )
 fi
-if [[ -n "${kbuild_opt:-}" ]]; then
+if [[ -n "${kbuild_opts[*]:-}" ]]; then
+	# Treat '.kbuild_opt' content as defaults: if the command line mentions an
+	# option group, drop matching defaults before appending argv
+	_kbuild_option_group() {
+		local option="${1:-}"
+
+		[[ -n "${option:-}" ]] || return 1
+
+		option="${option%%"="*}"
+
+		[[ "${option}" == '--'* ]] || return 1
+
+		option="${option#"--"}"
+		option="${option#"no-"}"
+		case "${option}" in
+			'config-from'|'defconfig')
+				option='config'
+				;;
+			'menuconfig'|'nconfig')
+				option='kernel-config-ui'
+				;;
+		esac
+
+		printf '%s\n' "${option}"
+	}  # _kbuild_option_group
+
 	declare arg=''
-	for arg in "${@:-}"; do
-		if [[ -n "${2:-}" ]]; then
-			shift
-		else
-			set --
-		fi
-		if [[ -n "${arg:-}" ]] &&
-				! [[ " ${*} ${kbuild_opt} " == *" ${arg} "* ]]
-		then
-			set -- ${@+"${@}"} "${arg}"
-		else
-			print "Skipping duplicate argument '${arg:-}'"
+	declare option='' options=' '
+	for arg in "$@"; do
+		if option="$( _kbuild_option_group "${arg}" )"; then
+			options+="${option} "
 		fi
 	done
-	unset arg
-	set -- "${*:-}" "${kbuild_opt}"
-	print "After processing environment variables, arguments are '${*:-}'"
+
+	declare -a args=()
+	declare -i skip=0
+	for arg in "${kbuild_opts[@]}"; do
+		if (( skip )); then
+			skip=0
+			[[ "${arg}" == "-"* ]] || continue
+		fi
+		if option="$( _kbuild_option_group "${arg}" )" &&
+				[[ "${options}" == *" ${option} "* ]]
+		then
+			print "Skipping command-line overridden argument '${arg}' from" \
+				"'.kbuild_opt' ..."
+			case "${arg}" in
+				'--config'|'--config-from'|'--defconfig') ;&
+				'--keep-build'|'--patch'|'--package') ;&
+				'--with'|'--force-llvm'|'--bundle')
+					skip=1
+					;;
+			esac
+			continue
+		fi
+		args+=( "${arg}" )
+	done
+
+	set -- "${args[@]}" "${@}"
+	print "After processing '.kbuild_opt', arguments are '${*:-}'"
+	unset args skip
+	unset options option arg
+	unset -f _kbuild_option_group
 fi
-unset kbuild_opt
+unset kbuild_opts kbuild_opt
 
 # Process --menuconfig and --nconfig first, as --config-from refers to them...
 #
@@ -857,7 +904,7 @@ if (( intel_patch )); then
 			if [[ -n "${clear_commit:-}" ]]; then
 				done=1
 			else
-				(( page ++ ))
+				(( page ++ )) || :
 			fi
 		fi
 	done
