@@ -1884,7 +1884,7 @@ case "${intent}" in
 	'tmp'|'temp'|'discard')
 		intent='tmp'
 		if [ $(( depclean )) -ne 0 ]; then
-			ewarn "Disabling --depclean for invocation with 'discard' intent"
+			warn "Disabling --depclean for invocation with 'discard' intent"
 			depclean=0
 		fi
 		;;
@@ -2137,7 +2137,7 @@ do
 			basename "${override_file}" |
 				sed 's/^.//'
 		)"
-	mkdir -p "'${target%".${ARCH:-"${arch}"}"}"
+	mkdir -p "${target%".${ARCH:-"${arch}"}"}"
 	print "Redeploying file '${override_file}' as" \
 		"'${target%".${ARCH:-"${arch}"}"}/$( basename "${target}" )"
 	# override_file is likely a mountpoint, so don't try to 'mv' it ...

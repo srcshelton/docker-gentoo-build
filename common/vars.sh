@@ -77,7 +77,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#
 	if [ "$( uname -s )" != 'Darwin' ]; then
 		if [ -n "${PODMAN_TMPDIR:-}" ]; then
-			[[ -z "${debug:-}" ]] ||
+			[ -z "${debug:-}" ] ||
 				echo >&2 "DEBUG: Setting PODMAN_TMPDIR ('${PODMAN_TMPDIR}')" \
 					"as temporary directory ..."
 		else

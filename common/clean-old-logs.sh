@@ -1,7 +1,12 @@
 #! /bin/sh
 
 set -eu
-set -o pipefail >/dev/null 2>&1 || :
+
+# Are we really POSIX sh?  If not, this might still work...
+if set -o | grep -q -- 'pipefail'; then
+    # shellcheck disable=SC3040
+    set -o pipefail
+fi
 
 debug="${DEBUG:-}"
 trace="${TRACE:-}"
@@ -23,9 +28,9 @@ cd "$( realpath -e "$( dirname "${0}" )" )" || {
 }
 
 # shellcheck disable=SC1091
-[[ ! -s ./vars.sh ]] || . ./vars.sh
+[ ! -s ./vars.sh ] || . ./vars.sh
 # shellcheck disable=SC2034  # Set from vars.sh
-[[ -n "${__COMMON_VARS_INCLUDED:-}" ]] || {
+[ -n "${__COMMON_VARS_INCLUDED:-}" ] || {
 		echo >&2 "FATAL: Inclusion of common defaults from" \
 			"'${PWD}/vars.sh' failed"
 		exit 1

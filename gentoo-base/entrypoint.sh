@@ -315,38 +315,40 @@ get_stage3() {
 	print "get_stage3: get_result for '${get_type}' is '${get_result}'"
 
 	if [ "${get_type}" = 'USE' ]; then
-		# Remove USE flags which we know we don't want, or which
-		# apply to multiple packages, but can (problematically) only be present
-		# for one package per installation ROOT...
+		# Remove USE flags which we know we don't want, or which apply to
+		# multiple packages, but can (problematically) only be present for one
+		# package per installation ROOT...
+
+		get_exclude=''
+		case "$( # <- Syntax
+				echo "${ARCH:-"${arch:-}"}" |
+					tr '[:upper:]' '[:lower:]'
+			)" in
+				'amd64')
+					# 'cet' is a post-2020 feature on Intel and Zen 3+ AMD
+					# CPUs.
+					#
+					# However, the same flag enables the
+					# '--enable-standard-branch-protection' flag when building
+					# sys-devel/gcc on arm64 platforms, so we don't want to
+					# unilaterally exclude it (on arm, at least) – and even
+					# disabling the feature on amd64 is a minor optimisation
+					# for older (pre-2020) processors.
+					#
+					if ! grep -Fiqw 'cet' /proc/cpuinfo; then
+						get_exclude='cet|'
+					fi
+					;;
+		esac
+		# net-mail/dovecot now depends on dev-libs/libpcre2[pcre32]...
+		get_exclude="${get_exclude:-}cpudetection|egrep-fgrep|ensurepip|hostname|installkernel|kill|pcre16|pcre32|pop3|qmanifest|qtegrity|smartcard|su|test-rust|tmpfiles|tofu"
 		get_result="$( # <- Syntax
-				# 'cet' is a post-2020 feature on Intel and Zen 3+ AMD CPUs.
-				#
-				# However, the same flag enables the
-				# '--enable-standard-branch-protection' flag when building
-				# sys-devel/gcc on arm64 platforms, so we don't want to
-				# unilaterally exclude it (on arm, at least) – and even
-				# disabling the feature on amd64 is a minor optimisation for
-				# older (pre-2020) processors.
-				#
-				get_exclude=''
-				case "$( # <- Syntax
-						echo "${ARCH:-"${arch:-}"}" |
-							tr '[:upper:]' '[:lower:]'
-					)" in
-						'amd64')
-							if ! grep -Fiqw 'cet' /proc/cpuinfo; then
-								get_exclude='cet|'
-							fi
-							;;
-				esac
-				# net-mail/dovecot now depends on dev-libs/libpcre2[pcre32]...
-				get_exclude="${get_exclude:-}cpudetection|egrep-fgrep|ensurepip|hostname|installkernel|kill|pcre16|pcre32|pop3|qmanifest|qtegrity|smartcard|su|test-rust|tmpfiles|tofu"
 				echo "${get_result}" |
 					xargs -rn 1 |
 					grep -Ev "^(${get_exclude})$" |
 					xargs -r
-				unset get_exclude
 			)"
+		unset get_exclude
 		print "get_stage3: get_result for USE('${get_type}') after filter is" \
 			"'${get_result}'"
 
@@ -687,7 +689,7 @@ get_portage_flags() {
 
 get_package_flags() {
 	gpfs_pkg="${1:-}"
-	[ -n "${gpf_pkg:-}" ] || return 1
+	[ -n "${gpfs_pkg:-}" ] || return 1
 
 	emerge --ignore-default-opts --color=n --nodeps --pretend --verbose \
 				"${gpfs_pkg}" 2>&1 |
@@ -2000,7 +2002,7 @@ do
 			basename "${override_file}" |
 				sed 's/^.//'
 		)"
-	mkdir -p "'${target%".${ARCH:-"${arch}"}"}"
+	mkdir -p "${target%".${ARCH:-"${arch}"}"}"
 	print "Redeploying file '${override_file}' as" \
 		"'${target%".${ARCH:-"${arch}"}"}/$( basename "${target}" )"
 	# override_file is likely a mountpoint, so don't try to 'mv' it ...
@@ -2218,7 +2220,7 @@ if [ -n "${CFLAGS:-}${CXXFLAGS:-}" ]; then
 			grep -Eq -- '\s(-fgraphite|-floop-)'
 	then
 		_o_CFLAGS="${CFLAGS:-}"
-		_o_CXXFLAGS="${CXXCFLAGS:-}"
+		_o_CXXFLAGS="${CXXFLAGS:-}"
 		_o_CGO_CFLAGS="${CGO_CFLAGS:-}"
 		_o_CGO_CXXFLAGS="${CGO_CXXFLAGS:-}"
 		_o_FFLAGS="${FFLAGS:-}"

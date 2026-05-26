@@ -951,7 +951,7 @@ if [ "${system:-"0"}" = '1' ]; then  # {
 								cut -d'/' -f 5-6 |
 								sed 's/^/>=/'
 					)
-					# --usepkgonly and --deep are horribly broken :(
+					# --usepkgonly and --deep are horribly broken <sigh>
 					#
 					#--deep \
 	)"; then

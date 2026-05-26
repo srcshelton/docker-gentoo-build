@@ -76,7 +76,9 @@ declare DOCKER_ENTRYPOINT=''
 declare DOCKER_CMD=''
 declare rebuild=''
 
-declare args='' arg=''
+# We'll avoid 'args' here as this causes 'shellcheck -x' to warn that 'args' is
+# an array in 'common/run.sh' (which we source) but then used as a string here.
+declare argz='' arg=''
 
 # Extract 'entrypoint' argument - all others can be handled by the entrypoint
 # script within the container itself...
@@ -135,13 +137,13 @@ for arg in "${@:-}"; do
 			#fi
 			;;
 		*)
-			args="${args:+"${args} "}${arg}"
+			argz="${argz:+"${argz} "}${arg}"
 			set -- "${@}" "${arg}"
 			;;
 	esac
 done
 
-if [[ -z "${args:-}" && -n "${rebuild:-}" ]]; then
+if [[ -z "${argz:-}" && -n "${rebuild:-}" ]]; then
 	# We only need to specify one package, as the rebuild logic will pull-in
 	# each original package prior to recompiling it...
 	set -- "${rebuild%%" "*}" "${@}"
@@ -152,7 +154,7 @@ if [[ -z "${args:-}" && -n "${rebuild:-}" ]]; then
 		)"
 fi
 
-unset arg args rebuild
+unset arg argz rebuild
 
 # FIXME: shellcheck wants:
 #
