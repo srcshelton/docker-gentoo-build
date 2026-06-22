@@ -379,7 +379,7 @@ get_stage3() {
 		print "get_stage3: get_result for USE('${get_type}') after targets is" \
 			"'${get_result}'"
 
-		unset entry entires
+		unset entry entries
 	fi
 
 	if [ -z "${get_result:-}" ]; then
@@ -435,11 +435,15 @@ setenv() {
 	se_var="${1}"
 	se_val=''
 	se_out=''
+	se_name=''
 
-	if echo "${se_var}" | grep -q -- '^[a-zA-Z_][a-zA-Z_0-9]*='; then
+	se_name="${se_var%%"="*}"
+	if [ "${se_name}" != "${se_var}" ] &&
+			echo "${se_name}" | grep -q -- '^[a-zA-Z_][a-zA-Z_0-9]*$'
+	then
 		# 'setenv VAR=VAL'-style...
-		se_val="$( echo "${se_var}" | cut -d'=' -f 2- )"
-		se_var="$( echo "${se_var}" | cut -d'=' -f 1 )"
+		se_val="${se_var#*"="}"
+		se_var="${se_name}"
 		if [ -n "${2:-}" ]; then
 			print "setenv: '${*}' contains unexpected follow-on arguments," \
 				"appending to initial values '${se_val:-}'"
@@ -458,15 +462,18 @@ setenv() {
 		fi
 	fi
 
-	se_val="$( eval "echo \${${se_var}:-}" )"
+	if ! echo "${se_var}" | grep -q -- '^[a-zA-Z_][a-zA-Z_0-9]*$'; then
+		die "setenv: '${se_var}' is not a valid variable name"
+	fi
+
+	eval "se_val=\${${se_var}:-}"
 
 	if [ -n "${se_val:+"set"}" ] && [ -n "${*:+"set"}" ] &&
 			[ "${se_val}" = "${*}" ]
 	then
-		print "setenv: ${se_var} value '${se_val}' is unchaged"
+		print "setenv: ${se_var} value '${se_val}' is unchanged"
 	else
-		eval "${se_var}='${*:-}'"
-		export "${se_var?}"
+		export "${se_var}=${*:-}"
 
 		se_val=0
 		if [ -z "${SYSROOT:-"${PORTAGE_CONFIGROOT:-}"}" ] ||
@@ -504,7 +511,7 @@ setenv() {
 			die "Failed to validate metadata for PKGDIR '${PKGDIR}'"
 	fi
 
-	unset se_out se_val se_var
+	unset se_name se_out se_val se_var
 }  # setenv
 
 invalidate_get_portage_flags_cache() {
@@ -958,7 +965,7 @@ resolve_python_flags() {
 		fi
 	done
 
-	for resolve_target in ${USE:-}; do
+	for resolve_target in ${resolve_use:-}; do
 		case "${resolve_target}" in
 			python_single_target_*)
 				resolve_target="$( # <- Syntax
@@ -2426,23 +2433,22 @@ then
 		setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/python"
 		unset pkgdir
 
-		setenv USE="$( # <- Syntax
+		setenv USE "$( {
 				echo "-* $( get_stage3 --values-only USE ) -udev split-usr" |
 					xargs -rn 1 |
-					grep -v -e '^python_single_target_' -e 'python_targets_' |
-					xargs -r
+					grep -v -e '^python_single_target_' -e 'python_targets_'
 				echo "python_single_target_${python_default_targets%%" "*}"
 				echo "python_targets_${python_default_targets%%" "*}"
-			)"
-		setenv PYTHON_DEFAULT_TARGET="${python_default_targets%%" "*}"
+			} | xargs -r )"
+		setenv PYTHON_SINGLE_TARGET="${python_default_targets%%" "*}"
 		setenv PYTHON_TARGETS="${python_default_targets}"
 
 		# This should be implicit, given the above?
 		eval "$( # <- Syntax
 				resolve_python_flags \
 					"${USE}" \
-					"python_single_target_${python_default_targets%%" "*}" \
-					"python_targets_${python_default_targets%%" "*}"
+					"${python_default_targets%%" "*}" \
+					"${python_default_targets}"
 			)"
 
 		# FIXME: Nasty hack to avoid preserved libraries...
@@ -2453,6 +2459,8 @@ then
 					echo "${python_default_targets%%" "*}" | sed 's/_/./'
 				)/lib-dynload/_uuid.cpython-*.so
 		}
+
+		do_emerge --once-defaults sys-apps/util-linux
 
 		# python3_13 -> dev-lang/python:3.13
 		python_pkg="dev-lang/$( # <- Syntax
