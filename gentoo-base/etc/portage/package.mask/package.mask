@@ -41,9 +41,9 @@
 dev-db/mysql
 <virtual/mysql-5.6
 
-# Mask python-3.14 until everything we care about is compatible
+# Mask python-3.15 until everything we care about is compatible
 # (... and let's not forget to revert this, next time!)
->=dev-lang/python-3.14
+>=dev-lang/python-3.15
 
 # The dev-libs/openssl-3 upgrade is causing headaches for binary packages,
 # which don't always have a 'dev-libs/openssl:=' dependency :(

@@ -26,6 +26,8 @@
 ~sys-kernel/gentoo-sources-7.0.12-r1			~amd64 ~arm ~arm64 ~x86
 ~sys-kernel/vanilla-sources-7.0.12			~amd64 ~arm ~arm64 ~x86
 
+~dev-util/pahole-1.31					~amd64 ~arm ~arm64 ~x86
+
 ~dev-util/perf-7.0					~amd64 ~arm ~arm64 ~x86
 
 ~dev-libs/libbpf-1.7.0-r1				~amd64 ~arm ~arm64 ~x86

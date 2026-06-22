@@ -112,6 +112,7 @@ sys-apps/memtest86-bin			 PassMark-EULA
 #
 
 dev-cpp/eigen				 MPL-2.0
+dev-python/librt			 PSF-2.4
 dev-python/sphinxcontrib-jquery		 0BSD
 dev-texlive/texlive-bibtexextra		 CC-BY-SA-3.0 LPPL-1.0 TeX TeX-other-free
 
