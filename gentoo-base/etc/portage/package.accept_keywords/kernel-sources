@@ -65,6 +65,10 @@ dev-lang/rust-bin:1.76.0				~amd64
 # Gentoo skipped 1.78.0, and went straight from 1.77.1 to 1.79.0...
 dev-lang/rust:1.79.0					~amd64
 dev-lang/rust-bin:1.79.0				~amd64
+# 7.1.x
+dev-lang/rust:1.85.0					~amd64
+dev-lang/rust-bin:1.85.0				~amd64
+~dev-util/bindgen-0.71.1				~amd64
 
 # Additional kernel-modules...
 ~net-firewall/xtables-addons-3.27			       ~arm ~arm64
