@@ -13,7 +13,7 @@ debug="${DEBUG:-}"
 # we wish to build against or those specified in the host's
 # /etc/portage/package.use file(s), then 'python_targets_override' must be set
 # to the desired release below:
-declare -x python_targets_override='python3_13'
+declare -x python_targets_override='python3_14 python3_14t python3_13'
 
 if [[ -n "${BASH_VERSINFO[0]:-}" ]] && (( BASH_VERSINFO[0] < 4 )); then
 	echo >&2 "FATAL: bash-4.0.0 or later is required to run this script - on" \
@@ -279,7 +279,7 @@ if [[ -n "${python_single_target:-}" ]]; then
 			"(matching 'pythonX_Y', e.g. 'python3_13')"
 	if [[ -f "${mask_file}" ]]; then
 		if sed 's/#.*$//' "${mask_file}" |
-			grep -w -- "^python_single_target_${python_single_target}"
+			grep -qw -- "^python_single_target_${python_single_target}"
 		then
 			die "python_single_target value" \
 				"'python_single_target_${python_single_target}'" \
@@ -289,13 +289,13 @@ if [[ -n "${python_single_target:-}" ]]; then
 fi
 if [[ -n "${python_targets:-}" ]]; then
 	for python_target in ${python_targets}; do
-		[[ "${python_target}" =~ ^python[[:digit:]]_[[:digit:]]+$ ]] ||
+		[[ "${python_target}" =~ ^python[[:digit:]]_[[:digit:]]+t?$ ]] ||
 			die "python_targets value '${python_target}'" \
 				"doesn't appear to be a valid python version" \
-				"(matching 'pythonX_Y', e.g. 'python3_13')"
+				"(matching 'pythonX_Y(t)', e.g. 'python3_14t')"
 		if [[ -f "${mask_file}" ]]; then
 			if sed 's/#.*$//' "${mask_file}" |
-				grep -w -- "^python_targets_${python_target}"
+				grep -qw -- "^python_targets_${python_target}"
 			then
 				die "python_targets value 'python_targets_${python_target}' is" \
 					"masked by '${mask_file}'"
@@ -1517,15 +1517,24 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		declare python_use='' python_pkgs=''
 
 		if [[ -n "${python_single_target:-}" ]]; then
+			declare pst='' pt=''
+
 			python_use="python_single_target_${python_single_target}"
+			pst="${python_single_target/" "*}"
+			pst="${pst%"t"}"
 			# shellcheck disable=SC2001
 			python_pkgs="=python-$( sed 's/^python//' \
-				<<<"${python_single_target//_/.}" )*"
+				<<<"${pst//_/.}" )*"
+			unset pst
+
 			for python_target in ${python_targets}; do
+				pt="${python_target%"t"}"
 				# shellcheck disable=SC2001
 				python_pkgs+=" =python-$( sed 's/^python//' \
-					<<<"${python_target//_/.}" )*"
+					<<<"${pt//_/.}" )*"
 			done
+			unset pt
+
 			python_pkgs="$( # <- Syntax
 					xargs -rn 1 <<<"${python_pkgs:-}" |
 						sort -V |
@@ -1561,7 +1570,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 					target="${STAGE3_PYTHON_SINGLE_TARGET}"
 					if [[ "${target}" != "${python_single_target}" ]]; then
 						if sed 's/#.*$//' "${mask_file}" |
-							grep -w -- "^python_targets_${target}"
+							grep -qw -- "^python_targets_${target}"
 						then
 							die "Upstream stage python target" \
 								"'python_single_target_${target}'" \
@@ -1578,7 +1587,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 						for python_target in ${python_targets}; do
 							if [[ "${target}" != "${python_target}" ]]; then
 								if sed 's/#.*$//' "${mask_file}" |
-									grep -w -- "^python_targets_${target}"
+									grep -qw -- "^python_targets_${target}"
 								then
 									die "Upstream stage python target" \
 										"'python_targets_${target}'" \
