@@ -165,7 +165,7 @@ services=(
 declare -i installed=0
 declare -i tools=0
 declare -i all=0
-declare -i rebuildpkgs=0
+#declare -i rebuildpkgs=0
 declare force=''
 declare build_debug=''
 declare alt_log=''
@@ -259,15 +259,10 @@ declare -i rc=0
 declare -a container_caps=()
 
 usage() {
-	#output >&2 "Usage: $( basename "${0}" ) <service" \
-	#	'[<ports> <user> <group> <command> [directory [fs_name]]]|--services' \
-	#	'<service> [service...]> [--rebuild] [--force] [--force-keywords]' \
-	#	'[--debug]'
 	output >&2 "Usage: $( basename "${0}" ) <service>" \
 		'[<ports> <user> <group> <command> [directory [fs_name]]]'
 	output >&2 "Usage: $( basename "${0}" ) --services" \
-		'<service> [service...] [--rebuild] [--force] [--force-keywords]' \
-		'[--debug]'
+		'<service> [service...] [--force] [--force-keywords] [--debug]'
 	output >&2
 	output >&2 'Known services:'
 	s=''
@@ -319,12 +314,24 @@ for arg in "${@:-}"; do
 			installed=1
 			;;
 		-k|--force-keywords)
+			# FORCE_KEYWORDS is consumed by common/run.sh, and will cause
+			# packages requiring a 'package.accept_keywords' entry to be
+			# considered by 'equery'
+			#
 			FORCE_KEYWORDS=1
 			export FORCE_KEYWORDS
 			;;
-		-r|--rebuild)
-			rebuildpkgs=1
-			;;
+		# I don't think this '--rebuild' logic is working... ?
+		#
+		# It looks as if the intention was to engage with the '--rebuild=*'
+		# logic in gentoo-base/entrypoint.sh.build, but that requires a
+		# mandatory parameter - which it looks as if we also expect here when
+		# processing 'arg' into 'args[@]', which only works if 'rebuild'
+		# contains the name of a set variable.
+		#
+		#-r|--rebuild)
+		#	rebuildpkgs=1
+		#	;;
 		-s|--services)
 			service_list=1
 			;;
@@ -480,8 +487,10 @@ if (( all )); then
 			: $(( c++ ))
 
 			# Call ourself for each service in turn...
-			print "Re-invoking script as './$( basename "${0}" ) ${s}${rebuildpkgs:+" --rebuild"}${force:+" --force"}${FORCE_KEYWORDS:+" --force-keywords"}'"
-			./"$( basename "${0}" )" "${s}" ${rebuildpkgs:+"--rebuild"} ${force:+"--force"} ${FORCE_KEYWORDS:+"--force-keywords"} || {
+			#print "Re-invoking script as './$( basename "${0}" ) ${s}${rebuildpkgs:+" --rebuild"}${force:+" --force"}${FORCE_KEYWORDS:+" --force-keywords"}'"
+			#./"$( basename "${0}" )" "${s}" ${rebuildpkgs:+"--rebuild"} ${force:+"--force"} ${FORCE_KEYWORDS:+"--force-keywords"} || {
+			print "Re-invoking script as './$( basename "${0}" ) ${s}${force:+" --force"}${FORCE_KEYWORDS:+" --force-keywords"}'"
+			./"$( basename "${0}" )" "${s}" ${force:+"--force"} ${FORCE_KEYWORDS:+"--force-keywords"} || {
 				: $(( rc++ ))
 				f="${f:+"${f} "}${s}"
 			}
@@ -1530,11 +1539,11 @@ case " ${pre_pkgs} " in
 		pre_use="$( replace_flags 'internal-glib' -- "${pre_use:-}" )"
 		;;
 esac
-case " ${pre_pkgs} " in
-	*' sys-apps/help2man '*)
-		pre_use="$( replace_flags 'nls' -- "${pre_use:-}" )"
-		;;
-esac
+#case " ${pre_pkgs} " in
+#	*' sys-apps/help2man '*)
+#		pre_use="$( replace_flags 'nls' -- "${pre_use:-}" )"
+#		;;
+#esac
 case " ${pre_pkgs} " in
 	*' sys-devel/gcc '*)
 		print "Considering sys-devel/gcc additional flags ..."
@@ -2087,7 +2096,7 @@ else
 
 	args=()
 	for arg in pre_remove force_python pre_pkgs pre_use with_use post_pkgs \
-			post_use rebuild post_remove
+			post_use post_remove  # rebuild
 	do
 		# shellcheck disable=2206,SC2191
 		[[ -n "${!arg:-}" ]] && args+=( --${arg//_/-}="${!arg}" )
