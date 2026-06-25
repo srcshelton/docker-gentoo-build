@@ -157,6 +157,8 @@ services=(
 	unifi100
 	unifi101
 	unifi102
+	unifi103
+	unifi104
 	vim
 	watchdog
 	xmrig
@@ -387,7 +389,7 @@ if (( installed )); then
 				-e 's/^php-\([0-9]\).\([0-9]\)\(.*\)$/php\1\2-\1.\2\3/g' \
 				-e 's/^unifi\(-controller\(-bin\)\?\)\?-\([1-9][0-9]*\).\([0-9]\+\)\(.*\)$/unifi\3\4-\3.\4\5/g' |
 			sed -r 's/-[0-9][0-9.]*(_p[0-9]+)?(-r[0-9]+)?//'
-	)" | sort | uniq )
+	)" | sort | uniq | grep -v 'tuned' )
 fi
 
 if (( tools )); then
@@ -662,6 +664,10 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-10.1*' ;;
 	unifi102|unifi-controller102|unifi-controller-102|unifi-controller-bin102|unifi-controller-bin-102)
 		service='=net-misc/unifi-controller-bin-10.2*' ;;
+	unifi103|unifi-controller103|unifi-controller-103|unifi-controller-bin103|unifi-controller-bin-103)
+		service='=net-misc/unifi-controller-bin-10.3*' ;;
+	unifi104|unifi-controller104|unifi-controller-104|unifi-controller-bin104|unifi-controller-bin-104)
+		service='=net-misc/unifi-controller-bin-10.4*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
