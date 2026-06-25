@@ -2915,7 +2915,7 @@ mkdir -p "${log_dir:="log"}" ||
 			: exit 1 ;
 			: Drop to shell to allow for fix... ;
 			echo "INFO: Kernel build command was 'make ${kernel_make_opts[*]} O=../build \${localversion}${distro:+" EXTRAVERSION=${distro}"} ${deforoldconfig}'" ;
-			if bash; then
+			if env bash; then
 				exit 1 ;
 			else
 				exit \${?} ;
@@ -3066,14 +3066,14 @@ mkdir -p "${log_dir:="log"}" ||
 				set +x ;
 				echo "INFO:  Kernel build command was 'make ${kernel_make_opts[*]} O=../build \${localversion}${distro:+" EXTRAVERSION=${distro}"} ${deforoldconfig}'" ;
 				echo "INFO:  Package build command was 'emerge -kv --buildpkg=y \${extra_packages} @module-rebuild'" ;
-				bash ;
+				env bash ;
 			fi ;
 			set +x ;
 		fi ;
 		: Drop to shell to allow for inspection... ;
 		echo "INFO:  Kernel build command was 'make ${kernel_make_opts[*]} O=../build \${localversion}${distro:+" EXTRAVERSION=${distro}"} ${deforoldconfig}'" ;
 		[ -n "\${extra_packages:-}" ] && echo "INFO:  Package build command was 'emerge -kv --buildpkg=y \${extra_packages}'" ;
-		bash ;
+		env bash ;
 		unset localversion ;
 	EOF
 	)"
