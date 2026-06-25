@@ -1,26 +1,4 @@
 
-# Sam James <sam@gentoo.org> (2025-03-07)
-# Gradually unmask for newer Rust to avoid making users recompile for
-# the change. See bug #735154.
-#
-# Update: Fails for rust-1.8[45].*, so not ready yet...
-#
-#dev-lang/rust -system-llvm
-
-# Craig Andrews <candrews@gentoo.org> (2019-09-12)
-# OpenSSL (as of version 1.1.1) doesn't have APIs for QUIC support
-# see https://github.com/openssl/openssl/pull/8797
-#
-# Update: This should be delivered in openssl:3.4 or openssl:3.5,
-#         see [1], [2]. See also [3] & [4].
-#
-# [1] https://github.com/openssl/openssl/discussions/24160
-# [2] https://openssl-foundation.org/post/2025-03-12-quic-server-addition/
-# [3] https://daniel.haxx.se/blog/2021/10/25/the-quic-api-openssl-will-not-provide/
-# [4] https://daniel.haxx.se/blog/2025/02/16/openssl-does-a-quic-api/
-#
-#net-libs/ngtcp2 -openssl
-
 # Pacho Ramos <pacho@gentoo.org> (2020-08-21)
 # app-text/pandoc is hard to stabilize #737612
 #
