@@ -3591,7 +3591,7 @@ if [ -n "${pkg_initial:-}" ]; then
 						# graphite USE flags are enabled...
 						#
 						# Update: Despite valid binary packages existing,
-						#         portage is now insisting on rebuliding
+						#         portage is now insisting on rebuilding
 						#         app-crypt/libb2, which then fails because gcc
 						#         reports that libisl isn't present and so
 						#         graphie flags are invalid.  Except that
