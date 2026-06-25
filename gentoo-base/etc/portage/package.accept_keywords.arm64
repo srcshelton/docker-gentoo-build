@@ -173,6 +173,7 @@
 
 ~app-benchmarks/stress-1.0.7				~arm64
 ~app-benchmarks/stress-ng-0.19.06			~arm64
+~app-benchmarks/stress-ng-0.20.01			~arm64
 ~app-misc/colordiff-1.0.21				~arm64
 ~app-misc/splitvt-1.6.6_p7				 **
 ~app-text/lesspipe-2.13					~arm64
@@ -188,6 +189,7 @@
 #=dev-perl/Net-Twitter-Lite-0.12008			 **
 ~dev-util/cwdiff-0.4.0					 **
 ~dev-util/ltrace-0.7.91_p195				~arm64
+~dev-util/stressapptest-1.0.11				 **
 ~mail-filter/dcc-2.3.168				~arm64
 ~net-analyzer/arpwatch-3.5				 **
 ~net-analyzer/darkstat-3.0.721				 **

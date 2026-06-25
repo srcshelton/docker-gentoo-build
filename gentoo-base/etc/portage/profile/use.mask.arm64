@@ -40,6 +40,7 @@ llvm_targets_XCore
 #      to kernel-6.5.0
 #
 #python_targets_pypy3
+#python_targets_pypy3_11
 python_targets_python3_6
 python_targets_python3_7
 python_targets_python3_8
@@ -49,7 +50,9 @@ python_targets_python3_11
 python_targets_python3_12
 #python_targets_python3_13
 python_targets_python3_13t
-python_targets_python3_14
+#python_targets_python3_14
+#python_targets_python3_14t
+python_targets_python3_15
 
 # Prevent old PHP implementations from being pulled-in
 #

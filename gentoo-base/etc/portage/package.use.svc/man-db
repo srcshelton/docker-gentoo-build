@@ -1,5 +1,5 @@
 
-*/*					 zlib
+*/*					-nls zlib
 
 #sys-apps/man-db			 berkdb +gdbm +manpager nls +seccomp (-selinux) static-libs (+zlib)
 sys-apps/man-db				 gdbm manpager nls seccomp

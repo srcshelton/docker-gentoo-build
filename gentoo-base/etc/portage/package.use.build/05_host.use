@@ -22,6 +22,11 @@
 
 */*					-dbus -gui
 */*					-nls -perl -python
+#*/*					 FIRMWARE: -amd_cpu -broadcom_net -broadcom_platform -intel_net -intel_platform -marvell -mediatek -netronome -nvidia_net -nxp -qualcomm_net -qualcomm_platform
+*/*					-firmware_amd_cpu -firmware_broadcom_net -firmware_broadcom_platform -firmware_intel_net -firmware_intel_platform -firmware_marvell -firmware_mediatek -firmware_netronome -firmware_nvidia_net -firmware_nxp -firmware_qualcomm_net -firmware_qualcomm_platform
+# e.g.
+#*/*					 FIRMWARE: realtek
+#*/*					 firmware_realtek
 
 #acct-group/*				 compat
 #acct-user/*				 compat
@@ -45,6 +50,8 @@ acct-user/postfix			 milter opendkim
 app-arch/unzip				-natspec
 #					 bzip2 natspec unicode
 
+app-benchmarks/stress-ng		-jpeg -sctp
+
 # portage-3.0.65-r1 correctly merges USE flags from virtual/mta ('ssmtp') and
 # the additions from virtual/mta::container ('postfix'), but ignores the
 # '-ssmtp' exclusion which is also declared for virtual/mta::container...
@@ -62,6 +69,8 @@ dev-db/mariadb				-* bindist
 # move container/mariadb container-services/mariadb
 container-services/mariadb		 server
 #					+backup bindist columnstore cracklib debug extraengine galera innodb-bzip2 innodb-lz4 innodb-lzma innodb-lzo innodb-snappy jdbc jemalloc kerberos latin1 mroonga numa odbc oqgraph pam +perl profiling rocksdb s3 selinux +server sphinx sst-mariabackup sst-rsync static systemd systemtap tcmalloc test xml yassl
+
+dev-debug/strace			-elfutils
 
 # Avoid additional perl dependencies
 dev-lang/perl				 minimal  # -perl-cleaner
@@ -93,6 +102,8 @@ net-misc/dhcpcd				-udev
 sys-apps/hwids				-udev
 sys-fs/dosfstools			-udev
 
+sys-apps/dtc				-yaml
+
 # Requires dev-perl/Locale-gettext, but then can't find it in many cases :(
 # Overrides USE='-nls' in 00_package.use
 #sys-apps/help2man			 nls
@@ -115,6 +126,8 @@ sys-devel/gcc				 cet lib-only openmp default-stack-clash-protection default-zno
 # Mandatory for sys-auth/pambase[caps]
 #
 sys-libs/libcap				 pam
+
+sys-process/htop			 hwloc lm-sensors
 
 # 'webdav' requires sqlite, which now requires dbi...
 >=www-servers/lighttpd-1.4.58		-dbi -mysql -sqlite -webdav
