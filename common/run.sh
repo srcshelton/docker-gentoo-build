@@ -83,7 +83,7 @@ output() {
 die() {
 	local -i rc=1
 
-	if (( ${1:-0} > 1 && ${1:-0} < 256 )); then
+	if [[ "${1:-}" =~ ^\d+$ ]] && (( ${1:-0} > 1 && ${1:-0} < 256 )); then
 		(( rc = ${1} ))
 		if [[ -n "${2:-}" ]]; then
 			shift
@@ -1229,13 +1229,19 @@ _docker_run() {
 										head -n 1
 								)"
 							case "${pn:-}" in
-								'CIX P1 CD8180')
-									warn "Applying cpuset ring-fencing for" \
-										"${pn} system 'big' cores ..."
-									echo '--cpuset-cpus 0-1,6-11'
-									[[ -d /sys/fs/cgroup/arm_big ]] &&
+								'CIX P1 C'[DP]'81'[68]'0')
+									if false && [[ -d /sys/fs/cgroup/arm_big ]]; then
+										warn "Using 'arm_big' cgroup for" \
+											"${pn} system ..."
 										echo '--cgroup-parent' \
-											'/sys/fs/cgroup/arm_big'
+											'/arm_big/libpod_parent'
+										echo '--cpuset-cpus' \
+											"$( cat /sys/fs/cgroup/arm_big/cpuset.cpus.effective )"
+									else
+										warn "Applying cpuset ring-fencing" \
+											"for ${pn} system 'big' cores ..."
+										echo '--cpuset-cpus 0-1,6-11'
+									fi
 									#echo '--cgroups no-conmon'
 									;;
 								*)
