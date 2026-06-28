@@ -3399,6 +3399,15 @@ if [ -n "${pkg_initial:-}" ]; then
 		#
 		if [ "${ARCH}" = 'amd64' ]; then
 			(
+				setenv CFLAGS "$( # <- Syntax
+						get_portage_flags 'CFLAGS' |
+							grep -o -- '-march=[^ ]\+ '
+					)-O2 -pipe -fno-asynchronous-unwind-tables"
+				setenv CXXFLAGS "$( # <- Syntax
+						get_portage_flags 'CFLAGS' |
+							grep -o -- '-march=[^ ]\+ '
+					)-O2 -pipe"
+				setenv CPPFLAGS ''
 				setenv ROOT "${ROOT}"
 				setenv SYSROOT="${ROOT}"
 				setenv PORTAGE_CONFIGROOT="${SYSROOT}"
@@ -4605,15 +4614,15 @@ case "${1:-}" in
 					echo "${ROOT_USE}" |
 						xargs -rn 1 |
 						grep -c \
-							-e 'python_single_target_' \
-							-e 'python_targets_'
+							-e '^python_single_target_' \
+							-e '^python_targets_'
 				) )) -gt 2 ]
 		then
-			target='' targetpkg='' targets='' remove=''
+			target='' targetpkg='' targets='' remove='' arg=''
 			target="$( # <- Syntax
 					echo "${ROOT_USE}" |
 						xargs -rn 1 |
-						grep -- 'python_single_target_python' |
+						grep -- '^python_single_target_python' |
 						sed 's/python_single_target_//' |
 						sort |
 						tail -n 1
@@ -4626,16 +4635,21 @@ case "${1:-}" in
 
 			targets="$( # <- Syntax
 					echo "${ROOT_USE}" |
-						grep -o -- 'python_targets_python[^ ]\+' |
+						xargs -rn 1 |
+						grep -- '^python_targets_python' |
 						sed 's/python_targets_//' |
 						xargs -r
 				)"
 			print "Current python_targets: '${targets}'"
 
 			remove="$( # <- Syntax
-					echo "${targets}" |
-						xargs -rn 1 |
-						grep -vx -- "${target}" |
+					for arg in ${targets}; do
+						if ! echo " ${BUILD_PYTHON_TARGETS:-"${target}"} " |
+								grep -qw -- "${arg}"
+						then
+							echo "${arg}"
+						fi
+					done |
 						xargs -r
 				)"
 			print "python_targets to remove: '${remove}'"
@@ -4662,6 +4676,7 @@ case "${1:-}" in
 									xargs -r
 							)
 					do
+						pkgs=''
 						setenv ROOT "${ROOT}"
 						setenv SYSROOT="${ROOT}"
 						setenv PORTAGE_CONFIGROOT="${SYSROOT}"
@@ -4709,18 +4724,17 @@ case "${1:-}" in
 							if echo "${remove}" | grep -qw -- "${arg}"; then
 								use="${use:+"${use} "}-${arg}"
 								print " .. matched - 'use' is now '${use}'"
-
-								pkgs="${pkgs:-} $( # <- Syntax
-										find "${ROOT%"/"}/var/db/pkg/" \
-												-mindepth 3 \
-												-maxdepth 3 \
-												-type f \
-												-name 'IUSE' \
-												-print0 |
-											xargs -r0 grep -Flw -- "${arg}" |
-											sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||' |
-											xargs -r
-									)"
+									pkgs="${pkgs:-} $( # <- Syntax
+											find "${ROOT%"/"}/var/db/pkg/" \
+													-mindepth 3 \
+													-maxdepth 3 \
+													-type f \
+													-name 'USE' \
+													-print0 |
+												xargs -r0 grep -Flw -- "${arg}" |
+												sed 's|^.*/var/db/pkg/|>=| ; s|/USE$||' |
+												xargs -r
+										)"
 								pkgs="$(
 										echo "${pkgs}" |
 											xargs -rn 1 |
@@ -4756,6 +4770,12 @@ case "${1:-}" in
 									"${PYTHON_TARGETS}"
 							)"
 						setenv USE "${USE}"
+						if [ -z "${pkgs:-}" ]; then
+							print "No packages in root '${ROOT}' were built" \
+								"with old python targets '${remove}', skipping"
+							continue
+						fi
+
 
 						pkgs="${pkgs:-} $( # <- Syntax
 								find "${ROOT%"/"}/var/db/pkg/dev-python/" \
@@ -4823,8 +4843,21 @@ case "${1:-}" in
 							break
 						fi
 
-						setenv USE="${USE} -tmpfiles"
+						setenv USE "$( # <- Syntax
+								echo "${USE} -tmpfiles" |
+									xargs -rn 1 |
+									grep -Ev \
+										-e '^-?python_single_target_' \
+										-e '^-?python_targets_' |
+									xargs -r
+							)"
 						setenv PYTHON_TARGETS="${BUILD_PYTHON_TARGETS}"
+						eval "$( # <- Syntax
+							resolve_python_flags \
+								"${USE}" \
+								"${PYTHON_SINGLE_TARGET}" \
+								"${PYTHON_TARGETS}"
+						)"
 
 						info="$( # <- Syntax
 									LC_ALL='C' \
@@ -4843,13 +4876,10 @@ case "${1:-}" in
 						echo "${info}" | format 'USE'
 						echo "${info}" | format 'PYTHON_TARGETS'
 
-						# If we clear 'pkgs' then we hit all manner of
-						# dependency problems - even though the roots are
-						# independent, and identifying the packages built
-						# against old python versions should be
-						# exhaustive...
+						# Keep the stage-1 package list, and add any packages
+						# still built with the target flags due to be
+						# removed...
 						#
-						#pkgs=''
 						for arg in ${USE}; do
 							print "Checking for '${arg}' in '${remove}' ..."
 
@@ -4859,19 +4889,12 @@ case "${1:-}" in
 												-mindepth 3 \
 												-maxdepth 3 \
 												-type f \
-												-name 'IUSE' \
+												-name 'USE' \
 												-print0 |
-											grep -Flw -- "${arg}" |
-											sed 's|^.*/var/db/pkg/|>=| ; s|/IUSE$||' |
+											xargs -r0 grep -Flw -- "${arg}" |
+											sed 's|^.*/var/db/pkg/|>=| ; s|/USE$||' |
 											xargs -r
 									)"
-								pkgs="$(
-										echo "${pkgs}" |
-											xargs -rn 1 |
-											sort -V |
-											uniq
-									)"
-								print "'pkgs' is now '${pkgs}'"
 							fi
 						done
 						pkgs="${pkgs:-} $( # <- Syntax
@@ -4891,7 +4914,13 @@ case "${1:-}" in
 						then
 							pkgs="${pkgs:-} virtual/tmpfiles::srcshelton"
 						fi
-						print "pkgs: '${pkgs}'"
+						pkgs="$( # <- Syntax
+								echo "${pkgs}" |
+									xargs -rn 1 |
+									sort -V |
+									uniq |
+									xargs -r
+							)"
 
 						# shellcheck disable=SC2086
 						do_emerge --rebuild-defaults --update ${pkgs} ||
