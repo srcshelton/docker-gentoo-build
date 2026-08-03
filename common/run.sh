@@ -1230,7 +1230,7 @@ _docker_run() {
 								)"
 							case "${pn:-}" in
 								'CIX P1 C'[DP]'81'[68]'0')
-									if false && [[ -d /sys/fs/cgroup/arm_big ]]; then
+									if [[ -d /sys/fs/cgroup/arm_big ]]; then
 										warn "Using 'arm_big' cgroup for" \
 											"${pn} system ..."
 										echo '--cgroup-parent' \
@@ -1243,6 +1243,12 @@ _docker_run() {
 										echo '--cpuset-cpus 0-1,6-11'
 									fi
 									#echo '--cgroups no-conmon'
+									if [[ -s /sys/fs/resctrl/performance/cpus ]]
+									then
+										warn "Applying 'performance' MPAM" \
+											"cache tuning ..."
+										echo '--rdt-class performance'
+									fi
 									;;
 								*)
 									print "Not applying cpuset ring-fencing" \

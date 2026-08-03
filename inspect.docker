@@ -258,6 +258,11 @@ docker_run() {
 								echo '--cpuset-cpus 0-1,6-11'
 							fi
 							#echo '--cgroups no-conmon'
+							if [[ -s /sys/fs/resctrl/performance/cpus ]]; then
+								warn "Applying 'performance' MPAM cache" \
+									"tuning ..."
+								echo '--rdt-class performance'
+							fi
 							;;
 						*)
 							print "Not applying cpuset ring-fencing on" \
