@@ -159,6 +159,7 @@ services=(
 	unifi102
 	unifi103
 	unifi104
+	unifi105
 	vim
 	watchdog
 	xmrig
@@ -668,6 +669,8 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-10.3*' ;;
 	unifi104|unifi-controller104|unifi-controller-104|unifi-controller-bin104|unifi-controller-bin-104)
 		service='=net-misc/unifi-controller-bin-10.4*' ;;
+	unifi105|unifi-controller105|unifi-controller-105|unifi-controller-bin105|unifi-controller-bin-105)
+		service='=net-misc/unifi-controller-bin-10.5*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
@@ -1322,6 +1325,7 @@ case "${package_name}" in
 				dev-perl/GeoIP2
 				net-misc/curl
 				net-misc/geoipupdate
+				sys-apps/attr
 				sys-apps/baselayout
 				sys-apps/busybox
 				sys-apps/coreutils
