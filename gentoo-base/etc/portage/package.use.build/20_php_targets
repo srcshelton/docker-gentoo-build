@@ -3,7 +3,7 @@
 #
 # php8-4 is currently (since 2023...) masked in profiles/base/use.stable.mask
 #
-#*/*					 PHP_TARGETS: php8-2 php8-3 (php8-4)
+#*/*					 PHP_TARGETS: php8-2 php8-3 (php8-4) (php8-5)
 */*					 PHP_TARGETS: php8-3
 
 # vi: set colorcolumn=41,80 syntax=gentoo-package-use sw=8 ts=8 nowrap:
