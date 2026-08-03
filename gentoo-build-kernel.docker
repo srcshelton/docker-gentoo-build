@@ -2029,6 +2029,7 @@ mkdir -p "${log_dir:="log"}" ||
 			# With the creation of virtual/zlib, managing the 'static-libs' USE
 			# flag on this and sys-libs/zlib has become problematic...
 			pkg_use="${pkg_use:+"${pkg_use},"}sys-libs/zlib static-libs"
+			pkg_use="${pkg_use:+"${pkg_use},"}sys-libs/zlib-ng compat"
 			pkg_use="${pkg_use:+"${pkg_use},"}virtual/zlib static-libs"
 
 			# shellcheck disable=SC2206
@@ -2048,6 +2049,7 @@ mkdir -p "${log_dir:="log"}" ||
 				sys-apps/coreutils
 				sys-apps/kmod
 				sys-apps/util-linux
+				sys-libs/zlib
 				sys-process/time
 				${microcode:-}
 				${firmware:-}
