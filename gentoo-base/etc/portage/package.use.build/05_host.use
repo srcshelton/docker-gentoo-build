@@ -38,6 +38,7 @@ acct-user/postfix			 milter opendkim
 # Uncomment the following in order to add support for the btrfs driver to
 # app-containers/podman et al.:
 #
+#app-containers/container-libs		 btrfs fuse rootless tool
 #app-containers/buildah			 btrfs
 #app-containers/containers-common	 fuse rootless
 #app-containers/containers-storage	 btrfs tool

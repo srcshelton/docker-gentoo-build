@@ -83,6 +83,7 @@ app-benchmarks/bootchart2		-X
 app-crypt/gnupg				-ssl -tofu ecc idea mta
 #app-crypt/gpgme			-python  # requires dev-lang/swig, but only as a BDEPEND
 app-editors/vim				-crypt -cscope -sound terminal vim-pager
+app-containers/container-libs		-device-mapper -fuse -rootless
 app-containers/containers-common	-fuse -rootless
 app-containers/containers-storage	-device-mapper
 # move app-emulation/crun app-containers/crun
@@ -305,6 +306,7 @@ sys-libs/libnvme			-ssl  # keyutils
 sys-libs/ncurses			 trace unicode
 sys-libs/pam				-debug
 sys-libs/timezone-data			 leaps-timezone leaps_timezone right_timezone # zic-slim
+sys-libs/zlib-ng			 compat
 sys-power/powertop			-X
 #sys-process/audit			-python  # incompatible with python:3.12, requires dev-lang/swig, but only as a DEPEND
 sys-process/cronie			-anacron
