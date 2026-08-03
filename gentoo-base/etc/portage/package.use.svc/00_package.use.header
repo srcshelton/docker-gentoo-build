@@ -24,8 +24,8 @@
 */*					 LUA_SINGLE_TARGET: luajit
 */*					 LUA_TARGETS: luajit
 #*/*					 POSTGRES_TARGETS: postgres17
-*/*					 PYTHON_SINGLE_TARGET: python3_13
-*/*					 PYTHON_TARGETS: python3_13
+*/*					 PYTHON_SINGLE_TARGET: python3_14
+*/*					 PYTHON_TARGETS: python3_14 python3_14t
 */*					 RUBY_TARGETS: ruby33
 
 net-misc/curl				 CURL_SSL: openssl

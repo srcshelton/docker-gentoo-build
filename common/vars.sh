@@ -855,7 +855,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 
 	# Set build targets for multi-SLOT packages...
 	#
-	python_default_target='python3_13'
+	python_default_target='python3_14'
 	export python_default_target
 
 	php_default_target='php8-3'

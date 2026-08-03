@@ -48,11 +48,12 @@ python_targets_python3_9
 #python_targets_python3_10
 python_targets_python3_11
 python_targets_python3_12
-#python_targets_python3_13
+python_targets_python3_13
 python_targets_python3_13t
 #python_targets_python3_14
 #python_targets_python3_14t
 python_targets_python3_15
+python_targets_python3_15t
 
 # Prevent old PHP implementations from being pulled-in
 #
@@ -62,5 +63,6 @@ php_targets_php8-1
 php_targets_php8-2
 #php_targets_php8-3
 php_targets_php8-4
+php_targets_php8-5
 
 # vi: set syntax=gentoo-package-mask:

@@ -901,6 +901,17 @@ case "${package_name}" in
 		pre_pkgs='sys-devel/gcc'
 		keep_base='no'
 
+		# Not sure why portage can't figure out itself that
+		# sys-apps/uswid-0.4.7 only supports up to 'python3_13'...
+		if [[ "$( # <- Syntax
+				printf '%s\n%s' "${python_target}" 'python3_13' |
+					sort -V |
+					head -n 1
+			)" == 'python3_13' ]]
+		then
+			extra_pkgs='>=sys-apps/uswid-0.6.0'
+		fi
+
 		container_cmd='/usr/bin/fwupdtool'
 		etcdir='fwupd'
 		;;

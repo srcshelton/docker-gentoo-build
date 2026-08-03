@@ -49,7 +49,9 @@ fi
 #fi
 
 if [ -s .kbuild_opt ]; then
-	[ $(( debug )) -ne 0 ] && echo >&2 "DEBUG: $( basename "${0}" ): Including build options from '.kbuild_opt' ..."
+	[ $(( debug )) -ne 0 ] &&
+		echo >&2 "DEBUG: $( basename "${0}" ): Including build options from" \
+			"'.kbuild_opt' ..."
 	kbuild_opt="${kbuild_opt:-} $( cat .kbuild_opt )"
 fi
 if [ -z "${kbuild_opt:-}" ]; then
@@ -78,7 +80,10 @@ case " ${*:-} " in
 		if [ -d "${utils_basedir}/docker-dell" ]; then
 			printf >&2 '[--rebuild-utilities] '
 		fi
-		echo >&2 '[--rebuild-images [--skip-build] [--no-tools] [--force] [--all]] [--init-pkg-cache] [--update-pkgs [--exclude="<pkg ...>"]] [--update-system [--pretend] [--exclude="<pkg ...>"]]'
+		echo >&2 '[--rebuild-images [--skip-build] [--no-tools] [--force]' \
+			'[--all]] [--init-pkg-cache] [--update-pkgs' \
+			'[--exclude="<pkg ...>"]] [--update-system [--pretend]' \
+			'[--exclude="<pkg ...>"]]'
 		echo >&2
 		echo >&2 "       kernel build options: kbuild_opt='${kbuild_opt}'"
 		exit 0
@@ -135,7 +140,7 @@ for arg in ${@+"${@}"}; do
 			haveargs=1
 			;;
 		--exclude=*)
-			exclude="$( echo "${arg}" | sed -r "s/^--exclude=['\"]?(.*)['\"]?$/\1/" )"
+			exclude="${exclude:+"${exclude} "}${arg#--exclude=}"
 			haveargs=1
 			;;
 		-a|--all)
@@ -167,11 +172,13 @@ if [ $(( haveargs )) -eq 0 ]; then
 fi
 if [ $(( rebuildimgs )) -ne 1 ]; then
 	if [ $(( skip )) -eq 1 ]; then
-		echo >&2 "WARN:  Option '--skip-build' is only valid with '--rebuild-images'"
+		echo >&2 "WARN:  Option '--skip-build' is only valid with" \
+			"'--rebuild-images'"
 		skip=0
 	fi
 	if [ $(( force )) -eq 1 ]; then
-		echo >&2 "WARN:  Option '--force' is only valid with '--rebuild-images'"
+		echo >&2 "WARN:  Option '--force' is only valid with" \
+			"'--rebuild-images'"
 		force=0
 	fi
 	if [ $(( all )) -eq 1 ]; then
@@ -180,9 +187,12 @@ if [ $(( rebuildimgs )) -ne 1 ]; then
 	fi
 else  # if [ $(( rebuildimgs )) -eq 1 ]; then
 	if [ $(( skip )) -eq 1 ]; then
-		if [ "$( "${_command}" image ls -n 'localhost/gentoo-build' | wc -l )" = '0' ]; then
-			echo >&2 "WARN:  Option '--skip-build' is only valid with a pre-existing 'build' image"
-			echo >&2 "WARN:  Ignoring '--skip-build' and generating new image(s)"
+		if [ "$( "${_command}" image ls -n 'localhost/gentoo-build' | wc -l )" = '0' ]
+		then
+			echo >&2 "WARN:  Option '--skip-build' is only valid with a" \
+				"pre-existing 'build' image"
+			echo >&2 "WARN:  Ignoring '--skip-build' and generating new" \
+				"image(s)"
 			skip=0
 		fi
 	fi
@@ -191,8 +201,10 @@ if [ $(( pretend )) -eq 1 ] && [ $(( system )) -ne 1 ]; then
 	echo >&2 "WARN:  Option '--pretend' is only valid with '--update-system'"
 	pretend=0
 fi
-if [ $(( update )) -ne 1 ] && [ $(( system )) -ne 1 ] && [ -n "${exclude:-}" ]; then
-	echo >&2 "WARN:  Options '--exclude' is only valid with '--update-packages' and '--update-system'"
+if [ $(( update )) -ne 1 ] && [ $(( system )) -ne 1 ] && [ -n "${exclude:-}" ]
+then
+	echo >&2 "WARN:  Options '--exclude' is only valid with" \
+		"'--update-packages' and '--update-system'"
 	unset exclude
 fi
 
@@ -219,14 +231,16 @@ if [ "${rebuildutils:-"0"}" = '1' ]; then
 			exit 1
 		fi
 
-		if [ "$( "${_command}" image ls -n 'localhost/dell-dsu' | wc -l )" = '0' ]; then
+		if [ "$( "${_command}" image ls -n 'localhost/dell-dsu' | wc -l )" = 0 ]
+		then
 			"${utils_basedir}"/docker-dell/dell.docker --dsu \
 					${IMAGE_ROOT:+"--root"} ${IMAGE_ROOT:+"${IMAGE_ROOT}"} \
 				>> "${log_dir}"/dell.dsu.log 2>&1 &
 			# shellcheck disable=SC3044
 			disown 2>/dev/null || :  # doesn't exist in POSIX sh :(
 		fi
-		if [ "$( "${_command}" image ls -n 'localhost/dell-ism' | wc -l )" = '0' ]; then
+		if [ "$( "${_command}" image ls -n 'localhost/dell-ism' | wc -l )" = 0 ]
+		then
 			"${utils_basedir}"/docker-dell/dell.docker --ism \
 					${IMAGE_ROOT:+"--root"} ${IMAGE_ROOT:+"${IMAGE_ROOT}"} \
 				>> "${log_dir}"/dell.ism.log 2>&1 &
@@ -254,7 +268,9 @@ if [ "${rebuildimgs:-"0"}" = '1' ]; then  # {
 		if ! [ $(( all )) -eq 0 ]; then
 			selection='--services all'
 		fi
-		[ $(( debug )) -ne 0 ] && echo >&2 "DEBUG: $( basename "${0}" ): Calling service script './gentoo-build-svc.docker${forceflag:+" ${forceflag}"}${forceflag:+" --rebuild"} ${selection}'"
+		[ $(( debug )) -ne 0 ] &&
+			echo >&2 "DEBUG: $( basename "${0}" ): Calling service script" \
+				"'./gentoo-build-svc.docker${forceflag:+" ${forceflag}"}${forceflag:+" --rebuild"} ${selection}'"
 		# shellcheck disable=SC2086
 		if ! ./gentoo-build-svc.docker \
 				${forceflag:+"${forceflag}"} \
@@ -278,9 +294,9 @@ if [ "${rebuildimgs:-"0"}" = '1' ]; then  # {
 		# Don't impose memory limits on hosts with <8GB RAM, linux
 		# won't build (with clang) on 4GB hosts :(
 		ram=$(( $( # <- Syntax
-			grep -m 1 'MemTotal:' /proc/meminfo |
-				awk '{print $2}'
-		) / 1024 / 1024 ))
+				grep -m 1 'MemTotal:' /proc/meminfo |
+					awk '{print $2}'
+			) / 1024 / 1024 ))
 		if [ $(( ram )) -lt 7 ]; then
 			# shellcheck disable=SC2086
 			if ! NO_MEMORY_LIMITS=1 ./gentoo-build-kernel.docker \
@@ -330,11 +346,12 @@ if [ "${pkgcache:-"0"}" = '1' ]; then  # {
 		export PYTHON_TARGETS="${python_default_target}"
 
 		default_use="$( # <- Syntax
-				echo "${perl_features}" |
-					xargs -rI'{}' echo "perl_features_{}"
-			)
-			python_single_target_${python_default_target}
-			python_targets_${python_default_target}"
+					echo "${perl_features}" |
+						xargs -rI'{}' echo "perl_features_{}"
+				)
+				python_single_target_${python_default_target}
+				python_targets_${python_default_target}
+			"
 
 		# shellcheck disable=SC2030
 		failures=''
@@ -368,12 +385,11 @@ if [ "${pkgcache:-"0"}" = '1' ]; then  # {
 		# build...
 		{
 			# shellcheck disable=SC2030,SC2086,SC2154
-			if { ! USE="$( # <- Syntax
-					echo " -* -asm ${alt_use} ${use_cpu_flags:-} compat" \
-							"embedded ftp getentropy gmp ipv6 ninja nls" \
-							"python readline reference " ${default_use} ' ' |
-						sed 's/ asm //g'
-			)" \
+			if { ! USE="$( echo " -* -asm ${alt_use} ${use_cpu_flags:-}" \
+						"compat embedded ftp getentropy gmp ipv6 ninja nls" \
+						"python readline reference " ${default_use} ' ' |
+								sed 's/ asm //g'
+					)" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.init' \
@@ -479,7 +495,8 @@ if [ "${pkgcache:-"0"}" = '1' ]; then  # {
 		} | tee "${log_dir}"/buildpkg.init.log
 
 		for image in 'localhost/gentoo-stage3' 'localhost/gentoo-init'; do
-			if [ "$( "${_command}" image ls -n "${image}" | wc -l )" = '0' ]; then
+			if [ "$( "${_command}" image ls -n "${image}" | wc -l )" = '0' ]
+			then
 				# shellcheck disable=SC2154
 				eval "$( # <- Syntax
 					"${_command}" container run \
@@ -571,7 +588,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then  # {
 				failures="${failures:+"${failures} "}gentoo-build-pkg;1:${err}"
 			fi
 
-			if ! USE="-* ${use} perl_features_ithreads python_targets_${python_default_target:-"python3_13"}" \
+			if ! USE="-* ${use} perl_features_ithreads python_targets_${python_default_target:-"python3_14"}" \
 					PERL_FEATURES='ithreads' \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
@@ -664,7 +681,7 @@ if [ "${pkgcache:-"0"}" = '1' ]; then  # {
 			#if [ "${ARCH}" = 'arm64' ]; then
 			#	USE='gold'
 			#fi
-			if ! USE="-* ${alt_use} ${USE} python_targets_${python_default_target:-"python3_13"} pam tools" \
+			if ! USE="-* ${alt_use} ${USE} python_targets_${python_default_target:-"python3_14"} pam tools" \
 				./gentoo-build-pkg.docker 2>&1 \
 						--buildpkg=y \
 						--name 'buildpkg.cache' \
@@ -727,7 +744,8 @@ if [ "${update:-"0"}" = '1' ]; then  # {
 	#	$( # <- Syntax
 	#		for pkg in /var/db/pkg/*/*; do
 	#			pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
-	#			if echo "${pkg}" | grep -Eq '^container-services/|/pkgconfig-'; then
+	#			if echo "${pkg}" | grep -Eq '^container-services/|/pkgconfig-'
+	#			then
 	#				continue
 	#			fi
 	#			echo ">=${pkg}"
@@ -823,41 +841,46 @@ if [ "${update:-"0"}" = '1' ]; then  # {
 	(
 		# shellcheck disable=SC2030,SC2031
 		export USE="-lib-only -natspec pkg-config ${gcc_use} ${alt_use}"
-		{
-			./gentoo-build-pkg.docker \
-						--buildpkg=y \
-						--emptytree \
-						--usepkg=y \
-						--with-bdeps=y \
-						${exclude:+"--exclude=${exclude}"} \
-					$( # <- Syntax
-						[ -d /var/db/pkg ] && for pkg in /var/db/pkg/*/*; do
-							pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
-							# fam & gamin block each other, tend to have broken
-							# downstream dependencies, and will be pulled-in as
-							# necessary in any case;
-							# We want to use more modern pkgconf in place of
-							# legacy pkgconfig;
-							# container-init packages will block their
-							# namesakes providing actual binaries, so exclude
-							# them also
-							#
-							if echo "${pkg}" | grep -Eq '^app-admin/(fam|gamin)-|^container-services/|/pkgconfig-|/-MERGING-'; then
-								continue
-							fi
-							# Specify python packages at the level of, e.g.
-							# '3.11*' rather than a more specific minor-version
-							# or the major release only
-							#
-							if echo "${pkg}" | grep -q '^dev-lang/python'; then
-								echo "=${pkg%"."*}*"
-							else
-								echo ">=${pkg}"
-							fi
-						done
-					) --name 'buildpkg.hostpkgs.update' 2>&1 ||
-				exit ${?}
-		} | tee "${log_dir}"/buildpkg.hostpkgs.update.log
+		set -- ./gentoo-build-pkg.docker \
+			--buildpkg=y \
+			--emptytree \
+			--usepkg=y \
+			--with-bdeps=y
+		for arg in ${exclude:-}; do
+			set -- "${@}" "--exclude=${arg}"
+		done
+		unset arg
+		# shellcheck disable=SC2046
+		set -- "${@}" $( # <- Syntax
+				[ -d /var/db/pkg ] && for pkg in /var/db/pkg/*/*; do
+					pkg="$( echo "${pkg}" | rev | cut -d'/' -f 1-2 | rev )"
+					# fam & gamin block each other, tend to have broken
+					# downstream dependencies, and will be pulled-in as
+					# necessary in any case;
+					# We want to use more modern pkgconf in place of
+					# legacy pkgconfig;
+					# container-init packages will block their
+					# namesakes providing actual binaries, so exclude
+					# them also
+					#
+					if echo "${pkg}" |
+							grep -Eq '^app-admin/(fam|gamin)-|^container-services/|/pkgconfig-|/-MERGING-'
+					then
+						continue
+					fi
+					# Specify python packages at the level of, e.g.
+					# '3.14*' rather than a more specific minor-version
+					# or the major release only
+					#
+					if echo "${pkg}" | grep -q '^dev-lang/python'; then
+						echo "=${pkg%"."*}*"
+					else
+						echo ">=${pkg}"
+					fi
+				done
+			) --name 'buildpkg.hostpkgs.update'
+		{ "${@}" 2>&1 || exit ${?} ; } |
+			tee "${log_dir}"/buildpkg.hostpkgs.update.log
 	)
 	: $(( err = ${?} ))
 	: $(( rc = rc + err ))
@@ -891,18 +914,20 @@ if [ "${update:-"0"}" = '1' ]; then  # {
 			# sys-devel/gcc also requires USE='reference' (or 'samurai')...
 			#
 			# shellcheck disable=SC2031
-			export USE="${gcc_use} ${alt_use} reference python_targets_${python_default_target:-"python3_13"}"
-			{
-				./gentoo-build-pkg.docker \
-							--buildpkg=y \
-							--name 'buildpkg.hostpkgs.gcc.update' \
-							--usepkg=y \
-							--with-bdeps=y \
-							--with-pkg-use='app-alternatives/ninja reference' \
-							${exclude:+"--exclude=${exclude}"} \
-						sys-devel/gcc 2>&1 ||
-					exit ${?}
-			} | tee "${log_dir}"/buildpkg.hostpkgs.gcc.update.log
+			export USE="${gcc_use} ${alt_use} reference python_targets_${python_default_target:-"python3_14"}"
+			set -- ./gentoo-build-pkg.docker \
+				--buildpkg=y \
+				--name 'buildpkg.hostpkgs.gcc.update' \
+				--usepkg=y \
+				--with-bdeps=y \
+				--with-pkg-use='app-alternatives/ninja reference'
+			for arg in ${exclude:-}; do
+				set -- "${@}" "--exclude=${arg}"
+			done
+			unset arg
+			set -- "${@}" sys-devel/gcc
+			{ "${@}" 2>&1 || exit ${?} ; } |
+				tee "${log_dir}"/buildpkg.hostpkgs.gcc.update.log
 		)
 		: $(( err = ${?} ))
 		: $(( rc = rc + err ))
@@ -929,48 +954,51 @@ if [ "${system:-"0"}" = '1' ]; then  # {
 	# dependencies, running 'emerge @world' is not sufficient - we need to look
 	# at what we already have installed as well...
 	#
-	if output="$( # <- Syntax
-		# shellcheck disable=SC2046
-		emerge \
-					--binpkg-changed-deps=y \
-					--binpkg-respect-use=y \
-					--color=n \
-					${exclude:+"--exclude=${exclude}"} \
-					--newuse \
-					--pretend \
-					--tree \
-					--update \
-					--usepkg=y \
-					--verbose-conflicts \
-					--verbose=y \
-					--with-bdeps=n \
-				@world $(
-						 [ -d /var/db/pkg ] &&
-							find /var/db/pkg/ -mindepth 2 -maxdepth 2 -type d |
-								grep -Fv -- '-MERGING-' |
-								cut -d'/' -f 5-6 |
-								sed 's/^/>=/'
-					)
-					# --usepkgonly and --deep are horribly broken <sigh>
-					#
-					#--deep \
-	)"; then
+	set -- emerge \
+		--binpkg-changed-deps=y \
+		--binpkg-respect-use=y \
+		--color=n
+	for arg in ${exclude:-}; do
+		set -- "${@}" "--exclude=${arg}"
+	done
+	unset arg
+	# shellcheck disable=SC2046
+	set -- "${@}" \
+			--newuse \
+			--pretend \
+			--tree \
+			--update \
+			--usepkg=y \
+			--verbose-conflicts \
+			--verbose=y \
+			--with-bdeps=n \
+		@world $(
+				[ -d /var/db/pkg ] &&
+					find /var/db/pkg/ -mindepth 2 -maxdepth 2 -type d |
+						grep -Fv -- '-MERGING-' |
+						cut -d'/' -f 5-6 |
+						sed 's/^/>=/'
+			)
+	# --usepkgonly and --deep are horribly broken <sigh>
+	#
+	#--deep
+	if output="$( "${@}" )"; then
 		echo "${output}" |
 			grep -E '^\[binary\s+U[[:space:]~]+\]\s+' |
 			cut -d']' -f 2- |
 			sed 's/^\s\+// ; s/^/=/' |
 			cut -d' ' -f 1 |
 			xargs -r emerge \
-						--binpkg-changed-deps=y \
-						--binpkg-respect-use=y \
-						--keep-going \
-						--oneshot \
-						${pretend:+"--pretend"} \
-						--tree \
-						--usepkg=y \
-						--verbose-conflicts \
-						--verbose=y \
-						--with-bdeps=n
+				--binpkg-changed-deps=y \
+				--binpkg-respect-use=y \
+				--keep-going \
+				--oneshot \
+				${pretend:+"--pretend"} \
+				--tree \
+				--usepkg=y \
+				--verbose-conflicts \
+				--verbose=y \
+				--with-bdeps=n
 	fi
 	: $(( err = ${?} ))
 	: $(( rc = rc + err ))

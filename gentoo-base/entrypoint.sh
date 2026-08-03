@@ -19,7 +19,7 @@ environment_filter="${environment_filter:-"__ENVFILTER__"}"
 
 # N.B. If multiple python_default_targets are required, the primary version
 #      must be listed *first*:
-python_default_targets='python3_13'
+python_default_targets='python3_14'
 stage3_flags=''
 os_headers_arch_flags='raspberrypi rockchip'
 
@@ -2462,7 +2462,7 @@ then
 
 		do_emerge --once-defaults sys-apps/util-linux
 
-		# python3_13 -> dev-lang/python:3.13
+		# python3_14 -> dev-lang/python:3.14
 		python_pkg="dev-lang/$( # <- Syntax
 				echo "${python_default_targets%%" "*}" |
 					sed 's/3_/:3./'
@@ -4627,7 +4627,7 @@ case "${1:-}" in
 						sort |
 						tail -n 1
 				)"
-			# python3_13 -> dev-lang/python-3.13
+			# python3_14 -> dev-lang/python-3.14
 			targetpkg="dev-lang/$( # <- Syntax
 					echo "${target}" | sed 's/^python/python-/ ; s/_/./'
 				)"
