@@ -404,9 +404,9 @@ setenv() {
 	# In more detail:
 	#
 	# For speed and efficiency purposes, when not passed '--env-only'
-	# get_portage_flags() calls 'emerge --info' once and saves the result as
+	# get_portage_flags() calls 'emerge --info' once and saves the result since
 	# emerge can be slow.  The output should be the portage defaults overridden
-	# by files from ${SYSROOT}/etc/portage/ overridden by values
+	# by files from ${SYSROOT}/etc/portage/ and overridden again by values
 	# in the environment - and this is saved once for SYSROOT='/' (or unset)
 	# and once for any other value (as SYSROOT must be either '/' or "${ROOT}")
 	# on the assumption that we're only ever going to see a maximum of one
@@ -414,7 +414,7 @@ setenv() {
 	# although if ${extra_root} is inadvertantly set to anything other than '/'
 	# then this assumption would break).
 	#
-	# However, this means that as soon as we /change/ and portage variable in
+	# However, this means that as soon as we /change/ any portage variable in
 	# the environment, the cache is stale (when not passed '--env-only') and
 	# get_portage_flags() returns misleading data.
 	#
@@ -438,32 +438,30 @@ setenv() {
 	se_name=''
 
 	se_name="${se_var%%"="*}"
-	if [ "${se_name}" != "${se_var}" ] &&
-			echo "${se_name}" | grep -q -- '^[a-zA-Z_][a-zA-Z_0-9]*$'
-	then
-		# 'setenv VAR=VAL'-style...
-		se_val="${se_var#*"="}"
-		se_var="${se_name}"
-		if [ -n "${2:-}" ]; then
-			print "setenv: '${*}' contains unexpected follow-on arguments," \
-				"appending to initial values '${se_val:-}'"
-			shift
-			set -- "${se_val:-}" "${@:-}"
-		else
-			set -- "${se_val:-}"
-		fi
-		se_val=''
+	if ! echo "${se_name}" | grep -q -- '^[a-zA-Z_][a-zA-Z_0-9]*$'; then
+		die "setenv: '${se_name}' is not a valid variable name"
 	else
-		# 'setenv VAR VAL'-style...
-		if [ -n "${2:-}" ]; then
-			shift
+		if [ "${se_name}" != "${se_var}" ]; then
+			# 'setenv VAR=VAL'-style...
+			se_val="${se_var#*"="}"
+			se_var="${se_name}"
+			if [ -n "${2:-}" ]; then
+				print "setenv: '${*}' contains unexpected follow-on" \
+					"arguments, appending to initial values '${se_val:-}'"
+				shift
+				set -- "${se_val:-}" "${@:-}"
+			else
+				set -- "${se_val:-}"
+			fi
+			se_val=''
 		else
-			set --
+			# 'setenv VAR VAL'-style...
+			if [ -n "${2:-}" ]; then
+				shift
+			else
+				set --
+			fi
 		fi
-	fi
-
-	if ! echo "${se_var}" | grep -q -- '^[a-zA-Z_][a-zA-Z_0-9]*$'; then
-		die "setenv: '${se_var}' is not a valid variable name"
 	fi
 
 	eval "se_val=\${${se_var}:-}"
