@@ -59,7 +59,7 @@ media-libs/freetype			 harfbuzz png
 # required by x11-libs/pango-1.50.14
 # required by media-libs/harfbuzz-7.2.0
 # required by dev-libs/glib-2.76.2
-dev-libs/libpcre2			 unicode
+dev-libs/libpcre2			 unicode zlib
 
 # required by sys-fs/udisks-2.9.1
 sys-libs/libblockdev			 cryptsetup nvme
