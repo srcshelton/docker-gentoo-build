@@ -153,6 +153,21 @@ RUN set -eu ; \
             echo >&2 "FATAL: Unable to locate 'grep' binary" ; \
             exit 1 ; \
         } ; \
+    grep --help >/dev/null 2>&1 || \
+        { \
+            echo >&2 "FATAL: Unable to run 'grep' binary" ; \
+            exit 1 ; \
+        } ; \
+    command -v sed >/dev/null 2>&1 || \
+        { \
+            echo >&2 "FATAL: Unable to locate 'sed' binary" ; \
+            exit 1 ; \
+        } ; \
+    sed --help >/dev/null 2>&1 || \
+        { \
+            echo >&2 "FATAL: Unable to run 'sed' binary" ; \
+            exit 1 ; \
+        } ; \
     i="${image_name}:${service_version}" ; \
     for f in /etc/base/* ; do \
         f="$( basename "${f}" )" ; \

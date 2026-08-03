@@ -166,6 +166,22 @@ RUN <<-'EOT' /bin/sh
 		echo >&2 "FATAL: Unable to locate 'grep' binary"
 		exit 1
 	fi
+	if ! grep --help >/dev/null 2>&1; then
+		echo >&2 "FATAL: Unable to run 'grep' binary"
+		set -x
+		grep --help || ldd $( command -v grep )
+		exit 1
+	fi
+	if ! command -v sed >/dev/null 2>&1; then
+		echo >&2 "FATAL: Unable to locate 'sed' binary"
+		exit 1
+	fi
+	if ! sed --help >/dev/null 2>&1; then
+		echo >&2 "FATAL: Unable to run 'sed' binary"
+		set -x
+		sed --help || ldd $( command -v sed )
+		exit 1
+	fi
 
 	i="${image_name}:${service_version}"
 	for f in /etc/base/* ; do
