@@ -297,8 +297,8 @@ if [[ -n "${python_targets:-}" ]]; then
 			if sed 's/#.*$//' "${mask_file}" |
 				grep -qw -- "^python_targets_${python_target}"
 			then
-				die "python_targets value 'python_targets_${python_target}' is" \
-					"masked by '${mask_file}'"
+				die "python_targets value 'python_targets_${python_target}'" \
+					"is masked by '${mask_file}'"
 			fi
 		fi
 	done
