@@ -2778,6 +2778,12 @@ mkdir -p "${log_dir:="log"}" ||
 			unset p ;
 		fi ;
 		mkdir -p ../build ;
+		: Serialise users of the persistent out-of-tree build directory ;
+		exec 9> ../build/.kernel-source-state.lock ;
+		if ! flock -n 9 ; then
+			echo >&2 "FATAL: Another kernel build has locked '../build/.kernel-source-state.lock'" ;
+			exit 1 ;
+		fi ;
 		[ '${clean_lto}' = '1' ] && find ../build/ -name '*.lto.o' -delete ;
 		if [ -n '${microcode_blob:-}' ]; then
 			echo ;
@@ -2796,19 +2802,233 @@ mkdir -p "${log_dir:="log"}" ||
 				done ;
 				unset blob ;
 				if [ \$(( found )) -ne 0 ]; then
-					echo >&2 'FATAL: missing firmware' ;
+					echo >&2 'FATAL: Missing firmware' ;
 					exit 1 ;
 				fi ;
 			fi ;
 			echo ;
 			[ -f ../build/.config ] && [ -s ../build/.config ] && grep -Fm 1 'CONFIG_EXTRA_FIRMWARE' ../build/.config 2>/dev/null && echo ;
 		fi ;
-		if [ -f ../build/.gitignore ]; then
-			touch --no-create --no-dereference \
-				--reference=../build/.gitignore ../linux ;
-			find ../linux/ -exec \
-				touch --no-create --no-dereference \
-					--reference=../build/.gitignore {} + ;
+		: Re-extraction gives all sources fresh mtimes ;
+		: Restore source mtimes before any make command can inspect the persistent output tree ;
+		rm -f ../build/.kernel-source-hashes.new \
+			../build/.kernel-source-state.new \
+			../build/.kernel-source-touch.* ;
+		find . -type f -print0 |
+			sort -z |
+			xargs -0 -r sha256sum > ../build/.kernel-source-hashes.new ;
+		source_state_input='/dev/null' ;
+		if [ -s ../build/.kernel-source-state ]; then
+			source_state_input='../build/.kernel-source-state' ;
+		fi ;
+		source_tab="\$( printf '\t' )" ;
+		source_changed="\$( awk -F "\${source_tab}" ' \
+				FILENAME == ARGV[1] {
+					old_hash[\$3] = \$1 ;
+					old_present[\$3] = 1 ;
+					next ;
+				} {
+					hash = substr(\$0, 1, 64) ;
+					file = substr(\$0, 67) ;
+					present[file] = 1 ;
+					if (!(file in old_present) || old_hash[file] != hash)
+						changed = 1 ;
+				} END {
+					for (file in old_present)
+						if (!(file in present))
+							changed = 1 ;
+					print changed ? 1 : 0 ;
+				}' "\${source_state_input}" ../build/.kernel-source-hashes.new ;
+			)" ;
+		source_newest_mtime="\$( {
+					find ../build -type f \
+						! -name '.kernel-source-*' \
+						! -name '.kernel-generated-*' \
+						-printf '%T@\n' ;
+					[ ! -s ../build/.kernel-source-state ] ||
+						cut -f 2 ../build/.kernel-source-state ;
+				} |
+					sort -nr |
+					sed -n '1s/\..*$//p' ;
+			)" ;
+		if [ -n "\${source_newest_mtime}" ] &&
+				[ "\$( date +%s )" -lt "\${source_newest_mtime}" ] ;
+		then
+			echo >&2 "FATAL: System time moved backwards; kernel-build" \
+				"state timestamp \${source_newest_mtime}" ;
+			exit 1 ;
+		fi ;
+		if [ "\${source_changed}" -ne 0 ]; then
+			while [ -n "\${source_newest_mtime}" ] &&
+					[ "\$( date +%s )" -le "\${source_newest_mtime}" ] ;
+			do
+				sleep 1 ;
+			done ;
+		fi ;
+		source_generation="\$( date +%s )" ;
+		if [ ! -s ../build/.kernel-source-state ]; then
+			echo >&2 'WARN:  Initialising kernel source state; forcing one complete rebuild' ;
+		fi ;
+		awk -F "\${source_tab}" \
+				-v generation="\${source_generation}" \
+				-v tab="\${source_tab}" \
+			'FILENAME == ARGV[1] {
+				old_hash[\$3] = \$1 ;
+				old_mtime[\$3] = \$2 ;
+				next ;
+			} {
+				hash = substr(\$0, 1, 64) ;
+				file = substr(\$0, 67) ;
+				if ((file in old_hash) && old_hash[file] == hash)
+					mtime = old_mtime[file] ;
+				else
+					mtime = generation ;
+				printf "%s%s%s%s%s\n", hash, tab, mtime, tab, file ;
+			}' "\${source_state_input}" ../build/.kernel-source-hashes.new >../build/.kernel-source-state.new ;
+		while IFS="\${source_tab}" read -r source_hash source_mtime source_file; do
+			printf '%s\0' "\${source_file}" \
+				>>"../build/.kernel-source-touch.\${source_mtime}" ;
+		done <../build/.kernel-source-state.new ;
+		for source_touch_list in ../build/.kernel-source-touch.*; do
+			[ -e "\${source_touch_list}" ] || continue ;
+			xargs -0 -r touch --no-create --no-dereference \
+					--date="@\${source_touch_list##*.}" \
+				<"\${source_touch_list}" ;
+		done ;
+		mv -f ../build/.kernel-source-state.new \
+			../build/.kernel-source-state ;
+		rm -f ../build/.kernel-source-hashes.new \
+			../build/.kernel-source-touch.* ;
+		if [ "\${source_changed}" -eq 0 ]; then
+			echo 'INFO:  restored recorded timestamps for unchanged kernel sources' ;
+		else
+			echo "INFO:  assigned timestamp \${source_generation} to changed kernel sources" ;
+		fi ;
+		unset source_changed source_file \
+			source_generation source_hash source_mtime source_newest_mtime \
+			source_state_input source_tab source_touch_list ;
+		refresh_kernel_generated_state() {
+			rm -f ../build/.kernel-generated-hashes.new \
+				../build/.kernel-generated-state.new \
+				../build/.kernel-generated-touch.* ;
+			{
+				for generated_dir in \
+						../build/include/config \
+						../build/include/generated \
+						../build/arch/\${dir}/include/generated ;
+				do
+					[ ! -d "\${generated_dir}" ] ||
+						find "\${generated_dir}" -type f -print0 ;
+				done ;
+			} |
+				sort -z |
+				xargs -0 -r sha256sum >../build/.kernel-generated-hashes.new ;
+			generated_tab="\$( printf '\t' )" ;
+			if [ ! -s ../build/.kernel-generated-state ]; then
+				while IFS= read -r generated_line; do
+					generated_hash="\${generated_line%%  *}" ;
+					generated_file="\${generated_line#*  }" ;
+					generated_mtime="\$( stat -c '%Y' -- "\${generated_file}" )" ;
+					printf '%s%s%s%s%s\n' \
+						"\${generated_hash}" "\${generated_tab}" \
+						"\${generated_mtime}" "\${generated_tab}" \
+						"\${generated_file}" ;
+				done <../build/.kernel-generated-hashes.new \
+					>../build/.kernel-generated-state.new ;
+				mv -f ../build/.kernel-generated-state.new \
+					../build/.kernel-generated-state ;
+				echo "INFO:  recorded timestamps for \$( \
+					wc -l <../build/.kernel-generated-state ;
+				) generated kernel prerequisites" ;
+			else
+				generated_changed="\$( awk -F "\${generated_tab}" ' \
+						FILENAME == ARGV[1] {
+							old_hash[\$3] = \$1 ;
+							old_present[\$3] = 1 ;
+							next ;
+						} {
+							hash = substr(\$0, 1, 64) ;
+							file = substr(\$0, 67) ;
+							present[file] = 1 ;
+							if (!(file in old_present) || old_hash[file] != hash)
+								changed++ ;
+						} END {
+							for (file in old_present)
+								if (!(file in present))
+									changed++ ;
+							print changed + 0 ;
+						}' ../build/.kernel-generated-state \
+							../build/.kernel-generated-hashes.new ;
+					)" ;
+				generated_newest_mtime="\$( {
+						find ../build -type f \
+							! -name '.kernel-source-*' \
+							! -name '.kernel-generated-*' \
+							-printf '%T@\n' ;
+						cut -f 2 ../build/.kernel-generated-state ;
+					} |
+						sort -nr |
+						sed -n '1s/\..*$//p' ;
+					)" ;
+				if [ -n "\${generated_newest_mtime}" ] &&
+						[ "\$( date +%s )" -lt "\${generated_newest_mtime}" ] ;
+				then
+					echo >&2 "FATAL: System time moved backwards; kernel-build" \
+						"generated-state timestamp \${generated_newest_mtime}" ;
+					exit 1 ;
+				fi ;
+				if [ "\${generated_changed}" -ne 0 ]; then
+					while [ -n "\${generated_newest_mtime}" ] &&
+							[ "\$( date +%s )" -le "\${generated_newest_mtime}" ] ;
+					do
+						sleep 1 ;
+					done ;
+				fi ;
+				generated_generation="\$( date +%s )" ;
+				awk -F "\${generated_tab}" \
+						-v generation="\${generated_generation}" \
+						-v tab="\${generated_tab}" \
+					'FILENAME == ARGV[1] {
+						old_hash[\$3] = \$1 ;
+						old_mtime[\$3] = \$2 ;
+						next ;
+					} {
+						hash = substr(\$0, 1, 64) ;
+						file = substr(\$0, 67) ;
+						if ((file in old_hash) && old_hash[file] == hash)
+							mtime = old_mtime[file] ;
+						else
+							mtime = generation ;
+						printf "%s%s%s%s%s\n", hash, tab, mtime, tab, file ;
+					}' ../build/.kernel-generated-state \
+						../build/.kernel-generated-hashes.new \
+						>../build/.kernel-generated-state.new ;
+				while IFS="\${generated_tab}" read -r \
+						generated_hash generated_mtime generated_file ;
+				do
+					printf '%s\0' "\${generated_file}" \
+						>>"../build/.kernel-generated-touch.\${generated_mtime}" ;
+				done <../build/.kernel-generated-state.new ;
+				for generated_touch_list in ../build/.kernel-generated-touch.*; do
+					[ -e "\${generated_touch_list}" ] || continue ;
+					xargs -0 -r touch --no-create --no-dereference \
+							--date="@\${generated_touch_list##*.}" \
+						<"\${generated_touch_list}" ;
+				done ;
+				mv -f ../build/.kernel-generated-state.new \
+					../build/.kernel-generated-state ;
+				echo "INFO:  restored generated kernel prerequisite timestamps;" \
+					"\${generated_changed} content changes retained as new" ;
+			fi ;
+			rm -f ../build/.kernel-generated-hashes.new \
+				../build/.kernel-generated-state.new \
+				../build/.kernel-generated-touch.* ;
+			unset generated_changed generated_dir generated_file \
+				generated_generation generated_hash generated_line generated_mtime \
+				generated_newest_mtime generated_tab generated_touch_list ;
+		} ;
+		if [ $(( clean )) -eq 0 ]; then
+			refresh_kernel_generated_state ;
 		fi ;
 		if [ $(( clean )) -ne 0 ]; then
 			config="\$( cat ../build/.config )" ;
@@ -2884,6 +3104,8 @@ mkdir -p "${log_dir:="log"}" ||
 				${menuconfig:+"menuconfig"} \
 				${nconfig:+"nconfig"} ;
 		set +x ;
+		refresh_kernel_generated_state ;
+		unset -f refresh_kernel_generated_state ;
 		if [ -f ../build/.config ] && grep -Fqm 1 -- 'CONFIG_LOCALVERSION="' ../build/.config; then
 			new_localversion="\$( grep -m 1 -- '^CONFIG_LOCALVERSION="' ../build/.config | cut -d'"' -f 2 )" ;
 			if [ "\${cfg_localversion:-}" != "\${new_localversion:-}" ]; then
