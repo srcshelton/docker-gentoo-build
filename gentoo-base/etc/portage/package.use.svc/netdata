@@ -30,7 +30,7 @@ app-alternatives/sh			-busybox bash
 app-containers/netavark			 dns
 app-containers/podman			 seccomp wrapper
 app-crypt/gnupg				 alternatives
-dev-lang/python				 ncurses
+dev-lang/python				 ncurses sqlite
 dev-libs/libbpf				 static-libs
 dev-libs/libpcre2			 unicode
 dev-libs/nettle				 gmp
