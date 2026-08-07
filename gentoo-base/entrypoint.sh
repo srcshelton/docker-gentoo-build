@@ -2415,7 +2415,17 @@ then
 		setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/python"
 		unset pkgdir
 
-		setenv USE='-clang -openmp -qmanifest -static'
+		setenv USE="-clang -openmp -qmanifest -static$( # <- Syntax
+				flag=''
+				if [ -n "${use_essential:-}" ]; then
+					for flag in ${os_headers_arch_flags}; do
+						if echo " ${use_essential} " | grep -qw -- "${flag}"
+						then
+							printf ' %s' "${flag}"
+						fi
+					done
+				fi
+			)"
 		eval "$( filter_toolchain_flags --env-only -fopenmp )" || :
 
 		do_emerge --once-defaults \
@@ -2432,7 +2442,18 @@ then
 		unset pkgdir
 
 		setenv USE "$( {
-				echo "-* $( get_stage3 --values-only USE ) -udev split-usr" |
+				echo "-* $( get_stage3 --values-only USE )$( # <- Syntax
+						flag=''
+						if [ -n "${use_essential:-}" ]; then
+							for flag in ${os_headers_arch_flags}; do
+								if echo " ${use_essential} " |
+										grep -qw -- "${flag}"
+								then
+									printf ' %s' "${flag}"
+								fi
+							done
+						fi
+					) -udev split-usr" |
 					xargs -rn 1 |
 					grep -v -e '^python_single_target_' -e 'python_targets_'
 				echo "python_single_target_${python_default_targets%%" "*}"
@@ -4616,20 +4637,7 @@ case "${1:-}" in
 							-e '^python_targets_'
 				) )) -gt 2 ]
 		then
-			target='' targetpkg='' targets='' remove='' arg=''
-			target="$( # <- Syntax
-					echo "${ROOT_USE}" |
-						xargs -rn 1 |
-						grep -- '^python_single_target_python' |
-						sed 's/python_single_target_//' |
-						sort |
-						tail -n 1
-				)"
-			# python3_14 -> dev-lang/python-3.14
-			targetpkg="dev-lang/$( # <- Syntax
-					echo "${target}" | sed 's/^python/python-/ ; s/_/./'
-				)"
-			print "python target '${target}', package '${targetpkg}'"
+			targets='' remove='' arg=''
 
 			targets="$( # <- Syntax
 					echo "${ROOT_USE}" |
@@ -4639,10 +4647,12 @@ case "${1:-}" in
 						xargs -r
 				)"
 			print "Current python_targets: '${targets}'"
+			[ -n "${BUILD_PYTHON_TARGETS:-}" ] ||
+				BUILD_PYTHON_TARGETS="${BUILD_PYTHON_SINGLE_TARGET:-"${targets}"}"
 
 			remove="$( # <- Syntax
 					for arg in ${targets}; do
-						if ! echo " ${BUILD_PYTHON_TARGETS:-"${target}"} " |
+						if ! echo " ${BUILD_PYTHON_TARGETS} " |
 								grep -qw -- "${arg}"
 						then
 							echo "${arg}"
@@ -4657,7 +4667,7 @@ case "${1:-}" in
 				output
 				output " * Cleaning old python targets '${remove}' ..."
 				(
-					arg='' use='' pkgs=''
+					arg='' use='' pkgs='' remove_pkgs=''
 
 					# Add prefix to each item in ${remove}...
 					for arg in ${remove}; do
@@ -4825,7 +4835,7 @@ case "${1:-}" in
 						echo "${info}" | format 'PYTHON_TARGETS'
 						print "pkgs: '${pkgs}'"
 
-						# shellcheck disable=SC2015,SC2086
+						# shellcheck disable=SC2015,SC2046,SC2086
 							USE="$( # <- Syntax
 									echo " ${USE} " |
 										sed -r \
@@ -4834,11 +4844,47 @@ case "${1:-}" in
 											-e 's/ \+/ /g ; s/^ \+// ; s/ \+$//'
 								) openmp" \
 							PYTHON_TARGETS="${PYTHON_SINGLE_TARGET}" \
-						do_emerge --rebuild-defaults ${pkgs} ||
-							rc=${?}
+						do_emerge --rebuild-defaults $( # <- Syntax
+								echo "${pkgs}" |
+									xargs -rn 1 |
+									grep -Ev -- \
+										'^>=dev-lang/python-exec-[0-9]' |
+									xargs -r
+							) || rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
 							error "Stage 1b cleanup for root '${ROOT}': ${rc}"
 							break
+						fi
+
+						# The unwanted interpreters require python-exec with
+						# their targets enabled, so leave python-exec unchanged
+						# above and remove the installed slots before
+						# rebuilding it.
+						remove_pkgs="$( # <- Syntax
+								for arg in ${remove}; do
+									arg="$( # <- Syntax
+											echo "${arg}" |
+												sed 's/^python_targets_python// ; s/_/./'
+										)"
+									if portageq has_version "${ROOT}" \
+												"dev-lang/python:${arg}"
+									then
+										echo "dev-lang/python:${arg}"
+									fi
+								done |
+									sort -u |
+									xargs -r
+								)"
+						if [ -n "${remove_pkgs:-}" ]; then
+							print "Python interpreter packages to remove:" \
+									"'${remove_pkgs}'"
+							# shellcheck disable=SC2086
+							do_emerge --depclean-defaults --verbose \
+								${remove_pkgs} || rc=${?}
+							if [ $(( rc )) -ne 0 ]; then
+								error "Stage 1 package depclean: ${rc}"
+								break
+							fi
 						fi
 
 						setenv USE "$( # <- Syntax
@@ -4926,23 +4972,6 @@ case "${1:-}" in
 						if [ $(( rc )) -ne 0 ]; then
 							error "Stage 2 cleanup for root '${ROOT}': ${rc}"
 							break
-						fi
-
-						if [ $(( $(
-									resolve_python_flags |
-										grep -- '^PYTHON_TARGETS=' |
-										cut -d'=' -f 2- |
-										xargs -rn 1 |
-										wc -l
-								) )) -gt 1 ]
-						then
-							do_emerge --depclean-defaults --verbose \
-									"<${targetpkg}" ||
-								rc=${?}
-							if [ $(( rc )) -ne 0 ]; then
-								error "Stage 2 package depclean: ${rc}"
-								break
-							fi
 						fi
 
 						# Running 'do_emerge --depclean-defaults' now complains
