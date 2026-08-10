@@ -462,8 +462,9 @@
 #~app-containers/crun-1.25.1				~amd64 ~arm ~arm64 ~x86
 #~app-containers/crun-1.26				~amd64 ~arm ~arm64 ~x86
 #~app-containers/crun-1.27				~amd64 ~arm ~arm64 ~x86
-~app-containers/crun-1.27.1				~amd64 ~arm ~arm64 ~x86
+#~app-containers/crun-1.27.1				~amd64 ~arm ~arm64 ~x86
 ~app-containers/crun-1.28				~amd64 ~arm ~arm64 ~x86
+~app-containers/crun-1.29				~amd64 ~arm ~arm64 ~x86
 
 # move app-emulation/runc app-containers/runc
 #~app-containers/runc-1.0.0_rc92			 **
