@@ -249,20 +249,22 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	# Set platform-specific variables...
 	#
 	use_cpu_arch='' use_cpu_flags='' use_cpu_flags_raw=''
-	target_arch='' target_cpu=''
+	target_cpu='' machine_arch=''
 	cc_target_opts='-march=native' rust_target_opts=''
 	description='' vendor='' rpi_model=''
 	# rpi-cm rpi-cm2 rpi-cm3 rpi-cm4s
 	# rpi0 rpi02 rpi2 rpi3 rpi4 rpi400 rpi-cm4 rpi5 rpi-cm5 rpi500
 
-	use_cpu_arch="$( uname -m | cut -c 1-3 | sed 's/aar/arm/' )"
-		# e.g. x86, arm, etc.
-	case "$( uname -m )" in
-		'aarch64')	target_arch='arm64' ;;
-		'arm'*)		target_arch='arm' ;;
-		'x86_64')	target_arch='amd64' ;;
-		'x86')		target_arch='x86' ;;
+	machine_arch="$( uname -m )"
+	case "${machine_arch:-}" in
+		'aarch64'|'arm64'|'arm'*)
+			use_cpu_arch='arm'
+			;;
+		'x86_64'|'amd64'|'i'?'86'|'x86')
+			use_cpu_arch='x86'
+			;;
 	esac
+
 	if command -v cpuid2cpuflags >/dev/null 2>&1; then
 		use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- )"
 	fi
@@ -704,23 +706,25 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				sed "s/^/cpu_flags_${use_cpu_arch:-"x86"}_/ ; s/ / cpu_flags_${use_cpu_arch:-"x86"}_/g"
 		)"
 	fi
-	case "${use_cpu_arch:-"x86"}" in
-		amd64)
+
+	# Enable cet on ARM64 (actually BTI [Branch Target Authentication, from
+	# ARMv8.5-A] and PAC [Pointer Authentication, from ARMv8.3-A], harmless if
+	# an earlier ABI) and conditionally on AMD64 ...
+	case "${machine_arch:-}" in
+		'x86_64'|'amd64')
 			if grep -Fiqw 'cet' /proc/cpuinfo; then
 				use_cpu_flags="cet${use_cpu_flags:+" ${use_cpu_flags}"}"
 			fi
 			;;
-		arm)
-			if [ -z "${target_arch:-}" ]; then
-				cc_target_opts="${cc_target_opts:+"${cc_target_opts} "}-mfloat-abi=hard"
-			fi
-			;;
-		arm64)
+		'aarch64'|'arm64')
 			use_cpu_flags="cet${use_cpu_flags:+" ${use_cpu_flags}"}"
 			;;
 	esac
+
+	unset machine_arch
+
 	export use_cpu_arch use_cpu_flags use_cpu_flags_raw \
-		target_arch target_cpu \
+		target_cpu \
 		cc_target_opts rust_target_opts
 
 	#
