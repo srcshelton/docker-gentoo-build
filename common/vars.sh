@@ -6,7 +6,13 @@
 # N.B. This is overridden if/when common/run.sh is included
 #
 if [ -z "${_command:-}" ]; then
-	if command -v podman >/dev/null 2>&1; then
+	if [ "$( uname -s )" = 'Darwin' ] && command -v container >/dev/null 2>&1
+	then
+		_command='container'
+
+		#extra_build_args=''
+		docker_readonly='readonly'
+	elif command -v podman >/dev/null 2>&1; then
 		_command='podman'
 
 		#extra_build_args='--format docker'
@@ -26,6 +32,37 @@ if [ -z "${_command:-}" ]; then
 	export _command docker_readonly
 fi
 
+APPLE_CONTAINER_MIN_VERSION='1.0.0'
+if [ "${_command}" = 'container' ]; then
+	_container_version_output="$( command container --version 2>/dev/null || : )"
+	_container_version="$(
+		printf '%s\n' "${_container_version_output}" |
+			sed -n 's/.* version \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'
+	)"
+	if [ -z "${_container_version}" ]; then
+		echo >&2 "WARN:  Unable to determine Apple 'container' version from" \
+			"'${_container_version_output:-unknown output}'; minimum supported" \
+			"version is ${APPLE_CONTAINER_MIN_VERSION}"
+	elif awk \
+			-v installed="${_container_version}" \
+			-v minimum="${APPLE_CONTAINER_MIN_VERSION}" '
+			function number(version, fields) {
+				split(version, fields, ".")
+				return (fields[1] * 1000000) + (fields[2] * 1000) + fields[3]
+			}
+			BEGIN { exit !(number(installed) < number(minimum)) }
+		' </dev/null
+	then
+		echo >&2 "FATAL: Apple 'container' ${_container_version} is unsupported;" \
+			"version ${APPLE_CONTAINER_MIN_VERSION} or later is required"
+		echo >&2 "       Please upgrade Apple 'container' to" \
+			"${APPLE_CONTAINER_MIN_VERSION} or later"
+		exit 1
+	fi
+	unset _container_version _container_version_output
+fi
+export APPLE_CONTAINER_MIN_VERSION
+
 # Guard to ensure that we don't accidentally reset the values below through
 # multiple inclusion - 'unset __COMMON_VARS_INCLUDED' if this is explcitly
 # required...
@@ -33,8 +70,8 @@ fi
 if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	export __COMMON_VARS_INCLUDED=1
 
-	# Since we're now using '${_command} system info' to determine the graphRoot
-	# directory, we need to be root solely to setup the environment
+	# Since we're now using '${_command} system info' to determine the
+	# graphRoot directory, we need to be root solely to setup the environment
 	# appropriately :(
 	#
 	_graphroot=''
@@ -43,16 +80,27 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	if ! [ -x "$( command -v "${_command}" )" ]; then
 		echo >&2 "FATAL: Cannot locate binary '${_command}'"
 		exit 1
+	elif [ "${_command}" = 'container' ]; then
+		if ! _output="$( "${_command}" system status 2>&1 )"; then
+			# macOS 'container' has a 'system status' command, but not
+			# 'system info'
+			_rc=${?}
+			echo >&2 "${_output:-"FATAL: Unknown error"}"
+			echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
+				"(${_rc}) - do you need to run '${_command} system start'?"
+			exit 1
+		fi
 	elif ! _output="$( "${_command}" system info 2>&1 )"; then
 		_rc=${?}
 		echo >&2 "${_output:-"FATAL: Unknown error"}"
 		if [ "${_command}" = 'podman' ]; then
 			echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
-				"(${_rc}) - do you need to run '${_command} machine start' or" \
-				"re-run '$( basename "${0}" )' as 'root'?"
+				"(${_rc}) - do you need to run '${_command} machine start'" \
+				"or re-run '$( basename "${0}" )' as 'root'?"
 		else
 			echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
-				"(${_rc}) - do you need to re-run '$( basename "${0}" )' as 'root'?"
+				"(${_rc}) - do you need to re-run '$( basename "${0}" )'" \
+				"as 'root'?"
 		fi
 		exit 1
 	elif [ "$( uname -s )" != 'Darwin' ] &&

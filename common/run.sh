@@ -83,7 +83,7 @@ output() {
 die() {
 	local -i rc=1
 
-	if [[ "${1:-}" =~ ^\d+$ ]] && (( ${1:-0} > 1 && ${1:-0} < 256 )); then
+	if [[ "${1:-}" =~ ^[0-9]+$ ]] && (( ${1} > 1 && ${1} < 256 )); then
 		(( rc = ${1} ))
 		if [[ -n "${2:-}" ]]; then
 			shift
@@ -1565,6 +1565,7 @@ _docker_run() {
 	if [[ -z "${NO_BUILD_MOUNTS:-}" ]]; then
 		local -a mirrormountpoints=()
 		local -a mirrormountpointsro=()
+		local -a repo_paths=()
 		local -A mountpoints=()
 		local -A mountpointsro=()
 		local -i skipped=0
@@ -1601,17 +1602,19 @@ _docker_run() {
 		#
 		if ! type -pf portageq >/dev/null 2>&1; then
 			warn "Using hard-coded defaults on non-Gentoo host system ..."
-			default_repo_path='/var/db/repos/gentoo /var/db/repos/srcshelton'
+			default_repo_path='/var/db/repos/gentoo'
 			default_distdir_path='/var/cache/portage/dist'
 			default_pkgdir_path="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${GENTOO_PKGHOST:-"container"}/${profile_version}"
 			if ! [[ -d /var/db/repos/gentoo || -L /var/db/repos/gentoo ]] &&
 					[[ -d /var/db/repo/gentoo || -L /var/db/repo/gentoo ]]
 			then
-				default_repo_path="$( # <- Syntax
-						readlink -e '/var/db/repo/gentoo'
-					) $( # <- Syntax
-						readlink -e '/var/db/repo/srcshelton'
-					)"
+				default_repo_path='/var/db/repo/gentoo'
+			fi
+			repo_paths=( "${default_repo_path}" )
+			if [[ -d "${default_repo_path%/gentoo}/srcshelton" ||
+					-L "${default_repo_path%/gentoo}/srcshelton" ]]
+			then
+				repo_paths+=( "${default_repo_path%/gentoo}/srcshelton" )
 			fi
 
 			if [[ -s "${EROOT:-}"/etc/portage/repos.conf/srcshelton.conf ]] ||
@@ -1639,7 +1642,7 @@ _docker_run() {
 				#  to verify manually...)
 				#
 				sudo mkdir -p /var/lib/portage/eclass/linux-info
-				sudo chown "${EUID:-"$( id -u )"}:root" \
+				sudo chown "${EUID:-"$( id -u )"}:$( id -gn 0 2>/dev/null || echo 0 )" \
 					/var/lib/portage/eclass/linux-info
 				sudo chmod ug+rwX /var/lib/portage/eclass/linux-info
 				touch -a /var/lib/portage/eclass/linux-info/.keep
@@ -1647,22 +1650,26 @@ _docker_run() {
 		else
 			# FIXME: This is slow :(
 			default_repo_path="$( # <- Syntax
+					portageq get_repo_path "${EROOT:-"/"}" gentoo
+				)"
+			while IFS= read -r mp; do
+				[[ -n "${mp:-}" ]] && repo_paths+=( "${mp}" )
+			done < <( # <- Syntax
 				# shellcheck disable=SC2046
 				portageq get_repo_path "${EROOT:-"/"}" $( # <- Syntax
 						portageq get_repos "${EROOT:-"/"}"
 					)
-				)"
+			)
 		fi
 		if [[ -n "${PKGDIR_OVERRIDE:-}" ]]; then
 			default_pkgdir_path="${PKGDIR_OVERRIDE}"
 		fi
 
-		# shellcheck disable=SC2046,SC2206,SC2207
 		mirrormountpointsro=(
 			# We need write access to be able to update eclasses...
 			#/etc/portage/repos.conf
 
-			${default_repo_path}
+			"${repo_paths[@]}"
 
 			#/etc/locale.gen  # FIXME: Uncommented in inspect.docker?
 
@@ -1709,6 +1716,10 @@ _docker_run() {
 			local PKGDIR="${PKGDIR:="${default_pkgdir_path:-"$( portageq pkgdir )"}"}"
 			local release='' profile_path=''
 			local -i ve=0
+			for mp in "${mirrormountpoints[@]}" "${PKGDIR}"; do
+				[[ -n "${mp:-}" && -e "${mp}" ]] ||
+					die "mirrormountpoint '${mp}' does not exist"
+			done
 
 			# Allow use of 'ARCH' variable as an override...
 			print "Using architecture '${ARCH:-"${arch}"}' ..."
@@ -2226,8 +2237,522 @@ then
 	die "Cannot locate required directory 'gentoo-base' in '${PWD%"/"}'"
 fi
 
-# Are we using docker or podman?
-if type -pf podman >/dev/null 2>&1; then
+# Are we using docker or podman (or `container` on macOS 26+)?
+if [[ "$( uname -s )" == 'Darwin' ]] && type -pf container >/dev/null 2>&1
+then
+	# More subtle differences between `container` and `podman`:
+	#
+	#  * container places the `podman container`/`docker container` commands at
+	#    its top-level;
+	#  * `docker image build` becomes `container build`;
+	#  * container does not support podman's `--noheading` option.
+	#
+	_command='container'
+
+	docker() {
+		local -a args=()
+		local arg='' subcommand=''
+
+		print "Initial command: '${*:-}'"
+		while [[ ${#} -gt 0 ]]; do
+			arg="${1}"
+			shift
+			case "${arg}" in
+				--storage-opt|--root)
+					[[ ${#} -gt 0 ]] && shift
+					;;
+				--storage-opt=*|--root=*)
+					: ;;
+				'')
+					: ;;
+				*)
+					args+=( "${arg}" )
+					;;
+			esac
+		done
+
+		case "${args[0]:-}:${args[1]:-}" in
+			info:*|system:info)
+				local data_root="${CONTAINER_DATA_ROOT:-"${HOME}/Library/Application Support/com.apple.container"}"
+
+				printf 'host:\n'
+				printf '  arch: %s\n' "$( uname -m )"
+				printf '  os: darwin\n'
+				printf 'store:\n'
+				printf '  graphRoot: %s\n' "${data_root}"
+				printf 'graphRoot: %s\n' "${data_root}"
+				return ${?}
+				;;
+		esac
+
+		case "${args[0]:-}:${args[1]:-}" in
+			build:*|image:build)
+				local -a filtered=()
+				local -i arg_start=1 skip_next=0
+
+				[[ "${args[0]:-}" != 'image' ]] || arg_start=2
+				for arg in "${args[@]:${arg_start}}"; do
+					if (( skip_next )); then
+						skip_next=0
+						continue
+					fi
+					case "${arg}" in
+						--compress|--pull=false|--rm|--squash|--squash-all)
+							: ;;
+						--loglevel|--network)
+							skip_next=1
+							;;
+						--loglevel=*|--network=*)
+							: ;;
+						--pull=true)
+							filtered+=( --pull )
+							;;
+						*)
+							filtered+=( "${arg}" )
+							;;
+					esac
+				done
+
+				print "Filtered command: 'build ${filtered[*]:-}'"
+				command container build "${filtered[@]}"
+				return ${?}
+				;;
+		esac
+
+		case "${args[0]:-}:${args[1]:-}" in
+			run:*|container:run)
+				local -a filtered=()
+				local -i arg_start=1 emit_mount=0
+				local mode='' value='' target='' item=''
+
+				[[ "${args[0]:-}" != 'container' ]] || arg_start=2
+				for arg in "${args[@]:${arg_start}}"; do
+					emit_mount=0
+					case "${mode}" in
+						network)
+							case "${arg}" in
+								host|none) : ;;
+								*) filtered+=( --network "${arg}" ) ;;
+							esac
+							mode=''
+							continue
+							;;
+						skip)
+							mode=''
+							continue
+							;;
+						mount)
+							value="${arg}"
+							mode=''
+							emit_mount=1
+							;;
+					esac
+
+					if (( ! emit_mount )); then
+						case "${arg}" in
+							--privileged)
+								filtered+=( --cap-add ALL )
+								;;
+							--network|--net)
+								mode='network'
+								;;
+							--network=*|--net=*)
+								value="${arg#*=}"
+								case "${value}" in
+									host|none) : ;;
+									*) filtered+=( --network "${value}" ) ;;
+								esac
+								;;
+							--pids-limit|--memory-reservation|--memory-swap|--hostname)
+								mode='skip'
+								;;
+							--pids-limit=*|--memory-reservation=*|--memory-swap=*|--hostname=*)
+								: ;;
+							--volumes-from)
+								mode='skip'
+								warn "Apple 'container' does not support '--volumes-from';" \
+									"skipping requested source"
+								;;
+							--volumes-from=*)
+								warn "Apple 'container' does not support '--volumes-from';" \
+									"skipping requested source '${arg#*=}'"
+								;;
+							--mount)
+								mode='mount'
+								;;
+							--mount=*)
+								value="${arg#*=}"
+								emit_mount=1
+								;;
+							*)
+								filtered+=( "${arg}" )
+								;;
+						esac
+					fi
+
+					if (( emit_mount )); then
+						value="${value//,dst=/,target=}"
+						value="${value//,destination=/,target=}"
+						value="${value//,src=/,source=}"
+						case "${value}" in
+							type=tmpfs,*)
+								target=''
+								for item in ${value//,/ }; do
+									case "${item}" in
+										target=*) target="${item#target=}" ;;
+									esac
+								done
+								filtered+=( --tmpfs "${target:-/tmp}" )
+								;;
+							*)
+								filtered+=( --mount "${value}" )
+								;;
+						esac
+					fi
+				done
+
+				print "Filtered command: 'run ${filtered[*]:-}'"
+				command container run "${filtered[@]}"
+				return ${?}
+				;;
+		esac
+
+		case "${args[0]:-}:${args[1]:-}" in
+			image:|image:ls|image:list)
+				local -a image_args=() image_filters=() grep_args=()
+				local -i noheading=0 quiet=0
+				local format='table' next='' raw=''
+				# shellcheck disable=SC2016
+				local image_ref_jq='
+					if type == "array" then .[] else . end |
+						def refs:
+							[
+								.configuration.name?,
+								.displayReference?,
+								.reference?,
+								.name?,
+								((.name? // "") + ":" + (.tag? // "")),
+								(.variants[]?.reference?)
+							] | map(select(. != null and . != ""));
+					select(
+						refs as $refs |
+						all($ARGS.positional[]; . as $filter |
+							$refs | any(. == $filter or startswith($filter) or contains($filter))
+						)
+					)
+				'
+
+				for arg in "${args[@]:2}"; do
+					case "${next}" in
+						format)
+							format="${arg}"
+							next=''
+							continue
+							;;
+						skip)
+							next=''
+							continue
+							;;
+					esac
+					case "${arg}" in
+						--noheading)
+							noheading=1
+							;;
+						--digests)
+							: ;;
+						--format)
+							next='format'
+							;;
+						--format=*)
+							format="${arg#--format=}"
+							;;
+						-q|--quiet)
+							quiet=1
+							;;
+						-v|--verbose)
+							image_args+=( --verbose )
+							;;
+						--filter)
+							next='skip'
+							;;
+						--filter=*)
+							: ;;
+						-*)
+							image_args+=( "${arg}" )
+							;;
+						*)
+							image_filters+=( "${arg}" )
+							;;
+					esac
+				done
+				if (( quiet )) && [[ "${format}" == 'table' ]]; then
+					format='{{.ID}}'
+				fi
+
+				case "${format}" in
+					json|table)
+						image_args+=( --format "${format}" )
+						if [[ "${format}" == 'table' ]]; then
+							if (( ${#image_filters[@]} )); then
+								raw="$( command container image list --format json )" ||
+									return ${?}
+								raw="$( jq -r "${image_ref_jq}" --args \
+									"${image_filters[@]}" <<<"${raw}" )"
+								(( noheading )) || printf 'NAME\tTAG\tDIGEST\n'
+								jq -r '
+									if type == "array" then .[] else . end |
+									. as $image |
+									(
+										.configuration.name? //
+										.displayReference? //
+										.reference? //
+										.name? //
+										""
+									) as $reference |
+									($reference | test(":[^/]+$")) as $tagged |
+									[
+										(if $tagged then $reference | sub(":[^/:]+$"; "") else $reference end),
+										(if $tagged then $reference | capture(":(?<tag>[^/:]+)$").tag else "<none>" end),
+										(
+											(
+												$image.configuration.descriptor.digest? //
+												$image.descriptor.digest? //
+												$image.digest? //
+												$image.id? //
+												""
+											) | sub("^sha256:"; "")[0:12]
+										)
+									] | @tsv
+								' <<<"${raw}"
+							else
+								command container image list "${image_args[@]}" |
+									{
+										if (( noheading )); then
+											tail -n +2
+										else
+											cat
+										fi
+									}
+							fi
+						else
+							raw="$( command container image list "${image_args[@]}" )" ||
+								return ${?}
+							if (( ${#image_filters[@]} )); then
+								raw="$( jq -r "${image_ref_jq}" --args \
+									"${image_filters[@]}" <<<"${raw}" )"
+							fi
+							printf '%s\n' "${raw}"
+						fi
+						;;
+					'{{.ID}}'|'{{ .ID }}')
+						raw="$( command container image list --format json )" ||
+							return ${?}
+						if (( ${#image_filters[@]} )); then
+							raw="$( jq -r "${image_ref_jq}" --args \
+								"${image_filters[@]}" <<<"${raw}" )"
+						fi
+						jq -r '
+							if type == "array" then .[] else . end |
+							.configuration.descriptor.digest? //
+							.descriptor.digest? //
+							.digest? //
+							.id? //
+							.reference? //
+							empty
+						' <<<"${raw}"
+						;;
+					'{{.Digest}} {{.ID}}'|'{{ .Digest }} {{ .ID }}')
+						raw="$( command container image list --format json )" ||
+							return ${?}
+						if (( ${#image_filters[@]} )); then
+							raw="$( jq -r "${image_ref_jq}" --args \
+								"${image_filters[@]}" <<<"${raw}" )"
+						fi
+						jq -r '
+								if type == "array" then .[] else . end |
+								[
+									(
+										.configuration.descriptor.digest? //
+										.descriptor.digest? //
+										.digest? //
+										""
+									),
+									(
+										.configuration.descriptor.digest? //
+										.descriptor.digest? //
+										.digest? //
+										.id? //
+										.reference? //
+										""
+									)
+								] | @tsv' <<<"${raw}"
+						;;
+					*)
+						warn "Apple 'container image list' does not support Docker format" \
+							"'${format}'; using table output"
+						if (( ${#image_filters[@]} )); then
+							grep_args=( -e 'NAME' )
+							for arg in "${image_filters[@]}"; do
+								grep_args+=( -e "${arg}" )
+							done
+							command container image list --format table |
+								grep -F "${grep_args[@]}"
+						else
+							command container image list --format table
+						fi |
+							{ if (( noheading )); then tail -n +2; else cat; fi ; }
+						;;
+				esac
+				return ${?}
+				;;
+		esac
+
+		case "${args[0]:-}:${args[1]:-}" in
+			ps:*|ls:*|list:*|container:|container:ps|container:ls|container:list)
+				local -a list_args=()
+				local -i arg_start=1 noheading=0 skip_next=0
+				local format='table'
+
+				[[ "${args[0]:-}" != 'container' ]] || arg_start=2
+				for arg in "${args[@]:${arg_start}}"; do
+					if (( skip_next )); then
+						format="${arg}"
+						skip_next=0
+						continue
+					fi
+					case "${arg}" in
+						--noheading)
+							noheading=1
+							;;
+						-a|--all)
+							list_args+=( --all )
+							;;
+						--format)
+							skip_next=1
+							;;
+						--format=*)
+							format="${arg#--format=}"
+							;;
+						-q|--quiet)
+							list_args+=( --quiet )
+							;;
+						*)
+							list_args+=( "${arg}" )
+							;;
+					esac
+				done
+
+				list_args+=( --format "${format}" )
+				command container list "${list_args[@]}" |
+					{
+						if [[ "${format}" == 'table' ]] && (( noheading )); then
+							tail -n +2
+						else
+							cat
+						fi
+					}
+				return ${?}
+				;;
+		esac
+
+		case "${args[0]:-}" in
+			system)
+				command container "${args[@]}"
+				return ${?}
+				;;
+			version)
+				if [[ "${args[*]:-}" == *'{{.Client.Version}}'* ]]; then
+					container --version |
+						grep -ow 'version [0-9.]\+' |
+						cut -d' ' -f2-
+				else
+					command container --version
+				fi
+				return ${?}
+				;;
+			image)
+				subcommand="${args[1]:-list}"
+				case "${subcommand}" in
+					rm|delete)
+						command container image delete "${args[@]:2}"
+						return ${?}
+						;;
+					inspect|tag|pull|push|save|load|prune)
+						command container image "${subcommand}" "${args[@]:2}"
+						return ${?}
+						;;
+					*)
+						command container image "${args[@]:1}"
+						return ${?}
+						;;
+				esac
+				;;
+			container)
+				subcommand="${args[1]:-list}"
+				case "${subcommand}" in
+					rm|delete)
+						local -a delete_args=()
+						for arg in "${args[@]:2}"; do
+							case "${arg}" in
+								--volumes|-v) : ;;
+								*) delete_args+=( "${arg}" ) ;;
+							esac
+						done
+						command container delete "${delete_args[@]}"
+						return ${?}
+						;;
+					stop)
+						command container stop "${args[@]:2}"
+						return ${?}
+						;;
+					inspect)
+						if [[ "${args[*]:2}" == *'--format='* || "${args[*]:2}" == *'--format '* ]]; then
+							return 1
+						fi
+						command container inspect "${args[@]:2}"
+						return ${?}
+						;;
+					exists)
+						local inspect_json=''
+						for arg in "${args[@]:2}"; do
+							[[ "${arg}" == --* ]] && continue
+							inspect_json="$( command container inspect "${arg}" 2>/dev/null )" ||
+								return 1
+							jq -e 'if type == "array" then length > 0 else . != null and . != {} end' \
+									<<<"${inspect_json}" >/dev/null ||
+								return 1
+						done
+						return 0
+						;;
+					commit)
+						warn "Apple 'container' does not support 'container commit'"
+						return 125
+						;;
+					*)
+						command container "${subcommand}" "${args[@]:2}"
+						return ${?}
+						;;
+				esac
+				;;
+			rm|delete|inspect|stop|start|exec|logs|stats|export|create)
+				command container "${args[@]}"
+				return ${?}
+				;;
+			*)
+				if [[ -n "${args[*]:-}" ]]; then
+					print "Filtered command: '${args[*]:-}'"
+					command container "${args[@]}"
+				else
+					return 1
+				fi
+			;;
+		esac
+	}  # container
+	export -f docker
+
+	#extra_build_args=''
+	docker_readonly='readonly'
+elif type -pf podman >/dev/null 2>&1; then
 	_command='podman'
 	docker() {
 		if [[ -n "${debug:-}" ]] && (( debug > 1 )); then
@@ -2259,7 +2784,7 @@ elif type -pf docker >/dev/null 2>&1; then
 	_command='docker'
 	docker() {
 		if [[ " ${*:-} " == *" --noheading "* ]]; then
-			declare arg=''
+			local arg=''
 			for arg in "${@}"; do
 				case "${arg:-}" in
 					'--noheading')
@@ -2272,9 +2797,9 @@ elif type -pf docker >/dev/null 2>&1; then
 				esac
 				shift
 			done
-			$( which docker ) ${@+"${@}"} | tail -n +2
+			$( which "${_command}" ) ${@+"${@}"} | tail -n +2
 		else
-			$( which docker ) ${@+"${@}"}
+			$( which "${_command}" ) ${@+"${@}"}
 		fi
 	}  # docker
 	export -f docker
@@ -2282,7 +2807,13 @@ elif type -pf docker >/dev/null 2>&1; then
 	#extra_build_args=''
 	docker_readonly='readonly'
 else
-	die "Cannot find 'docker' or 'podman' executable in path in common/run.sh"
+	if [[ "$( uname -s )" == 'Darwin' ]]; then
+		die "Cannot find 'container', 'docker' or 'podman' executable in" \
+			"path in common/run.sh"
+	else
+		die "Cannot find 'docker' or 'podman' executable in path in" \
+			"common/run.sh"
+	fi
 fi
 export _command docker_readonly  # extra_build_args
 

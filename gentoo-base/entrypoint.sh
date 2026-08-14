@@ -2060,6 +2060,14 @@ if ! [ -s "${PKGDIR}"/Packages ] || ! [ -d "${PKGDIR}"/virtual ]; then
 		"cache appears uninitialised or invalid"
 fi
 
+portage_can_write_directory() {
+	# shellcheck disable=SC2016 # Expanded by the child shell.
+	runuser -u portage -- /bin/sh -c '
+		probe="$( mktemp "${1%/}/.portage-write-test.XXXXXXXX" )" || exit 1
+		rm -f "${probe}"
+	' sh "${1}" >/dev/null 2>&1
+}
+
 env | grep -F -- 'DIR=' | cut -d'=' -f 2- | while read -r d; do
 	# Inherited environment values are appearing quoted, which is non-standard
 	d="${d#'"'}" ; d="${d%'"'}"
@@ -2068,13 +2076,19 @@ env | grep -F -- 'DIR=' | cut -d'=' -f 2- | while read -r d; do
 		warn "Creating missing directory '${d}' ..."
 		mkdir -p "${d}" || die "mkdir() on '${d}' failed: ${?}"
 	fi
-	if [ "$( stat -Lc '%G' "${d}" )" != 'portage' ]; then
+	if ! portage_can_write_directory "${d}"; then
 		warn "Resetting permissions on '${d}' ..."
-		if chgrp "${d}" portage 2>/dev/null; then
-			chmod ug+rwx "${d}" || die "chmod() on '${d}' failed: ${?}"
+		if chgrp portage "${d}" 2>/dev/null; then
+			if ! chmod ug+rwx "${d}"; then
+				warn "Unable to set group-write permissions on '${d}'"
+			fi
 		else
-			chmod ugo+rwx "${d}" || die "chmod() on '${d}' failed: ${?}"
+			if ! chmod ugo+rwx "${d}"; then
+				warn "Unable to set world-write permissions on '${d}'"
+			fi
 		fi
+		portage_can_write_directory "${d}" ||
+			die "Directory '${d}' is not writable by the 'portage' user"
 	fi
 done
 

@@ -127,13 +127,13 @@ declare -i NOTIFY_MKDIR=0
 [[ -e "${base_dir}"/Dockerfile.init ]]
 [[ -e "${base_dir}"/Dockerfile.build ]]
 
-# shellcheck disable=SC2034
+# shellcheck disable=SC2034,SC2154
 IMAGE="${base_name}:${override_tag:-"latest"}"
 # shellcheck disable=SC1091
 [[ -s common/run.sh ]] && . common/run.sh >/dev/null
 if [[ "$( type -t 'die' )" != 'function' ]]; then
 	echo >&2 "FATAL: Unable to source shared functions from" \
-		"'common/run.sh': ${?}"
+		"'common/run.sh'"
 	exit 127
 fi
 
@@ -160,7 +160,13 @@ fi
 #
 
 declare _output=''
-if ! _output="$( docker system info 2>&1 )"; then
+if [[ "${_command}" == 'container' ]]; then
+	if ! "${_command}" system status >/dev/null 2>&1; then
+		echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
+			"you need to run 'container system start'?"
+		exit 1
+	fi
+elif ! _output="$( docker system info 2>&1 )"; then
 	if [[ "${_command}" == 'podman' ]]; then
 		echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
 			"you need to run '${_command} machine start' or re-run" \
@@ -187,7 +193,9 @@ elif ! docker image build --help | grep -Fq -- '--platform'; then
 		"podman-3.x or later)"
 fi
 
-if docker system info | grep -qw -- 'crun'; then
+if [[ "${_command}" != 'container' ]] &&
+		docker system info | grep -qw -- 'crun'
+then
 	declare crun_version=''
 
 	if type -pf jq >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1
@@ -252,8 +260,17 @@ declare -i build_helper=0
 declare -i force=0
 
 declare docker_version=''
-docker_version="$( docker version --format '{{.Client.Version}}' )" ||
-	die "Cannot determine ${_command} version: ${?}"
+if [[ "${_command}" == 'container' ]]; then
+	docker_version="$( # <- Syntax
+			"${_command}" --version |
+				grep -ow 'version [0-9.]\+' |
+				cut -d' ' -f2-
+		)" || die "Cannot determine ${_command} version: ${?}"
+else
+	docker_version="$( # <- Syntax
+			"${_command}" version --format '{{.Client.Version}}'
+		)" || die "Cannot determine ${_command} version: ${?}"
+fi
 readonly docker_version
 
 declare python_single_target="${python_targets_override:+"${python_targets_override%%" "*}"}"
@@ -359,10 +376,20 @@ checklabel() {
 		image="${image}:${override_tag:-"latest"}"
 	fi
 
+	if [[ "${value}" =~ :SHA256: ]]; then
+		print "${FUNCNAME[0]}: Correcting digest from '${value}' to" \
+			"'${value/:SHA256:/@SHA256:}'"
+		value="${value/:SHA256:/@SHA256:}"
+	fi
+
 	label_value="$( # <- Syntax
-		docker image inspect \
-				--format="{{index .Config.Labels \"${label}\"}}" \
-			"${image}" 2>/dev/null
+		if [[ "${_command}" == 'container' ]]; then
+			apple_image_label "${image}" "${label}"
+		else
+			docker image inspect \
+					--format="{{index .Config.Labels \"${label}\"}}" \
+				"${image}" 2>/dev/null
+		fi
 	)"
 	if ! [[ "${label_value:-}" == "${value}" ]]; then
 		echo "${label_value:-}"
@@ -413,9 +440,15 @@ checkids() {
 				if ! [[ "${stage3_name}" =~ / ]]; then
 					stage3_repo='localhost/'
 				fi
-				docker image inspect \
-						--format='{{index .Config.Labels "environment-from"}}' \
-					"${stage3_repo:-}${stage3_name}:${tag}" 2>/dev/null
+				if [[ "${_command}" == 'container' ]]; then
+					apple_image_label \
+						"${stage3_repo:-}${stage3_name}:${tag}" \
+						'environment-from'
+				else
+					docker image inspect \
+							--format='{{index .Config.Labels "environment-from"}}' \
+						"${stage3_repo:-}${stage3_name}:${tag}" 2>/dev/null
+				fi
 			)" && [[ -n "${stage3_env_id:-}" ]]
 		then
 			stage3_env_id="$( echo "${stage3_env_id:-}" | cut -d':' -f 2- )"
@@ -435,15 +468,18 @@ checkids() {
 		if [[ -n "${gentoo_stage3_id:-}" ]]; then
 			# N.B.: Only valid for our 'init' and (local) 'stage3' images
 			if stage3_src_id="$( # <- Syntax
-					docker image inspect \
-							--format='{{index .Config.Labels "stage3-from"}}' \
-						"${repo}${name}:${tag}" 2>/dev/null
-				)" && [[ -n "${stage3_src_id:-}" ]]
+					if [[ "${_command}" == 'container' ]]; then
+						apple_image_label \
+							"${repo}${name}:${tag}" \
+							'stage3-from'
+					else
+						docker image inspect \
+								--format='{{index .Config.Labels "stage3-from"}}' \
+							"${repo}${name}:${tag}" 2>/dev/null
+					fi
+			)" && [[ -n "${stage3_src_id:-}" ]]
 			then
-				stage3_src_id="$( # <- Syntax
-					echo "${stage3_src_id:-}" |
-					awk -F':' '{print $NF}'
-				)"
+				stage3_src_id="${stage3_src_id#"${gentoo_stage3_image}:"}"
 
 				# Does our upstream stage3 match the ID encoded in our current
 				# image?
@@ -461,6 +497,139 @@ checkids() {
 	# The above is a warning rather than an error, so...
 	return 0
 }  # checkids
+
+apple_dockerfile_escape() {
+	printf '%s' "${1:-}" | sed 's/\\/\\\\/g ; s/"/\\"/g'
+}  # apple_dockerfile_escape
+
+apple_image_label() {
+	[[ "${_command}" == 'container' ]] || return 1
+	[[ -n "${1:-}" && -n "${2:-}" ]] || return 1
+
+	"${_command}" image inspect "${1}" 2>/dev/null |
+		jq -er --arg label "${2}" '
+			[
+				if type == "array" then .[] else . end |
+				.variants[]?.config.config.Labels[$label]? //
+				.config.config.Labels[$label]? //
+				.config.Labels[$label]? //
+				empty
+			][0] // empty
+		'
+}  # apple_image_label
+
+apple_image_digest() {
+	[[ "${_command}" == 'container' ]] || return 1
+	[[ -n "${1:-}" ]] || return 1
+
+	"${_command}" image inspect "${1}" 2>/dev/null |
+		jq -er '
+			[
+				if type == "array" then .[] else . end |
+				.configuration.descriptor.digest? //
+				.index.digest? //
+				.variants[]?.descriptor.digest? //
+				.variants[]?.digest? //
+				.descriptor.digest? //
+				.digest? //
+				.id? //
+				empty
+			][0] // empty
+		'
+}  # apple_image_digest
+
+apple_snapshot_container() {
+	local container_name="${1:-}"
+	local image_ref="${2:-}"
+	local log_file="${3:-/dev/null}"
+	local config_image="${4:-}"
+	local description="${5:-Gentoo image}"
+	local image_env='' snapshot_dir=''
+	local -i rc=0
+
+	[[ "${_command}" == 'container' ]] || return 1
+	[[ -n "${container_name:-}" ]] || return 1
+	[[ -n "${image_ref:-}" ]] || return 1
+
+	snapshot_dir="$( mktemp -d "${TMPDIR:-/tmp}/gentoo-container-snapshot.XXXXXXXX" )" ||
+		return 1
+
+	"${_command}" stop "${container_name}" >/dev/null 2>&1 || :
+	if "${_command}" export --output "${snapshot_dir}/rootfs.tar" \
+			"${container_name}" 2>&1 |
+			tee -a "${log_file}"
+	then
+		:
+	else
+		rc=${?}
+		rm -rf "${snapshot_dir}"
+		return ${rc}
+	fi
+
+	{
+		printf 'FROM scratch\n'
+		printf 'ADD rootfs.tar /\n'
+	} > "${snapshot_dir}/Dockerfile"
+
+	if [[ -n "${config_image:-}" ]]; then
+		if ! "${_command}" image inspect "${config_image}" 2>/dev/null |
+				jq -r '
+					if type == "array" then .[] else . end |
+					.variants[]?.config.config.Env[]? //
+					.config.config.Env[]? //
+					empty
+				' |
+				while IFS= read -r image_env; do
+					[[ "${image_env}" == *=* ]] || continue
+					[[ "${image_env%%=*}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] ||
+						continue
+					printf 'ENV %s="%s"\n' \
+						"${image_env%%=*}" \
+						"$( apple_dockerfile_escape "${image_env#*=}" )"
+				done >> "${snapshot_dir}/Dockerfile"
+		then
+			warn "Unable to copy image environment from '${config_image}'"
+		fi
+	fi
+
+	{
+		printf 'ENV ROOT="/"\n'
+		printf 'ENV SYSROOT="/"\n'
+		printf 'ENV PORTAGE_CONFIGROOT="/"\n'
+		printf 'LABEL maintainer="stuart@shelton.me"\n'
+		printf 'LABEL description="%s"\n' "$( apple_dockerfile_escape "${description}" )"
+		[[ -z "${gentoo_stage3_image:-}" || -z "${gentoo_stage3_id:-}" ]] ||
+			printf 'LABEL stage3-from="%s:%s"\n' \
+				"$( apple_dockerfile_escape "${gentoo_stage3_image}" )" \
+				"$( apple_dockerfile_escape "${gentoo_stage3_id}" )"
+		[[ -z "${sum:-}" ]] ||
+			printf 'LABEL entrypoint-sum="%s"\n' "$( apple_dockerfile_escape "${sum}" )"
+		[[ -z "${env_name:-}" || -z "${env_id:-}" ]] ||
+			printf 'LABEL environment-from="%s:%s"\n' \
+				"$( apple_dockerfile_escape "${env_name}" )" \
+				"$( apple_dockerfile_escape "${env_id}" )"
+		printf 'ENTRYPOINT ["/usr/libexec/entrypoint.sh"]\n'
+		printf 'CMD ["app-shells/bash"]\n'
+	} >> "${snapshot_dir}/Dockerfile"
+
+	if "${_command}" build \
+			--file "${snapshot_dir}/Dockerfile" \
+			--no-cache \
+			--platform "linux/${docker_arch}" \
+			--tag "${image_ref}" \
+			"${snapshot_dir}" 2>&1 |
+			tee -a "${log_file}"
+	then
+		:
+	else
+		rc=${?}
+		rm -rf "${snapshot_dir}"
+		return ${rc}
+	fi
+
+	rm -rf "${snapshot_dir}"
+	return 0
+}  # apple_snapshot_container
 
 makedir() {
 	local dir="${1:-}"
@@ -809,16 +978,28 @@ case "${docker_arch}" in
 			target_opt='-mcpu=native' ;;
 esac
 rust_target_opt="${rust_target_opts:-}"
-env_id="$( docker image ls --noheading \
-		--format='{{.ID}}' \
-	"${env_name}:${override_tag:-"latest"}"
-)" || die "Could not determine environment stage image name"
-local_stage3_id="$( docker image ls --noheading \
-		--format='{{.ID}}' \
-	"${stage3_name}:${override_tag:-"latest"}"
-)" || die "Could not determine local stage3 image name"
+if [[ "${_command}" == 'container' ]]; then
+	env_id="$( # <- Syntax
+		apple_image_digest \
+			"${env_name}:${override_tag:-"latest"}" 2>/dev/null || :
+	)"
+	local_stage3_id="$( # <- Syntax
+		apple_image_digest \
+			"${stage3_name}:${override_tag:-"latest"}" 2>/dev/null || :
+	)"
+else
+	env_id="$( docker image ls --noheading \
+			--format='{{.ID}}' \
+		"${env_name}:${override_tag:-"latest"}"
+	)" || die "Could not determine environment stage image name"
+	local_stage3_id="$( docker image ls --noheading \
+			--format='{{.ID}}' \
+		"${stage3_name}:${override_tag:-"latest"}"
+	)" || die "Could not determine local stage3 image name"
+fi
 
-mkdir -p "${log_dir:="log"}" ||
+[[ -n "${log_dir:-}" ]] || log_dir='log'
+mkdir -p "${log_dir}" ||
 	die "Could not create log directory '${log_dir}': ${?}"
 
 [[ -z "${trace:-}" ]] || set -o xtrace
@@ -871,7 +1052,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		cgo_ldflags='' goflags='' \
 		fflags='' fcflags='' flflags='' \
 		rustflags=''
-	if type -pf emerge >/dev/null 2>&1; then
+	if [[ "${_command}" != 'container' ]] && type -pf emerge >/dev/null 2>&1
+	then
 		cppflags="$( # <- Syntax
 				emerge --info 2>&1 |
 					grep -- '^CPPFLAGS=' |
@@ -957,7 +1139,13 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 			[[ -n "${ARCH:-}" ]] || ARCH="${arch:-"$( uname -m )"}"
 
 			# shellcheck disable=SC1091
-			. /etc/portage/make.conf 2>/dev/null
+			if [[ "${_command}" == 'container' ]] &&
+					[[ -s etc/portage/make.conf ]]
+			then
+				. etc/portage/make.conf 2>/dev/null
+			else
+				. /etc/portage/make.conf 2>/dev/null
+			fi
 			set |
 				grep -F -- 'FLAGS=' |
 				sed 's|^[A-Z_]\+=|\L&| ; s|$|;|' |
@@ -1027,25 +1215,33 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		cgo_cppflags cgo_cflags cgo_cxxflags cgo_fflags cgo_ldflags goflags \
 		rustflags
 
-	# shellcheck disable=SC2206
-	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
-		--loglevel 3
-		${DEBUG_EXTRA_ARGS:-}
-	)
+	if [[ "${_command}" == 'container' ]]; then
+		build_args+=( # <- Syntax
+			--file 'Dockerfile.env.apple'
+			--no-cache
+			--tag "${env_name}:${override_tag:-"latest"}"
+		)
+	else
+		# shellcheck disable=SC2206
+		[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
+			--loglevel 3
+			${DEBUG_EXTRA_ARGS:-}
+		)
 
-	# shellcheck disable=SC2207
-	build_args+=( # <- Syntax
-		--compress
-		--file 'Dockerfile.env'
-		--network none
-		--no-cache
-		$( # <- Syntax
-				docker image build --squash-all --help >/dev/null 2>&1 &&
-					echo '--squash-all'
-			)
-		--tag "${env_name}:${override_tag:-"latest"}"
-		--rm
-	)
+		# shellcheck disable=SC2207
+		build_args+=( # <- Syntax
+			--compress
+			--file 'Dockerfile.env'
+			--network none
+			--no-cache
+			$( # <- Syntax
+					docker image build --squash-all --help >/dev/null 2>&1 &&
+						echo '--squash-all'
+				)
+			--tag "${env_name}:${override_tag:-"latest"}"
+			--rm
+		)
+	fi
 
 	docker image build "${build_args[@]}" . 2>&1 |
 		tee "${log_dir}/${env_name#*"/"}.log"
@@ -1054,10 +1250,16 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 
 	[[ "${*:-}" = '--env' ]] && exit 0
 
-	env_id="$( docker image ls --noheading \
-			--format='{{.ID}}' \
-		"${env_name}:${override_tag:-"latest"}" 2>/dev/null
-	)"
+	if [[ "${_command}" == 'container' ]]; then
+		env_id="$( # <- Syntax
+			apple_image_digest "${env_name}:${override_tag:-"latest"}"
+		)" || env_id="${env_name}:${override_tag:-"latest"}"
+	else
+		env_id="$( docker image ls --noheading \
+				--format='{{.ID}}' \
+			"${env_name}:${override_tag:-"latest"}" 2>/dev/null
+		)"
+	fi
 
 	output
 	output " ${blue}*${reset} Stage 'env' complete, next is 'stage3' ..."
@@ -1124,7 +1326,7 @@ then
 			#
 			# We can work around this by untagging *before* pulling...
 			#
-			if [[ -n "$( # <- Syntax
+			if [[ "${_command}" != 'container' ]] && [[ -n "$( # <- Syntax
 				docker image list \
 					-q \
 					--filter "reference=${gentoo_stage3_image}:${gentoo_stage3_tag}"
@@ -1184,24 +1386,40 @@ if (( rc )); then
 fi
 unset rc
 
+# macOS 'container' has no concept of an ID beyond the SHA256 digest and the
+# container name and tag :o
 if [[ -n "${ref:-}" ]]; then
 	# 'podman image ls' won't show images by SHA256 reference...
 	#gentoo_stage3_id="$( docker image ls --noheading \
 	#		--format='{{.ID}}' \
 	#	"${gentoo_stage3_image}@${ref}" 2>/dev/null
 	#)" || :
-	gentoo_stage3_id="$( docker image ls --noheading --digests \
-			--format='{{.Digest}} {{.ID}}' 2>/dev/null |
-		grep -F -- "${ref}" |
-		awk '{print $2}'
+	gentoo_stage3_id="$( # <- Syntax
+		if [[ "${_command}" == 'container' ]]; then
+			echo "${ref}"
+		else
+			docker image ls --noheading --digests \
+					--format='{{.Digest}} {{.ID}}' 2>/dev/null |
+				grep -F -- "${ref}" |
+				awk '{print $2}'
+		fi
 	)" || :
 else
-	gentoo_stage3_id="$( docker image ls --noheading \
-			--format='{{.ID}}' \
-		"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null
+	gentoo_stage3_id="$( # <- Syntax
+		if [[ "${_command}" == 'container' ]]; then
+			apple_image_digest "${gentoo_stage3_image}:${gentoo_stage3_tag}"
+		else
+			docker image ls --noheading \
+					--format='{{.ID}}' \
+				"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null
+		fi
 	)" || :
 fi
 #unset ref
+
+declare gentoo_stage3_image_ref="${gentoo_stage3_image}:${gentoo_stage3_tag}"
+[[ -z "${ref:-}" ]] ||
+	gentoo_stage3_image_ref="${gentoo_stage3_image}@${ref}"
 
 if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	if [[ -z "${env_id:-}" ]]; then
@@ -1212,7 +1430,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	output
 	output " ${blue}*${reset} Creating image" \
 		"'${stage3_name}:${override_tag:-"latest"}'" \
-		"${debug:+"from image ID '${gentoo_stage3_id}' "}..."
+		"${debug:+"from image $( [[ "${_command}" == 'container' ]] && printf digest || printf ID ) '${gentoo_stage3_id}' "}..."
 	output
 
 	# NAME:    stage3
@@ -1221,10 +1439,15 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	# USED_BY: init
 
 	declare -a build_args=()
-	if [ 'symbolic link' = "$(
-			docker run --rm --network none --entrypoint /bin/sh \
-				"${gentoo_stage3_image}@${ref}" -c "stat -c '%F' /lib"
-		)" ]
+	if [[ 'symbolic link' == "$(
+			if [[ "${_command}" == 'container' ]]; then
+				"${_command}" run --rm --entrypoint /bin/sh \
+					"${gentoo_stage3_image_ref}" -c "stat -c '%F' /lib"
+			else
+				docker run --rm --network none --entrypoint /bin/sh \
+					"${gentoo_stage3_image_ref}" -c "stat -c '%F' /lib"
+			fi
+		)" ]]
 	then
 		build_args+=( --build-arg new_root_name="split-usr-root" )
 	else
@@ -1245,32 +1468,40 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 		--build-arg gentoo_stage3_image="${gentoo_stage3_image}"
 		--build-arg gentoo_stage3_tag="${gentoo_stage3_tag}"
 		--build-arg gentoo_stage3_id="${gentoo_stage3_id}"
-		--build-arg gentoo_stage3_image_ref="${gentoo_stage3_image}@${ref}"
+		--build-arg gentoo_stage3_image_ref="${gentoo_stage3_image_ref}"
 		--build-arg override_tag="${override_tag:-"latest"}"
 	)
 	[[ -z "${stage3_flags_file:-}" ]] || build_args+=( # <- Syntax
 		--build-arg stage3_flags_file="${stage3_flags_file}"
 	)
 
-	# shellcheck disable=SC2206
-	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
-		--loglevel 3
-		${DEBUG_EXTRA_ARGS:-}
-	)
+	if [[ "${_command}" == 'container' ]]; then
+		build_args+=( # <- syntax
+			--file "${container_file}"
+			--no-cache
+			--tag "${stage3_name}:${override_tag:-"latest"}"
+		)
+	else
+		# shellcheck disable=SC2206
+		[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
+			--loglevel 3
+			${DEBUG_EXTRA_ARGS:-}
+		)
 
-	# shellcheck disable=SC2207
-	build_args+=( # <- Syntax
-		--compress
-		--file "${container_file}"
-		--network none
-		--no-cache
-		--pull=false
-		$( # <- Syntax
-				docker image build --squash --help >/dev/null 2>&1 &&
-					echo '--squash'
-			)
-		--tag "${stage3_name}:${override_tag:-"latest"}"
-	)
+		# shellcheck disable=SC2207
+		build_args+=( # <- Syntax
+			--compress
+			--file "${container_file}"
+			--network none
+			--no-cache
+			--pull=false
+			$( # <- Syntax
+					docker image build --squash --help >/dev/null 2>&1 &&
+						echo '--squash'
+				)
+			--tag "${stage3_name}:${override_tag:-"latest"}"
+		)
+	fi
 
 	docker image build "${build_args[@]}" . 2>&1 |
 		tee "${log_dir}/${stage3_name#*"/"}.log"
@@ -1303,10 +1534,16 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 
 	[[ "${*:-}" == '--stage3' ]] && exit 0
 
-	local_stage3_id="$( docker image ls --noheading \
-			--format='{{.ID}}' \
-		"${stage3_name}:${override_tag:-"latest"}" 2>/dev/null
-	)"
+	if [[ "${_command}" == 'container' ]]; then
+		local_stage3_id="$( # <- Syntax
+			apple_image_digest "${stage3_name}:${override_tag:-"latest"}"
+		)" || :
+	else
+		local_stage3_id="$( docker image ls --noheading \
+				--format='{{.ID}}' \
+			"${stage3_name}:${override_tag:-"latest"}" 2>/dev/null
+		)"
+	fi
 
 	output
 	output " ${blue}*${reset} Stage 'stage3' complete, next is 'init' ..."
@@ -1330,9 +1567,16 @@ if [[ -n "${*:-}" ]] && ! grep -Fq -- ' --init ' <<<" ${*} "; then
 		"${init_name}" 2>/dev/null
 	)"
 	if grep -Eq -- "^(localhost/)?${init_name}" <<<"${images}"; then
-		imagesum="$( docker image inspect \
-				--format='{{index .Config.Labels "entrypoint-sum"}}' \
-			"${init_name}:${override_tag:-"latest"}" 2>/dev/null
+		imagesum="$( # <- Syntax
+			if [[ "${_command}" == 'container' ]]; then
+				apple_image_label \
+					"${init_name}:${override_tag:-"latest"}" \
+					'entrypoint-sum'
+			else
+				docker image inspect \
+						--format='{{index .Config.Labels "entrypoint-sum"}}' \
+					"${init_name}:${override_tag:-"latest"}" 2>/dev/null
+			fi
 		)" || :
 		if [[ "${imagesum:-}" != "${sum}" ]]; then
 			if (( force )); then
@@ -1426,25 +1670,33 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --init ' <<<" ${*} "; then
 		--build-arg environment_file="${environment_file}"
 	)
 
-	# shellcheck disable=SC2206
-	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
-		--loglevel 3
-		${DEBUG_EXTRA_ARGS:-}
-	)
+	if [[ "${_command}" == 'container' ]]; then
+		build_args+=( # <- syntax
+			--file "${container_file}"
+			--no-cache
+			--tag "${init_name}:${override_tag:-"latest"}"
+		)
+	else
+		# shellcheck disable=SC2206
+		[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
+			--loglevel 3
+			${DEBUG_EXTRA_ARGS:-}
+		)
 
-	# shellcheck disable=SC2207
-	build_args+=( # <- Syntax
-		--compress
-		--file "${container_file}"
-		--network none
-		--no-cache
-		--pull=false
-		$( # <- Syntax
-				docker image build --squash --help >/dev/null 2>&1 &&
-					echo '--squash'
-			)
-		--tag "${init_name}:${override_tag:-"latest"}"
-	)
+		# shellcheck disable=SC2207
+		build_args+=( # <- Syntax
+			--compress
+			--file "${container_file}"
+			--network none
+			--no-cache
+			--pull=false
+			$( # <- Syntax
+					docker image build --squash --help >/dev/null 2>&1 &&
+						echo '--squash'
+				)
+			--tag "${init_name}:${override_tag:-"latest"}"
+		)
+	fi
 
 	docker image build "${build_args[@]}" . 2>&1 |
 		tee "${log_dir}/${init_name#*"/"}.log"
@@ -1501,8 +1753,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 
 	# Handle leftover container from previous run ...
 	trap '' INT
-	if docker container ps -a | grep -q -- "${base_name#*"/"}$"; then
-		docker container stop "${base_name#*"/"}" >/dev/null
+	if docker container exists --external "${base_name#*"/"}"; then
+		docker container stop "${base_name#*"/"}" >/dev/null 2>&1 || :
 		docker container rm --volumes "${base_name#*"/"}" >/dev/null
 	fi
 	trap - INT
@@ -1667,7 +1919,14 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 
 	# shellcheck disable=SC2086
 	trap '' INT
-	if docker container commit --squash --help >/dev/null 2>&1; then
+	if [[ "${_command}" == 'container' ]]; then
+		apple_snapshot_container \
+				"${base_name#*"/"}" \
+				"${base_name}:${override_tag:-"latest"}" \
+				"${log_dir}/${base_name#*"/"}.log" \
+				"${init_name}:${override_tag:-"latest"}" \
+				'Gentoo base image'
+	elif docker container commit --squash --help >/dev/null 2>&1; then
 		docker container commit 2>&1 \
 					--squash \
 				"${base_name#*"/"}" "${base_name}:${override_tag:-"latest"}" |
@@ -1717,8 +1976,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	# Handle leftover container from previous run ...
 	trap '' INT
 	# shellcheck disable=SC2015
-	if docker container ps -a | grep -q -- "${build_name#*"/"}$"; then
-		docker container stop "${build_name#*"/"}"
+	if docker container exists --external "${build_name#*"/"}"; then
+		docker container stop "${build_name#*"/"}" >/dev/null 2>&1 || :
 		docker container rm --volumes "${build_name#*"/"}"
 	fi
 	# shellcheck disable=SC2015
@@ -1762,25 +2021,34 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 		--build-arg environment_file="${environment_file}"
 	)
 
-	# shellcheck disable=SC2206
-	[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
-		--loglevel 3
-		${DEBUG_EXTRA_ARGS:-}
-	)
+	if [[ "${_command}" == 'container' ]]; then
+		build_args+=( # <- syntax
+			--file "${container_file}"
+			--no-cache
+			--platform "linux/${docker_arch}"
+			--tag "${build_name}-root:${override_tag:-"latest"}"
+		)
+	else
+		# shellcheck disable=SC2206
+		[[ -z "${debug:-}" ]] || build_args+=( # <- Syntax
+			--loglevel 3
+			${DEBUG_EXTRA_ARGS:-}
+		)
 
-	# shellcheck disable=SC2207
-	build_args+=( # <- Syntax
-		--compress
-		--file "${container_file}"
-		--network none
-		--no-cache
-		--platform "linux/${docker_arch}"
-		$( # <- Syntax
-				docker image build --squash-all --help >/dev/null 2>&1 &&
-					echo '--squash-all'
-			)
-		--tag "${build_name}-root:${override_tag:-"latest"}"
-	)
+		# shellcheck disable=SC2207
+		build_args+=( # <- Syntax
+			--compress
+			--file "${container_file}"
+			--network none
+			--no-cache
+			--platform "linux/${docker_arch}"
+			$( # <- Syntax
+					docker image build --squash-all --help >/dev/null 2>&1 &&
+						echo '--squash-all'
+				)
+			--tag "${build_name}-root:${override_tag:-"latest"}"
+		)
+	fi
 
 	docker "${container_args[@]}" image build "${build_args[@]}" . 2>&1 |
 		tee "${log_dir}/${build_name#*"/"}.log"
@@ -1894,7 +2162,14 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	output
 	trap '' INT
 	# shellcheck disable=SC2031,SC2086,SC2140
-	if docker container commit --squash --help >/dev/null 2>&1; then
+	if [[ "${_command}" == 'container' ]]; then
+		apple_snapshot_container \
+				"${build_name#*"/"}" \
+				"${build_name}-finalise:${override_tag:-"latest"}" \
+				"${log_dir}/${build_name#*"/"}.log" \
+				"${build_name}-root:${override_tag:-"latest"}" \
+				'Gentoo build finalisation image'
+	elif docker container commit --squash --help >/dev/null 2>&1; then
 		docker "${container_args[@]}" container commit \
 					--squash \
 				"${build_name#*"/"}" \
@@ -1942,7 +2217,14 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	output
 	trap '' INT
 	# shellcheck disable=SC2031,SC2086,SC2140
-	if docker container commit --squash --help >/dev/null 2>&1; then
+	if [[ "${_command}" == 'container' ]]; then
+		apple_snapshot_container \
+				"${build_name#*"/"}-finalise" \
+				"${build_name}:${override_tag:-"latest"}" \
+				"${log_dir}/${build_name#*"/"}.log" \
+				"${build_name}-finalise:${override_tag:-"latest"}" \
+				'Gentoo build image'
+	elif docker container commit --squash --help >/dev/null 2>&1; then
 		docker "${container_args[@]}" container commit \
 					--squash \
 				"${build_name#*"/"}-finalise" \
