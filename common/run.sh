@@ -542,14 +542,14 @@ _docker_setup() {
 			#chost='aarch64-pc-linux-gnu'
 			;;
 		armv6l)
-			docker_arch='amd/v6'
+			docker_arch='arm/v6'
 			arch='arm'
 			#profile='17.0/armv6j'
 			profile='23.0/split-usr/armv6j_hf'
 			chost='armv6j-hardfloat-linux-gnueabihf'
 			;;
-		arm7l)
-			docker_arch='amd/v7'
+		armv7l)
+			docker_arch='arm/v7'
 			arch='arm'
 			#profile='17.0/armv7a'
 			profile='23.0/split-usr/armv7a_hf'
