@@ -1319,6 +1319,7 @@ case "${package_name}" in
 				app-alternatives/awk${impl:+"${impl}"}
 				app-arch/libarchive
 				app-crypt/gnupg
+				app-text/libexttextcat
 				dev-build/make
 				dev-lang/python-exec
 				dev-libs/isl
