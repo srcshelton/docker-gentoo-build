@@ -20,22 +20,26 @@
 # isn't tagged or branched :(
 #~sys-kernel/gentoo-sources-6.15.9-r1			~amd64 ~arm ~arm64 ~x86
 
-~sys-kernel/cix-headers-6.18				~amd64 ~arm ~arm64 ~x86
+~sys-kernel/cix-headers-6.18				       ~arm ~arm64
 ~sys-kernel/linux-headers-6.18				~amd64 ~arm ~arm64 ~x86
-~sys-kernel/raspberrypi-headers-6.18			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/raspberrypi-headers-6.18			       ~arm ~arm64
 
-# Current stable package is gentoo-sources-6.18.42
-~sys-kernel/gentoo-sources-6.18.42			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-6.18.35-r1
+~sys-kernel/cix-sources-6.18.44				       ~arm ~arm64
+~sys-kernel/gentoo-sources-6.18.44			~amd64 ~arm ~arm64 ~x86
 
-~sys-kernel/cix-headers-7.0				~amd64 ~arm ~arm64 ~x86
+~sys-kernel/cix-headers-7.0				       ~arm ~arm64
 
+# Latest is gentoo-sources-7.0.14-r1
+~sys-kernel/cix-sources-7.0.14-r1			       ~arm ~arm64
 ~sys-kernel/gentoo-sources-7.0.14-r1			~amd64 ~arm ~arm64 ~x86
 
-~sys-kernel/cix-headers-7.1				~amd64 ~arm ~arm64 ~x86
+~sys-kernel/cix-headers-7.1				       ~arm ~arm64
 
-# Latest is gentoo-sources-7.1.6
-~sys-kernel/gentoo-sources-7.1.6			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/vanilla-sources-7.1.6			~amd64 ~arm ~arm64 ~x86
+# Latest is gentoo-sources-7.1.8
+~sys-kernel/cix-sources-7.1.8				       ~arm ~arm64
+~sys-kernel/gentoo-sources-7.1.8			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-7.1.8			~amd64 ~arm ~arm64 ~x86
 
 ~dev-util/pahole-1.31					~amd64 ~arm ~arm64 ~x86
 

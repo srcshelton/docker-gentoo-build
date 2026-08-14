@@ -155,6 +155,7 @@
 #~app-containers/podman-6.0.1				~amd64 ~arm ~arm64 ~x86
 ~app-containers/podman-6.0.2				~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-6.1.0_rc1			 **
+~app-containers/podman-6.1.0				~amd64 ~arm ~arm64 ~x86
 
 #~app-containers/podman-tui-0.12.0			~amd64 ~arm ~arm64 ~x86
 #~app-containers/podman-tui-0.14.0			~amd64 ~arm ~arm64 ~x86
