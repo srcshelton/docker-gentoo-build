@@ -194,8 +194,10 @@ else
 	# containers only.
 	#
 	eval "$( # <- Syntax
+		[[ -n "${arch:-}" ]] || machine="$( uname -m )"
+
 		# shellcheck disable=SC2034
-		[[ -n "${LDFLAGS:-}" ]] || case "${arch:-"$( uname -m )"}" in
+		[[ -n "${LDFLAGS:-}" ]] || case "${arch:-"${machine}"}" in
 			'amd64'|'ppc64'|'x86'*)
 				LDFLAGS='-Wl,-O1 -Wl,--as-needed -Wl,-z,pack-relative-relocs'
 				;;
@@ -203,7 +205,9 @@ else
 				LDFLAGS='-Wl,-O1 -Wl,--as-needed'
 				;;
 		esac
-		[[ -n "${ARCH:-}" ]] || ARCH="${arch:-"$( uname -m )"}"
+
+		# shellcheck disable=SC2030 # Only used for make.conf evaluation
+		[[ -n "${ARCH:-}" ]] || ARCH="${arch:-"${machine}"}"
 
 		# shellcheck disable=SC1091
 		. /etc/portage/make.conf 2>&1
@@ -444,10 +448,10 @@ done
 unset arg
 
 if (( service_list )); then
-	list=''
+	svc_list=''
 	for arg in "${@:-}"; do
 		if grep -wq -- "${arg}" <<<" ${services[*]:-} "; then
-			list="${list:+"${list} "}${arg}"
+			svc_list="${svc_list:+"${svc_list} "}${arg}"
 		else
 			error "Service '${arg}' not known"
 			rc=1
@@ -461,9 +465,10 @@ if (( service_list )); then
 	# process what we believe to be all services (as a result) with the 'all'
 	# logic :|
 	#
-	IFS=' ' read -r -a services <<<"${list:-}"
+	IFS=' ' read -r -a services <<<"${svc_list:-}"
 	service=''
 	all=1
+	unset svc_list
 else
 	# 'ports' pattern is '([1-9][0-9]{0-4}(/(tc|ud)p)?) +'
 	if grep -q -- '[^0-9,/tcpud]' <<<"${ports}"; then
@@ -1721,6 +1726,7 @@ if [[ -z "${post_use:-}" && -n "${with_use:-}" ]]; then
 	post_use="$( replace_flags 'lib-only' 'openmp' -- "${with_use}" )"
 fi
 
+# shellcheck disable=SC2031 # Distinct from make.conf evaluation above
 case "${ARCH:-"${arch:-"$( uname -m )"}"}" in
 	'amd64'|'x86_64')
 		if ! grep -Fiqw 'cet' /proc/cpuinfo; then
@@ -2060,6 +2066,7 @@ export DOCKER_EXTRA_MOUNTS="${docker_extra_mounts[*]:-}"
 unset docker_extra_mounts
 }
 
+# shellcheck disable=SC2031 # Set from common/vars.sh
 if [[ -z "${log_dir:-}" ]]; then
 	warn "log_dir not set - using 'log' in repo directory '$( # <- Syntax
 			dirname "$( realpath -e "${0}" )"
@@ -2067,6 +2074,7 @@ if [[ -z "${log_dir:-}" ]]; then
 elif ! [[ -d "${log_dir}" ]]; then
 	warn "Creating new log_dir '${log_dir}' ..."
 fi
+# shellcheck disable=SC2031
 mkdir -p "${log_dir:="log"}" ||
 	die "Could not create log directory '${log_dir}': ${?}"
 
@@ -2143,7 +2151,7 @@ else
 	fi
 
 			#USE="${build_use:-}" \
-			ROOT='/service' \
+			CONTAINER_ROOT='/service' \
 			name="${container_prefix}-${container_name}" \
 			image="${IMAGE}" \
 	_docker_run "${args[@]}" 2>&1 |

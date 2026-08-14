@@ -104,6 +104,7 @@ declare -i NOTIFY_MKDIR=0
 #
 #declare docker_arch=''
 #declare arch=''
+#declare profile_version=''
 
 # pkg_pypy, pkg_pypy_use & pkg_pypy_post_remove are defined in common/vars.sh
 #declare pkg_pypy=''
@@ -639,14 +640,15 @@ if ! type -pf portageq >/dev/null 2>&1; then
 	portage_log_dir="${PORTAGE_LOGDIR:-"${PORT_LOGDIR:-"$( # <- Syntax
 			# We don't have portageq so are unlikely to have emerge either, but
 			# it's worth a shot...
-            emerge --info 2>&1 |
-                grep -E -- '^PORT(AGE)?_LOGDIR=' |
-                head -n 1 |
-                cut -d'"' -f 2 || :
-        )"}"}"
+			emerge --info 2>&1 |
+				grep -E -- '^PORT(AGE)?_LOGDIR=' |
+				head -n 1 |
+				cut -d'"' -f 2 || :
+		)"}"}"
+	# shellcheck disable=SC2154 # profile_version set by _docker_setup
 	for dir in /var/cache/portage/dist \
 			"${portage_log_dir:-"/var/log/portage"}" \
-			/var/cache/portage/pkg/${ARCH:-"${arch}"}/${GENTOO_PKGHOST:-"container"}
+			/var/cache/portage/pkg/${ARCH:-"${arch}"}/${GENTOO_PKGHOST:-"container"}/${profile_version}
 	do
 		[[ -d "${dir}" ]] || makedir "${dir}"
 	done

@@ -574,6 +574,10 @@ _docker_setup() {
 			;;
 	esac
 
+	profile_version="${profile%%/*}"
+	[[ -n "${profile_version:-}" ]] ||
+		die "Unable to derive profile version from profile '${profile:-}'"
+
 	return 0
 }  # _docker_setup
 
@@ -1118,11 +1122,11 @@ _docker_run() {
 	#   NO_REPO_MASKS
 	#inherit DOCKER_VARS
 	#inherit PODMAN_MEMORY_RESERVATION PODMAN_MEMORY_LIMIT PODMAN_SWAP_LIMIT
-	#inherit ACCEPT_KEYWORDS ACCEPT_LICENSE DEBUG DEV_MODE DOCKER_CAPS \
-	#   DOCKER_CMD_VARS DOCKER_DEVICES DOCKER_ENTRYPOINT DOCKER_EXTRA_MOUNTS \
-	#   DOCKER_HOSTNAME DOCKER_INTERACTIVE DOCKER_PRIVILEGED \
-	#   DOCKER_VOLUMES ECLASS_OVERRIDE EMERGE_OPTS FEATURES INSTALL_MASK \
-	#   PYTHON_SINGLE_TARGET PYTHON_TARGETS ROOT TERM TRACE USE
+	#inherit ACCEPT_KEYWORDS ACCEPT_LICENSE CONTAINER_ROOT DEBUG DEV_MODE \
+	#   DOCKER_CAPS DOCKER_CMD_VARS DOCKER_DEVICES DOCKER_ENTRYPOINT \
+	#   DOCKER_EXTRA_MOUNTS DOCKER_HOSTNAME DOCKER_INTERACTIVE \
+	#   DOCKER_PRIVILEGED DOCKER_VOLUMES ECLASS_OVERRIDE EMERGE_OPTS FEATURES \
+	#   INSTALL_MASK PYTHON_SINGLE_TARGET PYTHON_TARGETS ROOT TERM TRACE USE
 	#inherit ARCH PKGDIR_OVERRIDE PKGDIR
 	#inherit DOCKER_VERBOSE DOCKER_CMD
 	#inherit image IMAGE
@@ -1414,7 +1418,22 @@ _docker_run() {
 		  $( add_arg EMERGE_OPTS --env %% )
 		  $( add_arg FEATURES --env %% )
 		  $( add_arg INSTALL_MASK --env %% )
-		  $( add_arg ROOT --env %% --env SYS%% --env PORTAGE_CONFIG%% )
+
+		  # CONTAINER_ROOT takes precedence without exposing it to host-side
+		  # Portage commands...
+		  $( # <- Syntax
+				if [[ -n "${CONTAINER_ROOT:-}" ]]; then
+					add_arg CONTAINER_ROOT \
+						--env ROOT=## \
+						--env SYSROOT \
+						--env PORTAGE_CONFIGROOT
+				else
+					add_arg ROOT \
+						--env %% \
+						--env SYS%% \
+						--env PORTAGE_CONFIG%%
+				fi
+		  )
 		  $( add_arg TERM --env %% )
 		  $( add_arg TRACE --env %% )
 		  $( add_arg USE --env %% )
@@ -1584,7 +1603,7 @@ _docker_run() {
 			warn "Using hard-coded defaults on non-Gentoo host system ..."
 			default_repo_path='/var/db/repos/gentoo /var/db/repos/srcshelton'
 			default_distdir_path='/var/cache/portage/dist'
-			default_pkgdir_path="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${GENTOO_PKGHOST:-"container"}/${GENTOO_PROFILE:-"23.0"}"
+			default_pkgdir_path="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${GENTOO_PKGHOST:-"container"}/${profile_version}"
 			if ! [[ -d /var/db/repos/gentoo || -L /var/db/repos/gentoo ]] &&
 					[[ -d /var/db/repo/gentoo || -L /var/db/repo/gentoo ]]
 			then

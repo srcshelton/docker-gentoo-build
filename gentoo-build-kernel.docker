@@ -1749,6 +1749,7 @@ case "${compiler}" in
 esac
 # }  # End of compiler package setup
 
+# shellcheck disable=SC2031 # Set from common/vars.sh
 mkdir -p "${log_dir:="log"}" ||
 	die "Could not create log directory '${log_dir}': ${?}"
 
@@ -1970,6 +1971,7 @@ mkdir -p "${log_dir:="log"}" ||
 	declare -r log_name="${image_name_and_version}"
 	declare -x name="${image_name_and_version}"
 	# 'image' consumed in common/run.sh ...
+	# shellcheck disable=SC2031 # Does not rely on a subshell-local value
 	declare -x image="${IMAGE}"
 	unset image_name_and_version
 
