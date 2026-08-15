@@ -1894,8 +1894,6 @@ mkdir -p "${log_dir:="log"}" ||
 	#      file (if one exists) to the host filesystem, so it isn't too much of
 	#      an issue to use both.
 	#
-	# FIXME: We can't currently use the override system here since is only
-	#        supports a single directory-tree depth below /etc/portage/...
 	docker_extra_mounts+=(
 		$( add_mount --print \
 				'/etc/portage/profile/package.use.force' \
@@ -2174,20 +2172,12 @@ mkdir -p "${log_dir:="log"}" ||
 				--changed-use
 				--update
 				--usepkg=y
-				# FIXME: add_arg() seems to be inserting unexpected newlines,
-				# possibly only for ${post_use}?
-				#
-				#$( add_arg pre_remove '--pre-remove=##' )
-				#$( add_arg pre_pkgs '--pre-pkgs=##' )
-				#$( add_arg pre_use '--pre-use=##' )
-				#$( add_arg openmp '--post-pkgs=sys-devel/gcc' )
-				#$( add_arg post_use '--post-use=##' )
+				"$( add_arg openmp '--post-pkgs=sys-devel/gcc' )"
+				"$( add_arg post_use '--post-use=##' )"
+				"$( add_arg pre_pkgs '--pre-pkgs=##' )"
+				"$( add_arg pre_remove '--pre-remove=##' )"
+				"$( add_arg pre_use '--pre-use=##' )"
 				${pkg_use:+"--with-pkg-use=${pkg_use}"}
-				${pre_remove:+"--pre-remove=${pre_remove}"}
-				${pre_pkgs:+"--pre-pkgs=${pre_pkgs}"}
-				${pre_use:+"--pre-use=${pre_use}"}
-				$( add_arg openmp '--post-pkgs=sys-devel/gcc' )
-				${post_use:+"--post-use=${post_use}"}
 			)
 
 			# This only applies to the _docker_run() call below, and doesn't

@@ -65,6 +65,7 @@ ARG environment_filter
 ARG ROOT
 ARG SYSROOT
 ARG PORTAGE_CONFIGROOT
+ARG package_use_local=""
 
 # Don't set this, as it causes KV_FULL to never be set and so breaks the build
 # of all external modules :(
@@ -142,6 +143,14 @@ RUN <<-'EOT' /bin/sh
 		mkdir -m 0700 -- /root
 	test -d /boot ||
 		mkdir -- /boot
+
+	if [ -n "${package_use_local:-}" ]; then
+		printf '%s' "${package_use_local}" | base64 -d \
+			> /etc/portage/package.use.build/01_package.use.local.new
+		test -s /etc/portage/package.use.build/01_package.use.local.new
+		mv /etc/portage/package.use.build/01_package.use.local.new \
+			/etc/portage/package.use.build/01_package.use.local
+	fi
 
 	test -d /etc/portage/package.use.build &&
 		rm -r /etc/portage/package.use &&

@@ -2217,11 +2217,8 @@ info "Selected profile '$( # <- Syntax
 
 LC_ALL='C' emaint --fix binhost
 
-# TODO: Is there any benefit in showing stage3 news?
-#
-# Update: Let's show all news in one go, at the end of the process...
-#         ... but still run 'news read' now, to prevent annoying notices from
-#         'emerge' saying that news is pending!
+# Show all news in one go at the end of the process, but mark it read now to
+# prevent emerge from reporting pending-news notices in the meantime.
 LC_ALL='C' eselect --colour=no news read >/dev/null 2>&1
 
 #set -o xtrace
@@ -3315,8 +3312,12 @@ if [ -n "${pkg_initial:-}" ]; then
 			print "'python_targets' is '${python_targets:-}'," \
 				"'PYTHON_SINGLE_TARGET' is '${PYTHON_SINGLE_TARGET:-}'," \
 				"'PYTHON_TARGETS' is '${PYTHON_TARGETS:-}'"
-			PYTHON_SINGLE_TARGET="${python_targets:+"${python_targets%%" "*}"}"
-			PYTHON_TARGETS="${python_targets:-}"
+			if [ -z "${PYTHON_SINGLE_TARGET:-}" ]; then
+				PYTHON_SINGLE_TARGET="${python_targets:+"${python_targets%%" "*}"}"
+			fi
+			if [ -z "${PYTHON_TARGETS:-}" ]; then
+				PYTHON_TARGETS="${python_targets:-}"
+			fi
 			eval "$( # <- Syntax
 					resolve_python_flags \
 							"${USE:-}" \

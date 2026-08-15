@@ -360,6 +360,8 @@ DOCKER_CAPS="
 	SYS_ADMIN SYS_RESOURCE SYS_TTY_CONFIG
 "
 
+_prepare_linux_info_mount
+
 # Provide a '--name' to prevent the container being removed on exit
 #
 _docker_build --intent=discard ${@+"${@}"} \

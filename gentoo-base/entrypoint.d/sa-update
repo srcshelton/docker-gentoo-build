@@ -51,8 +51,8 @@ if [ $(( updated )) -eq 1 ]; then
 	fi
 	mkdir -p /var/db/repos/gentoo
 
-	# FIXME: Dockerfile.service needs to inherit from 'gentoo-env' rather than
-	#        'scratch' if we want to inherit this value automagically...
+	# Dockerfile.service passes CHOST through from its build argument; retain a
+	# fallback for older service images.
 	export CHOST="${CHOST:-"x86_64-pc-linux-gnu"}"
 
 	# Superseded by app-alternatives/awk...

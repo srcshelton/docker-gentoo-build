@@ -12,8 +12,14 @@ debug="${DEBUG:-}"
 # If the python release(s) used in the upstream stage3 image differ from those
 # we wish to build against or those specified in the host's
 # /etc/portage/package.use file(s), then 'python_targets_override' must be set
-# to the desired release below:
-declare -x python_targets_override='python3_14 python3_14t'
+# to the desired release below.
+#
+# Use the default targets only when neither the command-line environment, an
+# optional 'python_targets_override', nor the host's Portage configuration
+# specifies any alternate values:
+#
+declare -r python_targets_default='python3_14 python3_14t'
+declare -x python_targets_override
 
 if [[ -n "${BASH_VERSINFO[0]:-}" ]] && (( BASH_VERSINFO[0] < 4 )); then
 	echo >&2 "FATAL: bash-4.0.0 or later is required to run this script - on" \
@@ -273,14 +279,32 @@ else
 fi
 readonly docker_version
 
-declare python_single_target="${python_targets_override:+"${python_targets_override%%" "*}"}"
-declare python_targets="${python_targets_override:-}"
-if [[ -z "${python_targets:-}" ]] && type -pf portageq >/dev/null 2>&1; then
-	python_targets="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
+declare python_single_target="${PYTHON_SINGLE_TARGET:-}"
+declare python_targets="${PYTHON_TARGETS:-}"
+
+if [[ -n "${python_targets_override:-}" ]]; then
+	[[ -n "${python_single_target}" ]] ||
+		python_single_target="${python_targets_override%%" "*}"
+	[[ -n "${python_targets}" ]] ||
+		python_targets="${python_targets_override}"
 fi
-if [[ -z "${python_targets:-}" ]]; then
-	python_targets="${python_default_target:-}"
+
+if type -pf portageq >/dev/null 2>&1; then
+	if [[ -z "${python_single_target}" ]]; then
+		python_single_target="$( portageq envvar 'PYTHON_SINGLE_TARGET' )"
+	fi
+	if [[ -z "${python_targets}" ]]; then
+		python_targets="$( portageq envvar 'PYTHON_TARGETS' )"
+	fi
 fi
+
+[[ -n "${python_targets}" ]] ||
+	python_targets="${python_targets_default}"
+[[ -n "${python_single_target}" ]] ||
+	python_single_target="${python_targets%%" "*}"
+
+export PYTHON_SINGLE_TARGET="${python_single_target}"
+export PYTHON_TARGETS="${python_targets}"
 
 declare mask_file=''
 if [[ -n "${arch:-}" ]] &&
@@ -2005,6 +2029,8 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	#
 	declare -a build_args=()
 	declare container_file=''
+	declare package_use_local=''
+	declare package_use_local_path='/etc/portage/package.use/01_package.use.local'
 	container_file="$( select_file 'Dockerfile.build' )"
 	# shellcheck disable=SC2207
 	build_args+=( # <- Syntax
@@ -2020,6 +2046,24 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 	[[ -z "${environment_file:-}" ]] || build_args+=( # <- Syntax
 		--build-arg environment_file="${environment_file}"
 	)
+	if [[ -e "${package_use_local_path}" ]]; then
+		[[ -f "${package_use_local_path}" ]] &&
+			[[ -s "${package_use_local_path}" ]] &&
+			[[ -r "${package_use_local_path}" ]] ||
+				die "Host package.use file '${package_use_local_path}' is not a" \
+					"readable, non-empty regular file"
+		package_use_local="$( # <- Syntax
+				base64 < "${package_use_local_path}" | tr -d '\n'
+			)" ||
+			die "Could not encode host package.use file '${package_use_local_path}'"
+		[[ -n "${package_use_local}" ]] ||
+			die "Encoded host package.use file '${package_use_local_path}' is empty"
+		info "Using host package.use file '${package_use_local_path}' for the" \
+			"build image"
+		build_args+=( --build-arg "package_use_local=${package_use_local}" )
+	else
+		info "Using repository package.use defaults for the build image"
+	fi
 
 	if [[ "${_command}" == 'container' ]]; then
 		build_args+=( # <- syntax
@@ -2052,7 +2096,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 
 	docker "${container_args[@]}" image build "${build_args[@]}" . 2>&1 |
 		tee "${log_dir}/${build_name#*"/"}.log"
-	unset container_file build_args
+	unset package_use_local_path package_use_local container_file build_args
 
 	(
 		# dev-libs/icu is needed for circular dependencies on

@@ -506,24 +506,6 @@ docker_run() {
 	print "Volume/mount base directory is '${cwd}'"
 	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords"]='/etc/portage/.package.accept_keywords.override'
 
-	# FIXME: crun errors when rootless due to lack of write support into
-	#        /etc/portage...
-	#
-	#if [[ -s "${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]
-	#then
-	#	if [[ -w /etc/portage/package.accept_keywords ]] &&
-	#			[[ ! -e "/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]
-	#	then
-	#		mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/.package.accept_keywords.override/${ARCH:-"${arch}"}"
-	#	else
-	#		warn "Cannot mount" \
-	#			"'${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
-	#			"due to lack of write permission for '$( id -nu )' on" \
-	#			"'/etc/portage/package.accept_keywords', or" \
-	#			"'/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
-	#			"already exists (due to another running container?)"
-	#	fi
-	#fi
 	if [[ -s "${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]
 	then
 		mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/.package.accept_keywords.${ARCH:-"${arch}"}"
@@ -540,9 +522,7 @@ docker_run() {
 	[[ -s "${mask_file}" ]] &&
 		mountpointsro["${mask_file}"]='/etc/portage/.profile.override/use.mask'
 	unset mask_file
-	# FIXME: We can't currently use the override system here since is only
-	#        supports a single directory-tree depth below /etc/portage/...
-	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.mask"]='/etc/portage/.profile.override/package.use.force'
+	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.force"]='/etc/portage/.profile.override/package.use.force'
 	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/profile/package.use.mask"]='/etc/portage/.profile.override/package.use.mask'
 	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.license"]='/etc/portage/.package.license.override'
 	mountpointsro["${cwd}/${base_dir:+"${base_dir}/"}etc/portage/package.use.build"]='/etc/portage/.package.use.override'

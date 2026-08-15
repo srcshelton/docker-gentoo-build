@@ -334,10 +334,12 @@ add_arg() {
 		shift
 	fi
 
-	# FIXME: I can't remember why the test needs to be "${!flag:-}", but the
-	#        output is not as intended with this test dropped :(
+	# 'flag' names the controlling variable, so use indirect expansion to test
+	# its value (and that it exists).
+	#
 	# N.B. Looping over arguments *after* the first is simply to include an
 	#      initial space before each sucessive parameter.
+	#
 	if [[ -n "${flag:-}" && -n "${!flag:-}" ]]; then
 		if [[ -n "${1:-}" ]]; then
 			# e.g. add_arg 1 2 3 -> 1 ...
@@ -506,9 +508,63 @@ if [[ "$( uname -s )" == 'Darwin' ]]; then
 	export -f readlink
 fi
 
+# Ensure that the host-side directory used by the linux-info.eclass override
+# exists before callers construct their container mounts.
+#
+_prepare_linux_info_mount() {
+	local repo_path=''
+
+	[[ -n "${NO_BUILD_MOUNTS:-}" ]] && return 0
+
+	if [[ -e "${EROOT:-}"/var/lib/portage/eclass/linux-info ||
+				-L "${EROOT:-}"/var/lib/portage/eclass/linux-info
+			]]
+	then
+		[[ -d "${EROOT:-}"/var/lib/portage/eclass/linux-info ]] ||
+			die "'"${EROOT:-}"/var/lib/portage/eclass/linux-info' exists but" \
+				"is not a directory"
+
+		if [[ -e "${EROOT:-}"/var/lib/portage/eclass/linux-info/.keep ||
+					-L "${EROOT:-}"/var/lib/portage/eclass/linux-info/.keep
+				]]
+		then
+			[[ -f "${EROOT:-}"/var/lib/portage/eclass/linux-info/.keep ]] ||
+				die "'"${EROOT:-}"/var/lib/portage/eclass/linux-info/.keep'" \
+					"exists but is not a file"
+
+			return 0
+		fi
+	fi
+
+	if [[ -s "${EROOT:-}"/etc/portage/repos.conf/srcshelton.conf ]]; then
+		:
+	elif type -pf portageq >/dev/null 2>&1; then
+		repo_path="$( # <- Syntax
+				portageq get_repo_path "${EROOT:-"/"}" srcshelton 2>/dev/null
+			)" || :
+		[[ -n "${repo_path:-}" ]] &&
+			[[ -s "${repo_path%"/"}/eclass/linux-info.eclass" ]] ||
+				return 0
+	else
+		return 0
+	fi
+
+	# /var/lib/portage/eclass/linux-info is used by the ::srcshelton repo to
+	# record kernel configuration dependencies.  Create it before mount lists
+	# are assembled so that the first package requiring CONFIG_CHECK can
+	# persist  its requirements too.
+	sudo mkdir -p "${EROOT:-}"/var/lib/portage/eclass/linux-info
+	sudo chown "${EUID:-"$( id -u )"}:$( id -gn 0 2>/dev/null || echo 0 )" \
+		"${EROOT:-}"/var/lib/portage/eclass/linux-info
+	sudo chmod ug+rwX "${EROOT:-}"/var/lib/portage/eclass/linux-info
+	touch -a "${EROOT:-}"/var/lib/portage/eclass/linux-info/.keep
+}  # _prepare_linux_info_mount
+
 # Mostly no longer needed, with Dockerfile.env...
 #
 _docker_setup() {
+	_prepare_linux_info_mount
+
 	export -a args=() extra=()
 	export package='' package_version='' package_name='' repo=''
 	export name='' container_name=''
@@ -582,9 +638,6 @@ _docker_setup() {
 }  # _docker_setup
 
 # Sets image, name, package, extra, and args based on arguments
-#
-# FIXME: This is *massively* broken for arguments with spaces - reimplement in
-#        bash with array support?
 #
 _docker_parse() {
 	local dp_arg=''
@@ -1183,10 +1236,8 @@ _docker_run() {
 	# Update: As-of podman-4.1.0, it is now possible to use '--privileged' and
 	# add a capability in the same invocation!
 	#
-	# FIXME: Add -tty regardless of DOCKER_INTERACTIVE, so that the
-	# container can access details of the host terminal size
-	# *HOWEVER* this removes the ability to use ctrl+c to interrupt, so
-	# hard-code COLUMNS and LINES instead :(
+	# Supplying a TTY unconditionally prevents ctrl+c from interrupting the
+	# container, so pass COLUMNS and LINES explicitly below instead.
 	#
 	# Adding '--init' allows tini to ensure that SIGTERM reaches child
 	# commands, not just the top-level shell process...
@@ -1617,36 +1668,6 @@ _docker_run() {
 				repo_paths+=( "${default_repo_path%/gentoo}/srcshelton" )
 			fi
 
-			if [[ -s "${EROOT:-}"/etc/portage/repos.conf/srcshelton.conf ]] ||
-					[[ "$( type -pf portageq 2>/dev/null )" == *portageq &&
-							"$( # <- Syntax
-									portageq get_repos "${EROOT:-"/"}"
-								)" == *srcshelton* && -s "$( # <- Syntax
-									portageq get_repo_path "${EROOT:-"/"}" \
-										srcshelton
-								)"/eclass/linux-info.eclass
-						]]
-			then
-				# /var/lib/portage/eclass/linux-info is used by the
-				# ::srcshelton repo to record kernel configuration
-				# dependencies, but will not exist until the first package
-				# which sets CONFIG_CHECK and inherits linux-info.eclass is
-				# merged onto the hosts system - so let's create this directory
-				# pre-emptively so that any package built (but potentially only
-				# as a build-dependency) is also able to persistently record
-				# its requirements.
-				#
-				# (Due to the potential lack of portageq, we'll assume that
-				#  this repo has the linux-info.eclass override, rather than
-				#  laboriously constructing the path to the from the conf file
-				#  to verify manually...)
-				#
-				sudo mkdir -p /var/lib/portage/eclass/linux-info
-				sudo chown "${EUID:-"$( id -u )"}:$( id -gn 0 2>/dev/null || echo 0 )" \
-					/var/lib/portage/eclass/linux-info
-				sudo chmod ug+rwX /var/lib/portage/eclass/linux-info
-				touch -a /var/lib/portage/eclass/linux-info/.keep
-			fi
 		else
 			# FIXME: This is slow :(
 			default_repo_path="$( # <- Syntax
@@ -1821,23 +1842,7 @@ _docker_run() {
 		fi
 		mountpointsro['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'
 
-		# FIXME: crun errors when rootless due to lack of write support into
-		#        /etc/portage...
-		#if [[ -s "gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]; then
-		#	if [[ -w /etc/portage/package.accept_keywords && ! -e "/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]; then
-		#		mountpointsro["${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/package.accept_keywords/${ARCH:-"${arch}"}"
-		#	else
-		#		warn "Cannot mount" \
-		#			"'${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
-		#			"due to lack of write permission for '$( id -nu )' on" \
-		#			"'/etc/portage/package.accept_keywords', or" \
-		#			"'/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}'" \
-		#			"already exists (due to another running container?)"
-		#	fi
-		#fi
 		if [[ -s "gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}" ]]; then
-			# Directory moves are now handled in entrypoint.sh ...
-			#mountpointsro["${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/package.accept_keywords.override/${ARCH:-"${arch}"}"
 			mountpointsro["${PWD%"/"}/gentoo-base/etc/portage/package.accept_keywords.${ARCH:-"${arch}"}"]="/etc/portage/.package.accept_keywords.${ARCH:-"${arch}"}"
 		fi
 
