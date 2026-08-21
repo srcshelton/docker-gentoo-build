@@ -2253,18 +2253,6 @@ if [ -n "${CFLAGS:-}${CXXFLAGS:-}" ]; then
 	fi
 fi
 
-# >=sys-apps/locale-gen-3 is currently masked as it causes 'localedef' to fail
-# with:
-#
-#  locale-gen: Aborting because the execution of 'localedef' was unsuccessful
-#
-# ... until we fix this, let's remove it early (to avoid masked-package
-# warnings throughout the rest of the build) to allow an alternative to be
-# pulled-in later.
-#
-do_emerge --depclean-defaults '>=sys-apps/locale-gen-3' ||
-	do_emerge --unmerge-defaults '>=sys-apps/locale-gen-3' || :
-
 # As-of sys-libs/zlib-1.2.11-r3, zlib builds without error but then the portage
 # merge process aborts with 'unable to read SONAME from libz.so' in src_install
 #

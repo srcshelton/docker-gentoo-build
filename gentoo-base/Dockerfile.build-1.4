@@ -195,11 +195,14 @@ RUN <<-'EOT' /bin/sh
 	test -s /etc/profile && . /etc/profile
 
 	if [ -x /usr/sbin/locale-gen ]; then
-			if [ -n "${JOBS:-}" ] && [ $(( JOBS )) -gt 1 ]; then
-				locale-gen -k -u ${JOBS:+"-j"} ${JOBS:+"${JOBS}"}
-			else
-				locale-gen -k -u
+			set -- --update
+			if locale-gen --keep --help >/dev/null 2>&1; then
+				set -- --keep "$@"
 			fi
+			if [ -n "${JOBS:-}" ] && [ $(( JOBS )) -gt 1 ]; then
+				set -- "$@" --jobs "${JOBS}"
+			fi
+			locale-gen "$@"
 	fi
 
 	printf "#FILTER: '%s'\n\n" "${environment_filter}" >"${environment_file}"
