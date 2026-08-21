@@ -1260,7 +1260,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 			--no-cache
 			$( # <- Syntax
 					docker image build --squash-all --help >/dev/null 2>&1 &&
-						echo '--squash-all'
+						echo '--squash-all' || :
 				)
 			--tag "${env_name}:${override_tag:-"latest"}"
 			--rm
@@ -1356,14 +1356,17 @@ then
 					--filter "reference=${gentoo_stage3_image}:${gentoo_stage3_tag}"
 			)" ]]
 			then
-				if ! docker image untag \
+				declare -a untag_args=( image untag )
+				[[ "${_command}" != 'docker' ]] || untag_args=( image rm )
+				if ! docker "${untag_args[@]}" \
 						"${gentoo_stage3_image}:${gentoo_stage3_tag}"
 				then
-					docker --debug image untag \
+					docker --debug "${untag_args[@]}" \
 							"${gentoo_stage3_image}:${gentoo_stage3_tag}" ||
-						die "${_command} image untag failed to remove" \
+						die "${_command} image tag removal failed for" \
 							"'${gentoo_stage3_image}:${gentoo_stage3_tag}' tag"
 				fi
+				unset untag_args
 			fi
 
 			info "Pulling image '${gentoo_stage3_image}@${ref}' ..."
@@ -1950,6 +1953,10 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 				"${log_dir}/${base_name#*"/"}.log" \
 				"${init_name}:${override_tag:-"latest"}" \
 				'Gentoo base image'
+	elif [[ "${_command}" == 'docker' ]]; then
+		docker container commit 2>&1 \
+				"${base_name#*"/"}" "${base_name}:${override_tag:-"latest"}" |
+			tee -a "${log_dir}/${base_name#*"/"}.log"
 	elif docker container commit --squash --help >/dev/null 2>&1; then
 		docker container commit 2>&1 \
 					--squash \
@@ -2088,7 +2095,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 			--platform "linux/${docker_arch}"
 			$( # <- Syntax
 					docker image build --squash-all --help >/dev/null 2>&1 &&
-						echo '--squash-all'
+						echo '--squash-all' || :
 				)
 			--tag "${build_name}-root:${override_tag:-"latest"}"
 		)
@@ -2213,6 +2220,11 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 				"${log_dir}/${build_name#*"/"}.log" \
 				"${build_name}-root:${override_tag:-"latest"}" \
 				'Gentoo build finalisation image'
+	elif [[ "${_command}" == 'docker' ]]; then
+		docker "${container_args[@]}" container commit \
+				"${build_name#*"/"}" \
+					"${build_name}-finalise:${override_tag:-"latest"}" |
+			tee -a "${log_dir}/${build_name#*"/"}.log"
 	elif docker container commit --squash --help >/dev/null 2>&1; then
 		docker "${container_args[@]}" container commit \
 					--squash \
@@ -2268,6 +2280,11 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --build ' <<<" ${*} "; then
 				"${log_dir}/${build_name#*"/"}.log" \
 				"${build_name}-finalise:${override_tag:-"latest"}" \
 				'Gentoo build image'
+	elif [[ "${_command}" == 'docker' ]]; then
+		docker "${container_args[@]}" container commit \
+				"${build_name#*"/"}-finalise" \
+					"${build_name}:${override_tag:-"latest"}" |
+			tee -a "${log_dir}/${build_name#*"/"}.log"
 	elif docker container commit --squash --help >/dev/null 2>&1; then
 		docker "${container_args[@]}" container commit \
 					--squash \

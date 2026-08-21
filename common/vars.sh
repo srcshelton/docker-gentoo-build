@@ -77,7 +77,15 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	_graphroot=''
 	_output=''
 	_rc=0
-	if ! [ -x "$( command -v "${_command}" )" ]; then
+	if [ -n "${BASH_VERSION:-}" ]; then
+		# common/run.sh defines a docker() compatibility function.  When this
+		# file is sourced again, `command -v docker` therefore returns the
+		# function name rather than the underlying executable path.
+		_command_path="$( type -P "${_command}" 2>/dev/null || : )"
+	else
+		_command_path="$( command -v "${_command}" 2>/dev/null || : )"
+	fi
+	if ! [ -x "${_command_path}" ]; then
 		echo >&2 "FATAL: Cannot locate binary '${_command}'"
 		exit 1
 	elif [ "${_command}" = 'container' ]; then
@@ -141,7 +149,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 		export TMP="${_tmp}"
 		unset _tmp
 	fi
-	unset _rc _output _graphroot
+	unset _rc _output _graphroot _command_path
 
 	# Alerting options...
 	#

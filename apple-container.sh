@@ -37,6 +37,7 @@ app_root=''
 app_root_set=0
 install_root=''
 install_root_set=0
+install_root_explicit=0
 log_root=''
 log_root_set=0
 
@@ -47,6 +48,7 @@ fi
 if [ -n "${CONTAINER_INSTALL_ROOT:-}" ]; then
 	install_root="${CONTAINER_INSTALL_ROOT}"
 	install_root_set=1
+	install_root_explicit=1
 fi
 if [ -n "${CONTAINER_LOG_ROOT:-}" ]; then
 	log_root="${CONTAINER_LOG_ROOT}"
@@ -212,11 +214,13 @@ while [ $(( ${#} )) -gt 0 ]; do
 			require_value "${1:-}" ${#}
 			install_root="${2:-}"
 			install_root_set=1
+			install_root_explicit=1
 			shift
 			;;
 		'--install-root='*)
 			install_root="${1#*"="}"
 			install_root_set=1
+			install_root_explicit=1
 			;;
 		'--log-root')
 			require_value "${1:-}" ${#}
@@ -331,12 +335,17 @@ if ! container_version_output="$( container_cli --version 2>/dev/null )"; then
 fi
 container_version="$(
 	printf '%s\n' "${container_version_output:-}" |
-		sed -n 's/.* version \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'
+		awk '
+			$1 == "container" && $2 == "CLI" && $3 == "version" &&
+				$4 ~ /^[0-9]+\.[0-9]+\.[0-9]+$/ {
+				print $4
+				exit
+			}
+		'
 )"
 if [ -z "${container_version:-}" ]; then
-	warn 'Unable to determine Apple container version from'
-	warn "'${container_version_output:-"<unknown>"}', minimum supported" \
-			"version is ${APPLE_CONTAINER_MIN_VERSION}"
+	die "Executable '${container_binary}' did not return a recognisable" \
+		"Apple container version: '${container_version_output:-"<unknown>"}'"
 elif awk \
 		-v installed="${container_version}" \
 		-v minimum="${APPLE_CONTAINER_MIN_VERSION}" '
@@ -427,6 +436,69 @@ canonicalize_target_path() {
 	unset canonical_name canonical_parent canonical_value
 }
 
+homebrew_install_root() {
+	if ! command -v brew >/dev/null 2>&1; then
+		return 1
+	fi
+	homebrew_binary="$( command -v brew )"
+	homebrew_root=''
+	if ! homebrew_root="$(
+			command "${homebrew_binary}" --prefix container 2>/dev/null
+		)"
+	then
+		unset homebrew_binary homebrew_root
+		return 1
+	fi
+	if [ -z "${homebrew_root:-}" ]; then
+		unset homebrew_binary homebrew_root
+		return 1
+	fi
+	if ! homebrew_root="$(
+			canonicalize_target_path "${homebrew_root}"
+		)"
+	then
+		unset homebrew_binary homebrew_root
+		return 1
+	fi
+	if [ ! -x "${homebrew_root}/bin/container" ] ||
+			[ ! -x "${homebrew_root}/bin/container-apiserver" ] ||
+			[ ! -d "${homebrew_root}/libexec/container-plugins" ]
+	then
+		unset homebrew_binary homebrew_root
+		return 1
+	fi
+
+	homebrew_container_identity=''
+	if ! homebrew_container_identity="$(
+			/usr/bin/stat -Lf '%d:%i' \
+				"${homebrew_root}/bin/container" 2>/dev/null
+		)"
+	then
+		unset homebrew_binary homebrew_container_identity homebrew_root
+		return 1
+	fi
+	selected_container_identity=''
+	if ! selected_container_identity="$(
+			/usr/bin/stat -Lf '%d:%i' "${container_binary}" 2>/dev/null
+		)"
+	then
+		unset homebrew_binary homebrew_container_identity homebrew_root \
+			selected_container_identity
+		return 1
+	fi
+	if [ "${homebrew_container_identity}" != \
+			"${selected_container_identity}" ]
+	then
+		unset homebrew_binary homebrew_container_identity homebrew_root \
+			selected_container_identity
+		return 1
+	fi
+
+	printf '%s\n' "${homebrew_root}"
+	unset homebrew_binary homebrew_container_identity homebrew_root \
+		selected_container_identity
+}
+
 active_status_json=''
 active_app_root=''
 active_install_root=''
@@ -477,24 +549,38 @@ if ! app_root="$( canonicalize_target_path "${app_root}" )"; then
 fi
 
 apiserver_plist="${app_root}/apiserver/apiserver.plist"
-if [ $(( install_root_set )) -eq 0 ]; then
-	if [ -n "${active_install_root}" ]; then
-		install_root="${active_install_root}"
-		install_root_set=1
-	elif [ -f "${apiserver_plist}" ]; then
-		if ! install_root="$(
+recorded_install_root=''
+if [ -n "${active_install_root}" ]; then
+	recorded_install_root="${active_install_root}"
+elif [ -f "${apiserver_plist}" ]; then
+	if ! recorded_install_root="$(
 				/usr/bin/plutil -extract \
 					EnvironmentVariables.CONTAINER_INSTALL_ROOT raw \
 					-o - "${apiserver_plist}" 2>/dev/null
 			)"
-		then
-			install_root=''
-		fi
-		if [ -n "${install_root}" ]; then
-			install_root_set=1
-		fi
+	then
+		recorded_install_root=''
 	fi
 fi
+if [ $(( install_root_explicit )) -eq 0 ]; then
+	homebrew_root=''
+	if homebrew_root="$( homebrew_install_root )"; then
+		if [ -n "${recorded_install_root}" ] &&
+				[ "${recorded_install_root}" != "${homebrew_root}" ]
+		then
+			warn "Replacing recorded installation root" \
+				"'${recorded_install_root}' with current Homebrew root" \
+				"'${homebrew_root}'"
+		fi
+		install_root="${homebrew_root}"
+		install_root_set=1
+	elif [ -n "${recorded_install_root}" ]; then
+		install_root="${recorded_install_root}"
+		install_root_set=1
+	fi
+	unset homebrew_root
+fi
+unset recorded_install_root
 if [ $(( log_root_set )) -eq 0 ]; then
 	if [ -n "${active_log_root}" ]; then
 		log_root="${active_log_root}"
@@ -516,12 +602,24 @@ fi
 
 if [ $(( install_root_set )) -ne 0 ]; then
 	if ! install_root="$( canonicalize_target_path "${install_root}" )"; then
-		die "Unable to resolve installation root '${install_root}'; its" \
-			'parent must exist'
+		if [ $(( install_root_explicit )) -ne 0 ]; then
+			die "Unable to resolve installation root '${install_root}'; its" \
+				'parent must exist'
+		fi
+		warn "Discovered installation root '${install_root}' cannot be resolved"
+		warn 'Allowing Apple container to discover its installation root'
+		install_root=''
+		install_root_set=0
 	fi
-	if [ ! -d "${install_root}" ]; then
+fi
+if [ $(( install_root_set )) -ne 0 ] && [ ! -d "${install_root}" ]; then
+	if [ $(( install_root_explicit )) -ne 0 ]; then
 		die "Installation root '${install_root}' does not exist"
 	fi
+	warn "Discovered installation root '${install_root}' does not exist"
+	warn 'Allowing Apple container to discover its installation root'
+	install_root=''
+	install_root_set=0
 fi
 if [ $(( log_root_set )) -ne 0 ]; then
 	if ! log_root="$( canonicalize_target_path "${log_root}" )"; then
@@ -534,6 +632,8 @@ export CONTAINER_APP_ROOT
 if [ $(( install_root_set )) -ne 0 ]; then
 	CONTAINER_INSTALL_ROOT="${install_root}"
 	export CONTAINER_INSTALL_ROOT
+else
+	unset CONTAINER_INSTALL_ROOT
 fi
 if [ $(( log_root_set )) -ne 0 ]; then
 	CONTAINER_LOG_ROOT="${log_root}"

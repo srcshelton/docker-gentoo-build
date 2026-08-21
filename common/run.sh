@@ -2788,21 +2788,39 @@ elif type -pf docker >/dev/null 2>&1; then
 	#
 	_command='docker'
 	docker() {
-		if [[ " ${*:-} " == *" --noheading "* ]]; then
+		if [[ "${1:-}" == 'container' && "${2:-}" == 'exists' ]]; then
+			local -a inspect_args=()
 			local arg=''
+			for arg in "${@:3}"; do
+				[[ "${arg}" == '--external' ]] || inspect_args+=( "${arg}" )
+			done
+			[[ -n "${inspect_args[*]:-}" ]] || return 1
+			$( which "${_command}" ) container inspect \
+				"${inspect_args[@]}" >/dev/null 2>&1
+		elif [[ " ${*:-} " == *" --noheading "* ]]; then
+			local -a filtered=()
+			local arg=''
+			local -i formatted=0
 			for arg in "${@}"; do
 				case "${arg:-}" in
 					'--noheading')
 						: ;;
+					'--format'|--format=*)
+						formatted=1
+						filtered+=( "${arg}" )
+						;;
 					'')
 						: ;;
 					*)
-						set -- "${@}" "${arg}"
+						filtered+=( "${arg}" )
 						;;
 				esac
-				shift
 			done
-			$( which "${_command}" ) ${@+"${@}"} | tail -n +2
+			if (( formatted )); then
+				$( which "${_command}" ) "${filtered[@]}"
+			else
+				$( which "${_command}" ) "${filtered[@]}" | tail -n +2
+			fi
 		else
 			$( which "${_command}" ) ${@+"${@}"}
 		fi
