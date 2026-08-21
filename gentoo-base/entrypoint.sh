@@ -2385,6 +2385,32 @@ validate_python_installation "pre-remove"
 	do_emerge --depclean-defaults ${list} || :
 )
 
+# Restore virtual/os-headers before rebuilding Python: glibc's 'limits.h'
+# includes 'linux/limits.h', which was removed with sys-kernel/linux-headers
+# above...
+(
+	setenv USE="-* $( get_stage3 --values-only USE ) ${use_essential}"
+	setenv FEATURES="$( # <- Syntax
+			filter_features_flags 'clean' 'fail-clean' 'fakeroot'
+		) -clean -fail-clean -fakeroot"
+
+	pkgdir="$( LC_ALL='C' portageq pkgdir )"
+	setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
+	unset pkgdir
+
+	if echo " ${USE} " | grep -q -- ' cix '; then
+		do_emerge --single-defaults sys-kernel/cix-headers
+	#elif echo " ${USE} " | grep -q -- ' mixtile '; then
+	#	do_emerge --single-defaults sys-kernel/mixtile-headers
+	elif echo " ${USE} " | grep -q -- ' rockchip '; then
+		do_emerge --single-defaults sys-kernel/rockchip-headers
+	elif echo " ${USE}" | grep -q -- ' rpi[0-9-]'; then
+		do_emerge --single-defaults sys-kernel/raspberrypi-headers
+	fi
+
+	do_emerge --single-defaults virtual/os-headers
+)
+
 # pre-rebuild python sanity-checks
 #
 validate_python_installation "pre-rebuild"
@@ -2555,13 +2581,6 @@ output " * Building 'sys-apps/fakeroot' package for stage3 ..."
 	pkgdir="$( LC_ALL='C' portageq pkgdir )"
 	setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/stage3"
 	unset pkgdir
-
-	if echo " ${use_essential}" | grep -q -- ' rpi[0-9-]'; then
-			USE="${USE} ${use_essential}" \
-		do_emerge --single-defaults sys-kernel/raspberrypi-headers
-	fi
-		USE="${USE} ${use_essential}" \
-	do_emerge --single-defaults virtual/os-headers
 
 	do_emerge --single-defaults sys-apps/fakeroot
 )
@@ -3189,6 +3208,7 @@ cp -R /etc/portage "${SYSROOT}"/etc/
 mkdir -p "${ROOT}"/etc
 cp /etc/etc-update.conf "${ROOT}"/etc/
 cp /etc/group "${ROOT}"/etc/
+cp /etc/passwd "${ROOT}"/etc/
 cp /etc/locale.gen "${ROOT}"/etc/
 cp /etc/timezone "${ROOT}"/etc/
 
@@ -3508,13 +3528,45 @@ if [ -n "${pkg_initial:-}" ]; then
 								;;
 						esac
 
+						# This first pass runs in the upstream stage3 root.
+						# Retain every python target used by installed
+						# interpreters while preparing prerequisites otherwise
+						# Portage cannot replace a dependent set of Python
+						# packages one target at a time.  The clean build root
+						# below still uses only the targets requested for the
+						# resulting image.
+						installed_python_targets="$( # <- Syntax
+								portageq match / dev-lang/python |
+									sed -n \
+										's|^dev-lang/python-\([0-9][0-9]*\)\.\([0-9][0-9]*\).*|python\1_\2|p' |
+									sort -u |
+									xargs
+							)"
+						profile_use_mask="${SYSROOT%/}/etc/portage/profile/use.mask"
+						profile_use_mask_pp="${profile_use_mask}.python-prerequisites.${$}"
+
+						# The following should be safe as the host file is a
+						# bind-mount with a destination of
+						# /etc/portage/.profile.override/use.mask
+						cp -p -- "${profile_use_mask}" \
+								"${profile_use_mask_pp}" ||
+							die "Failed to backup '${profile_use_mask}' to" \
+								"${profile_use_mask_pp}: ${?}"
+						trap 'mv -f -- "${profile_use_mask_pp}" "${profile_use_mask}"' EXIT
+
+						for installed_python_target in ${installed_python_targets}; do
+							printf '\n-python_targets_%s\n' \
+								"${installed_python_target}" >>"${profile_use_mask}"
+						done
+
 						eval "$( # <- Syntax
 								resolve_python_flags \
-										"${USE:-} ${use_essential} \
-											${use_essential_gcc} python" \
-										"${PYTHON_SINGLE_TARGET}" \
-										"${PYTHON_TARGETS}"
+									"${USE:-} ${use_essential} \
+										${use_essential_gcc} python" \
+									"${PYTHON_SINGLE_TARGET}" \
+									"${PYTHON_TARGETS} ${installed_python_targets}"
 							)"
+						unset installed_python_target installed_python_targets
 						PERL_FEATURES=''  # Negation ('-ithreads') not allowed
 						USE="$( # <- Syntax
 								echo " ${USE} " |
@@ -3615,15 +3667,6 @@ if [ -n "${pkg_initial:-}" ]; then
 						output " * Building python prerequisites into ROOT" \
 							"'${ROOT:-"/"}' ..."
 						#
-						# FIXME:  --emptytree is needed if the upstream stage3
-						#         image is built against a different python
-						#         version to what we're now trying to build,
-						#         but use of this option is fragile when binary
-						#         packages don't already exist.
-						# TODO:   Perhaps we need to pre-build all dependents
-						#         as binary packages in a more controlled
-						#         environment first?
-						#
 						# Include sys-devel/gcc and dev-libs/isl here in case
 						# graphite USE flags are enabled...
 						#
@@ -3636,31 +3679,20 @@ if [ -n "${pkg_initial:-}" ]; then
 						#         roots, and the USE flags match the CFLAGS
 						#         requirements.  This makes no sense :(
 						#
-						# At this point in time (27/11/2024, portage 3.0.66.1,
-						# 9388c25) there doesn't seem to be any way this can
-						# work - even with fresh binaries for every possible
-						# USE flag permutation for app-crypt/libb2, this
-						# package building successfully outside of the
-						# bootstrap process, every other package compiling
-						# correctly (although most *are* from binpkgs),
-						# ensuring that sys-devel/gcc and sys-devel/isl are
-						# correctly installed, and filtering graphite flags,
-						# this process still aborts with portage trying to
-						# build a new app-crypt/libb2 (which is weird) and then
-						# this failing saying that isl *isn't* available and
-						# graphite flags are present... which is weirder.  So
-						# all I can think for now is to revert the hack needed
-						# for differing dev-lang/python versions and hope that
-						# by the time it's needed again, this problem has been
-						# resolved :(
-						#
 						# This process now seems to be pulling-in
 						# dev-libs/libxml2[-python] which has flag-conflicts
 						# with dev-libs/libxslt which requires
 						# dev-libs/libxml2[python] - let's see whether adding
 						# both resolves this issue...
 						#
-						do_emerge --build-defaults --emptytree \
+						# Permit scheduled rebuilds to replace installed
+						# instances where the dev-lang/python USE flags no
+						# longer match.  The installed targets retained above
+						# allow Portage to update this set directly, where
+						# '--emptytree' would unnecessarily rebuild the
+						# stage3's complete set of dependencies before the
+						# clean ROOT is populated below.
+						do_emerge --build-defaults --update --newuse \
 							app-crypt/libb2 \
 							app-crypt/libmd \
 							dev-libs/isl \
@@ -3670,6 +3702,14 @@ if [ -n "${pkg_initial:-}" ]; then
 							dev-python/hatchling \
 							dev-python/setuptools \
 							sys-devel/gcc # || :
+
+						mv -f -- "${profile_use_mask_pp}" \
+								"${profile_use_mask}" ||
+							die "Failed to restore '${profile_use_mask_pp}'" \
+								"to ${profile_use_mask_pp}: ${?}"
+						trap - EXIT
+
+						unset profile_use_mask profile_use_mask_pp
 
 						validate_python_installation "python pre-requisites"
 					)
@@ -4100,9 +4140,20 @@ output ' * Building @system packages ...'
 		output
 		output
 		output " * Trying to avoid preserved libraries ..."
+		# An older Python slot can remain installed in the stage3 while the
+		# requested slot is rebuilt.  Such an interpreter may still require
+		# sys-libs/gdbm[berkdb], even though the requested interpreter below is
+		# deliberately rebuilt with USE=-gdbm.  Preserve that dependency until
+		# the old Python targets are removed later in the build.
+		python_dependency_use=''
+		if grep -Eq '(^| )gdbm( |$)' \
+				"${ROOT%"/"}"/var/db/pkg/dev-lang/python-*/USE 2>/dev/null
+		then
+			python_dependency_use='berkdb'
+		fi
 		# shellcheck disable=SC2046,SC2086
 		#	debug=1 \
-			USE="asm cxx gmp minimal openssl perl_features_ithreads${USE:+" ${USE}"} -ensurepip -gdbm -ncurses -readline -sqlite -zstd" \
+			USE="asm${python_dependency_use:+" ${python_dependency_use}"} cxx gmp minimal openssl perl_features_ithreads${USE:+" ${USE}"} -ensurepip -gdbm -ncurses -readline -sqlite -zstd" \
 			PERL_FEATURES="ithreads" \
 		do_emerge --once-defaults $(
 				grep -lw 'perl_features_ithreads' \
@@ -4117,7 +4168,8 @@ output ' * Building @system packages ...'
 			dev-libs/nettle \
 			dev-lang/python \
 			dev-lang/perl \
-			sys-libs/gdbm \
+			sys-libs/gdbm
+		unset python_dependency_use
 
 		validate_python_installation "preserved-library avoidance"
 
