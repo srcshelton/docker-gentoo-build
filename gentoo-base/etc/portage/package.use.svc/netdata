@@ -42,6 +42,7 @@ dev-scheme/guile			 regex
 net-dns/bind				 tools
 net-firewall/firehol			-firehol fireqos ipset
 net-firewall/iptables			 nftables
+net-firewall/nftables			 json
 net-misc/curl				 http2
 sys-apps/iproute2			-minimal
 sys-apps/nvme-cli			 json

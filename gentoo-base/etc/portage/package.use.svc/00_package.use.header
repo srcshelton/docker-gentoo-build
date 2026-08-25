@@ -39,6 +39,7 @@ net-misc/curl				-curl_quic_ngtcp2 -curl_quic_openssl
 #
 #*/*					 PHP_TARGETS: php8-3
 
+app-containers/container-libs		 extra
 dev-lang/perl				 minimal
 dev-lang/python-exec			 native-symlinks
 dev-libs/libgcrypt			 getentropy
