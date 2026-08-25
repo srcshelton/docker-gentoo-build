@@ -1,8 +1,10 @@
 
 #							~amd64 ~arm ~arm64 ~x86
 ~net-analyzer/netdata-1.47.5				~amd64 ~arm ~arm64 ~x86
-~container-services/netdata-1.47.5::container		~amd64 ~arm ~arm64 ~x86
-~net-analyzer/netdata-2.10.3				~amd64 ~arm ~arm64 ~x86
-~container-services/netdata-2.10.3::container		~amd64 ~arm ~arm64 ~x86
+#~container-services/netdata-1.47.5::container		~amd64 ~arm ~arm64 ~x86
+~net-analyzer/netdata-2.10.4				~amd64 ~arm ~arm64 ~x86
+#~container-services/netdata-2.10.4::container		~amd64 ~arm ~arm64 ~x86
+~net-analyzer/netdata-2.11.0				~amd64 ~arm ~arm64 ~x86
+~container-services/netdata-2.11.0::container		~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:
