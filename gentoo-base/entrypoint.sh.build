@@ -3248,6 +3248,14 @@ case "${1:-}" in
 					)"
 			fi  # echo "${post_pkgs}" | grep -q -- 'acct-'
 
+			if echo " ${packages} " |
+						grep -Eq -- '\s([<>]?=?sys-devel/)?gcc([-:][^\s]+)?\s' ||
+					echo " ${USE} " |
+						grep -q -- ' lib-only '
+			then
+				gcc_exclude='--exclude=sys-devel/gcc'
+			fi
+
 			# First build any post_pkgs which will be installed without
 			# dependencies on the base-system, to ensure that the right binary
 			# package is available to the ROOT installation...
@@ -3263,7 +3271,8 @@ case "${1:-}" in
 					# FIXME: We somehow need USE='flex' by the time we reach
 					#        here?
 					USE="$( # <- Syntax
-							echo " flex ${USE:-} " | sed 's/\slib-only\s/ /g'
+							echo " flex ${USE:-} -lib-only " |
+								sed 's/\slib-only\s/ /g'
 						)"
 					export flags USE
 					export ROOT='/' SYSROOT='/' PORTAGE_CONFIGROOT='/'
@@ -3271,6 +3280,7 @@ case "${1:-}" in
 							  ${parallel} \
 							  ${opts} \
 							--buildpkg=y \
+							  ${gcc_exclude:-} \
 							--usepkg=y \
 							--with-bdeps=y \
 							--with-bdeps-auto=y \
@@ -3281,14 +3291,6 @@ case "${1:-}" in
 
 			git_safedirectory_markall
 
-			if echo " ${packages} " |
-						grep -Eq -- '\s([<>]?=?sys-devel/)?gcc([-:][^\s]+)?\s' ||
-					echo " ${USE} " |
-						grep -q -- ' lib-only '
-			then
-				gcc_exclude='--exclude=sys-devel/gcc'
-			fi
-
 			output
 			output
 			output " * Building specified post-installation '${packages}'" \
@@ -3296,7 +3298,7 @@ case "${1:-}" in
 				"installation root '${ROOT}' ..."
 			# shellcheck disable=SC2086
 			(
-				USE="$( echo " ${USE:-} " | sed 's/\slib-only\s/ /g' )"
+				USE="$( echo " ${USE:-} -lib-only " | sed 's/\slib-only\s/ /g' )"
 				export USE
 				do_emerge \
 						  ${parallel} \
