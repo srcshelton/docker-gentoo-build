@@ -81,6 +81,8 @@ dev-lang/python				-ensurepip  # ncurses threads xml
 
 dev-libs/boost				-context -icu -stacktrace
 
+dev-libs/libgpiod			-cxx
+
 # sys-apps/portage-3.0.72 or thereabouts...) seems to have broken USE_EXPAND
 # variables: the default set can now only be reduced by negating any flag which
 # should be unset - so the (high sub-)optimal logic would now appear to be to
@@ -123,6 +125,8 @@ sys-apps/portage			-trust-helper  # -rsync-verify native-extensions
 #
 sys-devel/gcc				 cet lib-only openmp default-stack-clash-protection default-znow lto pgo pie ssp zstd  # cet for everything except pre-2020 amd64...
 #					(cxx) -lib-only openmp (split-usr) ada cet (custom-cflags) d debug default-stack-clash-protection default-znow doc (fixed-point) fortran go graphite hardened (ieee-long-double) jit (libssp) lto modula2 (multilib) nls objc objc++ objc-gc (pch) pgo pie sanitize ssp systemtap -test valgrind vanilla vtv zstd
+
+sys-fs/dosfstools			-iconv
 
 # Mandatory for sys-auth/pambase[caps]
 #

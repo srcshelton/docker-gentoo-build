@@ -8,6 +8,7 @@
 ~app-misc/zellij-0.41.2					~amd64 ~arm ~arm64 ~x86
 ~app-portage/pycargoebuild-0.13.4			       ~arm ~arm64 ~x86
 ~app-vim/vim-nftables-0_pre20200629			~amd64 ~arm ~arm64 ~x86
+~dev-libs/libgpiod-2.3.1				~amd64 ~arm ~arm64 ~x86
 ~dev-perl/Net-MAC-Vendor-1.268::srcshelton		~amd64 ~arm ~arm64 ~x86
 ~dev-perl/Net-Subnet-1.30.0				~amd64 ~arm ~arm64 ~x86
 ~dev-util/bcc-0.31.0					       ~arm ~arm64 ~x86
