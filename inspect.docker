@@ -48,10 +48,19 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 # shellcheck disable=SC2154
 declare IMAGE="${build_name}:${override_tag}"
 # shellcheck disable=SC1091
-[[ -s common/run.sh ]] && . common/run.sh >/dev/null
-if [[ "$( type -t 'die' )" != 'function' ]]; then
+if [[ ! -s common/run.sh ]]; then
+	echo >&2 "FATAL: Cannot locate shared functions in 'common/run.sh'"
+	exit 127
+elif . common/run.sh >/dev/null; then
+	:
+else
+	rc=${?}
 	echo >&2 "FATAL: Unable to source shared functions from" \
-		"'common/run.sh': ${?}"
+		"'common/run.sh': ${rc}"
+	exit 127
+fi
+if [[ "$( type -t 'die' )" != 'function' ]]; then
+	echo >&2 "FATAL: Shared function 'die' is missing from 'common/run.sh'"
 	exit 127
 fi
 
@@ -79,33 +88,10 @@ if [[ -n "${*:-}" ]]; then
 			'[--swap-limit=<size>] [--device=<...>] [commands]'
 		output >&2 ''
 		output >&2 "       e.g. '--mount type=bind,source=/tmp/host-dir,destination=/container-dir,ro'"
+		container_engine_help >&2
 		exit 0
 	fi
 fi
-
-declare _output=''
-# shellcheck disable=SC2154
-if ! [[ -x "$( type -pf "${_command}" )" ]]; then
-	echo >&2 "FATAL: Cannot locate binary '${_command}'"
-	exit 1
-elif ! _output="$( "${_command}" info 2>&1 )"; then
-	if [[ "${_command}" == 'podman' ]]; then
-		echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
-			"you need to run '${_command} machine start' or re-run" \
-			"'$( basename "${0}" )' as 'root'?"
-	else
-		echo >&2 "FATAL: Unable to successfully execute '${_command}' - do" \
-			"you need to re-run '$( basename "${0}" )' as 'root'?"
-	fi
-	exit 1
-elif [[ "$( uname -s )" != 'Darwin' ]] &&
-		(( EUID )) &&
-		grep -Fq -- 'rootless: false' <<<"${_output}"
-then
-	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
-	exit 1
-fi
-unset _output
 
 declare -a args=() container_args=() mount=() device=()
 
@@ -219,7 +205,7 @@ docker_run() {
 		$( # <- Syntax
 			# shellcheck disable=SC2015
 			if [[ "$( uname -s )" != 'Darwin' ]] && (( $( nproc ) > 1 )) &&
-					$_command info 2>&1 | grep -q -- 'cpuset'
+					docker info 2>&1 | grep -q -- 'cpuset'
 			then
 				# Pending a cleverer heuristic (... given *strange* CPU
 				# configurations such as are found on the Radxa Orion O6, or
@@ -669,10 +655,10 @@ docker_run() {
 
 	unset src mps mp
 
-	if [[ -n "${DOCKER_VERBOSE:-}" ]]; then
-		output
+	if [[ -n "${VERBOSE:-}" ]]; then
+		output >&2
 		[[ -n "${DOCKER_VARS:-}" ]] &&
-			output "VERBOSE: DOCKER_VARS is '${DOCKER_VARS}'"
+			output >&2 "VERBOSE: DOCKER_VARS is '${DOCKER_VARS}'"
 		local arg='' next=''
 		for arg in "${runargs[@]}"; do
 			case "${next}" in
@@ -694,9 +680,9 @@ docker_run() {
 			else
 				next=''
 			fi
-		done | column -t -s $'\t'
+		done | column -t -s $'\t' >&2
 		unset next arg
-		output
+		output >&2
 	fi
 
 	(
@@ -749,7 +735,7 @@ docker_run() {
 			unset bn
 		fi
 		# shellcheck disable=SC2086
-		$_command \
+		docker \
 				${DOCKER_VARS:-} \
 			container run \
 					"${runargs[@]}" \
@@ -808,7 +794,7 @@ docker_run() {
 
 docker_trap() {
 	trap '' INT
-	podman ${@+"${@}"}
+	docker ${@+"${@}"}
 	trap - INT
 }  # docker_trap
 

@@ -2,6 +2,8 @@
 
 set -u
 
+[[ -z "${TRACE:-}" ]] || set -o xtrace
+
 find_seq() {
 	local file="${1:-}"
 
@@ -29,8 +31,8 @@ find_seq() {
 
 declare -r base_dir='gentoo-base'
 
-cd "$( dirname "$( readlink -e "${0}" )" )" || {
-	echo >&2 "FATAL: chdir() to script directory failed: ${?}"
+cd "$( dirname "$( readlink -e "${0}" )" )/.." || {
+	echo >&2 "FATAL: chdir() to repository root failed: ${?}"
 	exit 1
 }
 

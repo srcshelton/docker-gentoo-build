@@ -4,6 +4,8 @@
 #            if input if-and-only-if they differ from the previous line,
 #            there-by allowing trivial sorts to be viewed more immediately.
 
+[[ -z "${TRACE:-}" ]] || set -o xtrace
+
 if [[ " ${*:-} " =~ -(h|-help) ]]; then
 	echo "Usage: echo <text> | $( basename "${0}" ) [--count]"
 	exit 0

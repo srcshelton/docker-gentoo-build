@@ -1,91 +1,131 @@
 # Build a Gentoo Base System in a Container
 
 Run `./gentoo-init.docker` to fetch the latest Gentoo stage3 image and use this
-as a basis to build a new `@system` image intended to act as the base on which
-to build further binary packages.
+to construct a new `@system` image, intended to act as the base upon which to
+build further binary packages.
+
 **Be warned that this process may take several hours even with all dependent
 packages pre-built as binaries**.
 
-`./gentoo-build-pkg.docker <package>` will then use the resulting image to
-build the specified package and store the result persistently on the host as a
-binary package.
+`./gentoo-build-pkg.docker <package...>` will then use the resulting image to
+build the specified package(s) and store them persistently on the host as
+(by default) `.gpkg.tar` binary packages.
 
-Gentoo's Portage allows many configuration files beneath `/etc/portage` to be
+Gentoo's Portage allows many configuration files beneath `/etc/portage/` to be
 represented as a single file, or as multiple files within a directory of the
 same name.  Due to the need to merge elements from the host and elements from
 the build-system, the container build process requires some of these
-configuration elements to be represented as directories.  If this is required
-but not the case on the host system, the build process will advise of the fix
-required.
+configuration elements to be stored in directories.  If changes need to be made
+on the host system then the build process will advise of the fix required.
 
-The file `gentoo-base/etc/portage/package.use.build/package.use.local` may be
-used to represent any host-specific configuration conventionally located in
-`/etc/portage/make.conf`.
+The file `gentoo-base/etc/portage/package.use.build/05_host.use` may be used to
+include any host-specific configuration conventionally located in
+`/etc/portage/make.conf` whilst `01_package.use.local` can used for build-image
+overrides such as hardware- or architecture- specific customisations.
 
 Please note: Certain elements may not work as intended if the overlay-repo
 [srcshelton](https://github.com/srcshelton/gentoo-ebuilds) is not available on
-the system performing the container build - this configuration is largely
-untested.
+the host system performing the container build - any configuration without this
+overlay present is largely untested.  This overlay will be automatically
+downloaded for non-Gentoo hosts.
 
-**N.B. This build system can be hosted by either `docker` or `podman`, and they
-will be searched for in this order.  `podman` has proven more reliable over
-time, and so is the recommended option.  However, the `podman` packages
-available with certain distributions and for certain architectures are very
-outdated - and upstream binary availability is poor - so `docker` is still used
-if both are present.**
+**N.B. This build system can be hosted by either `podman` or `docker`, or by
+Apple `container` on supported Apple Silicon macOS systems.  Set
+`CONTAINER_ENGINE` to `auto`, `container`, `podman`, `docker`, or the full path
+of a specific executable.**
 
-If upgrading from a packaged release of `podman` to a more current binary when
+If `CONTAINER_ENGINE` is unset or set to `auto` then operational engines are
+preferred in the order `container`, `podman`, `docker` on macOS and `podman`,
+`docker` on Linux.  A lower-priority engine may be selected by "auto" when it
+has a more complete configured Gentoo image pipeline; completeness takes
+precedence over the creation timestamps of a partial pipeline.
+
+Minimum supported versions are Apple `container` 1.3.0, Podman 3.4.4 on Linux
+(4.0.3 for the host-mounted macOS `podman machine` workflow), and Docker
+18.06.0 with client and server API 1.38.  If Podman uses `crun` as its active
+OCI runtime, `crun` 1.0.0 or later is also required.
+
+Set `VERBOSE` to a non-empty value to report engine selection and every
+container-engine command.  Set `TRACE` to a non-empty value to enable shell
+execution tracing.
+
+(If upgrading from a packaged release of `podman` to a more current binary when
 the original has already been executed at least once, it may be necessary to
-remove the file `/dev/shm/libpod_lock` and then run `podman system renumber`.
+remove the file `/dev/shm/libpod_lock` and then run `podman system renumber`)
 
 ## Getting started
 
 In an environment which requires a Linux VM to host containers (e.g. macOS,
 etc):
 
-```
+```sh
 cp common/local.sh . && cp gentoo-base/etc/portage/make.conf .
 eval "${EDITOR} local.sh make.conf"
-./podman-machine-init.sh --init
 ```
 
-On a host running a non-Gentoo Linux distribution:
+... then use one of the following paths.
 
-```
-cp common/local.sh . && eval "${EDITOR} local.sh"
-./podman-machine-init.sh --host
-sudo ./gentoo-init.docker
-```
+- For Apple `container`:
 
-On Gentoo Linux:
+  ```sh
+  ./tools/apple-container.sh --start
+  CONTAINER_ENGINE=container ./gentoo-init.docker
+  ```
 
-```
-eval "${EDITOR} common/local.sh"
-sudo ./sync-portage.sh
-sudo dispatch-conf
-sudo ./gentoo-init.docker
-```
+- For `podman` or Podman Desktop:
+
+  ```sh
+  ./tools/podman-machine-setup.sh --init
+  ```
+
+- For Docker, start Docker Desktop and run:
+
+  ```sh
+  CONTAINER_ENGINE=docker ./gentoo-init.docker
+  ```
+
+- On a host running a non-Gentoo Linux distribution:
+
+  ```sh
+  cp common/local.sh . && eval "${EDITOR} local.sh"
+  ./tools/host-init.sh
+  sudo ./gentoo-init.docker
+  ```
+
+- On Gentoo Linux:
+
+  ```sh
+  eval "${EDITOR} common/local.sh"
+  sudo ./tools/sync-portage.sh
+  sudo dispatch-conf
+  sudo ./gentoo-init.docker
+  ```
 
 ## Container Images
 
-`gentoo-env`
- * Empty stage with global environment variables set;
+- `gentoo-env`
 
-`gentoo-stage3`
- * Latest Gentoo stage3 image, copied on top of `env` image to preserve
+   Empty stage with global environment variables set;
+
+- `gentoo-stage3`
+
+   Latest Gentoo `stage3` image, copied on top of `env` image to preserve
    environment;
 
-`gentoo-init`
- * gentoo-stage3, with additional filesystem setup and entrypoint which will
-   install @system to a separate build-root when the container is invoked;
+- `gentoo-init`
 
-`gentoo-base`
- * Intermediate stage3 with with a new @system installed to a build-root,
-   committed by running `gentoo-init` rather than built from a Containerfile
-   file;
+   `gentoo-stage3`, with additional filesystem setup and entrypoint which will
+   install `@system` to a separate build-root when the container is invoked;
 
-`gentoo-build`
- * `@system` deployment relocated to the container root, ready to be used as
+- `gentoo-base`
+
+   Intermediate `stage3` with with a new `@system` installed to a dedicated
+   build-root, committed by running `gentoo-init` rather than built from a
+   Containerfile file;
+
+- `gentoo-build`
+
+   `@system` deployment relocated to the container root, ready to be used as
    the build environment to create new binary packages.
 
 <!-- vi: set colorcolumn=80: -->

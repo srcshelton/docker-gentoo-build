@@ -1,105 +1,103 @@
-#! /bin/sh
+#! /usr/bin/env bash
 
-#set -o xtrace
+[[ -z "${TRACE:-}" ]] || set -o xtrace
 
-if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	echo "Usage: $( basename "${0}" ) [--all] [--latest]"
-	exit 0
-fi
+cd "$( dirname "${0}" )/.." || exit 1
 
-_command='docker'
-if command -v podman >/dev/null 2>&1; then
-	_command='podman'
-fi
+# shellcheck disable=SC1091
+. ./common/container-engine-helpers.sh
 
-_output=''
-if ! [ -x "$( command -v "${_command}" )" ]; then
-	echo >&2 "FATAL: Cannot locate binary '${_command}'"
-	exit 1
-elif ! _output="$( "${_command}" info 2>&1 )"; then
-	if [ "${_command}" = 'podman' ]; then
-		echo >&2 "FATAL: Unable to successfully execute" \
-			"'${_command}' - do you need to run '${_command}" \
-			"machine start' or re-run '$( basename "${0}" )' as" \
-			"'root'?"
-	else
-		echo >&2 "FATAL: Unable to successfully execute" \
-			"'${_command}' - do you need to re-run" \
-			"'$( basename "${0}" )' as 'root'?"
-	fi
-	exit 1
-elif [ "$( uname -s )" != 'Darwin' ] &&
-		[ $(( $( id -u ) )) -ne 0 ] &&
-		echo "${_output}" | grep -Fq -- 'rootless: false'
-then
-	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
-	exit 1
-fi
-unset _output
+declare -a all=( --filter 'reference=localhost/*' )
+declare latest='latest'
+declare arg=''
+for arg in "${@}"; do
+	case "${arg}" in
+		-h|--help)
+			printf 'Usage: %s [--all] [--latest]\n' "${0##*/}"
+			container_engine_help
+			exit 0
+			;;
+		--all)
+			all=()
+			;;
+		--latest)
+			latest=''
+			;;
+		*)
+			printf >&2 "FATAL: Unknown option '%s'\n" "${arg}"
+			exit 1
+			;;
+	esac
+done
+unset arg
 
-all='--filter reference=localhost/*'
-latest='latest'
-if echo " ${*:-} " | grep -Fq -- ' --all '; then
-	all=''
-fi
-if echo " ${*:-} " | grep -Fq -- ' --latest '; then
-	latest=''
-fi
+# shellcheck disable=SC1091
+. ./common/vars.sh
+IMAGE='none'
+# shellcheck disable=SC1091
+. ./common/run.sh >/dev/null
 
 #                1                               2    3        4      5
-php_pattern_1='^(localhost/service.dev-lang.php)(\s+)([0-9])\.([0-9])(\..*)$'
+php_pattern_1='^(localhost/service.dev-lang.php)'
+php_pattern_1+='([[:space:]]+)([0-9])\.([0-9])(\..*)$'
 php_replacement_1='\1\3\4 \3.\4\5'
 #                localhost/service.dev-lang.php          8   .    2    .28-r1
 #                localhost/service.dev-lang.php82 8.2.28-r1
 #
 #                1                               2            3
-php_pattern_2='^(localhost/service.dev-lang.php)([0-9]{2})\s+(.*)$'
+php_pattern_2='^(localhost/service.dev-lang.php)([0-9]{2})[[:space:]]+(.*)$'
 php_replacement_2='\1-\3'
 #                localhost/service.dev-lang.php82 8.2.28-r1
 #                localhost/service.dev-lang.php-8.2.28-r1
 
 images="$(
-	eval "${_command} image list --noheading ${all:+" ${all}"}"		|
-		sed -r "s|${php_pattern_1}|${php_replacement_1}|"		|
+	docker image list --noheading "${all[@]}"			|
+		{
+			if (( ${#all[@]} )); then
+				grep -- '^localhost/'
+			else
+				cat
+			fi
+		} 							|
+		sed -E "s|${php_pattern_1}|${php_replacement_1}|"		|
 		awk '{print $1}'						|
 		grep -v '<none>'						|
 		sort								|
 		uniq -c								|
 		awk '( $1 > 1 ) { print $2 }'					|
-		while read -r name; do
-			if [ -z "${latest:-}" ]; then
-				"${_command}" image list "${name}"
+		while IFS= read -r name; do
+			if [[ -z "${latest}" ]]; then
+				docker image list "${name}"
 			else
-				result="$( "${_command}" image list "${name}" )"
-				if ! echo "${result:-}" | grep -qw "${latest}"
-				then
-					echo "${result}"
+				result="$( docker image list "${name}" )"
+				if ! grep -qw "${latest}" <<<"${result}"; then
+					printf '%s\n' "${result}"
 				fi
 			fi
 		done								|
 		tr -s '[:space:]'						|
 		sort -rV							|
 		uniq								|
-		sed -r '
+		sed -E '
 			s/ IMAGE ID / IMAGE_ID / ;
 			s/ ([0-9]+) ([^ ]+) ago / \1_\2_ago / ;
 			s/ About (an?) ([^ ]+) ago / About_\1_\2_ago / ;
 			s/ (.)B$/_\1B/
 		'								|
 		column -t							|
-		sed -r '
+		sed -E '
 			s/IMAGE_ID/IMAGE ID/ ;
 			s/([0-9]+)_([^_]+)_ago/\1 \2 ago/ ;
 			s/About_([^_]+)_([^_]+)_ago/About \1 \2 ago/ ;
 			s/_(.)B$/ \1B/
 		'								|
-		sed -r "s|${php_pattern_2}|${php_replacement_2}|"
+		sed -E "s|${php_pattern_2}|${php_replacement_2}|"
 )"
 
 # Relocate headers to top of output...
-#echo "${images}" | tail -n 1
-#echo "${images}" | head -n -1
-echo "${images}" | grep -m 1 '^REPOSITORY\s'
-echo "${images}" | grep -v -e '^REPOSITORY\s' -e '^\s*$'
+#printf '%s\n' "${images}" | tail -n 1
+#printf '%s\n' "${images}" | head -n -1
+grep -m 1 '^REPOSITORY[[:space:]]' <<<"${images}"
+grep -v -e '^REPOSITORY[[:space:]]' -e '^[[:space:]]*$' <<<"${images}"
 
 # vi: set sw=8 ts=8:

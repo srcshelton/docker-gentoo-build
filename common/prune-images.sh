@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /usr/bin/env bash
 
 # This script should no longer be needed since podman issue 7872 [1] was
 # resolved: keeping more for historical interest.
@@ -8,56 +8,71 @@
 
 set -eu
 
-declare -i trace=$(( ${TRACE:-} ))
+declare trace="${TRACE:-}"
 
-(( trace )) && set -x
+[[ -z "${trace}" ]] || set -o xtrace
 
-_command='docker'
-if type -pf podman >/dev/null; then
-	_command='podman'
-fi
+cd "$( dirname "${0}" )/.." || exit 1
+
+# shellcheck disable=SC1091
+. ./common/container-engine-helpers.sh
+
+declare -a cmd=( image prune -f )
+declare desc='images'
+declare arg=''
+for arg in "${@}"; do
+	case "${arg}" in
+		-h|--help)
+			printf 'Usage: %s [--system]\n' "${0##*/}"
+			container_engine_help
+			exit 0
+			;;
+		--system)
+			cmd=( system prune -f )
+			desc='system'
+			;;
+		*)
+			printf >&2 "FATAL: Unknown option '%s'\n" "${arg}"
+			exit 1
+			;;
+	esac
+done
+unset arg
+
+# shellcheck disable=SC1091
+. ./common/vars.sh
+IMAGE='none'
+# shellcheck disable=SC1091
+. ./common/run.sh >/dev/null
 
 trap '' INT
 
-declare cmd='image prune -f' desc='images'
-case " ${*} " in
-	' -h '|' --help ')
-		echo "Usage: $( basename "${0}" ) [--system]"
-		exit 0
-		;;
-	' --system ')
-		cmd='system prune -f'
-		desc='system'
-		;;
-	'  ')
-		:
-		;;
-	*)
-		echo >&2 "FATAL: Unknown arguments '${*}'"
-		exit 1
-		;;
-esac
+printf 'Starting to prune %s %s ...\n' "${_container_engine}" "${desc}"
 
-echo "Starting to prune ${_command} ${desc} ..."
-
+declare prune_output=''
 declare -i total=0 run=0 rc=0
 while true; do
-	(( run = $( eval "$_command ${cmd}" 2>/dev/null | grep -cv '^Deleted ' ) )) || rc=${?}
+	if prune_output="$( docker "${cmd[@]}" 2>/dev/null )"; then
+		run="$( printf '%s' "${prune_output}" | grep -cv '^Deleted ' || : )"
+		rc=0
+	else
+		rc=${?}
+	fi
 
 	if (( rc )); then
-		echo >&2 "${_command} ended: ${rc}"
-		echo >&2
-		echo >&2 "Removed ${total} images so far, with ${run} indeterminate"
-		exit ${rc}
+		printf >&2 '%s ended: %d\n\n' "${_container_engine}" "${rc}"
+		printf >&2 'Removed %d images so far, with %d indeterminate\n' \
+			"${total}" "${run}"
+		exit "${rc}"
 	fi
 
 	(( total += run ))
 
 	if (( 0 == run )); then
-		echo "image prune operation complete - removed ${total} images"
+		printf 'image prune operation complete - removed %d images\n' "${total}"
 		exit 0
 	else
-		echo "Removed ${run} images on this pass..."
+		printf 'Removed %d images on this pass...\n' "${run}"
 	fi
 done
 

@@ -10,7 +10,7 @@ set -o pipefail
 
 [ -n "${trace:-}" ] && set -o xtrace
 
-cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+cd "$( dirname "$( realpath "${0}" )" )" || exit 1
 
 # Set by common/vars.sh, sourced below...
 #
@@ -238,34 +238,13 @@ if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then # () {  # Fold 'help' outp
 	output >&2 '       --bundle                 Generate tar output in /usr/src rather than'
 	output >&2 '                                installing the new kernel (implies --no-install)'
 	output >&2 '       --initramfs              Also build kernel ramdisk'
-	output >&2
+	container_engine_help >&2
 	output >&2 "Running on architecture '${arch:-"${ARCH:-}"}'"
 	output >&2
 	output >&2 '[1]: https://github.com/clearlinux-pkgs/linux/blob/main/0133-novector.patch'
 	output >&2
 	exit 0
 fi # }  # End of 'help' output
-
-declare _output=''
-# shellcheck disable=SC2154
-if ! [[ -x "$( type -pf "${_command}" )" ]]; then
-	die "Cannot locate binary '${_command}'"
-elif ! _output="$( "${_command}" info 2>&1 )"; then
-	if [[ "${_command}" == 'podman' ]]; then
-		die "Unable to successfully execute '${_command}' - do you" \
-			"need to run '${_command} machine start' or re-run" \
-			"'$( basename "${0}" )' as 'root'?"
-	else
-		die "Unable to successfully execute '${_command}' - do you" \
-			"need to re-run '$( basename "${0}" )' as 'root'?"
-	fi
-elif [[ "$( uname -s )" != 'Darwin' ]] &&
-		(( EUID )) &&
-		grep -Fq -- 'rootless: false' <<<"${_output}"
-then
-	die "Please re-run '$( basename "${0}" )' as user 'root'"
-fi
-unset _output
 
 # () {  # Start variable declaration
 declare -i keep_build=1
@@ -1411,9 +1390,8 @@ if [[ "${compiler}" == 'clang' ]]; then
 fi # [[ "${compiler}" == 'clang' ]]
 # }  # End of version validation
 
-# shellcheck disable=SC2154
-$_command image list "${IMAGE%":"*}" |
-		grep -Eq -- "^(localhost/)?${IMAGE%":"*}" ||
+
+docker image inspect "${IMAGE}" >/dev/null 2>&1 ||
 	die "docker image '${IMAGE%":"*}' not found"
 
 if (( install )); then
@@ -2006,11 +1984,8 @@ mkdir -p "${log_dir:="log"}" ||
 	declare -x image="${IMAGE}"
 	unset image_name_and_version
 
-	# shellcheck disable=SC2154
-	if [[ "$( # <- Syntax
-				$_command image list "${image_name}:${package_version}" |
-					wc -l
-			)" != '2' ]]
+	if ! docker image inspect \
+			"${image_name}:${package_version}" >/dev/null 2>&1
 	then
 		(
 			ACCEPT_LICENSE='linux-fw-redistributable no-source-code'
@@ -2310,15 +2285,25 @@ mkdir -p "${log_dir:="log"}" ||
 			time {
 				trap '' INT
 				(
-					if ! command -v buildah >/dev/null 2>&1; then
+					if [[ "${_container_engine}" == 'container' ]]; then
+						apple_snapshot_container \
+							"${name}" \
+							"${image_name}:${package_version}" \
+							"${log_dir}/${log_name}.log" \
+							"${IMAGE}" \
+							'Gentoo kernel image'
+						exit ${?}
+					elif [[ "${_container_engine}" != 'podman' ]] ||
+							! command -v buildah >/dev/null 2>&1
+					then
 						# shellcheck disable=SC2046
-						$_command $( # <- Syntax
+						container_engine_run "${_command}" $( # <- Syntax
 							add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT:-}"
 						) \
 								container commit --squash \
 									"${name}" \
 									"${image_name}:${package_version}" 2>&1 ||
-						$_command $( # <- Syntax
+						container_engine_run "${_command}" $( # <- Syntax
 							add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT:-}"
 						) \
 								container commit \
@@ -2327,7 +2312,7 @@ mkdir -p "${log_dir:="log"}" ||
 						exit ${?}
 					else
 						# shellcheck disable=SC2046
-						buildah $( # <- Syntax
+						container_engine_run buildah $( # <- Syntax
 							add_arg IMAGE_ROOT --storage-opt= --root "${IMAGE_ROOT:-}"
 						) \
 								commit \
@@ -2339,7 +2324,7 @@ mkdir -p "${log_dir:="log"}" ||
 				) | tee -a "${log_dir}/${log_name}.log"
 				rc=${?}
 				output " -> ${rc}"
-				$_command container rm --volumes "${name}" 2>&1 |
+				docker container rm --volumes "${name}" 2>&1 |
 					tee -a "${log_dir}/${log_name}.log"
 				trap - INT
 			}

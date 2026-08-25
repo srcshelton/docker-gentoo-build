@@ -1,56 +1,48 @@
-#! /bin/sh
+#! /usr/bin/env bash
 
-#set -o xtrace
+[[ -z "${TRACE:-}" ]] || set -o xtrace
 
-if echo " ${*:-} " | grep -Eq -- ' -(h|-help) '; then
-	echo "Usage: $( basename "${0}" )"
-	exit 0
-fi
+cd "$( dirname "${0}" )/.." || exit 1
 
-_command='docker'
-if command -v podman >/dev/null 2>&1; then
-	_command='podman'
-fi
+# shellcheck disable=SC1091
+. ./common/container-engine-helpers.sh
 
-_output=''
-if ! [ -x "$( command -v "${_command}" )" ]; then
-	echo >&2 "FATAL: Cannot locate binary '${_command}'"
-	exit 1
-elif ! _output="$( "${_command}" info 2>&1 )"; then
-	if [ "${_command}" = 'podman' ]; then
-		echo >&2 "FATAL: Unable to successfully execute" \
-			"'${_command}' - do you need to run '${_command}" \
-			"machine start' or re-run '$( basename "${0}" )' as" \
-			"'root'?"
-	else
-		echo >&2 "FATAL: Unable to successfully execute" \
-			"'${_command}' - do you need to re-run" \
-			"'$( basename "${0}" )' as 'root'?"
-	fi
-	exit 1
-elif [ "$( uname -s )" != 'Darwin' ] &&
-		[ $(( $( id -u ) )) -ne 0 ] &&
-		echo "${_output}" | grep -Fq -- 'rootless: false'
-then
-	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
-	exit 1
-fi
-unset _output
+declare arg=''
+for arg in "${@}"; do
+	case "${arg}" in
+		-h|--help)
+			printf 'Usage: %s\n' "${0##*/}"
+			container_engine_help
+			exit 0
+			;;
+		*)
+			printf >&2 "FATAL: Unknown option '%s'\n" "${arg}"
+			exit 1
+			;;
+	esac
+done
+unset arg
 
-filter='--filter reference=localhost/*'
-images="$( eval "${_command} image list ${filter:-}" )"
-lines="$( echo "${images}" | wc -l )"
+# shellcheck disable=SC1091
+. ./common/vars.sh
+IMAGE='none'
+# shellcheck disable=SC1091
+. ./common/run.sh >/dev/null
+
+declare images=''
+images="$( docker image list --filter 'reference=localhost/*' )"
 
 # FIXME: Use 'base_name', etc. from vars.sh
 
-echo "${images}" | head -n 1
+head -n 1 <<<"${images}"
 
-echo "${images}" |
-	grep --colour=always -- '^localhost/gentoo-build.*$'
+grep --colour=always -- '^localhost/gentoo-build.*$' <<<"${images}"
 
-echo "${images}" |
-	grep -A "${lines:-"100"}" -- '^localhost/gentoo-build' |
-	grep -v -e '^localhost/gentoo-\(build\|base\|init\|stage3\|env\)' -e '^docker.io/gentoo/stage3' |
-	grep --colour=never -- '^localhost/\(service\|sys-kernel\.\)'
+grep -A "$( wc -l <<<"${images}" )" \
+		-- '^localhost/gentoo-build' <<<"${images}" |
+	grep -Ev \
+		-e '^localhost/gentoo-(build|base|init|stage3|env)' \
+		-e '^docker.io/gentoo/stage3' |
+	grep -E --colour=never -- '^localhost/(service|sys-kernel\.)'
 
 # vi: set sw=8 ts=8:

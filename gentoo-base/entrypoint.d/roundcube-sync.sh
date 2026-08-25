@@ -1,5 +1,7 @@
 #! /bin/sh
 
+[ -z "${TRACE:-}" ] || set -x
+
 rcdir='/var/www/localhost/htdocs/roundcube'
 
 # sync'ing reminders from CalDAV takes about 15 seconds to complete...

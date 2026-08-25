@@ -14,6 +14,8 @@ trace="${TRACE:-}"
 # Mis-interacts with 'qatom' :(
 unset DEBUG
 
+[ -z "${trace}" ] || set -o xtrace
+
 if ! command -v qatom >/dev/null 2>&1; then
 	echo >&2 "FATAL: 'qatom' not found, please install" \
 		"app-portage/portage-utils"
@@ -53,8 +55,6 @@ if [ $(( debug )) -ge 1 ]; then
 	echo >&2 "DEBUG: Checking for old logs beneath '${log_dir}' ..."
 	guard='echo'
 fi
-
-[ $(( trace )) -ge 1 ] && set -o xtrace
 
 find "${log_dir}/" \
 			-mindepth 1 \

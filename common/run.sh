@@ -67,6 +67,8 @@ fi
 debug=${DEBUG:-}
 trace=${TRACE:-}
 
+[[ -z "${trace}" ]] || set -o xtrace
+
 declare -i _common_run_show_command=1
 
 # Output functions...
@@ -175,6 +177,109 @@ export -f output die error warn note info print
 
 # Utility functions...
 #
+
+apple_dockerfile_escape() {
+	printf '%s' "${1:-}" | sed 's/\\/\\\\/g ; s/"/\\"/g'
+}  # apple_dockerfile_escape
+
+# Apple 'container' has no commit operation.  Preserve a stopped container by
+# exporting its root filesystem and building a replacement image with the
+# relevant configuration copied from its parent image.
+apple_snapshot_container() (
+	local snapshot_name="${1:-}"
+	local image_ref="${2:-}"
+	local log_file="${3:-/dev/null}"
+	local config_image="${4:-}"
+	local description="${5:-Gentoo image}"
+	local image_env='' snapshot_dir=''
+	local -i rc=0
+
+	[[ "${_container_engine}" == 'container' ]] || return 1
+	[[ -n "${snapshot_name}" && -n "${image_ref}" ]] || return 1
+
+	snapshot_dir="$(
+		mktemp -d "${TMPDIR:-/tmp}/gentoo-container-snapshot.XXXXXXXX"
+	)" || return 1
+	trap 'rm -rf "${snapshot_dir}"' EXIT
+
+	container_engine_run "${_command}" stop "${snapshot_name}" \
+		>/dev/null 2>&1 || :
+	if container_engine_run "${_command}" export \
+			--output "${snapshot_dir}/rootfs.tar" \
+			"${snapshot_name}" 2>&1 |
+			tee -a "${log_file}"
+	then
+		:
+	else
+		rc=${?}
+		return ${rc}
+	fi
+
+	{
+		printf 'FROM scratch\n'
+		printf 'ADD rootfs.tar /\n'
+	} > "${snapshot_dir}/Dockerfile"
+
+	if [[ -n "${config_image}" ]]; then
+		if ! container_engine_run "${_command}" image inspect \
+				"${config_image}" 2>/dev/null |
+				jq -r '
+					if type == "array" then .[] else . end |
+					.variants[]?.config.config.Env[]? //
+					.config.config.Env[]? //
+					empty
+				' |
+				while IFS= read -r image_env; do
+					[[ "${image_env}" == *=* ]] || continue
+					[[ "${image_env%%=*}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] ||
+						continue
+					printf 'ENV %s="%s"\n' \
+						"${image_env%%=*}" \
+						"$( apple_dockerfile_escape "${image_env#*=}" )"
+				done >> "${snapshot_dir}/Dockerfile"
+		then
+			warn "Unable to copy image environment from '${config_image}'"
+		fi
+	fi
+
+	{
+		printf 'ENV ROOT="/"\n'
+		printf 'ENV SYSROOT="/"\n'
+		printf 'ENV PORTAGE_CONFIGROOT="/"\n'
+		printf 'LABEL maintainer="stuart@shelton.me"\n'
+		printf 'LABEL description="%s"\n' \
+			"$( apple_dockerfile_escape "${description}" )"
+		[[ -z "${gentoo_stage3_image:-}" || -z "${gentoo_stage3_id:-}" ]] ||
+			printf 'LABEL stage3-from="%s:%s"\n' \
+				"$( apple_dockerfile_escape "${gentoo_stage3_image}" )" \
+				"$( apple_dockerfile_escape "${gentoo_stage3_id}" )"
+		[[ -z "${sum:-}" ]] ||
+			printf 'LABEL entrypoint-sum="%s"\n' \
+				"$( apple_dockerfile_escape "${sum}" )"
+		[[ -z "${env_name:-}" || -z "${env_id:-}" ]] ||
+			printf 'LABEL environment-from="%s:%s"\n' \
+				"$( apple_dockerfile_escape "${env_name}" )" \
+				"$( apple_dockerfile_escape "${env_id}" )"
+		printf 'ENTRYPOINT ["/usr/libexec/entrypoint.sh"]\n'
+		printf 'CMD ["app-shells/bash"]\n'
+	} >> "${snapshot_dir}/Dockerfile"
+
+	if container_engine_run "${_command}" build \
+			--file "${snapshot_dir}/Dockerfile" \
+			--no-cache \
+			--platform "linux/${docker_arch}" \
+			--tag "${image_ref}" \
+			"${snapshot_dir}" 2>&1 |
+			tee -a "${log_file}"
+	then
+		:
+	else
+		rc=${?}
+		return ${rc}
+	fi
+
+	return 0
+)  # apple_snapshot_container
 
 # Provide a wrapper to try to run mkdir/rm/etc. as the current user, and then
 # via the 'sudo' binary if this fails.  Note that this is intended for atomic
@@ -521,7 +626,7 @@ _prepare_linux_info_mount() {
 			]]
 	then
 		[[ -d "${EROOT:-}"/var/lib/portage/eclass/linux-info ]] ||
-			die "'"${EROOT:-}"/var/lib/portage/eclass/linux-info' exists but" \
+			die "'${EROOT:-}/var/lib/portage/eclass/linux-info' exists but" \
 				"is not a directory"
 
 		if [[ -e "${EROOT:-}"/var/lib/portage/eclass/linux-info/.keep ||
@@ -529,7 +634,7 @@ _prepare_linux_info_mount() {
 				]]
 		then
 			[[ -f "${EROOT:-}"/var/lib/portage/eclass/linux-info/.keep ]] ||
-				die "'"${EROOT:-}"/var/lib/portage/eclass/linux-info/.keep'" \
+				die "'${EROOT:-}/var/lib/portage/eclass/linux-info/.keep'" \
 					"exists but is not a file"
 
 			return 0
@@ -650,6 +755,7 @@ _docker_parse() {
 				output >&2 "Usage: $( basename -- "${0#"-"}" )" \
 					"[--name <container name>] [--image <source image>]" \
 					"<package> [emerge_args]"
+				container_engine_help >&2
 				exit 0
 
 			elif [[ "${name}" == '<next>' ]]; then
@@ -1181,7 +1287,7 @@ _docker_run() {
 	#   DOCKER_PRIVILEGED DOCKER_VOLUMES ECLASS_OVERRIDE EMERGE_OPTS FEATURES \
 	#   INSTALL_MASK PYTHON_SINGLE_TARGET PYTHON_TARGETS ROOT TERM TRACE USE
 	#inherit ARCH PKGDIR_OVERRIDE PKGDIR
-	#inherit DOCKER_VERBOSE DOCKER_CMD
+	#inherit VERBOSE DOCKER_CMD
 	#inherit image IMAGE
 
 	print "_docker_run() called from '$( # <- Syntax
@@ -1994,10 +2100,10 @@ _docker_run() {
 		export FEATURES
 	fi
 
-	if [[ -n "${DOCKER_VERBOSE:-}" ]]; then
-		output
+	if [[ -n "${VERBOSE:-}" ]]; then
+		output >&2
 		[[ -n "${DOCKER_VARS:-}" ]] &&
-			output "VERBOSE: DOCKER_VARS is '${DOCKER_VARS}'"
+			output >&2 "VERBOSE: DOCKER_VARS is '${DOCKER_VARS}'"
 		local arg='' next=''
 		for arg in "${runargs[@]}"; do
 			case "${next}" in
@@ -2021,10 +2127,10 @@ _docker_run() {
 			else
 				next=''
 			fi
-		done | column -t -s $'\t'
+		done | column -t -s $'\t' >&2
 		unset next arg
-		output
-	fi  # [[ -n "${DOCKER_VERBOSE:-}" ]]
+		output >&2
+	fi  # [[ -n "${VERBOSE:-}" ]]
 
 	(
 		[[ -n "${DOCKER_CMD:-}" ]] && set -- "${DOCKER_CMD}"
@@ -2186,27 +2292,27 @@ _docker_prune() {
 
 	trap '' INT
 	# shellcheck disable=SC2031,SC2086
-	docker ${DOCKER_VARS:-} container ps --noheading |
-		rev |
-		cut -d' ' -f 1 |
-		rev |
+	docker ${DOCKER_VARS:-} container ps --format '{{.Names}}' |
 		grep -- '_' |
-		xargs -r /bin/sh -c docker ${DOCKER_VARS:-} \
-			container stop --time 2 >/dev/null
+		while IFS= read -r container_name; do
+			docker ${DOCKER_VARS:-} container stop --time 2 \
+				"${container_name}" >/dev/null
+		done || :
 	# shellcheck disable=SC2031,SC2086
-	docker ${DOCKER_VARS:-} container ps --noheading -a |
-		rev |
-		cut -d' ' -f 1 |
-		rev |
+	docker ${DOCKER_VARS:-} container ps --all --format '{{.Names}}' |
 		grep -- '_' |
-		xargs -r /bin/sh -c docker ${DOCKER_VARS:-} \
-			container rm --volumes >/dev/null
+		while IFS= read -r container_name; do
+			docker ${DOCKER_VARS:-} container rm --volumes \
+				"${container_name}" >/dev/null
+		done || :
 
 	# shellcheck disable=SC2031,SC2086
 	docker ${DOCKER_VARS:-} image ls |
 		grep -- '^<none>\s\+<none>' |
 		awk '{print $3}' |
-		xargs -r /bin/sh -c docker ${DOCKER_VARS:-} image rm
+		while IFS= read -r image_id; do
+			docker ${DOCKER_VARS:-} image rm "${image_id}"
+		done || :
 	trap - INT
 
 	return 0
@@ -2242,9 +2348,10 @@ then
 	die "Cannot locate required directory 'gentoo-base' in '${PWD%"/"}'"
 fi
 
-# Are we using docker or podman (or `container` on macOS 26+)?
-if [[ "$( uname -s )" == 'Darwin' ]] && type -pf container >/dev/null 2>&1
-then
+# Adapt the already-resolved engine to the Docker-compatible command surface
+# used by the shared build functions.  Engine discovery belongs exclusively to
+# common/container-engine.sh.
+if [[ "${_container_engine:-}" == 'container' ]]; then
 	# More subtle differences between `container` and `podman`:
 	#
 	#  * container places the `podman container`/`docker container` commands at
@@ -2252,8 +2359,6 @@ then
 	#  * `docker image build` becomes `container build`;
 	#  * container does not support podman's `--noheading` option.
 	#
-	_command='container'
-
 	docker() {
 		local -a args=()
 		local arg='' subcommand=''
@@ -2319,16 +2424,16 @@ then
 				done
 
 				print "Filtered command: 'build ${filtered[*]:-}'"
-				command container build "${filtered[@]}"
+				container_engine_run "${_command}" build "${filtered[@]}"
 				return ${?}
 				;;
 		esac
 
 		case "${args[0]:-}:${args[1]:-}" in
 			run:*|container:run)
-				local -a filtered=()
+				local -a filtered=() tmpfs_options=()
 				local -i arg_start=1 emit_mount=0
-				local mode='' value='' target='' item=''
+				local mode='' value='' target='' item='' options=''
 
 				[[ "${args[0]:-}" != 'container' ]] || arg_start=2
 				for arg in "${args[@]:${arg_start}}"; do
@@ -2402,12 +2507,26 @@ then
 						case "${value}" in
 							type=tmpfs,*)
 								target=''
+								options=''
+								tmpfs_options=()
 								for item in ${value//,/ }; do
 									case "${item}" in
 										target=*) target="${item#target=}" ;;
+										# Apple 1.3.0 accepts Linux tmpfs mount
+										# options after the destination path.
+										tmpfs-size=*)
+											tmpfs_options+=( "size=${item#tmpfs-size=}" )
+											;;
+										tmpfs-mode=*)
+											tmpfs_options+=( "mode=${item#tmpfs-mode=}" )
+											;;
 									esac
 								done
-								filtered+=( --tmpfs "${target:-/tmp}" )
+								if (( ${#tmpfs_options[@]} )); then
+									printf -v options '%s,' "${tmpfs_options[@]}"
+									options=":${options%,}"
+								fi
+								filtered+=( --tmpfs "${target:-/tmp}${options}" )
 								;;
 							*)
 								filtered+=( --mount "${value}" )
@@ -2417,7 +2536,7 @@ then
 				done
 
 				print "Filtered command: 'run ${filtered[*]:-}'"
-				command container run "${filtered[@]}"
+				container_engine_run "${_command}" run "${filtered[@]}"
 				return ${?}
 				;;
 		esac
@@ -2425,7 +2544,7 @@ then
 		case "${args[0]:-}:${args[1]:-}" in
 			image:|image:ls|image:list)
 				local -a image_args=() image_filters=() grep_args=()
-				local -i noheading=0 quiet=0
+				local -i dangling=0 noheading=0 quiet=0
 				local format='table' next='' raw=''
 				# shellcheck disable=SC2016
 				local image_ref_jq='
@@ -2442,19 +2561,32 @@ then
 					select(
 						refs as $refs |
 						all($ARGS.positional[]; . as $filter |
-							$refs | any(. == $filter or startswith($filter) or contains($filter))
+							$refs | any(
+								. == $filter or
+								startswith($filter | sub("\\*$"; "")) or
+								contains($filter)
+							)
 						)
 					)
 				'
 
 				for arg in "${args[@]:2}"; do
 					case "${next}" in
-						format)
-							format="${arg}"
+						filter)
+							case "${arg}" in
+								dangling=true) dangling=1 ;;
+								reference=*) image_filters+=( "${arg#reference=}" ) ;;
+								*)
+									warn "Apple 'container image list' cannot emulate" \
+										"filter '${arg}'"
+									return 125
+									;;
+							esac
 							next=''
 							continue
 							;;
-						skip)
+						format)
+							format="${arg}"
 							next=''
 							continue
 							;;
@@ -2478,20 +2610,44 @@ then
 							image_args+=( --verbose )
 							;;
 						--filter)
-							next='skip'
+							next='filter'
 							;;
 						--filter=*)
-							: ;;
+							case "${arg#--filter=}" in
+								dangling=true) dangling=1 ;;
+								reference=*)
+									image_filters+=( "${arg#--filter=reference=}" )
+									;;
+								*)
+									warn "Apple 'container image list' cannot emulate" \
+										"filter '${arg#--filter=}'"
+									return 125
+									;;
+							esac
+							;;
 						-*)
 							image_args+=( "${arg}" )
 							;;
 						*)
 							image_filters+=( "${arg}" )
 							;;
-					esac
+						esac
 				done
+				if [[ -n "${next}" ]]; then
+					warn "Image-list option '--${next}' requires a value"
+					return 64
+				fi
 				if (( quiet )) && [[ "${format}" == 'table' ]]; then
 					format='{{.ID}}'
+				fi
+				if (( dangling )); then
+					case "${format}" in
+						json) printf '[]\n' ;;
+						table)
+							(( noheading )) || printf 'NAME\tTAG\tDIGEST\n'
+							;;
+						esac
+					return 0
 				fi
 
 				case "${format}" in
@@ -2499,7 +2655,10 @@ then
 						image_args+=( --format "${format}" )
 						if [[ "${format}" == 'table' ]]; then
 							if (( ${#image_filters[@]} )); then
-								raw="$( command container image list --format json )" ||
+								raw="$(
+									container_engine_run "${_command}" image list \
+										--format json
+								)" ||
 									return ${?}
 								raw="$( jq -r "${image_ref_jq}" --args \
 									"${image_filters[@]}" <<<"${raw}" )"
@@ -2530,7 +2689,8 @@ then
 									] | @tsv
 								' <<<"${raw}"
 							else
-								command container image list "${image_args[@]}" |
+								container_engine_run "${_command}" image list \
+									"${image_args[@]}" |
 									{
 										if (( noheading )); then
 											tail -n +2
@@ -2540,7 +2700,10 @@ then
 									}
 							fi
 						else
-							raw="$( command container image list "${image_args[@]}" )" ||
+							raw="$(
+								container_engine_run "${_command}" image list \
+									"${image_args[@]}"
+							)" ||
 								return ${?}
 							if (( ${#image_filters[@]} )); then
 								raw="$( jq -r "${image_ref_jq}" --args \
@@ -2550,7 +2713,9 @@ then
 						fi
 						;;
 					'{{.ID}}'|'{{ .ID }}')
-						raw="$( command container image list --format json )" ||
+						raw="$(
+							container_engine_run "${_command}" image list --format json
+						)" ||
 							return ${?}
 						if (( ${#image_filters[@]} )); then
 							raw="$( jq -r "${image_ref_jq}" --args \
@@ -2567,7 +2732,9 @@ then
 						' <<<"${raw}"
 						;;
 					'{{.Digest}} {{.ID}}'|'{{ .Digest }} {{ .ID }}')
-						raw="$( command container image list --format json )" ||
+						raw="$(
+							container_engine_run "${_command}" image list --format json
+						)" ||
 							return ${?}
 						if (( ${#image_filters[@]} )); then
 							raw="$( jq -r "${image_ref_jq}" --args \
@@ -2600,10 +2767,12 @@ then
 							for arg in "${image_filters[@]}"; do
 								grep_args+=( -e "${arg}" )
 							done
-							command container image list --format table |
+							container_engine_run "${_command}" image list \
+								--format table |
 								grep -F "${grep_args[@]}"
 						else
-							command container image list --format table
+							container_engine_run "${_command}" image list \
+								--format table
 						fi |
 							{ if (( noheading )); then tail -n +2; else cat; fi ; }
 						;;
@@ -2614,15 +2783,18 @@ then
 
 		case "${args[0]:-}:${args[1]:-}" in
 			ps:*|ls:*|list:*|container:|container:ps|container:ls|container:list)
-				local -a list_args=()
-				local -i arg_start=1 noheading=0 skip_next=0
-				local format='table'
+				local -a container_filters=() grep_args=() list_args=()
+				local -i arg_start=1 noheading=0
+				local format='table' next=''
 
 				[[ "${args[0]:-}" != 'container' ]] || arg_start=2
 				for arg in "${args[@]:${arg_start}}"; do
-					if (( skip_next )); then
-						format="${arg}"
-						skip_next=0
+					if [[ -n "${next}" ]]; then
+						case "${next}" in
+							filter) container_filters+=( "${arg}" ) ;;
+							format) format="${arg}" ;;
+						esac
+						next=''
 						continue
 					fi
 					case "${arg}" in
@@ -2632,8 +2804,14 @@ then
 						-a|--all)
 							list_args+=( --all )
 							;;
+						--filter)
+							next='filter'
+							;;
+						--filter=*)
+							container_filters+=( "${arg#--filter=}" )
+							;;
 						--format)
-							skip_next=1
+							next='format'
 							;;
 						--format=*)
 							format="${arg#--format=}"
@@ -2644,11 +2822,47 @@ then
 						*)
 							list_args+=( "${arg}" )
 							;;
-					esac
+						esac
 				done
+				if [[ -n "${next}" ]]; then
+					warn "Container-list option '--${next}' requires a value"
+					return 64
+				fi
+
+				case "${format}" in
+					'{{.ID}}'|'{{ .ID }}'|'{{.Names}}'|'{{ .Names }}')
+						for arg in "${container_filters[@]}"; do
+							case "${arg}" in
+								name=*) grep_args+=( -e "${arg#name=}" ) ;;
+								*)
+									warn "Apple 'container list' cannot emulate filter" \
+										"'${arg}'"
+									return 125
+									;;
+							esac
+						done
+						container_engine_run "${_command}" list "${list_args[@]}" \
+								--format json |
+							jq -r '
+								.[] |
+								.configuration.id //
+								.config.id //
+								.id //
+								empty
+							' |
+							{
+								if (( ${#grep_args[@]} )); then
+									grep -E "${grep_args[@]}" || :
+								else
+									cat
+								fi
+							}
+						return ${?}
+						;;
+				esac
 
 				list_args+=( --format "${format}" )
-				command container list "${list_args[@]}" |
+				container_engine_run "${_command}" list "${list_args[@]}" |
 					{
 						if [[ "${format}" == 'table' ]] && (( noheading )); then
 							tail -n +2
@@ -2662,16 +2876,21 @@ then
 
 		case "${args[0]:-}" in
 			system)
-				command container "${args[@]}"
+				if [[ "${args[1]:-}" == 'prune' ]]; then
+					warn "Apple 'container' has no equivalent to 'system prune';" \
+						"use image or container pruning explicitly"
+					return 125
+				fi
+				container_engine_run "${_command}" "${args[@]}"
 				return ${?}
 				;;
 			version)
 				if [[ "${args[*]:-}" == *'{{.Client.Version}}'* ]]; then
-					container --version |
+					container_engine_run "${_command}" --version |
 						grep -ow 'version [0-9.]\+' |
 						cut -d' ' -f2-
 				else
-					command container --version
+					container_engine_run "${_command}" --version
 				fi
 				return ${?}
 				;;
@@ -2679,15 +2898,28 @@ then
 				subcommand="${args[1]:-list}"
 				case "${subcommand}" in
 					rm|delete)
-						command container image delete "${args[@]:2}"
+						container_engine_run "${_command}" image delete "${args[@]:2}"
 						return ${?}
 						;;
-					inspect|tag|pull|push|save|load|prune)
-						command container image "${subcommand}" "${args[@]:2}"
+					prune)
+						local -a prune_args=()
+						for arg in "${args[@]:2}"; do
+							case "${arg}" in
+								-f|--force) : ;;
+								*) prune_args+=( "${arg}" ) ;;
+							esac
+						done
+						container_engine_run "${_command}" image prune \
+							"${prune_args[@]}"
+						return ${?}
+						;;
+					inspect|tag|pull|push|save|load)
+						container_engine_run "${_command}" image "${subcommand}" \
+							"${args[@]:2}"
 						return ${?}
 						;;
 					*)
-						command container image "${args[@]:1}"
+						container_engine_run "${_command}" image "${args[@]:1}"
 						return ${?}
 						;;
 				esac
@@ -2703,25 +2935,28 @@ then
 								*) delete_args+=( "${arg}" ) ;;
 							esac
 						done
-						command container delete "${delete_args[@]}"
+						container_engine_run "${_command}" delete "${delete_args[@]}"
 						return ${?}
 						;;
 					stop)
-						command container stop "${args[@]:2}"
+						container_engine_run "${_command}" stop "${args[@]:2}"
 						return ${?}
 						;;
 					inspect)
 						if [[ "${args[*]:2}" == *'--format='* || "${args[*]:2}" == *'--format '* ]]; then
 							return 1
 						fi
-						command container inspect "${args[@]:2}"
+						container_engine_run "${_command}" inspect "${args[@]:2}"
 						return ${?}
 						;;
 					exists)
 						local inspect_json=''
 						for arg in "${args[@]:2}"; do
 							[[ "${arg}" == --* ]] && continue
-							inspect_json="$( command container inspect "${arg}" 2>/dev/null )" ||
+							inspect_json="$(
+								container_engine_run "${_command}" inspect \
+									"${arg}" 2>/dev/null
+							)" ||
 								return 1
 							jq -e 'if type == "array" then length > 0 else . != null and . != {} end' \
 									<<<"${inspect_json}" >/dev/null ||
@@ -2734,19 +2969,20 @@ then
 						return 125
 						;;
 					*)
-						command container "${subcommand}" "${args[@]:2}"
+						container_engine_run "${_command}" "${subcommand}" \
+							"${args[@]:2}"
 						return ${?}
 						;;
 				esac
 				;;
 			rm|delete|inspect|stop|start|exec|logs|stats|export|create)
-				command container "${args[@]}"
+				container_engine_run "${_command}" "${args[@]}"
 				return ${?}
 				;;
 			*)
 				if [[ -n "${args[*]:-}" ]]; then
 					print "Filtered command: '${args[*]:-}'"
-					command container "${args[@]}"
+					container_engine_run "${_command}" "${args[@]}"
 				else
 					return 1
 				fi
@@ -2755,24 +2991,17 @@ then
 	}  # container
 	export -f docker
 
-	#extra_build_args=''
-	docker_readonly='readonly'
-elif type -pf podman >/dev/null 2>&1; then
-	_command='podman'
+elif [[ "${_container_engine:-}" == 'podman' ]]; then
 	docker() {
 		if [[ -n "${debug:-}" ]] && (( debug > 1 )); then
 			# FIXME: 'trace' isn't available in old (pre-4.x?) releases of
 			#        podman...
 			set -- --log-level trace ${@+"${@}"}
 		fi
-		podman ${@+"${@}"}
+		container_engine_run "${_command}" ${@+"${@}"}
 	}  # docker
 	export -f docker
-
-	#extra_build_args='--format docker'
-	# From release 2.0.0, podman should accept docker 'readonly' attributes
-	docker_readonly='ro=true'
-elif type -pf docker >/dev/null 2>&1; then
+elif [[ "${_container_engine:-}" == 'docker' ]]; then
 	# More subtle differences between `docker` and `podman`:
 	#
 	#  * docker does not support podman's `--noheading` option - the same could
@@ -2786,7 +3015,6 @@ elif type -pf docker >/dev/null 2>&1; then
 	#
 	# [1] https://docs.docker.com/config/formatting/
 	#
-	_command='docker'
 	docker() {
 		if [[ "${1:-}" == 'container' && "${2:-}" == 'exists' ]]; then
 			local -a inspect_args=()
@@ -2795,7 +3023,7 @@ elif type -pf docker >/dev/null 2>&1; then
 				[[ "${arg}" == '--external' ]] || inspect_args+=( "${arg}" )
 			done
 			[[ -n "${inspect_args[*]:-}" ]] || return 1
-			$( which "${_command}" ) container inspect \
+			container_engine_run "${_command}" container inspect \
 				"${inspect_args[@]}" >/dev/null 2>&1
 		elif [[ " ${*:-} " == *" --noheading "* ]]; then
 			local -a filtered=()
@@ -2817,27 +3045,20 @@ elif type -pf docker >/dev/null 2>&1; then
 				esac
 			done
 			if (( formatted )); then
-				$( which "${_command}" ) "${filtered[@]}"
+				container_engine_run "${_command}" "${filtered[@]}"
 			else
-				$( which "${_command}" ) "${filtered[@]}" | tail -n +2
+				container_engine_run "${_command}" "${filtered[@]}" | tail -n +2
 			fi
 		else
-			$( which "${_command}" ) ${@+"${@}"}
+			container_engine_run "${_command}" ${@+"${@}"}
 		fi
 	}  # docker
 	export -f docker
 
-	#extra_build_args=''
-	docker_readonly='readonly'
 else
-	if [[ "$( uname -s )" == 'Darwin' ]]; then
-		die "Cannot find 'container', 'docker' or 'podman' executable in" \
-			"path in common/run.sh"
-	else
-		die "Cannot find 'docker' or 'podman' executable in path in" \
-			"common/run.sh"
-	fi
+	die "Container engine resolution is missing or invalid in common/run.sh"
 fi
+export -f container_engine_run
 export _command docker_readonly  # extra_build_args
 
 # vi: set colorcolumn=80 foldmarker=()\ {,}\ \ #\  foldmethod=marker sw=4 ts=4 syntax=bash noexpandtab nowrap:

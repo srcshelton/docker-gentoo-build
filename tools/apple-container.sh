@@ -2,10 +2,12 @@
 
 set -eu
 
+[ -z "${TRACE:-}" ] || set -x
+
 LC_ALL='C'
 export LC_ALL
 
-APPLE_CONTAINER_MIN_VERSION='1.0.0'
+APPLE_CONTAINER_MIN_VERSION='1.3.0'
 APPLE_CONTAINER_STOP_MINIMUM=25
 APPLE_CONTAINER_START_MINIMUM=60
 
@@ -23,6 +25,10 @@ RESET_REQUIRED_DIRECTORIES='apiserver containers content kernels networks '\
 RESET_REQUIRED_FILES='apiserver/apiserver.plist state.json'
 
 script_name="${0##*"/"}"
+script_dir="$( CDPATH='' cd -P "$( dirname "${0}" )" && pwd )" || exit 1
+# shellcheck disable=SC1091
+. "${script_dir}/../common/container-engine-helpers.sh"
+unset script_dir
 mode='restart'
 mode_set=0
 force=0
@@ -106,7 +112,8 @@ Environment:
   CONTAINER_APP_ROOT
   CONTAINER_INSTALL_ROOT
   CONTAINER_LOG_ROOT
-  TRACE
+  VERBOSE                  Show every Apple container command
+  TRACE                    Enable shell tracing when non-empty
 
 Command-line values override environment values. The native Apple root
 environment variables are translated into system-start options as needed.
@@ -257,15 +264,6 @@ if [ "${mode}" = 'reset' ] && [ $(( force )) -eq 0 ]; then
 	die 'Option --reset requires --force'
 fi
 
-case "${TRACE:-"0"}" in
-	''|'0'|'false'|'no')
-		: ;;
-	'1'|'true'|'yes')
-		set -x ;;
-	*)
-		die 'TRACE must be one of 0, 1, false, no, true, or yes' ;;
-esac
-
 if [ "$( /usr/bin/uname -s )" != 'Darwin' ]; then
 	die 'This script requires macOS'
 fi
@@ -323,9 +321,9 @@ container_cli() {
 		return 2
 	fi
 	if [ $(( container_debug_option )) -ne 0 ]; then
-		command "${container_binary}" --debug "${@}"
+		container_engine_run "${container_binary}" --debug "${@}"
 	else
-		command "${container_binary}" "${@}"
+		container_engine_run "${container_binary}" "${@}"
 	fi
 }
 

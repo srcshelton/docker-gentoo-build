@@ -11,7 +11,12 @@ fi
 debug=${DEBUG:-}
 trace=${TRACE:-}
 
-cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+[ -z "${trace}" ] || set -o xtrace
+
+cd "$( dirname "$( realpath "${0}" )" )" || exit 1
+
+# shellcheck disable=SC1091
+. ./common/container-engine-helpers.sh
 
 utils_basedir='.'
 # FIXME: Don't hard-code directory name...
@@ -31,11 +36,6 @@ do
 	fi
 done
 unset script
-
-_command='docker'
-if command -v podman >/dev/null 2>&1; then
-	_command='podman'
-fi
 
 # Allow a separate image directory for persistent images...
 #tmp="$( # <- Syntax
@@ -86,34 +86,10 @@ case " ${*:-} " in
 			'[--exclude="<pkg ...>"]]'
 		echo >&2
 		echo >&2 "       kernel build options: kbuild_opt='${kbuild_opt}'"
+		container_engine_help >&2
 		exit 0
 		;;
 esac
-
-_output=''
-rc=0
-if ! [ -x "$( command -v "${_command}" )" ]; then
-	echo >&2 "FATAL: Cannot locate binary '${_command}'"
-	exit 1
-elif ! _output="$( "${_command}" info 2>&1 )"; then
-	"${_command}" info 2>&1 || rc=${?}
-	if [ "${_command}" = 'podman' ]; then
-		echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
-			"(${rc}) - do you need to run '${_command} machine start' or" \
-			"re-run '$( basename "${0}" )' as 'root'?"
-	else
-		echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
-			"(${rc}) - do you need to re-run '$( basename "${0}" )' as 'root'?"
-	fi
-	exit 1
-elif [ "$( uname -s )" != 'Darwin' ] &&
-		[ $(( $( id -u ) )) -ne 0 ] &&
-		echo "${_output}" | grep -Fq -- 'rootless: false'
-then
-	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
-	exit 1
-fi
-unset _output
 
 for arg in ${@+"${@}"}; do
 	case "${arg:-}" in
@@ -170,6 +146,14 @@ if [ $(( haveargs )) -eq 0 ]; then
 	# For safety
 	pretend=1
 fi
+
+# Resolve one engine before inspecting images or starting child scripts.  The
+# exported resolution prevents automatic selection from changing mid-run as
+# this script creates newer images.
+#
+# shellcheck disable=SC1091
+. ./common/vars.sh
+
 if [ $(( rebuildimgs )) -ne 1 ]; then
 	if [ $(( skip )) -eq 1 ]; then
 		echo >&2 "WARN:  Option '--skip-build' is only valid with" \
@@ -187,7 +171,8 @@ if [ $(( rebuildimgs )) -ne 1 ]; then
 	fi
 else  # if [ $(( rebuildimgs )) -eq 1 ]; then
 	if [ $(( skip )) -eq 1 ]; then
-		if [ "$( "${_command}" image ls -n 'localhost/gentoo-build' | wc -l )" = '0' ]
+		if ! container_engine_run "${_command}" image inspect \
+				"${build_name}:${override_tag}" >/dev/null 2>&1
 		then
 			echo >&2 "WARN:  Option '--skip-build' is only valid with a" \
 				"pre-existing 'build' image"
@@ -208,15 +193,6 @@ then
 	unset exclude
 fi
 
-# We should now include common/vars.sh unconditionally - it might slow startup,
-# but for the most part, this script will be doing significant heavy-lifting in
-# any case...
-#
-# shellcheck disable=SC1091
-. ./common/vars.sh
-
-[ -z "${trace:-}" ] || set -o xtrace
-
 export TRACE="${CTRACE:-}" # Optinally enable child tracing
 
 if [ "${rebuildutils:-"0"}" = '1' ]; then
@@ -231,7 +207,8 @@ if [ "${rebuildutils:-"0"}" = '1' ]; then
 			exit 1
 		fi
 
-		if [ "$( "${_command}" image ls -n 'localhost/dell-dsu' | wc -l )" = 0 ]
+			if ! container_engine_run "${_command}" image inspect \
+				'localhost/dell-dsu:latest' >/dev/null 2>&1
 		then
 			"${utils_basedir}"/docker-dell/dell.docker --dsu \
 					${IMAGE_ROOT:+"--root"} ${IMAGE_ROOT:+"${IMAGE_ROOT}"} \
@@ -239,7 +216,8 @@ if [ "${rebuildutils:-"0"}" = '1' ]; then
 			# shellcheck disable=SC3044
 			disown 2>/dev/null || :  # doesn't exist in POSIX sh :(
 		fi
-		if [ "$( "${_command}" image ls -n 'localhost/dell-ism' | wc -l )" = 0 ]
+			if ! container_engine_run "${_command}" image inspect \
+				'localhost/dell-ism:latest' >/dev/null 2>&1
 		then
 			"${utils_basedir}"/docker-dell/dell.docker --ism \
 					${IMAGE_ROOT:+"--root"} ${IMAGE_ROOT:+"${IMAGE_ROOT}"} \
@@ -495,17 +473,28 @@ if [ "${pkgcache:-"0"}" = '1' ]; then  # {
 		} | tee "${log_dir}"/buildpkg.init.log
 
 		for image in 'localhost/gentoo-stage3' 'localhost/gentoo-init'; do
-			if [ "$( "${_command}" image ls -n "${image}" | wc -l )" = '0' ]
+			if container_engine_run "${_command}" image inspect \
+					"${image}:${override_tag}" >/dev/null 2>&1
 			then
 				# shellcheck disable=SC2154
-				eval "$( # <- Syntax
-					"${_command}" container run \
-							--rm \
-							--entrypoint /bin/sh \
-							--name 'buildpkg.stage3_flags.read' \
-							--network none \
-						"${image}" -c "cat ${stage3_flags_file}"
-				)"
+				if [ "${_container_engine}" = 'container' ]; then
+					eval "$( # <- Syntax
+						container_engine_run "${_command}" run \
+								--rm \
+								--entrypoint /bin/sh \
+								--name 'buildpkg.stage3_flags.read' \
+							"${image}" -c "cat ${stage3_flags_file}"
+					)"
+				else
+					eval "$( # <- Syntax
+						container_engine_run "${_command}" container run \
+								--rm \
+								--entrypoint /bin/sh \
+								--name 'buildpkg.stage3_flags.read' \
+								--network none \
+							"${image}" -c "cat ${stage3_flags_file}"
+					)"
+				fi
 				if [ -n "${STAGE3_USE:-}" ]; then
 					# Add 'symlink' USE flag to ensure that /usr/src/linux is
 					# updated;
@@ -887,9 +876,17 @@ if [ "${update:-"0"}" = '1' ]; then  # {
 	failures="${failures:+"${failures} "}gentoo-build-pkg;hostpkgs:${err}"
 
 	trap '' INT
-	"${_command}" container ps -a |
+	if [ "${_container_engine}" = 'container' ]; then
+		container_engine_run "${_command}" list --all |
 			grep -qw -- 'buildpkg.hostpkgs.update$' &&
-		"${_command}" container rm --volumes 'buildpkg.hostpkgs.update'
+			container_engine_run "${_command}" delete \
+				'buildpkg.hostpkgs.update'
+	else
+		container_engine_run "${_command}" container ps -a |
+			grep -qw -- 'buildpkg.hostpkgs.update$' &&
+			container_engine_run "${_command}" container rm --volumes \
+				'buildpkg.hostpkgs.update'
+	fi
 	trap - INT
 
 	if [ $(( rc )) -eq 0 ]; then
@@ -934,9 +931,17 @@ if [ "${update:-"0"}" = '1' ]; then  # {
 		failures="${failures:+"${failures} "}gentoo-build-pkg;gcc:${err}"
 
 		trap '' INT
-		"${_command}" container ps -a |
+		if [ "${_container_engine}" = 'container' ]; then
+			container_engine_run "${_command}" list --all |
 				grep -qw -- 'buildpkg.hostpkgs.gcc.update$' &&
-			"${_command}" container rm --volumes 'buildpkg.hostpkgs.gcc.update'
+				container_engine_run "${_command}" delete \
+					'buildpkg.hostpkgs.gcc.update'
+		else
+			container_engine_run "${_command}" container ps -a |
+				grep -qw -- 'buildpkg.hostpkgs.gcc.update$' &&
+				container_engine_run "${_command}" container rm --volumes \
+					'buildpkg.hostpkgs.gcc.update'
+		fi
 		trap - INT
 	fi
 fi  # } [ "${update:-"0"}" = '1' ]

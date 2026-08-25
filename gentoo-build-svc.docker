@@ -7,9 +7,9 @@ declare debug="${DEBUG:-}"
 set -eu
 set -o pipefail
 
-cd "$( dirname "$( realpath -e "${0}" )" )" || exit 1
+cd "$( dirname "$( realpath "${0}" )" )" || exit 1
 
-#(( trace )) && set -o xtrace
+[[ -z "${trace}" ]] || set -o xtrace
 
 # Set by common/vars.sh, sourced below...
 #
@@ -73,7 +73,7 @@ select_file() {
 	[[ -n "${file:-}" ]] || return 1
 	[[ -n "${docker_version:-}" ]] || return 1
 
-	if [[ "${_command:-}" == 'podman' ]] && [[ "$( # <- Syntax
+	if [[ "${_container_engine:-}" == 'podman' ]] && [[ "$( # <- Syntax
 			printf '%s\n' '4.8.0' "${docker_version}" | sort -V | head -n 1
 		)" == '4.8.0' ]]
 	then
@@ -210,7 +210,7 @@ else
 		[[ -n "${ARCH:-}" ]] || ARCH="${arch:-"${machine}"}"
 
 		# shellcheck disable=SC1091
-		. /etc/portage/make.conf 2>&1
+		[[ ! -r /etc/portage/make.conf ]] || . /etc/portage/make.conf
 		set |
 			grep -F -- 'FLAGS=' |
 			sed 's|^[A-Z_]\+=|\L&| ; s|$|;|' |
@@ -282,7 +282,7 @@ usage() {
 	output >&2 '  tools'
 	output >&2 '  installed'
 	output >&2 '  all'
-	output >&2
+	container_engine_help >&2
 }  # usage
 
 if [[ -z "${*:-}" ]] || grep -Eq -- ' -(h|-help) ' <<<" ${*:-} "; then
@@ -386,8 +386,9 @@ if (( installed )); then
 
 		# Build list based on present images...
 		#
-		docker image list --noheading --sort repository \
+		docker image list --noheading \
 				--format '{{.Repository}}-{{.Tag}}' 'localhost/service.' |
+			sort -k 1,1 |
 			grep -vx -- 'localhost/service.www-servers.web-content-latest' |
 			cut -d'.' -f 3- |
 			sed \
@@ -521,8 +522,6 @@ fi
 #replace_flags() {
 #	# Moved to common/run.sh!
 #}  # replace_flags
-
-[[ -n "${trace:-}" ]] && set -o xtrace
 
 images="$( docker image list --noheading "${IMAGE%":"*}" 2>&1 )"
 if ! grep -Eq -- "^(localhost/)?${IMAGE%":"*}" <<<"${images}"; then
@@ -2069,7 +2068,7 @@ unset docker_extra_mounts
 # shellcheck disable=SC2031 # Set from common/vars.sh
 if [[ -z "${log_dir:-}" ]]; then
 	warn "log_dir not set - using 'log' in repo directory '$( # <- Syntax
-			dirname "$( realpath -e "${0}" )"
+			dirname "$( realpath "${0}" )"
 		)'"
 elif ! [[ -d "${log_dir}" ]]; then
 	warn "Creating new log_dir '${log_dir}' ..."

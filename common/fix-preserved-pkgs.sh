@@ -2,6 +2,8 @@
 
 set -eu
 
+[ -z "${TRACE:-}" ] || set -x
+
 # Fix packages captured by '@preserved-rebuild', and remove the obsolete binary
 # packages we can no longer use...
 

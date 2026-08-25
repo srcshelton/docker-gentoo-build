@@ -2,7 +2,23 @@
 
 set -eu
 
-cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+[[ -z "${TRACE:-}" ]] || set -o xtrace
+
+cd "$( dirname "$( realpath "${0}" )" )/.." || exit 1
+
+# shellcheck disable=SC1091
+. ./common/container-engine-helpers.sh
+
+if [[ " ${*:-} " =~ [[:space:]]-(h|-help)[[:space:]] ]]; then
+	cat <<EOF
+Usage: $( basename "${0}" ) [man arguments...]
+
+Run man-db in this repository's service container. Arguments are passed to
+man inside the container.
+EOF
+	container_engine_help
+	exit 0
+fi
 
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
@@ -12,41 +28,10 @@ cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
 	exit 1
 }
 
-_command='docker'
-if command -v podman >/dev/null 2>&1; then
-	_command='podman'
-fi
-
 # shellcheck disable=SC2034
 declare IMAGE="none"
 # shellcheck disable=SC1091
 [ -s common/run.sh ] && . common/run.sh >/dev/null
-
-_output=''
-if ! [ -x "$( command -v "${_command}" )" ]; then
-	echo >&2 "FATAL: Cannot locate binary '${_command}'"
-	exit 1
-elif ! _output="$( "${_command}" info 2>&1 )"; then
-	if [ "${_command}" = 'podman' ]; then
-		echo >&2 "FATAL: Unable to successfully execute" \
-			"'${_command}' - do you need to run '${_command}" \
-			"machine start' or re-run '$( basename "${0}" )' as" \
-			"'root'?"
-	else
-		echo >&2 "FATAL: Unable to successfully execute" \
-			"'${_command}' - do you need to re-run" \
-			"'$( basename "${0}" )' as 'root'?"
-	fi
-	exit 1
-elif [ "$( uname -s )" != 'Darwin' ] &&
-		[ $(( $( id -u ) )) -ne 0 ] &&
-		echo "${_output}" | grep -Fq -- 'rootless: false'
-then
-	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
-	exit 1
-fi
-unset _output
-
 
 export PODMAN_MEMORY_RESERVATION='32m'
 export PODMAN_MEMORY_LIMIT='64m'
@@ -65,20 +50,38 @@ declare original_page_volume="${page_volume}"
 page_volume="${page_volume}-${package_version}"
 unset package package_version package_name container_name
 
-if (( $( # <- Syntax
-		docker volume ls -n |
-			awk '{print $2}' |
-			grep -c -- "^${original_page_volume}"
-	) > 1 ))
+declare matching_page_volumes=''
+if [[ "${_container_engine}" == 'container' ]]; then
+	matching_page_volumes="$(
+		container_engine_run "${_command}" volume list --format json |
+			jq -r '
+				.[] |
+				.configuration.name //
+				.config.name //
+				.configuration.id //
+				.config.id //
+				.id //
+				empty
+			' |
+			grep -- "^${original_page_volume}" || :
+	)"
+else
+	matching_page_volumes="$(
+		docker volume ls --format '{{.Name}}' |
+			grep -- "^${original_page_volume}" || :
+	)"
+fi
+
+if (( $( printf '%s\n' "${matching_page_volumes}" | grep -c . ) > 1 ))
 then
 	print "Removing old '${original_page_volume}'* volumes ..."
-	# shellcheck disable=SC2154
-	docker volume ls -n |
-		awk '{print $2}' |
-		grep -- "^${original_page_volume}" |
-		xargs -r -- "${_command}" volume rm >/dev/null
+	printf '%s\n' "${matching_page_volumes}" |
+		while IFS= read -r page_volume_old; do
+			[[ -z "${page_volume_old}" ]] ||
+				docker volume rm "${page_volume_old}" >/dev/null
+		done
 fi
-unset original_page_volume
+unset matching_page_volumes original_page_volume page_volume_old
 
 # FIXME: shellcheck wants:
 #
@@ -120,7 +123,7 @@ fi
 # Gather exported data from other created containers ...
 id=''
 for id in $( # <- Syntax
-		podman container ps \
+		docker container ps \
 			--all \
 			--filter 'name=^openrc-' \
 			--filter 'name=^web-' \

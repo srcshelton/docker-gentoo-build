@@ -3,6 +3,7 @@
 set -u
 
 debug="${DEBUG:-"0"}"
+[ -z "${TRACE:-}" ] || set -x
 
 def_repo="$( portageq repositories_configuration / | grep -m 1 '^\[DEFAULT\]$' -A 64 | grep -m 1 '^$' -B 64 | grep -- '^main-repo = ' | cut -d'=' -f 2- | xargs )"
 if [ -z "${def_repo:-}" ]; then

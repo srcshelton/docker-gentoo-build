@@ -11,6 +11,8 @@ set -o pipefail
 declare debug="${DEBUG:-}"
 declare trace="${TRACE:-}"
 
+[[ -z "${trace}" ]] || set -o xtrace
+
 declare ARCH="${1:-arm64}"
 declare SKIP='raspberrypi'
 
@@ -55,8 +57,6 @@ cp "gentoo-base/etc/portage/package.accept_keywords.${ARCH}" "${dest}" ||
 	die "File copy failed: ${?}"
 
 declare -i removed=0
-
-(( trace )) && set -o xtrace
 
 cat "gentoo-base/etc/portage/package.accept_keywords.${ARCH}" |
 	sed 's/#.*$//' |

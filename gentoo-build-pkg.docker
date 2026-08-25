@@ -9,7 +9,7 @@ set -o pipefail
 
 [[ -n "${trace:-}" ]] && set -o xtrace
 
-cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+cd "$( dirname "$( realpath "${0}" )" )" || exit 1
 
 # Set by common/vars.sh, sourced below...
 #
@@ -39,34 +39,9 @@ if [[ -z "${*:-}" || " ${*:-} " =~ \ -(h|-help)\  ]]; then
 		"[--rebuild='<portage_atom ...>'] [--force-keywords] [--cmd=<cmd>]" \
 		"[--entrypoint=<path>] [--memory=2g] [--memory-limit=8g]" \
 		"[--name=<container_name>]"
+	container_engine_help >&2
 	exit 0
 fi
-
-declare _output=''
-# shellcheck disable=SC2154
-if ! [[ -x "$( type -pf "${_command}" )" ]]; then
-	echo >&2 "FATAL: Cannot locate binary '${_command}'"
-	exit 1
-elif ! _output="$( "${_command}" info 2>&1 )"; then
-	if [[ "${_command}" == 'podman' ]]; then
-		echo >&2 "FATAL: Unable to successfully execute" \
-			"'${_command}' - do you need to run '${_command}" \
-			"machine start' or re-run '$( basename "${0}" )' as" \
-			"'root'?"
-	else
-		echo >&2 "FATAL: Unable to successfully execute" \
-			"'${_command}' - do you need to re-run" \
-			"'$( basename "${0}" )' as 'root'?"
-	fi
-	exit 1
-elif [[ "$( uname -s )" != 'Darwin' ]] &&
-		(( EUID )) &&
-		grep -Fq -- 'rootless: false' <<<"${_output}"
-then
-	echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
-	exit 1
-fi
-unset _output
 
 declare -i FORCE_KEYWORDS=0
 declare -i PODMAN_MEMORY_RESERVATION=0

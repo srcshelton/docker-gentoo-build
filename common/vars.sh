@@ -1,67 +1,26 @@
 #! /bin/sh
 # shellcheck disable=SC2034
 
-# Are we using docker or podman?
-#
-# N.B. This is overridden if/when common/run.sh is included
-#
-if [ -z "${_command:-}" ]; then
-	if [ "$( uname -s )" = 'Darwin' ] && command -v container >/dev/null 2>&1
-	then
-		_command='container'
-
-		#extra_build_args=''
-		docker_readonly='readonly'
-	elif command -v podman >/dev/null 2>&1; then
-		_command='podman'
-
-		#extra_build_args='--format docker'
-		# From release 2.0.0, podman should accept docker 'readonly'
-		# attributes
-		docker_readonly='ro=true'
-	elif command -v docker >/dev/null 2>&1; then
-		_command='docker'
-
-		#extra_build_args=''
-		docker_readonly='readonly'
-	else
-		echo >&2 "FATAL: Cannot find 'docker' or 'podman' executable in path" \
-			"while sourcing common/vars.sh"
+if ! command -v container_engine_help >/dev/null 2>&1 ||
+		! command -v container_engine_run >/dev/null 2>&1
+then
+	if ! [ -s ./common/container-engine-helpers.sh ]; then
+		echo >&2 "FATAL: Cannot locate 'common/container-engine-helpers.sh'"
 		exit 1
 	fi
-	export _command docker_readonly
+	# shellcheck disable=SC1091
+	. ./common/container-engine-helpers.sh
 fi
 
-APPLE_CONTAINER_MIN_VERSION='1.0.0'
-if [ "${_command}" = 'container' ]; then
-	_container_version_output="$( command container --version 2>/dev/null || : )"
-	_container_version="$(
-		printf '%s\n' "${_container_version_output}" |
-			sed -n 's/.* version \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'
-	)"
-	if [ -z "${_container_version}" ]; then
-		echo >&2 "WARN:  Unable to determine Apple 'container' version from" \
-			"'${_container_version_output:-unknown output}'; minimum supported" \
-			"version is ${APPLE_CONTAINER_MIN_VERSION}"
-	elif awk \
-			-v installed="${_container_version}" \
-			-v minimum="${APPLE_CONTAINER_MIN_VERSION}" '
-			function number(version, fields) {
-				split(version, fields, ".")
-				return (fields[1] * 1000000) + (fields[2] * 1000) + fields[3]
-			}
-			BEGIN { exit !(number(installed) < number(minimum)) }
-		' </dev/null
-	then
-		echo >&2 "FATAL: Apple 'container' ${_container_version} is unsupported;" \
-			"version ${APPLE_CONTAINER_MIN_VERSION} or later is required"
-		echo >&2 "       Please upgrade Apple 'container' to" \
-			"${APPLE_CONTAINER_MIN_VERSION} or later"
-		exit 1
-	fi
-	unset _container_version _container_version_output
-fi
-export APPLE_CONTAINER_MIN_VERSION
+APPLE_CONTAINER_MIN_VERSION='1.3.0'
+PODMAN_MIN_VERSION='3.4.4'
+PODMAN_MACOS_MIN_VERSION='4.0.3'
+CRUN_MIN_VERSION='1.0.0'
+DOCKER_MIN_VERSION='18.06.0'
+DOCKER_MIN_API_VERSION='1.38'
+export APPLE_CONTAINER_MIN_VERSION PODMAN_MIN_VERSION
+export PODMAN_MACOS_MIN_VERSION CRUN_MIN_VERSION
+export DOCKER_MIN_VERSION DOCKER_MIN_API_VERSION
 
 # Guard to ensure that we don't accidentally reset the values below through
 # multiple inclusion - 'unset __COMMON_VARS_INCLUDED' if this is explcitly
@@ -69,87 +28,6 @@ export APPLE_CONTAINER_MIN_VERSION
 #
 if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	export __COMMON_VARS_INCLUDED=1
-
-	# Since we're now using '${_command} system info' to determine the
-	# graphRoot directory, we need to be root solely to setup the environment
-	# appropriately :(
-	#
-	_graphroot=''
-	_output=''
-	_rc=0
-	if [ -n "${BASH_VERSION:-}" ]; then
-		# common/run.sh defines a docker() compatibility function.  When this
-		# file is sourced again, `command -v docker` therefore returns the
-		# function name rather than the underlying executable path.
-		_command_path="$( type -P "${_command}" 2>/dev/null || : )"
-	else
-		_command_path="$( command -v "${_command}" 2>/dev/null || : )"
-	fi
-	if ! [ -x "${_command_path}" ]; then
-		echo >&2 "FATAL: Cannot locate binary '${_command}'"
-		exit 1
-	elif [ "${_command}" = 'container' ]; then
-		if ! _output="$( "${_command}" system status 2>&1 )"; then
-			# macOS 'container' has a 'system status' command, but not
-			# 'system info'
-			_rc=${?}
-			echo >&2 "${_output:-"FATAL: Unknown error"}"
-			echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
-				"(${_rc}) - do you need to run '${_command} system start'?"
-			exit 1
-		fi
-	elif ! _output="$( "${_command}" system info 2>&1 )"; then
-		_rc=${?}
-		echo >&2 "${_output:-"FATAL: Unknown error"}"
-		if [ "${_command}" = 'podman' ]; then
-			echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
-				"(${_rc}) - do you need to run '${_command} machine start'" \
-				"or re-run '$( basename "${0}" )' as 'root'?"
-		else
-			echo >&2 "FATAL: Unable to successfully execute '${_command}'" \
-				"(${_rc}) - do you need to re-run '$( basename "${0}" )'" \
-				"as 'root'?"
-		fi
-		exit 1
-	elif [ "$( uname -s )" != 'Darwin' ] &&
-			[ $(( $( id -u ) )) -ne 0 ] &&
-			echo "${_output}" | grep -Fq -- 'rootless: false'
-	then
-		echo >&2 "FATAL: Please re-run '$( basename "${0}")' as user 'root'"
-		exit 1
-	fi
-	_graphroot="$( # <- Syntax
-			echo "${_output}" |
-				grep -E -- '(graphRoot|Docker Root Dir):' |
-				cut -d':' -f 2- |
-				awk '{print $1}'
-		)" || :
-
-	# Optional override to specify alternative build-only temporary
-	# directory...
-	#
-	# N.B. If 'pam_mktemp.so' is in-use then there will always be a set 'TMP'
-	#      and 'TMPDIR' in the environment.
-	#
-	if [ "$( uname -s )" != 'Darwin' ]; then
-		if [ -n "${PODMAN_TMPDIR:-}" ]; then
-			[ -z "${debug:-}" ] ||
-				echo >&2 "DEBUG: Setting PODMAN_TMPDIR ('${PODMAN_TMPDIR}')" \
-					"as temporary directory ..."
-		else
-			if [ -z "${_graphroot:-}" ]; then
-				echo >&2 "FATAL: Cannot determine ${_command} root directory"
-				exit 1
-			fi
-		fi
-
-		_tmp="${PODMAN_TMPDIR:-"${_graphroot}"}/tmp"
-		mkdir -p "${_tmp:="/var/lib/containers/storage/tmp"}"
-		export TMPDIR="${_tmp}"
-		export TMP="${_tmp}"
-		unset _tmp
-	fi
-	unset _rc _output _graphroot _command_path
 
 	# Alerting options...
 	#
@@ -929,6 +807,49 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	elif [ -s ./common/local.sh ]; then
 		# shellcheck disable=SC1091
 		. ./common/local.sh
+	fi
+
+	# Resolve the engine only after local overrides have established the image
+	# names and tag used to compare existing pipelines.
+	#
+	if ! [ -s ./common/container-engine.sh ]; then
+		echo >&2 "FATAL: Cannot locate 'common/container-engine.sh'"
+		exit 1
+	fi
+	# shellcheck disable=SC1091
+	. ./common/container-engine.sh
+
+	# Set the engine's build-only temporary directory.  Apple 'container' does
+	# not expose Docker/Podman-style storage information and does not need this
+	# override.
+	#
+	if [ "$( uname -s )" != 'Darwin' ]; then
+		_graphroot=''
+		_output="$(
+			container_engine_run "${_command}" system info 2>/dev/null
+		)" || :
+		_graphroot="$(
+			printf '%s\n' "${_output}" |
+				grep -E -- '(graphRoot|Docker Root Dir):' |
+				cut -d':' -f 2- |
+				awk '{print $1}'
+		)" || :
+
+		if [ -n "${PODMAN_TMPDIR:-}" ]; then
+			[ -z "${debug:-}" ] ||
+				echo >&2 "DEBUG: Setting PODMAN_TMPDIR ('${PODMAN_TMPDIR}')" \
+					"as temporary directory ..."
+		elif [ -z "${_graphroot:-}" ]; then
+			echo >&2 "FATAL: Cannot determine ${_container_engine} root" \
+				"directory"
+			exit 1
+		fi
+
+		_tmp="${PODMAN_TMPDIR:-"${_graphroot}"}/tmp"
+		mkdir -p "${_tmp:="/var/lib/containers/storage/tmp"}"
+		export TMPDIR="${_tmp}"
+		export TMP="${_tmp}"
+		unset _graphroot _output _tmp
 	fi
 fi
 

@@ -2,7 +2,23 @@
 
 set -eu
 
-cd "$( dirname "$( readlink -e "${0}" )" )" || exit 1
+[[ -z "${TRACE:-}" ]] || set -o xtrace
+
+cd "$( dirname "$( realpath "${0}" )" )/.." || exit 1
+
+# shellcheck disable=SC1091
+. ./common/container-engine-helpers.sh
+
+if [[ " ${*:-} " =~ [[:space:]]-(h|-help)[[:space:]] ]]; then
+	cat <<EOF
+Usage: $( basename "${0}" ) [powertop arguments...]
+
+Run powertop in this repository's privileged service container. Arguments are
+passed to powertop inside the container.
+EOF
+	container_engine_help
+	exit 0
+fi
 
 # shellcheck disable=SC1091
 [ ! -s common/vars.sh ] || . common/vars.sh
