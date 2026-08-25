@@ -1,17 +1,18 @@
 
 #							~amd64 ~arm ~arm64 ~x86
 
-~sys-kernel/gentoo-sources-5.10.258			~amd64             ~x86
+#~sys-kernel/gentoo-sources-5.10.258			~amd64             ~x86
 
-~sys-kernel/gentoo-sources-5.15.209			~amd64 ~arm ~arm64 ~x86
+#~sys-kernel/gentoo-sources-5.15.209			~amd64 ~arm ~arm64 ~x86
 
-# Current stable package is gentoo-sources-6.1.174-r1
-~sys-kernel/gentoo-sources-6.1.175			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-6.1.180
+~sys-kernel/gentoo-sources-6.1.182			~amd64 ~arm ~arm64 ~x86
 
-# Current stable package is gentoo-sources-6.6.141-r1
-~sys-kernel/gentoo-sources-6.6.142			~amd64 ~arm ~arm64 ~x86
+# Current stable package is gentoo-sources-6.6.147
+~sys-kernel/gentoo-sources-6.6.151			~amd64 ~arm ~arm64 ~x86
 
-# Current stable package is gentoo-sources-6.12.93-r1
+# Current stable package is gentoo-sources-6.12.100
+~sys-kernel/gentoo-sources-6.12.103			~amd64 ~arm ~arm64 ~x86
 
 # Clear Linux is up to date with linux-6.15.5
 # https://www.phoronix.com/news/Intel-Ends-Clear-Linux
@@ -24,22 +25,22 @@
 ~sys-kernel/linux-headers-6.18				~amd64 ~arm ~arm64 ~x86
 ~sys-kernel/raspberrypi-headers-6.18			       ~arm ~arm64
 
-# Current stable package is gentoo-sources-6.18.35-r1
+# Current stable package is gentoo-sources-6.18.41
 ~sys-kernel/cix-sources-6.18.44				       ~arm ~arm64
 ~sys-kernel/gentoo-sources-6.18.44			~amd64 ~arm ~arm64 ~x86
-
-~sys-kernel/cix-headers-7.0				       ~arm ~arm64
-
-# Latest is gentoo-sources-7.0.14-r1
-~sys-kernel/cix-sources-7.0.14-r1			       ~arm ~arm64
-~sys-kernel/gentoo-sources-7.0.14-r1			~amd64 ~arm ~arm64 ~x86
 
 ~sys-kernel/cix-headers-7.1				       ~arm ~arm64
 
 # Latest is gentoo-sources-7.1.8
 ~sys-kernel/cix-sources-7.1.8				       ~arm ~arm64
 ~sys-kernel/gentoo-sources-7.1.8			~amd64 ~arm ~arm64 ~x86
-~sys-kernel/vanilla-sources-7.1.8			~amd64 ~arm ~arm64 ~x86
+
+~sys-kernel/cix-headers-7.2				       ~arm ~arm64
+
+# Latest is gentoo-sources-7.2.0
+~sys-kernel/cix-sources-7.2.0				~amd64 ~arm ~arm64 ~x86
+~sys-kernel/gentoo-sources-7.2.0			~amd64 ~arm ~arm64 ~x86
+~sys-kernel/vanilla-sources-7.2.0			~amd64 ~arm ~arm64 ~x86
 
 ~dev-util/pahole-1.31					~amd64 ~arm ~arm64 ~x86
 
@@ -86,6 +87,8 @@ dev-lang/rust-bin:1.79.0				~amd64
 dev-lang/rust:1.85.0					~amd64
 dev-lang/rust-bin:1.85.0				~amd64
 ~dev-util/bindgen-0.71.1				~amd64
+# 7.2.x s390
+dev-lang/rust:1.96.0					~s390
 
 # Additional kernel-modules...
 ~net-firewall/xtables-addons-3.27			       ~arm ~arm64
