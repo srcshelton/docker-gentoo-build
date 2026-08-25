@@ -341,7 +341,7 @@ get_stage3() {
 					;;
 		esac
 		# net-mail/dovecot now depends on dev-libs/libpcre2[pcre32]...
-		get_exclude="${get_exclude:-}cpudetection|egrep-fgrep|ensurepip|hostname|installkernel|kill|pcre16|pcre32|pop3|qmanifest|qtegrity|smartcard|su|test-rust|tmpfiles|tofu"
+		get_exclude="${get_exclude:-}cpudetection|doc|egrep-fgrep|ensurepip|hostname|installkernel|kill|pcre16|pcre32|pop3|qmanifest|qtegrity|smartcard|su|test-rust|tmpfiles|tofu"
 		get_result="$( # <- Syntax
 				echo "${get_result}" |
 					xargs -rn 1 |
@@ -3060,11 +3060,17 @@ do
 
 		case "${pkg}" in
 			'dev-libs/libxml2')
-				# Don't install previous versions of python...
+				# Don't install previous versions of python or other
+				# unnecessary pre-requisites.  N.B. USE='doc' should now be
+				# filtered by get_stage3(), but the number of dev-texlive/*
+				# packages pulled-in if this stays enabled is so large that we
+				# will re-iterate the USE flag here to try to be certain...
 				#
 				# FIXME: Remove hard-coding of previous python targets
+				# FIXME: Older python versions should now be masked...
 				#
-				USE="${USE} -lzma -python_targets_python3_10 -python_targets_python3_11 -python_targets_python3_12"
+				#USE="${USE} -doc -lzma -python_targets_python3_10 -python_targets_python3_11 -python_targets_python3_12 -python_targets_python3_13"
+				USE="${USE} -doc -lzma"
 				;;
 			'sys-devel/gcc')
 				USE="${USE} -nls"
