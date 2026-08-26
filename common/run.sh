@@ -1820,10 +1820,8 @@ _docker_run() {
 
 		if [[ -n "${BUILD_CONTAINER:-}" ]]; then
 			portage_log_dir="${PORTAGE_LOGDIR:-"${PORT_LOGDIR:-"$( # <- Syntax
-					emerge --info 2>&1 |
-						grep -E -- '^PORT(AGE)?_LOGDIR=' |
-						head -n 1 |
-						cut -d'"' -f 2 || :
+					command -v portageq >/dev/null 2>&1 &&
+						portageq envvar PORTAGE_LOGDIR 2>/dev/null || :
 				)"}"}"
 			mirrormountpoints=(
 				#/var/cache/portage/dist

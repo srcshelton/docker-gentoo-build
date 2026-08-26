@@ -86,10 +86,8 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	# mostly portage build-logs (by volume).
 	#
 	portage_log_dir="${PORTAGE_LOGDIR:-"${PORT_LOGDIR:-"$( # <- Syntax
-			emerge --info 2>&1 |
-				grep -E -- '^PORT(AGE)?_LOGDIR=' |
-				head -n 1 |
-				cut -d'"' -f 2 || :
+			command -v portageq >/dev/null 2>&1 &&
+				portageq envvar PORTAGE_LOGDIR 2>/dev/null || :
 		)"}"}"
 	log_dir="${portage_log_dir:-"/var/log/portage"}/containers"
 	unset portage_log_dir
@@ -184,10 +182,20 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#
 	use_cpu_arch='' use_cpu_flags='' use_cpu_flags_raw=''
 	target_cpu='' machine_arch=''
-	cc_target_opts='-march=native' rust_target_opts=''
-	description='' vendor='' rpi_model=''
+	cc_target_opts='' rust_target_opts=''
+	compiler_family='gcc' cpu_target_source='model'
+	cpu_exposed_features='' cpu_detected_use_flags=''
+	cpu_target_baseline_flags='' cpu_target_missing=''
+	description='' rpi_model=''
 	# rpi-cm rpi-cm2 rpi-cm3 rpi-cm4s
 	# rpi0 rpi02 rpi2 rpi3 rpi4 rpi400 rpi-cm4 rpi5 rpi-cm5 rpi500
+
+	# shellcheck disable=SC1091
+	. ./common/cpu-target.sh
+	if ! command -v cpu_target_set_generic >/dev/null 2>&1; then
+		echo >&2 "FATAL: Unable to source deterministic CPU-target helpers"
+		exit 1
+	fi
 
 	machine_arch="$( uname -m )"
 	case "${machine_arch:-}" in
@@ -199,11 +207,18 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			;;
 	esac
 
+	cpu_exposed_features="$( cpu_target_proc_features )"
 	if command -v cpuid2cpuflags >/dev/null 2>&1; then
-		use_cpu_flags="$( cpuid2cpuflags | cut -d':' -f 2- )"
+		cpu_detected_use_flags="$( cpuid2cpuflags | cut -d':' -f 2- )"
+	elif [ -n "${use_cpu_arch:-}" ]; then
+		cpu_detected_use_flags="$( # <- Syntax
+			cpu_target_gentoo_flags "${cpu_exposed_features}" \
+				"/var/db/repo/gentoo/profiles/desc/cpu_flags_${use_cpu_arch}.desc"
+		)"
 	fi
 
 	if [ -n "${CPU_OVERRIDE:-}" ]; then
+		cpu_target_source='override'
 		 case "${CPU_OVERRIDE}" in
 			'rpi02'|'Raspberry Pi Zero 2')
 				description='x: Raspberry Pi Zero 2 W x'
@@ -220,7 +235,9 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	else
 		# N.B. 'uname -s' returns 'Linux' in Darwin podman-machine...
 		if [ "$( uname -s )" = 'Darwin' ]; then
-			description="$( sysctl -n machdep.cpu.brand_string )"
+			description="$(
+				sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -m
+			)"
 		elif [ -s /sys/firmware/devicetree/base/model ]; then
 			description="$( # <- Syntax
 				printf ': '
@@ -262,8 +279,9 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 		fi
 	fi
 
-	# Find '-march=native' flags:
-	# diff <(g++ -march=<arch> -Q --help=target --help=params) <(g++ -march=native -Q --help=target --help=params)
+	# These named targets were originally derived by comparing GCC target and
+	# parameter dumps for each processor.  Keep them explicit so builds remain
+	# portable across package-cache users and distributed compiler workers.
 	case "${description:-}" in
 		*': Intel(R) Atom(TM) CPU '*' 330 '*' @ '*)
 			use_cpu_arch='x86'
@@ -545,93 +563,49 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			esac
 			;;
 		*)
+			cpu_target_source='generic'
 			description="$( # <- Syntax
 				echo "${description}" |
 					cut -d':' -f 2- |
 					sed 's/^\s*// ; s/\s*$//'
 			)"
-			vendor="$( # <- Syntax
-				grep -- '^vendor_id' /proc/cpuinfo |
-					tail -n 1 |
-					awk -F': ' '{print $2}'
-			)" || :
-			if [ -z "${vendor:-}" ]; then
-				vendor="$( # <- Syntax
-					grep -- '^CPU implementer' /proc/cpuinfo |
-						tail -n 1 |
-						awk -F': ' '{print $2}'
-				)"
-			fi
-			if [ -r /proc/cpuinfo ]; then
-				case "${vendor}" in
-					GenuineIntel)
-						#echo >&2 "INFO:  Attempting to auto-discover CPU '${description}' capabilities..."
-						use_cpu_arch='x86'
-
-						if
-							[ -f /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc ] &&
-							[ -s /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc ]
-						then
-							use_cpu_flags=''
-
-							# FIXME: Hard-coded /var/db/repo/gentoo...
-							while read -r line; do
-								echo "${line}" |
-										grep -q -- ' - ' ||
-									continue
-
-								flag="$( # <- Syntax
-										echo "${line}" |
-											awk -F' - ' '{print $1}'
-									)"
-								if echo "${line}" |
-										grep -- "^${flag} - " |
-										grep -Fq -- '['
-								then
-									count=2
-									while true; do
-										extra="$( # <- Syntax
-												echo "${line}" |
-													awk -F'[' \
-														"{print \$${count}}" |
-													cut -d']' -f 1
-											)"
-										if [ -n "${extra:-}" ]; then
-											flag="${flag}|${extra}"
-										else
-											break
-										fi
-										: $(( count = count + 1 ))
-									done
-									unset extra count
-								fi
-								use_cpu_flags="${use_cpu_flags:-}$( # <- Syntax
-										grep -E -- '^(Features|flags)' \
-													/proc/cpuinfo |
-												tail -n 1 |
-												awk -F': ' '{print $2}' |
-												grep -Eq -- "${flag}" &&
-											echo " ${flag}" |
-												cut -d'|' -f 1
-									)"
-							done < /var/db/repo/gentoo/profiles/desc/cpu_flags_x86.desc
-
-							use_cpu_flags="${use_cpu_flags#" "}"
-							echo >&2 "INFO:  Auto-discovered CPU feature-flags" \
-								"'${use_cpu_flags}'"
-						fi
-						;;
-				esac
-			fi
-
-			if [ -z "${use_cpu_flags:-}" ]; then
-				echo >&2 "WARN:  Unknown CPU '${description}' and" \
-					"'cpuid2cpuflags' not installed - not enabling" \
-					"model-specific CPU flags"
-			fi
 			;;
 	esac
-	unset vendor description
+
+	if [ "${cpu_target_source}" = 'model' ] &&
+			[ -n "${cpu_exposed_features:-}" ]
+	then
+		cpu_target_missing="$( # <- Syntax
+			cpu_target_missing_features "${cpu_exposed_features}" \
+				"$( cpu_target_required_features \
+					"${target_cpu}" "${cc_target_opts}" \
+					"${use_cpu_flags}" "${use_cpu_arch}" )"
+		)"
+		if [ -n "${cpu_target_missing}" ]; then
+			echo >&2 "WARN:  CPU model '${target_cpu}' requires features" \
+				"'${cpu_target_missing}' which the build runner does not expose;" \
+				"using a portable target"
+			cpu_target_source='generic-masked'
+			target_cpu='' cc_target_opts='' rust_target_opts=''
+			use_cpu_flags=''
+		fi
+	fi
+
+	if [ -z "${target_cpu:-}" ]; then
+		cpu_target_set_generic "${machine_arch}" || exit ${?}
+		use_cpu_flags="$( # <- Syntax
+			cpu_target_normalize_words \
+				"${cpu_target_baseline_flags:-} ${cpu_detected_use_flags:-}"
+		)"
+		echo >&2 "WARN:  CPU '${description:-unknown}' has no safe named" \
+			"build target; using portable compiler target '${cc_target_opts}'" \
+			"and Rust target '${rust_target_opts}'"
+	elif [ -z "${use_cpu_flags:-}" ] &&
+			[ -n "${cpu_detected_use_flags:-}" ]
+	then
+		use_cpu_flags="${cpu_detected_use_flags}"
+	fi
+	unset description cpu_target_baseline_flags cpu_target_missing
 
 	if [ -n "${use_cpu_flags:-}" ]; then
 		use_cpu_flags_raw="${use_cpu_flags}"
@@ -658,8 +632,11 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	unset machine_arch
 
 	export use_cpu_arch use_cpu_flags use_cpu_flags_raw \
-		target_cpu \
-		cc_target_opts rust_target_opts
+		target_cpu compiler_family cpu_target_source \
+		cc_target_opts rust_target_opts cpu_exposed_features
+	echo >&2 "INFO:  Resolved CPU build profile: CPU_FLAGS_${use_cpu_arch:-unknown}='$use_cpu_flags_raw'," \
+		"target_cpu='${target_cpu}', source='${cpu_target_source}'," \
+		"compiler='${cc_target_opts}', rust='${rust_target_opts}'"
 
 	#
 	# End platform-specific variables

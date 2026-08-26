@@ -26,9 +26,28 @@ os_headers_arch_flags='raspberrypi rockchip'
 export arch="${ARCH}"
 unset -v ARCH
 
-portage_kv_cache_root=''
-portage_kv_cache=''
-portage_kv_cache_changed=''
+# Keep the Portage snapshots shell-private: exporting a snapshot would feed its
+# values back into the next Portage query.  Query the complete allowlist in one
+# portageq process because Portage initialisation is expensive on NFS-backed
+# roots, then cache one coherent snapshot for '/' and one for the active target
+# tuple.
+portage_envvar_keys='ABI DEFAULT_ABI ACCEPT_KEYWORDS ACCEPT_LICENSE CFLAGS CXXFLAGS CPPFLAGS CGO_CPPFLAGS CGO_CFLAGS CGO_CXXFLAGS FFLAGS FCFLAGS CGO_FFLAGS LDFLAGS CGO_LDFLAGS FLFLAGS GOFLAGS RUSTFLAGS FEATURES USE PYTHON_SINGLE_TARGET PYTHON_TARGETS ROOT SYSROOT PORTAGE_CONFIGROOT MAKEOPTS EMERGE_DEFAULT_OPTS DISTDIR PKGDIR PORTAGE_TMPDIR PORTAGE_LOGDIR'
+unset portage_env_cache_root portage_env_cache_target \
+	portage_env_cache_root_dirty portage_env_cache_target_dirty \
+	portage_env_cache_root_ROOT portage_env_cache_root_SYSROOT \
+	portage_env_cache_root_PORTAGE_CONFIGROOT \
+	portage_env_cache_target_ROOT portage_env_cache_target_SYSROOT \
+	portage_env_cache_target_PORTAGE_CONFIGROOT
+portage_env_cache_root=''
+portage_env_cache_target=''
+portage_env_cache_root_dirty=1
+portage_env_cache_target_dirty=1
+portage_env_cache_root_ROOT=''
+portage_env_cache_root_SYSROOT=''
+portage_env_cache_root_PORTAGE_CONFIGROOT=''
+portage_env_cache_target_ROOT=''
+portage_env_cache_target_SYSROOT=''
+portage_env_cache_target_PORTAGE_CONFIGROOT=''
 
 output() {
 	# Use in place of 'echo' (or 'printf'?) to explicitly indicate that
@@ -86,45 +105,6 @@ print() {
 		fi
 	fi
 }  # print
-
-
-# POSIX sh doesn't support 'export -f'...
-format_fn_code="$( cat <<'EOF'
-format() {
-	format_spaces='' format_string=''
-
-	# Pad $format_variable to $format_padding trailing spaces
-	#
-	format_variable="${1:-}"
-	format_padding="${2:-"20"}"
-
-	[ -n "${format_variable:-}" ] || return 1
-
-	format_variable="$( # <- Syntax
-			echo "${format_variable}" | xargs -rn 1 | sort -d | xargs -r
-		)"
-	format_spaces="$( printf "%${format_padding}s" )"
-	format_string="%-${format_padding}s= \"%s\"\\n"
-
-	# shellcheck disable=SC2059
-	output "${format_string}" "${format_variable}" "$( # <- Syntax
-			cat - |
-				grep -- "^${format_variable}=" |
-				cut -d'"' -f 2 |
-				sort |
-				uniq |
-				fmt -w $(( ${COLUMNS:-"80"} - ( format_padding + 3 ) )) |
-				sed "s/^/   ${format_spaces}/ ; 1 s/^\s\+//"
-		)"
-
-	unset format_string format_spaces format_padding format_variable
-
-	return 0
-}  # format
-EOF
-)"
-export format_fn_code
-eval "${format_fn_code}"
 
 
 check() {
@@ -398,35 +378,11 @@ get_stage3() {
 }  # get_stage3
 
 setenv() {
-	# Set a portage environment variable and record the change for cache
-	# invalidation purposes...
-	#
-	# In more detail:
-	#
-	# For speed and efficiency purposes, when not passed '--env-only'
-	# get_portage_flags() calls 'emerge --info' once and saves the result since
-	# emerge can be slow.  The output should be the portage defaults overridden
-	# by files from ${SYSROOT}/etc/portage/ and overridden again by values
-	# in the environment - and this is saved once for SYSROOT='/' (or unset)
-	# and once for any other value (as SYSROOT must be either '/' or "${ROOT}")
-	# on the assumption that we're only ever going to see a maximum of one
-	# alternative ROOT in this script (${service_root} set to '/build',
-	# although if ${extra_root} is inadvertantly set to anything other than '/'
-	# then this assumption would break).
-	#
-	# However, this means that as soon as we /change/ any portage variable in
-	# the environment, the cache is stale (when not passed '--env-only') and
-	# get_portage_flags() returns misleading data.
-	#
-	# This could be resolved by liberally scattering calls to
-	# invalidate_get_portage_flags_cache throughout the script (which is bound
-	# to miss cases) - or this approach:
-	#
-	# If all variables affecting portage operation are changed via setenv()
-	# then we can track changes and only invalidate the cache if a changed
-	# variable is referenced (at the cost of some additional overhead in
-	# setenv() to determine whether the changed variable is already on the
-	# invalidation list).
+	# Portage resolves effective values from the current environment.  Once an
+	# exported Portage input changes, either cached root/target snapshot may be
+	# stale, so mark both dirty; the next cached lookup refreshes its scope with
+	# one batched portageq envvar call.  --env-only reads the live shell for that
+	# call and bypasses the snapshots.
 
 	if [ -z "${1:-}" ]; then
 		return 1
@@ -472,36 +428,13 @@ setenv() {
 		print "setenv: ${se_var} value '${se_val}' is unchanged"
 	else
 		export "${se_var}=${*:-}"
-
-		se_val=0
-		if [ -z "${SYSROOT:-"${PORTAGE_CONFIGROOT:-}"}" ] ||
-			[ "${SYSROOT:-"${PORTAGE_CONFIGROOT:-}"}" = '/' ]
-		then
-			if [ -n "${portage_kv_cache_root:+"set"}" ]; then
-				se_val=1
-			fi
-		else
-			if [ -n "${portage_kv_cache:+"set"}" ]; then
-				se_val=1
-			fi
-		fi
-
-		if [ $(( se_val )) -eq 1 ]; then
-			if [ -z "${portage_kv_cache_changed:-}" ]; then
-				portage_kv_cache_changed="${se_var}"
-			elif ! echo "${portage_kv_cache_changed}" |
-					grep -Fqw -- "${se_var}"
-			then
-				portage_kv_cache_changed="${portage_kv_cache_changed} ${se_var}"
-			fi
-		fi
+		invalidate_portage_env_cache
 
 		se_out="$( # <- Syntax
 				eval "echo \"\${${se_var}:-}\"" |
 					xargs -r
 			)"
-		print "setenv: ${se_var} updated to '${se_out:-}'," \
-			"portage_kv_cache_changed is now '${portage_kv_cache_changed}'"
+		print "setenv: ${se_var} updated to '${se_out:-}'"
 	fi
 
 	if [ "${se_var}" = 'PKGDIR' ]; then
@@ -512,185 +445,204 @@ setenv() {
 	unset se_name se_out se_val se_var
 }  # setenv
 
-invalidate_get_portage_flags_cache() {
-	igpfc_root="${1:-}"
-	igpfc_rc=1
+invalidate_portage_env_cache() {
+	portage_env_cache_root_dirty=1
+	portage_env_cache_target_dirty=1
+}  # invalidate_portage_env_cache
 
-	if [ -z "${igpfc_root:-}" ]; then
-		portage_kv_cache_root=''
-		portage_kv_cache=''
-		portage_kv_cache_changed=''
-		igpfc_rc=0
-	elif [ "${igpfc_root}" = '/' ]; then
-		if [ -z "${portage_kv_cache_root:+"set"}" ]; then
-			print "invalidate_get_portage_flags_cache: portage_kv_cache_root" \
-				"not set - nothing to do"
-		else
-			portage_kv_cache_root=''
-			portage_kv_cache_changed=''
-			igpfc_rc=0
-		fi
-	else
-		if [ -z "${portage_kv_cache:+"set"}" ]; then
-			print "invalidate_get_portage_flags_cache: portage_kv_cache not" \
-				"set - nothing to do"
-		else
-			portage_kv_cache=''
-			portage_kv_cache_changed=''
-			igpfc_rc=0
-		fi
-	fi
-	unset igpfc_root
-
-	if [ $(( igpfc_rc )) -eq 0 ]; then
-		unset igpfc_rc
+portage_envvar_key_allowed() {
+	pek_key="${1:-}"
+	case " ${portage_envvar_keys} " in
+		*" ${pek_key} "*)	unset pek_key; return 0 ;;
+	esac
+	if echo "${pek_key}" | grep -Eq -- '^LIBDIR_[A-Za-z0-9_]+$'; then
+		unset pek_key
 		return 0
-	else
-		unset igpfc_rc
-		return 1
 	fi
-}  # invalidate_get_portage_flags_cache
+	unset pek_key
+	return 1
+}  # portage_envvar_key_allowed
 
-get_portage_flags() {
-	# N.B. By default, this function *WILL CACHE* the first-seen values - so if
-	#      CFLAGS or PKGDIR (etc.) for a given ROOT are changed then the output
-	#      will be incorrect unless the cache is cleared!
-	#
-	gpf_cache='portage_kv_cache'
-	gpf_key=''
-	gpf_result=''
-	gpf_invalidate=0
+validate_portage_env_snapshot() (
+	ves_snapshot="${1:-}"
+	ves_names=''
+	[ -n "${ves_snapshot:-}" ] || return 1
 
-	#inherit portage_kv_cache_root portage_kv_cache PORTAGE_CONFIGROOT SYSROOT
+	while IFS= read -r ves_line || [ -n "${ves_line:-}" ]; do
+		[ -n "${ves_line:-}" ] || return 1
+		ves_name="${ves_line%%=*}"
+		[ "${ves_name}" != "${ves_line}" ] || return 1
+		echo "${ves_name}" |
+			grep -Eq -- '^[A-Za-z_][A-Za-z0-9_]*$' || return 1
+		portage_envvar_key_allowed "${ves_name}" || return 1
+		case " ${ves_names} " in
+			*" ${ves_name} "*)	return 1 ;;
+		esac
+		ves_names="${ves_names:+"${ves_names} "}${ves_name}"
+	done <<EOF
+${ves_snapshot}
+EOF
 
-	if [ -n "${PORTAGE_CONFIGROOT:-}" ] &&
-		[ "${PORTAGE_CONFIGROOT}" != "${SYSROOT:-}" ] &&
-		[ "${PORTAGE_CONFIGROOT}" != '/' ]
-	then
-		warn "PORTAGE_CONFIGROOT has invalid value '${PORTAGE_CONFIGROOT}'" \
-			"when SYSROOT='${SYSROOT:-}'"
-		return 1
-	fi
+	for ves_name in ${portage_envvar_keys}; do
+		case " ${ves_names} " in
+			*" ${ves_name} "*)	: ;;
+			*)			return 1 ;;
+		esac
+	done
+	for ves_name in ${ves_names}; do
+		eval "unset ${ves_name}"
+	done
+	eval "${ves_snapshot}" || return 1
 
-	if [ -n "${*:-}" ] && [ -n "${portage_kv_cache_changed:-}" ]
-	then
-		for gpf_key in "${@:-}"; do
-			if echo "${portage_kv_cache_changed:-}" | grep -Fqw "${gpf_key}"
-			then
-				print "get_portage_flags: portage_kv_cache_changed" \
-					"('${portage_kv_cache_changed}') contains specified key" \
-					"'${gpf_key}' - will invalidate cache ..."
-
-				gpf_invalidate=1
-				portage_kv_cache_changed=''
-
-				break
-			fi
-		done
-	fi
-	if [ -z "${SYSROOT:-"${PORTAGE_CONFIGROOT:-}"}" ] ||
-		[ "${SYSROOT:-"${PORTAGE_CONFIGROOT:-}"}" = '/' ]
-	then
-		if [ -z "${portage_kv_cache_root:+"set"}" ] ||
-				[ $(( gpf_invalidate )) -eq 1 ]
+	for ves_name in ${ves_names}; do
+		eval "ves_set=\${${ves_name}+x}"
+		[ "${ves_set:-}" = x ] || return 1
+		if eval "printf '%s' \"\${${ves_name}}\"" |
+				LC_ALL='C' grep -q '[[:cntrl:]]'
 		then
-			print "get_portage_flags: Generating SYSROOT='${SYSROOT:-"/"}'" \
-				"portage K/V cache 'portage_kv_cache_root' ..."
-			portage_kv_cache_root="$( # <- Syntax
-					LC_ALL='C' emerge --info --verbose=y 2>&1 |
-						grep -F -- '='
-				)"
-			#readonly portage_kv_cache_root
-			export portage_kv_cache_root
-		else
-			print "get_portage_flags: Using existing" \
-				"SYSROOT='${SYSROOT:-"/"}' portage K/V cache" \
-				"'portage_kv_cache_root'"
-		fi
-		gpf_cache='portage_kv_cache_root'
-	else
-		if [ $(( gpf_invalidate )) -eq 1 ] ||
-				[ -z "${portage_kv_cache:+"set"}" ]
-		then
-			print "get_portage_flags: Generating SYSROOT='${SYSROOT}'" \
-				"portage K/V cache 'portage_kv_cache' ..."
-			portage_kv_cache="$( # <- Syntax
-					LC_ALL='C' emerge --info --verbose=y 2>&1 |
-						grep -F -- '='
-				)"
-			#readonly portage_kv_cache
-			export portage_kv_cache
-		else
-			print "get_portage_flags: Using existing" \
-				"SYSROOT='${SYSROOT:-"/"}' portage K/V cache" \
-				"'portage_kv_cache'"
-		fi
-		gpf_cache='portage_kv_cache'
-	fi
-
-	if [ -z "${*:-}" ]; then
-		unset gpf_result gpf_key
-		if [ -n "$( eval "echo \${${gpf_cache}:+\"set\"}" )" ]; then
-			print "get_portage_flags: portage K/V cache '${gpf_cache}'" \
-				"now contains $( # <- Syntax
-						eval "echo \"\${${gpf_cache}}\"" |
-							wc -l
-					) keys"
-			unset gpf_cache
-			return 0
-		else
-			warn "Unable to generate portage K/V cache '${gpf_cache}'"
-			unset gpf_cache
 			return 1
 		fi
-	#else
-	#	print "get_portage_flags: portage K/V cache '${gpf_cache}'" \
-	#		"contains $( # <- Syntax
-	#				eval "echo \"\${${gpf_cache}}\"" |
-	#					wc -l
-	#			) keys"
-	fi
+	done
+)  # validate_portage_env_snapshot
 
-	if [ -z "${2:-}" ]; then
-		print "get_portage_flags: Checking portage K/V cache" \
-			"'${gpf_cache}' for key '${1}' ..."
-		gpf_key="${1}"
-		gpf_result="$( # <- Syntax
-				eval "echo \"\${${gpf_cache}}\"" |
-					grep -- "^${gpf_key}=" |
-					awk -F'"' '{print $2}'
-			)"
-	else
-		gpf_key="$( echo "${*}" | sed 's/\s\+/|/g' )"
-		print "get_portage_flags: Checking portage K/V cache" \
-			"'${gpf_cache}' for keys '${*}' ..."
-		gpf_result="$( # <- Syntax
-				eval "echo \"\${${gpf_cache}}\"" |
-					grep -E -- "^(${gpf_key})="
-			)"
-	fi
+refresh_portage_env_cache() {
+	rpec_scope="${1:-}"
+	rpec_snapshot=''
+	rpec_rc=0
 
-	if [ -z "${gpf_result:+"set"}" ]; then
-		print "get_portage_flags: No portage K/V result found for" \
-			"key(s) '${gpf_key:-}'"
+	if rpec_snapshot="$( # <- Syntax
+			# shellcheck disable=SC2086 # Intentional allowlist expansion.
+			LC_ALL='C' portageq envvar -v \
+				${portage_envvar_keys} 'LIBDIR_*'
+		)"
+	then
+		rpec_rc=0
 	else
-		if echo "${gpf_result}" | grep -Fq -- "'"; then
-			warn "get_portage_flags(): Value incorrectly quoted for" \
-				"variable '${gpf_key}'"
-			gpf_result="$( echo "${gpf_result}" | sed "s/'//g" )"
-		fi
+		rpec_rc=${?}
 	fi
-
-	unset gpf_invalidate gpf_key gpf_cache
-	if [ -n "${gpf_result:+"set"}" ]; then
-		echo "${gpf_result}"
-		unset gpf_result
-		return 0
-	else
-		unset gpf_result
+	# portageq reports status 1 when an explicitly requested variable is unset,
+	# but still emits a complete KEY='' assignment snapshot.
+	if { [ $(( rpec_rc )) -ne 0 ] && [ $(( rpec_rc )) -ne 1 ]; } ||
+			! validate_portage_env_snapshot "${rpec_snapshot}"
+	then
+		warn "Unable to obtain a valid batched Portage environment snapshot" \
+			"for ROOT='${ROOT:-/}', SYSROOT='${SYSROOT:-/}'," \
+			"PORTAGE_CONFIGROOT='${PORTAGE_CONFIGROOT:-/}' (portageq status" \
+			"${rpec_rc})"
+		unset rpec_rc rpec_snapshot rpec_scope
 		return 1
 	fi
-}  # get_portage_flags
+
+	case "${rpec_scope}" in
+		root)
+			portage_env_cache_root="${rpec_snapshot}"
+			portage_env_cache_root_ROOT="${ROOT-}"
+			portage_env_cache_root_SYSROOT="${SYSROOT-}"
+			portage_env_cache_root_PORTAGE_CONFIGROOT="${PORTAGE_CONFIGROOT-}"
+			portage_env_cache_root_dirty=0
+			;;
+		target)
+			portage_env_cache_target="${rpec_snapshot}"
+			portage_env_cache_target_ROOT="${ROOT-}"
+			portage_env_cache_target_SYSROOT="${SYSROOT-}"
+			portage_env_cache_target_PORTAGE_CONFIGROOT="${PORTAGE_CONFIGROOT-}"
+			portage_env_cache_target_dirty=0
+			;;
+		*)
+			unset rpec_rc rpec_snapshot rpec_scope
+			return 1
+			;;
+	esac
+	print "Cached batched Portage environment for ${rpec_scope} scope" \
+		"(ROOT='${ROOT:-/}', SYSROOT='${SYSROOT:-/}'," \
+		"PORTAGE_CONFIGROOT='${PORTAGE_CONFIGROOT:-/}')"
+	unset rpec_rc rpec_snapshot rpec_scope
+}  # refresh_portage_env_cache
+
+ensure_portage_env_cache() {
+	epec_scope='target'
+	if [ "${ROOT:-/}" = '/' ] && [ "${SYSROOT:-/}" = '/' ] &&
+			[ "${PORTAGE_CONFIGROOT:-/}" = '/' ]
+	then
+		epec_scope='root'
+	fi
+
+	case "${epec_scope}" in
+		root)
+			if [ $(( portage_env_cache_root_dirty )) -eq 1 ] ||
+					[ -z "${portage_env_cache_root:-}" ] ||
+					[ "${portage_env_cache_root_ROOT}" != "${ROOT-}" ] ||
+					[ "${portage_env_cache_root_SYSROOT}" != "${SYSROOT-}" ] ||
+					[ "${portage_env_cache_root_PORTAGE_CONFIGROOT}" != "${PORTAGE_CONFIGROOT-}" ]
+			then
+				refresh_portage_env_cache root || {
+					unset epec_scope
+					return 1
+				}
+			fi
+			;;
+		target)
+			if [ $(( portage_env_cache_target_dirty )) -eq 1 ] ||
+					[ -z "${portage_env_cache_target:-}" ] ||
+					[ "${portage_env_cache_target_ROOT}" != "${ROOT-}" ] ||
+					[ "${portage_env_cache_target_SYSROOT}" != "${SYSROOT-}" ] ||
+					[ "${portage_env_cache_target_PORTAGE_CONFIGROOT}" != "${PORTAGE_CONFIGROOT-}" ]
+			then
+				refresh_portage_env_cache target || {
+					unset epec_scope
+					return 1
+				}
+			fi
+			;;
+	esac
+	unset epec_scope
+}  # ensure_portage_env_cache
+
+get_portage_envvar() (
+	gpe_key="${1:-}"
+	[ -n "${gpe_key:-}" ] && [ -z "${2:-}" ] || return 1
+	portage_envvar_key_allowed "${gpe_key}" || {
+		warn "Refusing unrecognised Portage environment key '${gpe_key}'"
+		return 1
+	}
+	ensure_portage_env_cache || return 1
+
+	if [ "${ROOT:-/}" = '/' ] && [ "${SYSROOT:-/}" = '/' ] &&
+			[ "${PORTAGE_CONFIGROOT:-/}" = '/' ]
+	then
+		gpe_snapshot="${portage_env_cache_root}"
+	else
+		gpe_snapshot="${portage_env_cache_target}"
+	fi
+	eval "${gpe_snapshot}" || return 1
+	eval "gpe_set=\${${gpe_key}+x}"
+	[ "${gpe_set:-}" = x ] || return 1
+	eval "printf '%s\n' \"\${${gpe_key}}\""
+)  # get_portage_envvar
+
+report_portage_envvar() {
+	rpe_key="${1:-}"
+	rpe_value="$( get_portage_envvar "${rpe_key}" )" || {
+		unset rpe_key rpe_value
+		return 1
+	}
+	output '%-20s= "%s"\n' "${rpe_key}" "${rpe_value}"
+	unset rpe_key rpe_value
+}  # report_portage_envvar
+
+report_portage_environment() {
+	ensure_portage_env_cache || return 1
+	for rpe_key in CFLAGS LDFLAGS ROOT SYSROOT PORTAGE_CONFIGROOT FEATURES \
+		ACCEPT_LICENSE ACCEPT_KEYWORDS USE PYTHON_SINGLE_TARGET PYTHON_TARGETS \
+		MAKEOPTS EMERGE_DEFAULT_OPTS DISTDIR PKGDIR PORTAGE_LOGDIR
+	do
+		report_portage_envvar "${rpe_key}" || {
+			unset rpe_key
+			return 1
+		}
+	done
+	unset rpe_key
+}  # report_portage_environment
 
 get_package_flags() {
 	gpfs_pkg="${1:-}"
@@ -743,8 +695,8 @@ filter_portage_flags() {
 	# filter_portage_flags [--env-only] <flag> [flag...] -- <value> [value...]
 	#
 	# With '--env-only' the source of current values is the environment,
-	# without 'emerge --info' may be called (or a cache consulted) to find the
-	# canonical values of the specified flags
+	# without '--env-only' the cached Portage snapshot supplies the canonical
+	# values of the specified flags
 	#
 	# e.g.
 	#
@@ -788,10 +740,15 @@ filter_portage_flags() {
 
 	[ -n "${ftcf_vars:-}" ] || return 0
 	[ -n "${*:-}" ] || return 0
+	if [ $(( ftcf_env_only )) -eq 0 ]; then
+		ensure_portage_env_cache ||
+			die 'Unable to resolve Portage environment for flag filtering'
+	fi
 
 	for ftcf_var in ${ftcf_vars}; do
 		if [ $(( ftcf_env_only )) -eq 0 ]; then
-			ftcf_val="$( get_portage_flags "${ftcf_var}" )" || :
+			ftcf_val="$( get_portage_envvar "${ftcf_var}" )" ||
+				die "Unable to resolve Portage variable '${ftcf_var}'"
 		else
 			ftcf_val="$( eval "echo \"\${${ftcf_var}}\"" )"
 		fi
@@ -940,15 +897,16 @@ resolve_python_flags() {
 
 	# We seem to have a weird situation where USE and PYTHON_*
 	# variables are not in sync with each other...?
-	resolve_use="${USE:+"${USE} "}${resolve_use:+"${resolve_use} "}$( #
-			get_portage_flags 'USE'
-		)"
-	resolve_python_single_target="${PYTHON_SINGLE_TARGET:-} ${resolve_python_single_target:-} $( # <- Syntax
-			get_portage_flags 'PYTHON_SINGLE_TARGET'
-		)${python_targets:+" ${python_targets%%" "*}"}"
-	resolve_python_targets="${PYTHON_TARGETS:-} ${resolve_python_targets:-} $( #
-			get_portage_flags 'PYTHON_TARGETS'
-		) ${python_targets:-}"
+	ensure_portage_env_cache || die "Unable to resolve the Portage Python environment"
+	resolve_portage_use="$( get_portage_envvar 'USE' )" ||
+		die "Unable to resolve Portage USE"
+	resolve_portage_single="$( get_portage_envvar 'PYTHON_SINGLE_TARGET' )" ||
+		die "Unable to resolve Portage PYTHON_SINGLE_TARGET"
+	resolve_portage_targets="$( get_portage_envvar 'PYTHON_TARGETS' )" ||
+		die "Unable to resolve Portage PYTHON_TARGETS"
+	resolve_use="${USE:+"${USE} "}${resolve_use:+"${resolve_use} "}${resolve_portage_use}"
+	resolve_python_single_target="${PYTHON_SINGLE_TARGET:-} ${resolve_python_single_target:-} ${resolve_portage_single}${python_targets:+" ${python_targets%%" "*}"}"
+	resolve_python_targets="${PYTHON_TARGETS:-} ${resolve_python_targets:-} ${resolve_portage_targets} ${python_targets:-}"
 
 	for resolve_target in ${resolve_python_single_target:-}; do
 		resolve_target="python_single_target_${resolve_target}"
@@ -1012,11 +970,92 @@ resolve_python_flags() {
 				xargs -r
 		)"
 
-	unset resolve_target resolve_python_targets resolve_python_single_target \
-		resolve_use
+	unset resolve_portage_targets resolve_portage_single resolve_portage_use \
+		resolve_target resolve_python_targets resolve_python_single_target resolve_use
 
 	return 0
 }  # resolve_python_flags
+
+partition_python_rebuild_packages() {
+	# Split a package list according to whether the currently visible ebuild can
+	# use at least one of the requested Python implementations.  Packages such
+	# as backports for functionality added to a newer interpreter legitimately
+	# disappear from the dependency graph during an implementation transition;
+	# asking Portage to rebuild them with an unsupported target makes the whole
+	# cleanup fail on REQUIRED_USE before it can remove the obsolete package.
+	python_rebuild_targets="${1:-}"
+	shift
+	python_rebuild_packages=''
+	python_obsolete_packages=''
+
+	for python_rebuild_atom in "${@}"; do
+		python_rebuild_cpv="$(
+				portageq best_visible "${ROOT:-/}" \
+					"${python_rebuild_atom}"
+			)" || {
+			python_obsolete_packages="${python_obsolete_packages:+"${python_obsolete_packages} "}${python_rebuild_atom}"
+			continue
+		}
+		python_rebuild_iuse="$(
+				portageq metadata "${ROOT:-/}" ebuild \
+					"${python_rebuild_cpv}" IUSE
+			)" || return 1
+		python_rebuild_has_target=0
+		python_rebuild_is_compatible=0
+
+		for python_rebuild_flag in ${python_rebuild_iuse}; do
+			python_rebuild_flag="${python_rebuild_flag#[+-]}"
+			case "${python_rebuild_flag}" in
+				python_single_target_*)
+					python_rebuild_has_target=1
+					python_rebuild_target="${python_rebuild_flag#python_single_target_}"
+					;;
+				python_targets_*)
+					python_rebuild_has_target=1
+					python_rebuild_target="${python_rebuild_flag#python_targets_}"
+					;;
+				*)
+					continue
+					;;
+			esac
+
+			for python_rebuild_requested in ${python_rebuild_targets}; do
+				if [ "${python_rebuild_target}" = \
+						"${python_rebuild_requested}" ]
+				then
+					python_rebuild_is_compatible=1
+					break
+				fi
+			done
+		done
+
+		if [ $(( python_rebuild_has_target )) -ne 0 ] &&
+				[ $(( python_rebuild_is_compatible )) -eq 0 ]
+		then
+			python_obsolete_packages="${python_obsolete_packages:+"${python_obsolete_packages} "}${python_rebuild_atom}"
+		else
+			python_rebuild_packages="${python_rebuild_packages:+"${python_rebuild_packages} "}${python_rebuild_atom}"
+		fi
+	done
+	python_rebuild_packages="$(
+			echo "${python_rebuild_packages}" |
+				xargs -rn 1 |
+				sort -u |
+				xargs -r
+		)"
+	python_obsolete_packages="$(
+			echo "${python_obsolete_packages}" |
+				xargs -rn 1 |
+				sort -u |
+				xargs -r
+		)"
+
+	unset python_rebuild_atom python_rebuild_cpv python_rebuild_flag \
+		python_rebuild_has_target python_rebuild_is_compatible \
+		python_rebuild_iuse python_rebuild_requested python_rebuild_target \
+		python_rebuild_targets
+	return 0
+}  # partition_python_rebuild_packages
 
 save_failed() {
 	#inherit PORTAGE_LOGDIR PORTAGE_LOGDIR
@@ -1029,7 +1068,8 @@ save_failed() {
 	#[ -n "${trace:-}" ] || set -o xtrace
 
 	sf_d=''
-	sf_d="${PORTAGE_TMPDIR:-"$(get_portage_flags 'PORTAGE_TMPDIR')"}"
+	ensure_portage_env_cache || return 1
+	sf_d="${PORTAGE_TMPDIR:-"$(get_portage_envvar 'PORTAGE_TMPDIR')"}"
 	sf_d="${sf_d%/}/portage"
 
 	# We can't rely on findutils being present...
@@ -1055,7 +1095,7 @@ save_failed() {
 	then
 		sf_l='' sf_f=''
 
-		sf_l="${PORTAGE_LOGDIR:-"$(get_portage_flags 'PORTAGE_LOGDIR')"}"
+		sf_l="${PORTAGE_LOGDIR:-"$(get_portage_envvar 'PORTAGE_LOGDIR')"}"
 		mkdir -p "${sf_l%/}"/failed
 
 		for sf_f in $(
@@ -1406,16 +1446,19 @@ do_emerge() {
 		warn "  USE='${USE:-}'"
 		warn "  ROOT='${ROOT:-}'"
 		warn "  \${*}='${*:-} (do_emerge_args='${do_emerge_args}')'"
-		warn "  PKGDIR='$( get_portage_flags 'PKGDIR' )'"
-		warn "  CFLAGS='$( get_portage_flags 'CFLAGS' )'"
-		warn "  CXXFLAGS='$( get_portage_flags 'CXXFLAGS' )'"
-		warn "  CGO_CFLAGS='$( get_portage_flags 'CGO_CFLAGS' )'"
-		warn "  CGO_CXXFLAGS='$( get_portage_flags 'CGO_CXXFLAGS' )'"
-		warn "  LDFLAGS='$( get_portage_flags 'LDFLAGS' )'"
-		warn "  CGO_LDFLAGS='$( get_portage_flags 'CGO_LDFLAGS' )'"
-		warn "  RUSTFLAGS='$( get_portage_flags 'RUSTFLAGS' )'"
+		if ensure_portage_env_cache; then
+			for de_var in PKGDIR CFLAGS CXXFLAGS CGO_CFLAGS CGO_CXXFLAGS \
+				LDFLAGS CGO_LDFLAGS RUSTFLAGS
+			do
+				de_val="$( get_portage_envvar "${de_var}" )" || de_val='<unavailable>'
+				warn "  ${de_var}='${de_val}'"
+			done
+			unset de_val de_var
+		else
+			warn '  Portage environment snapshot unavailable'
+		fi
 		de_d=''
-		de_d="${PORTAGE_TMPDIR:-"$(get_portage_flags 'PORTAGE_TMPDIR')"}"
+		de_d="${PORTAGE_TMPDIR:-"$(get_portage_envvar 'PORTAGE_TMPDIR' || :)"}"
 		de_d="${de_d%/}/portage"
 		if [ -d "${de_d}" ]; then
 			info "Looking for 'config.log' files beneath '${de_d}' ..."
@@ -1440,35 +1483,46 @@ do_emerge() {
 	return ${do_emerge_rc}
 }  # do_emerge
 
+select_latest_binutils() {
+	# Installing a newer binutils slot does not necessarily select it, and a
+	# subsequent non-oneshot @system rebuild can restore the stage3's original
+	# slotted world atom.  Keep both the active tools and the selected package
+	# set coherent in whichever ROOT is currently being operated on.
+	binutils-config latest || return 1
+
+	select_latest_binutils_root="${ROOT:-"/"}"
+	select_latest_binutils_world="${select_latest_binutils_root%"/"}/var/lib/portage/world"
+	select_latest_binutils_atoms=''
+	if [ -s "${select_latest_binutils_world}" ]; then
+		select_latest_binutils_atoms="$(
+				sed -n '/^sys-devel\/binutils:/p' \
+					"${select_latest_binutils_world}" |
+					xargs -r
+			)"
+	fi
+	for select_latest_binutils_atom in ${select_latest_binutils_atoms}; do
+		emerge --deselect "${select_latest_binutils_atom}" || {
+			unset select_latest_binutils_atom select_latest_binutils_atoms \
+				select_latest_binutils_root select_latest_binutils_world
+			return 1
+		}
+	done
+	unset select_latest_binutils_atom select_latest_binutils_atoms \
+		select_latest_binutils_root select_latest_binutils_world
+	return 0
+}  # select_latest_binutils
+
 # (Heavily) modified from sys-apps/portage phase-helpers.sh:
 get_libdir() {
 	if [ -z "${libdir:-}" ]; then
-		libdir_data="$( # <- Syntax
-				LC_ALL='C' emerge --info --verbose=y 2>&1 |
-					grep -e 'ABI=' -e '^LIBDIR'
-			)"
-		libdir_ABI="${ABI:-}"
+		ensure_portage_env_cache || return 1
+		libdir_ABI="$( get_portage_envvar 'ABI' )" || return 1
 		if [ -z "${libdir_ABI:-}" ]; then
-			libdir_ABI="$( # <- Syntax
-					echo "${libdir_data}" |
-						grep -- '^ABI=' |
-						cut -d'"' -f 2 |
-						uniq |
-						head -n 1
-				)"
+			libdir_ABI="$( get_portage_envvar 'DEFAULT_ABI' )" || return 1
 		fi
 
-		if [ -n "${libdir_ABI:-}" ] &&
-				echo "${libdir_data}" |
-					grep -q -- "^LIBDIR_${libdir_ABI}="
-		then
-			libdir="$( # <- Syntax
-					echo "${libdir_data}" |
-						grep -- "^LIBDIR_${libdir_ABI}=" |
-						cut -d'"' -f 2 |
-						uniq |
-						head -n 1
-				)"
+		if [ -n "${libdir_ABI:-}" ]; then
+			libdir="$( get_portage_envvar "LIBDIR_${libdir_ABI}" )" || libdir=''
 		fi
 		if [ -z "${libdir:-}" ]; then
 			libdir="$( ld.so --help |
@@ -1482,7 +1536,7 @@ get_libdir() {
 			libdir="lib64"
 		fi
 
-		unset libdir_ABI libdir_data
+		unset libdir_ABI
 	fi
 
 	echo "${libdir}"
@@ -1574,6 +1628,7 @@ if set | grep -q -- '=__[A-Z]\+__$'; then
 		)"
 fi
 
+ensure_portage_env_cache || die 'Unable to initialise Portage environment cache'
 if [ $(( $( get_libdir | wc -l ) )) -gt 1 ]; then
 	die "get_libdir() result '$(get_libdir)' is broken"
 fi
@@ -1671,11 +1726,18 @@ if [ $(( created )) -eq 1 ]; then
 fi
 unset created repo_path repo_name
 
+# The host repository configuration may have changed the effective Portage
+# settings since the early libdir probe.
+invalidate_portage_env_cache
+
 # Pre-load keys...
-get_portage_flags
+ensure_portage_env_cache || die 'Unable to initialise Portage environment cache'
 
 print "Initial environment CFLAGS are \"${CFLAGS:-}\""
-print "Initial portage CFLAGS are \"$( get_portage_flags 'CFLAGS' )\""
+initial_portage_cflags="$( get_portage_envvar 'CFLAGS' )" ||
+	die 'Unable to resolve initial Portage CFLAGS'
+print "Initial portage CFLAGS are \"${initial_portage_cflags}\""
+unset initial_portage_cflags
 
 if [ -f /etc/env.d/50baselayout ] && [ -s /etc/env.d/50baselayout ]; then
 	changed=0
@@ -2109,73 +2171,15 @@ info="$( # <- Syntax
 					"${PYTHON_SINGLE_TARGET}" \
 					"${PYTHON_TARGETS}"
 			)"
-		LC_ALL='C' emerge --info --verbose=y 2>&1
+		invalidate_portage_env_cache
+		report_portage_environment
 	)"
 output
 output
 output 'Resolved build variables for stage3:'
 output '-----------------------------------'
 output
-echo "${info}" | format 'CFLAGS'
-echo "${info}" | format 'LDFLAGS'
-output
-output "ROOT                = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^ROOT=' |
-			cut -d'=' -f 2- |
-			uniq |
-			head -n 1
-	)"
-output "SYSROOT             = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^SYSROOT=' |
-			cut -d'=' -f 2- |
-			uniq |
-			head -n 1
-	)"
-output "PORTAGE_CONFIGROOT  = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^PORTAGE_CONFIGROOT=' |
-			cut -d'=' -f 2- |
-			uniq |
-			head -n 1
-	)"
-output
-echo "${info}" | format 'FEATURES'
-echo "${info}" | format 'ACCEPT_LICENSE'
-echo "${info}" | format 'ACCEPT_KEYWORDS'
-#echo "${info}" | format 'INSTALL_MASK'
-echo "${info}" | format 'USE'
-echo "${info}" | format 'PYTHON_SINGLE_TARGET'
-echo "${info}" | format 'PYTHON_TARGETS'
-output "MAKEOPTS            = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^MAKEOPTS=' |
-			cut -d'=' -f 2- |
-			uniq
-	)"
-output
-echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
-output
-output "DISTDIR             = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^DISTDIR=' |
-			cut -d'=' -f 2- |
-			uniq
-	)"
-output "PKGDIR              = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^PKGDIR=' |
-			cut -d'=' -f 2- |
-			uniq |
-			head -n 1
-	)"
-output "PORTAGE_LOGDIR      = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^PORTAGE_LOGDIR=' |
-			cut -d'=' -f 2- |
-			uniq
-	)"
+printf '%s\n' "${info}"
 output
 unset info
 
@@ -2329,6 +2333,11 @@ validate_python_installation "pre-remove"
 		do_emerge --once-defaults \
 			app-crypt/libmd dev-libs/elfutils net-misc/dhcpcd \
 			sys-devel/binutils
+
+		# Keep readelf coherent with elfutils[-debuginfod], and make the old slot
+		# eligible for depclean even if the stage3 pinned it in world.
+		select_latest_binutils ||
+			die "Unable to select the replacement binutils in ROOT '${ROOT:-"/"}'"
 	)
 
 	list='virtual/dev-manager virtual/tmpfiles'
@@ -2466,34 +2475,47 @@ then
 		setenv PKGDIR="${PKGDIR:-"${pkgdir:-"/tmp"}"}/stages/python"
 		unset pkgdir
 
-		setenv USE "$( {
-				echo "-* $( get_stage3 --values-only USE )$( # <- Syntax
-						flag=''
-						if [ -n "${use_essential:-}" ]; then
-							for flag in ${os_headers_arch_flags}; do
-								if echo " ${use_essential} " |
-										grep -qw -- "${flag}"
-								then
-									printf ' %s' "${flag}"
-								fi
-							done
-						fi
-					) -udev split-usr" |
-					xargs -rn 1 |
-					grep -v -e '^python_single_target_' -e 'python_targets_'
-				echo "python_single_target_${python_default_targets%%" "*}"
-				echo "python_targets_${python_default_targets%%" "*}"
-			} | xargs -r )"
-		setenv PYTHON_SINGLE_TARGET="${python_default_targets%%" "*}"
-		setenv PYTHON_TARGETS="${python_default_targets}"
+		set_python_rebuild_environment() {
+			spre_targets="${1:-}"
+			[ -n "${spre_targets:-}" ] ||
+				die 'No Python targets specified for the rebuild environment'
 
-		# This should be implicit, given the above?
-		eval "$( # <- Syntax
-				resolve_python_flags \
-					"${USE}" \
-					"${python_default_targets%%" "*}" \
-					"${python_default_targets}"
-			)"
+			setenv USE "$( {
+					echo "-* $( get_stage3 --values-only USE )$( # <- Syntax
+							flag=''
+							if [ -n "${use_essential:-}" ]; then
+								for flag in ${os_headers_arch_flags}; do
+									if echo " ${use_essential} " |
+											grep -qw -- "${flag}"
+									then
+										printf ' %s' "${flag}"
+									fi
+								done
+							fi
+						) -udev split-usr" |
+						xargs -rn 1 |
+						grep -v \
+							-e '^python_single_target_' \
+							-e '^python_targets_'
+					echo "python_single_target_${python_default_targets%%" "*}"
+					for spre_target in ${spre_targets}; do
+						echo "python_targets_${spre_target}"
+					done
+				} | xargs -r )"
+			setenv PYTHON_SINGLE_TARGET="${python_default_targets%%" "*}"
+			setenv PYTHON_TARGETS="${spre_targets}"
+
+			# This should be implicit, given the above?
+			eval "$( # <- Syntax
+					resolve_python_flags \
+						"${USE}" \
+						"${python_default_targets%%" "*}" \
+						"${spre_targets}"
+				)"
+			unset spre_target spre_targets
+		}
+
+		set_python_rebuild_environment "${python_default_targets}"
 
 		# FIXME: Nasty hack to avoid preserved libraries...
 		# shellcheck disable=SC2046
@@ -2505,6 +2527,56 @@ then
 		}
 
 		do_emerge --once-defaults sys-apps/util-linux
+
+		# A Portage process cannot safely remove the Python modules for the
+		# interpreter it is itself running under.  Before the old target is
+		# disabled, give Portage (and its dependency closure) both the installed
+		# CPython targets and the requested targets.  The following emerge then
+		# starts through python-exec with the requested interpreter and can safely
+		# rebuild the old-target users without deleting its own live modules.
+		python_bridge_targets="$( # <- Syntax
+				{
+					echo "${python_default_targets}"
+					LC_ALL='C' portageq match / dev-lang/python |
+						sed -n \
+							's|^dev-lang/python-\([0-9][0-9]*\)\.\([0-9][0-9]*\).*|python\1_\2|p'
+				} |
+					xargs -rn 1 |
+					sort -u |
+					xargs -r
+			)"
+		if [ $(( $( echo "${python_bridge_targets}" | wc -w ) )) -gt 1 ]; then
+			output
+			output " * Bridging Portage across installed Python targets" \
+				"'${python_bridge_targets}' ..."
+			output
+
+			python_bridge_use_mask='/etc/portage/profile/use.mask'
+			python_bridge_use_mask_backup="${python_bridge_use_mask}.python-bridge.${$}"
+			cp -p -- "${python_bridge_use_mask}" \
+					"${python_bridge_use_mask_backup}" ||
+				die "Failed to back up '${python_bridge_use_mask}' to" \
+					"'${python_bridge_use_mask_backup}': ${?}"
+			trap 'mv -f -- "${python_bridge_use_mask_backup}" "${python_bridge_use_mask}"' EXIT
+			for python_bridge_target in ${python_bridge_targets}; do
+				printf '\n-python_targets_%s\n' \
+					"${python_bridge_target}" >>"${python_bridge_use_mask}"
+			done
+
+			set_python_rebuild_environment "${python_bridge_targets}"
+			do_emerge --once-defaults sys-apps/portage
+
+			mv -f -- "${python_bridge_use_mask_backup}" \
+					"${python_bridge_use_mask}" ||
+				die "Failed to restore '${python_bridge_use_mask_backup}' to" \
+					"'${python_bridge_use_mask}': ${?}"
+			trap - EXIT
+			unset python_bridge_target python_bridge_use_mask_backup \
+				python_bridge_use_mask
+
+			set_python_rebuild_environment "${python_default_targets}"
+		fi
+		unset python_bridge_targets
 
 		# python3_14 -> dev-lang/python:3.14
 		python_pkg="dev-lang/$( # <- Syntax
@@ -2867,10 +2939,15 @@ output " * Installing stage3 prerequisites to allow for working 'split-usr'" \
 	#         replacement sys-libs/libxcrypt - so let's build a binary package
 	#         first.
 	#
+	# libxcrypt-4.4.38-r1 blocks man-pages older than 6.16-r1 because both
+	# packages otherwise install some of the same manual pages.  Include
+	# man-pages in the same transaction so Portage can upgrade an older stage3
+	# copy before merging libxcrypt instead of reporting an unsatisfied blocker.
+	#
 	# shellcheck disable=SC2046
 	(
 		setenv USE='-gmp -nls ssl'
-		do_emerge --single-defaults sys-libs/libxcrypt
+		do_emerge --single-defaults sys-apps/man-pages sys-libs/libxcrypt
 	)
 	do_emerge --unmerge-defaults sys-libs/pam sys-libs/libxcrypt
 	rmdir -p --ignore-fail-on-non-empty /usr/lib*/security/pam_filter || :
@@ -3168,10 +3245,10 @@ unset repo_path repo_name
 setenv ROOT="${service_root}"
 setenv SYSROOT="${ROOT}"
 setenv PORTAGE_CONFIGROOT="${SYSROOT}"
-invalidate_get_portage_flags_cache
+invalidate_portage_env_cache
 
 # Pre-load keys for new ROOT ...
-get_portage_flags
+ensure_portage_env_cache || die 'Unable to initialise target Portage environment cache'
 
 # Relocate /usr/src/linux* to ${ROOT}/usr/src/ and symlink back to original
 # location...
@@ -3277,10 +3354,12 @@ features_eudev=1
 pkg_initial='sys-apps/fakeroot sys-libs/libcap sys-process/audit sys-apps/util-linux app-shells/bash sys-apps/help2man dev-perl/Locale-gettext sys-libs/libxcrypt virtual/libcrypt app-editors/vim'
 # See above for 'xml'...
 pkg_initial_use='-compress-xz -lzma -nls -pam -perl -python -su -unicode minimal no-xz-utils xml'
-if get_portage_flags USE | grep -Eq -- '(^|[^-])graphite'; then
+resolved_portage_use="$( get_portage_envvar USE )" ||
+	die 'Unable to resolve Portage USE for initial packages'
+if echo "${resolved_portage_use}" | grep -Eq -- '(^|[^-])graphite'; then
 	pkg_initial_use="${pkg_initial_use} graphite"
 fi
-if get_portage_flags USE | grep -Eq -- '(^|[^-])openmp'; then
+if echo "${resolved_portage_use}" | grep -Eq -- '(^|[^-])openmp'; then
 	pkg_initial_use="${pkg_initial_use} openmp"
 fi
 
@@ -3358,78 +3437,21 @@ if [ -n "${pkg_initial:-}" ]; then
 			warn "Disabling openmp toolchain flags for stage3 build ..."
 		fi
 
-		info="$( LC_ALL='C' emerge --info --verbose=y 2>&1 )"
 		output
 		output 'Resolved build variables for initial packages:'
 		output '---------------------------------------------'
 		output
-		echo "${info}" | format 'CFLAGS'
-		echo "${info}" | format 'LDFLAGS'
-		output
-		output "ROOT                = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^ROOT=' |
-					cut -d'=' -f 2- |
-					uniq |
-					head -n 1
-			)"
-		output "SYSROOT             = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^SYSROOT=' |
-					cut -d'=' -f 2- |
-					uniq |
-					head -n 1
-			)"
-		output "PORTAGE_CONFIGROOT  = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^PORTAGE_CONFIGROOT=' |
-					cut -d'=' -f 2- |
-					uniq |
-					head -n 1
-			)"
-		output
-		echo "${info}" | format 'FEATURES'
-		echo "${info}" | format 'ACCEPT_LICENSE'
-		echo "${info}" | format 'ACCEPT_KEYWORDS'
-		echo "${info}" | format 'USE'
-		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
-		echo "${info}" | format 'PYTHON_TARGETS'
-		output "MAKEOPTS            = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^MAKEOPTS=' |
-					cut -d'=' -f 2- |
-					uniq
-			)"
-		output
-		echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
-		output
-		output "DISTDIR             = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^DISTDIR=' |
-					cut -d'=' -f 2- |
-					uniq
-			)"
-		output "PKGDIR              = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^PKGDIR=' |
-					cut -d'=' -f 2- |
-					uniq |
-					head -n 1
-			)"
-		output "PORTAGE_LOGDIR      = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^PORTAGE_LOGDIR=' |
-					cut -d'=' -f 2- |
-					uniq
-			)"
-		unset info
+		report_portage_environment ||
+			die 'Unable to report Portage environment for initial packages'
 
 		output
 		output
 		output ' * Building initial packages ...'
 		output
 
-		if ! get_portage_flags USE | grep -Eq -- '(^|[^-])openmp'; then
+		if ! echo "${USE:-${resolved_portage_use}}" |
+				grep -Eq -- '(^|[^-])openmp'
+		then
 			warn "'openmp' USE flag is not set: app-crypt/libb2 may" \
 				"encounter unresolvable dependency conflicts :("
 		fi
@@ -3446,20 +3468,23 @@ if [ -n "${pkg_initial:-}" ]; then
 		# issue with the upstream stage3 image around commit 'eaffbac'?
 		#
 		if [ "${ARCH}" = 'amd64' ]; then
+			[ -n "${_TARGET_CPU_CFLAGS:-}" ] ||
+				die '_TARGET_CPU_CFLAGS is empty for the amd64 bootstrap toolchain build'
+			if printf '%s' "${_TARGET_CPU_CFLAGS}" |
+					LC_ALL='C' grep -q '[[:cntrl:]]'
+			then
+				die '_TARGET_CPU_CFLAGS contains a control character'
+			fi
 			(
-				setenv CFLAGS "$( # <- Syntax
-						get_portage_flags 'CFLAGS' |
-							grep -o -- '-march=[^ ]\+ '
-					)-O2 -pipe -fno-asynchronous-unwind-tables"
-				setenv CXXFLAGS "$( # <- Syntax
-						get_portage_flags 'CFLAGS' |
-							grep -o -- '-march=[^ ]\+ '
-					)-O2 -pipe"
+				setenv CFLAGS \
+					"${_TARGET_CPU_CFLAGS} -O2 -pipe -fno-asynchronous-unwind-tables"
+				setenv CXXFLAGS \
+					"${_TARGET_CPU_CFLAGS} -O2 -pipe"
 				setenv CPPFLAGS ''
 				setenv ROOT "${ROOT}"
 				setenv SYSROOT="${ROOT}"
 				setenv PORTAGE_CONFIGROOT="${SYSROOT}"
-				invalidate_get_portage_flags_cache
+				invalidate_portage_env_cache
 
 				do_emerge --build-defaults \
 					sys-devel/binutils sys-devel/gcc sys-libs/glibc
@@ -3476,7 +3501,7 @@ if [ -n "${pkg_initial:-}" ]; then
 				setenv ROOT "${ROOT}"
 				setenv SYSROOT="${ROOT}"
 				setenv PORTAGE_CONFIGROOT="${SYSROOT}"
-				invalidate_get_portage_flags_cache
+				invalidate_portage_env_cache
 
 				done_python_deps=0
 
@@ -3514,7 +3539,7 @@ if [ -n "${pkg_initial:-}" ]; then
 						setenv ROOT='/'
 						setenv SYSROOT="${ROOT}"
 						setenv PORTAGE_CONFIGROOT="${SYSROOT}"
-						invalidate_get_portage_flags_cache
+						invalidate_portage_env_cache
 
 						case "${ROOT:-}" in
 							''|'/')
@@ -3582,71 +3607,13 @@ if [ -n "${pkg_initial:-}" ]; then
 						setenv USE "${USE}"
 						setenv PERL_FEATURES "${PERL_FEATURES:-}"
 
-						info="$( LC_ALL='C' emerge --info --verbose=y 2>&1 )"
 						output
 						output
 						output 'Resolved build variables for python prerequisites:'
 						output '-------------------------------------------------'
 						output
-						echo "${info}" | format 'CFLAGS'
-						echo "${info}" | format 'LDFLAGS'
-						output
-						output "ROOT                = $( # <- Syntax
-								echo "${info}" |
-									grep -- '^ROOT=' |
-									cut -d'=' -f 2- |
-									uniq |
-									head -n 1
-							)"
-						output "SYSROOT             = $( # <- Syntax
-								echo "${info}" |
-									grep -- '^SYSROOT=' |
-									cut -d'=' -f 2- |
-									uniq |
-									head -n 1
-							)"
-						output "PORTAGE_CONFIGROOT  = $( # <- Syntax
-								echo "${info}" |
-									grep -- '^PORTAGE_CONFIGROOT=' |
-									cut -d'=' -f 2- |
-									uniq |
-									head -n 1
-							)"
-						output
-						echo "${info}" | format 'ACCEPT_LICENSE'
-						echo "${info}" | format 'ACCEPT_KEYWORDS'
-						echo "${info}" | format 'USE'
-						echo "${info}" | format 'PYTHON_SINGLE_TARGET'
-						echo "${info}" | format 'PYTHON_TARGETS'
-						output "MAKEOPTS            = $( # <- Syntax
-								echo "${info}" |
-									grep -- '^MAKEOPTS=' |
-									cut -d'=' -f 2- |
-									uniq
-							)"
-						output
-						echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
-						output
-						output "DISTDIR             = $( # <- Syntax
-								echo "${info}" |
-									grep -- '^DISTDIR=' |
-									cut -d'=' -f 2- |
-									uniq
-							)"
-						output "PKGDIR              = $( # <- Syntax
-								echo "${info}" |
-									grep -- '^PKGDIR=' |
-									cut -d'=' -f 2- |
-									uniq |
-									head -n 1
-							)"
-						output "PORTAGE_LOGDIR      = $( # <- Syntax
-								echo "${info}" |
-									grep -- '^PORTAGE_LOGDIR=' |
-									cut -d'=' -f 2- |
-									uniq
-							)"
-						unset info
+						report_portage_environment ||
+							die 'Unable to report Portage environment for python prerequisites'
 
 						# Specifically python-3.12.6 is throwing:
 						#
@@ -3719,7 +3686,7 @@ if [ -n "${pkg_initial:-}" ]; then
 					(
 						setenv SYSROOT="/"
 						setenv PORTAGE_CONFIGROOT="${SYSROOT}"
-						invalidate_get_portage_flags_cache
+						invalidate_portage_env_cache
 
 						case "${ROOT:-}" in
 							''|'/')
@@ -4014,7 +3981,7 @@ output ' * Building @system packages ...'
 		setenv ROOT "${ROOT}"
 		setenv SYSROOT="${ROOT}"
 		setenv PORTAGE_CONFIGROOT="${SYSROOT}"
-		invalidate_get_portage_flags_cache
+		invalidate_portage_env_cache
 
 		case "${ROOT:-}" in
 			''|'/')
@@ -4027,73 +3994,13 @@ output ' * Building @system packages ...'
 				;;
 		esac
 
-		eval "${format_fn_code}"
-
-		info="$( LC_ALL='C' emerge --info --verbose=y 2>&1 )"
 		output
 		output
 		output "Resolved build variables for @system in ROOT '${ROOT}':"
 		output '------------------------------------'
 		output
-		echo "${info}" | format 'CFLAGS'
-		echo "${info}" | format 'LDFLAGS'
-		output
-		output "ROOT                = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^ROOT=' |
-					cut -d'=' -f 2- |
-					uniq |
-					head -n 1
-			)"
-		output "SYSROOT             = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^SYSROOT=' |
-					cut -d'=' -f 2- |
-					uniq |
-					head -n 1
-			)"
-		output "PORTAGE_CONFIGROOT  = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^PORTAGE_CONFIGROOT=' |
-					cut -d'=' -f 2- |
-					uniq |
-					head -n 1
-			)"
-		output
-		echo "${info}" | format 'ACCEPT_LICENSE'
-		echo "${info}" | format 'ACCEPT_KEYWORDS'
-		echo "${info}" | format 'USE'
-		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
-		echo "${info}" | format 'PYTHON_TARGETS'
-		output "MAKEOPTS            = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^MAKEOPTS=' |
-					cut -d'=' -f 2- |
-					uniq
-			)"
-		output
-		echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
-		output
-		output "DISTDIR             = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^DISTDIR=' |
-					cut -d'=' -f 2- |
-					uniq
-			)"
-		output "PKGDIR              = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^PKGDIR=' |
-					cut -d'=' -f 2- |
-					uniq |
-					head -n 1
-			)"
-		output "PORTAGE_LOGDIR      = $( # <- Syntax
-				echo "${info}" |
-					grep -- '^PORTAGE_LOGDIR=' |
-					cut -d'=' -f 2- |
-					uniq
-			)"
-		unset info
+		report_portage_environment ||
+			die "Unable to report Portage environment for @system in ROOT '${ROOT}'"
 
 		output
 		output
@@ -4206,7 +4113,10 @@ output ' * Building @system packages ...'
 		do_emerge \
 				--system-defaults \
 			sys-devel/binutils sys-devel/binutils-config
-		binutils-config latest
+		# --system-defaults is intentionally not oneshot and can restore a stale
+		# stage3 slot pin, so normalise selection after this rebuild as well.
+		select_latest_binutils ||
+			die "Unable to select @system binutils in ROOT '${ROOT:-"/"}'"
 		# shellcheck disable=SC1091
 		. "${SYSROOT%"/"}/etc/profile"
 
@@ -4332,80 +4242,18 @@ output ' * System deployment complete'
 # At this point, we should have a fully-built @system!
 
 export EMERGE_DEFAULT_OPTS="${EMERGE_DEFAULT_OPTS:+"${EMERGE_DEFAULT_OPTS} "} --with-bdeps=y --with-bdeps-auto=y"
+invalidate_portage_env_cache
 
-info="$( LC_ALL='C' emerge --info --verbose=y 2>&1 )"
 output
 output
 output 'Resolved build variables after init stage:'
 output '-----------------------------------------'
 output
-echo "${info}" | format 'CFLAGS'
-echo "${info}" | format 'LDFLAGS'
-output
-output "ROOT                = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^ROOT=' |
-			cut -d'=' -f 2- |
-			uniq |
-			head -n 1
-	)"
-output "SYSROOT             = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^SYSROOT=' |
-			cut -d'=' -f 2- |
-			uniq |
-			head -n 1
-	)"
-output "PORTAGE_CONFIGROOT  = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^PORTAGE_CONFIGROOT=' |
-			cut -d'=' -f 2- |
-			uniq |
-			head -n 1
-	)"
-output
-echo "${info}" | format 'ACCEPT_LICENSE'
-echo "${info}" | format 'ACCEPT_KEYWORDS'
-echo "${info}" | format 'USE'
-echo "${info}" | format 'PYTHON_SINGLE_TARGET'
-echo "${info}" | format 'PYTHON_TARGETS'
-output "MAKEOPTS            = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^MAKEOPTS=' |
-			cut -d'=' -f 2- |
-			uniq
-	)"
-output
-echo "${info}" | format 'EMERGE_DEFAULT_OPTS'
-output
-output "DISTDIR             = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^DISTDIR=' |
-			cut -d'=' -f 2- |
-			uniq
-	)"
-output "PKGDIR              = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^PKGDIR=' |
-			cut -d'=' -f 2- |
-			uniq |
-			head -n 1
-	)"
-output "PORTAGE_LOGDIR      = $( # <- Syntax
-		echo "${info}" |
-			grep -- '^PORTAGE_LOGDIR=' |
-			cut -d'=' -f 2- |
-			uniq
-	)"
-unset info
+report_portage_environment ||
+	die 'Unable to report Portage environment after init stage'
 
 export PATH="${path}"
 unset path
-
-# Keep environment tidy - multi-line function definitions in the environment
-# will break 'environment.sh' variable-passing below, and lead to difficult
-# to diagnose build failures!
-unset format_fn_code
 
 unset QA_XLINK_ALLOWED
 setenv FEATURES="$( # <- Syntax
@@ -4417,7 +4265,7 @@ printf "#FILTER: '%s'\n\n" \
 	"${environment_filter}" > "${ROOT}${environment_file}"
 export -p |
 		grep -E -- '^(declare -x|export) .*=' |
-		grep -Ev -- "${environment_filter%")="}|format_fn_code)=" | \
+		grep -Ev -- "${environment_filter}" | \
 		sed -r 's/\s+/ /g ; s/^(export [a-z][a-z0-9_]+=")\s+/\1/i' | \
 		grep -v \
 				-e '^export [a-z_]' \
@@ -4449,7 +4297,7 @@ case "${1:-}" in
 				setenv ROOT "${ROOT}"
 				setenv SYSROOT="${ROOT}"
 				setenv PORTAGE_CONFIGROOT="${SYSROOT}"
-				invalidate_get_portage_flags_cache
+				invalidate_portage_env_cache
 
 				do_emerge --once-defaults "${package}" || rc=${?}
 				if [ $(( rc )) -ne 0 ]; then
@@ -4495,7 +4343,7 @@ case "${1:-}" in
 				setenv ROOT "${ROOT}"
 				setenv SYSROOT="${ROOT}"
 				setenv PORTAGE_CONFIGROOT="${SYSROOT}"
-				invalidate_get_portage_flags_cache
+				invalidate_portage_env_cache
 
 				# shellcheck disable=SC2086
 				do_emerge --multi-defaults "${@}" || rc=${?}
@@ -4527,20 +4375,13 @@ case "${1:-}" in
 					"${PYTHON_TARGETS:-}"
 			)"
 
-		info="$( LC_ALL='C' emerge --info --verbose=y 2>&1 )"
-
 		output
 		output
 		output 'Resolved build variables for post-installation packages:'
 		output '-------------------------------------------------------'
 		output
-		echo "${info}" | format 'CFLAGS'
-		echo "${info}" | format 'LDFLAGS'
-		output
-		echo "${info}" | format 'USE'
-		echo "${info}" | format 'PYTHON_SINGLE_TARGET'
-		echo "${info}" | format 'PYTHON_TARGETS'
-		unset info
+		report_portage_environment ||
+			die 'Unable to report Portage environment for post-installation packages'
 
 		if [ -n "${EMERGE_OPTS:-}" ] &&
 			echo " ${EMERGE_OPTS} " | grep -Eq -- ' --single(-post)? '
@@ -4571,7 +4412,7 @@ case "${1:-}" in
 								setenv ROOT "${ROOT}"
 								setenv SYSROOT="${ROOT}"
 								setenv PORTAGE_CONFIGROOT="${SYSROOT}"
-								invalidate_get_portage_flags_cache
+								invalidate_portage_env_cache
 
 								# shellcheck disable=SC2086
 								do_emerge --defaults ${parallel} \
@@ -4600,7 +4441,7 @@ case "${1:-}" in
 					setenv ROOT "${ROOT}"
 					setenv SYSROOT="${ROOT}"
 					setenv PORTAGE_CONFIGROOT="${SYSROOT}"
-					invalidate_get_portage_flags_cache
+					invalidate_portage_env_cache
 
 					output
 					output
@@ -4749,7 +4590,7 @@ case "${1:-}" in
 						setenv ROOT "${ROOT}"
 						setenv SYSROOT="${ROOT}"
 						setenv PORTAGE_CONFIGROOT="${SYSROOT}"
-						invalidate_get_portage_flags_cache
+						invalidate_portage_env_cache
 
 						setenv PYTHON_SINGLE_TARGET="${BUILD_PYTHON_SINGLE_TARGET}"
 						if [ "${ROOT}" = '/' ]; then
@@ -4855,48 +4696,32 @@ case "${1:-}" in
 									sed 's|^.*/var/db/pkg/|>=| ; s|/$||'
 							)"
 
-						info="$( # <- Syntax
-									LC_ALL='C' \
-									SYSROOT="${ROOT}" \
-									PORTAGE_CONFIGROOT="${ROOT}" \
-								emerge --info --verbose=y 2>&1
-							)"
 						output
 						output
 						output "Resolved build variables for python cleanup stage 1 in ROOT '${ROOT}':"
 						output '---------------------------------------------------'
 						output
-						echo "${info}" | format 'CFLAGS'
-						echo "${info}" | format 'LDFLAGS'
-						output
-						output "ROOT                = $( # <- Syntax
-								echo "${info}" |
-									grep -- '^ROOT=' |
-									cut -d'=' -f 2- |
-									uniq |
-									head -n 1
-							)"
-						output "SYSROOT             = $( # <- Syntax
-								echo "${info}" |
-									grep -- '^SYSROOT=' |
-									cut -d'=' -f 2- |
-									uniq |
-									head -n 1
-							)"
-						output "PORTAGE_CONFIGROOT  = $( # <- Syntax
-								echo "${info}" |
-									grep -- '^PORTAGE_CONFIGROOT=' |
-									cut -d'=' -f 2- |
-									uniq |
-									head -n 1
-							)"
-						output
-						echo "${info}" | format 'USE'
-						echo "${info}" | format 'PYTHON_SINGLE_TARGET'
-						echo "${info}" | format 'PYTHON_TARGETS'
+						(
+							export SYSROOT="${ROOT}" PORTAGE_CONFIGROOT="${ROOT}"
+							invalidate_portage_env_cache
+							report_portage_environment
+						) || die 'Unable to report Portage environment for python cleanup stage 1'
 						print "pkgs: '${pkgs}'"
+						# shellcheck disable=SC2086
+						partition_python_rebuild_packages \
+							"${PYTHON_SINGLE_TARGET}" ${pkgs} || {
+							error "Unable to classify packages for the Python cleanup"
+							rc=1
+							break
+						}
+						pkgs="${python_rebuild_packages}"
+						if [ -n "${python_obsolete_packages:-}" ]; then
+							output "Obsolete packages with no supported destination" \
+								"Python target: '${python_obsolete_packages}'"
+						fi
 
 						# shellcheck disable=SC2015,SC2046,SC2086
+						if [ -n "${pkgs:-}" ]; then
 							USE="$( # <- Syntax
 									echo " ${USE} " |
 										sed -r \
@@ -4910,11 +4735,25 @@ case "${1:-}" in
 									xargs -rn 1 |
 									grep -Ev -- \
 										'^>=dev-lang/python-exec-[0-9]' |
-									xargs -r
+								xargs -r
 							) || rc=${?}
+						fi
 						if [ $(( rc )) -ne 0 ]; then
 							error "Stage 1b cleanup for root '${ROOT}': ${rc}"
 							break
+						fi
+
+						# Once compatible consumers have been rebuilt, remove
+						# packages whose current ebuild cannot use any destination
+						# implementation before depcleaning the old interpreters.
+						if [ -n "${python_obsolete_packages:-}" ]; then
+							# shellcheck disable=SC2086
+							do_emerge --depclean-defaults --verbose \
+								${python_obsolete_packages} || rc=${?}
+							if [ $(( rc )) -ne 0 ]; then
+								error "Stage 1 obsolete package depclean: ${rc}"
+								break
+							fi
 						fi
 
 						# The unwanted interpreters require python-exec with
@@ -4964,22 +4803,16 @@ case "${1:-}" in
 								"${PYTHON_TARGETS}"
 						)"
 
-						info="$( # <- Syntax
-									LC_ALL='C' \
-									SYSROOT="${ROOT}" \
-									PORTAGE_CONFIGROOT="${ROOT}" \
-								emerge --info --verbose=y 2>&1
-							)"
 						output
 						output
 						output "Resolved build variables for python cleanup stage 2 in ROOT '${ROOT}':"
 						output '---------------------------------------------------'
 						output
-						echo "${info}" | format 'CFLAGS'
-						echo "${info}" | format 'LDFLAGS'
-						output
-						echo "${info}" | format 'USE'
-						echo "${info}" | format 'PYTHON_TARGETS'
+						(
+							export SYSROOT="${ROOT}" PORTAGE_CONFIGROOT="${ROOT}"
+							invalidate_portage_env_cache
+							report_portage_environment
+						) || die 'Unable to report Portage environment for python cleanup stage 2'
 
 						# Keep the stage-1 package list, and add any packages
 						# still built with the target flags due to be
@@ -5028,7 +4861,7 @@ case "${1:-}" in
 							)"
 
 						# shellcheck disable=SC2086
-						do_emerge --rebuild-defaults --update ${pkgs} ||
+						do_emerge --rebuild-defaults --update --newuse ${pkgs} ||
 							rc=${?}
 						if [ $(( rc )) -ne 0 ]; then
 							error "Stage 2 cleanup for root '${ROOT}': ${rc}"

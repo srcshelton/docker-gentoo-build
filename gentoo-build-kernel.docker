@@ -2500,7 +2500,7 @@ mkdir -p "${log_dir:="log"}" ||
 		else
 			false
 		fi
-	)" || RUSTFLAGS='-C target-cpu=native -C strip=debuginfo -C opt-level=3 -C link-arg=-Wl,-O2 -C link-arg=-Wl,--as-needed'
+	)" || RUSTFLAGS="${rust_target_opts:--C target-cpu=generic} -C strip=debuginfo -C opt-level=3 -C link-arg=-Wl,-O2 -C link-arg=-Wl,--as-needed"
 	_LLVM_RUSTC_LTO="$( # <- Syntax
 		if type -pf emerge >/dev/null 2>&1; then
 			emerge --info 2>&1 | grep -- '^_LLVM_RUSTC_LTO=' | cut -d'"' -f 2
@@ -2622,6 +2622,7 @@ mkdir -p "${log_dir:="log"}" ||
 		fi ;
 		if [ '${compiler}' = 'clang' ]; then
 			: Correct as-of GCC 13/LLVM 18.1.8-r1 - see https://clang.llvm.org/docs/CommandGuide/clang.html ;
+			fallback_target_flags='${cc_target_opts}' ;
 			good_flags='' ;
 			bad_flags='' ;
 			gcc_CFLAGS="\${CFLAGS:-}" ;
@@ -2672,7 +2673,7 @@ mkdir -p "${log_dir:="log"}" ||
 				'arm'*)
 					LDFLAGS="\$( echo "\${_LLVM_LD:-"\${LDFLAGS:-}"} \${_LD_LTO:-} \${_LD_EXTRA:-}" | xargs -rn 1 | sed '/-Wl,-O1/s/-O1/-O2/' | sort | uniq | xargs -r )" ;
 					mcpu="\$( echo "\${good_flags:-}" | xargs -rn 1 | grep -- '^-mcpu=' || : )" ;
-					good_flags="\$( { echo "\${good_flags:-}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${mcpu:-"-mcpu=native"}" ; } | sort -V | xargs -r )" ;
+					good_flags="\$( { echo "\${good_flags:-}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${mcpu:-"\${fallback_target_flags}"}" ; } | sort -V | xargs -r )" ;
 					unset mcpu ;
 					;;
 				*)
@@ -2684,8 +2685,8 @@ mkdir -p "${log_dir:="log"}" ||
 							LDFLAGS="\$( echo "\${_LLVM_LD:-"\${LDFLAGS:-}"} \${_LD_LTO:-} \${_LD_EXTRA:-}" | xargs -rn 1 | sed '/-Wl,-O1/s/-O1/-O2/' | sort | uniq | xargs -r )" ;
 							;;
 					esac ;
-					: march="\$( echo "\${good_flags:-}" | xargs -rn 1 | grep -- '^-march=' || : )" ;
-					good_flags="\$( { echo "\${good_flags:-}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${march:-"-march=native"}" ; } | sort -V | xargs -r )" ;
+					march="\$( echo "\${good_flags:-}" | xargs -rn 1 | grep -- '^-march=' || : )" ;
+					good_flags="\$( { echo "\${good_flags:-}" | xargs -rn 1 | grep -v -- '^-m' ; echo "\${march:-"\${fallback_target_flags}"}" ; } | sort -V | xargs -r )" ;
 					unset march ;
 					;;
 			esac ;

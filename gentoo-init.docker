@@ -143,11 +143,23 @@ if [[ "$( type -t 'die' )" != 'function' ]]; then
 		"'common/run.sh'"
 	exit 127
 fi
+# shellcheck disable=SC1091
+[[ -s common/build-flags.sh ]] && . common/build-flags.sh
+if [[ "$( type -t 'resolve_non_gentoo_build_flags' )" != 'function' ]] ||
+		[[ "$( type -t 'resolve_gentoo_build_flags' )" != 'function' ]]
+then
+	die "Unable to source compiler flag resolvers from 'common/build-flags.sh'"
+fi
 
 if [[ -n "${*:-}" ]]; then
 	if grep -Eq -- ' -(h|-help) ' <<<" ${*} "; then
 		output >&2 "Usage: $( basename "${0}" ) [--env] [--stage3] [--init]" \
 			"[[--force] --base] [[--force] --build] [--helper [--force-helper]]"
+		output >&2
+		output >&2 'Linux compiler flags retain their normal Portage meaning.'
+		output >&2 'On macOS, ambient compiler flags are ignored unless explicitly'
+		output >&2 'set as GENTOO_BUILD_<FLAG>, or retained together by setting'
+		output >&2 'GENTOO_USE_HOST_COMPILER_FLAGS=1.'
 		container_engine_help >&2
 		exit 0
 	elif ! grep -Eq <<<" ${*} " -- \
@@ -650,14 +662,13 @@ if ! type -pf portageq >/dev/null 2>&1; then
 	unset ref
 
 	portage_log_dir="${PORTAGE_LOGDIR:-"${PORT_LOGDIR:-"$( # <- Syntax
-			# We don't have portageq so are unlikely to have emerge either, but
-			# it's worth a shot...
-			emerge --info 2>&1 |
-				grep -E -- '^PORT(AGE)?_LOGDIR=' |
-				head -n 1 |
-				cut -d'"' -f 2 || :
+			command -v portageq >/dev/null 2>&1 &&
+				portageq envvar PORTAGE_LOGDIR 2>/dev/null || :
 		)"}"}"
 	# shellcheck disable=SC2154 # profile_version set by _docker_setup
+	# The resolver's ARCH/GENTOO_PKGHOST assignments are intentionally confined
+	# to its subshell.
+	# shellcheck disable=SC2031
 	for dir in /var/cache/portage/dist \
 			"${portage_log_dir:-"/var/log/portage"}" \
 			/var/cache/portage/pkg/${ARCH:-"${arch}"}/${GENTOO_PKGHOST:-"container"}/${profile_version}
@@ -814,12 +825,6 @@ case "${docker_arch}" in
 		gentoo_stage3_tag='i686-openrc' ;;
 esac
 target_opt="${cc_target_opts:-}"
-case "${docker_arch}" in
-	'arm'*)
-		# See https://community.arm.com/developer/tools-software/tools/b/tools-software-ides-blog/posts/compiler-flags-across-architectures-march-mtune-and-mcpu
-		[[ -z "${cc_target_opts:-}" ]] &&
-			target_opt='-mcpu=native' ;;
-esac
 rust_target_opt="${rust_target_opts:-}"
 if [[ "${_container_engine}" == 'container' ]]; then
 	env_id="$( # <- Syntax
@@ -876,123 +881,26 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		--build-arg ARCH="${arch}"
 		--build-arg PROFILE_PATH="${profile:-}"
 		--build-arg CHOST="${chost:-}"
+		--build-arg TARGET_CPU="${target_cpu}"
+		--build-arg COMPILER_FAMILY="${compiler_family}"
+		--build-arg TARGET_OPT="${target_opt}"
+		--build-arg RUST_TARGET_OPT="${rust_target_opt}"
 	)
 
 	# shellcheck disable=SC2154
 	[[ -z "${use_cpu_arch:-}" ]] || build_args+=( # <- Syntax
 		--build-arg "CPU_FLAGS_${use_cpu_arch^^}=${use_cpu_flags_raw}"
 	)
-	[[ -z "${target_opt:-}" ]] || build_args+=( # <- Syntax
-		--build-arg TARGET_OPT="${target_opt}"
-	)
-	[[ -z "${rust_target_opt:-}" ]] || build_args+=( # <- Syntax
-		--build-arg RUST_TARGET_OPT="${rust_target_opt}"
-	)
 	declare cppflags='' cflags='' cxxflags='' ldflags='' \
 		cgo_cppflags='' cgo_cflags='' cgo_cxxflags='' cgo_fflags='' \
 		cgo_ldflags='' goflags='' \
 		fflags='' fcflags='' flflags='' \
 		rustflags=''
-	if [[ "${_container_engine}" != 'container' ]] &&
-			type -pf emerge >/dev/null 2>&1
-	then
-		cppflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^CPPFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
-		cflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^CFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
-		cxxflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^CXXFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
-		fflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^FFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
-		fcflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^FCFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
-		flflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^FLFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
-		ldflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^LDFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
-		cgo_cppflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^CGO_CPPFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
-		cgo_cflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^CGO_CFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
-		cgo_cxxflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^CGO_CXXFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
-		cgo_fflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^CGO_FFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
-		cgo_ldflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^CGO_LDFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
-		goflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^GOFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
-		rustflags="$( # <- Syntax
-				emerge --info 2>&1 |
-					grep -- '^RUSTFLAGS=' |
-					awk -F'"' '{print $2}' || :
-			)"
+	if type -pf portageq >/dev/null 2>&1; then
+		eval "$( resolve_gentoo_build_flags )"
 	else
-		# shellcheck disable=SC1091,SC2030
-		eval "$( # <- Syntax
-			# shellcheck disable=SC2034
-			[[ -n "${LDFLAGS:-}" ]] || case "${arch:-"$( uname -m )"}" in
-				amd64|ppc64|x86)
-					LDFLAGS='-Wl,-O1 -Wl,--as-needed -Wl,-z,pack-relative-relocs'
-					;;
-				*)
-					LDFLAGS='-Wl,-O1 -Wl,--as-needed'
-					;;
-			esac
-			[[ -n "${ARCH:-}" ]] || ARCH="${arch:-"$( uname -m )"}"
-
-			# shellcheck disable=SC1091
-			if [[ "${_container_engine}" == 'container' ]] &&
-					[[ -s etc/portage/make.conf ]]
-			then
-				. etc/portage/make.conf 2>/dev/null
-			else
-				. /etc/portage/make.conf 2>/dev/null
-			fi
-			set |
-				grep -F -- 'FLAGS=' |
-				sed 's|^[A-Z_]\+=|\L&| ; s|$|;|' |
-				grep -E -- '^((cgo_)?(c(xx|pp)?|f|ld))|(f[cl]|rust)flags='
-		)"
+		# shellcheck disable=SC2030
+		eval "$( resolve_non_gentoo_build_flags )"
 	fi
 	[[ -n "${cflags:-}" ]] || cflags='-O2 -pipe'
 	[[ -n "${cxxflags:-}" ]] || cxxflags="${cflags}"

@@ -49,6 +49,14 @@ Set `VERBOSE` to a non-empty value to report engine selection and every
 container-engine command.  Set `TRACE` to a non-empty value to enable shell
 execution tracing.
 
+On Linux hosts, ordinary compiler variables such as `CFLAGS`, `CXXFLAGS`, and
+`RUSTFLAGS` retain their normal Portage meaning.  The explicit
+`GENTOO_BUILD_<FLAG>` form overrides the corresponding value on both Gentoo and
+non-Gentoo Linux hosts.  On macOS, ambient compiler variables commonly describe
+Apple's compiler rather than the Linux target and are therefore reported and
+ignored.  Use `GENTOO_BUILD_<FLAG>` to preserve one deliberate value, or
+`GENTOO_USE_HOST_COMPILER_FLAGS=1` to preserve all unprefixed compiler variables.
+
 (If upgrading from a packaged release of `podman` to a more current binary when
 the original has already been executed at least once, it may be necessary to
 remove the file `/dev/shm/libpod_lock` and then run `podman system renumber`)
