@@ -291,6 +291,12 @@ sudo() {
 		"$( type -pf "${FUNCNAME[0]}" )" "${@:-}"
 }  # sudo
 
+# shellcheck disable=SC1091
+. "${BASH_SOURCE[0]%/*}/pkg.sh"
+if [[ "$( type -t 'pkgdir_generation_affinity_label' )" != 'function' ]]; then
+	die "Unable to source package-cache helpers from 'common/pkg.sh'"
+fi
+
 replace_flags() {
 	# list="$( replace_flags <new> [flags] [to] [add] -- existing_list[@] )"
 	local -a flags=() list=() output=()
@@ -1730,6 +1736,7 @@ _docker_run() {
 		local ro="${docker_readonly:+",${docker_readonly}"}"
 		local default_repo_path=''
 		local default_distdir_path='' default_pkgdir_path=''
+		local pkgdir_seed_path='' pkgdir_seed_container_path=''
 
 		# This should no longer be needed: a container-services/openldap
 		# package can install be used to install extracted schema to
@@ -1855,93 +1862,86 @@ _docker_run() {
 			# ... also:
 			#/var/db/repo/gentoo/profiles/default/linux/arm64/23.0/parent
 			#
-			# Recommended PKGDIR, e.g.
+			# Recommended PKGDIR examples:
+			#/storage/cache/portage/pkg/arm64/container/23.0
 			#/storage/cache/portage/pkg/arm64/cortex-a72/23.0
 			#
-			# Pattern: (...)/${ARCH}/${target_cpu}/${release}(/...)
-			if [[ -z "${target_cpu:-}" ]]; then
-				warn "Target CPU architecture not set - unable to validate" \
-					"'PKGDIR' configuration"
-			else
-				# We can't rely on ${target_cpu} being correct...
-				#if [[ "${PKGDIR%/}" =~ /${ARCH:-"${arch}"}/${target_cpu}/ ]]
-				if [[ "${PKGDIR%/}/" =~ /${ARCH:-"${arch}"}/[^/]+/[0-9.]+/ ]]
+			# The middle GENTOO_PKGHOST component is the sharing boundary: a broad
+			# name can be used for machines with the same deterministic compiler
+			# target, while heterogeneous hosts can select a CPU-class name.  The
+			# metadata enforces target options which Portage cannot compare;
+			# CPU_FLAGS_* remain USE flags which Portage validates itself.  Callers
+			# deliberately overriding compiler flags must manage any finer cache
+			# isolation themselves.
+			if [[ "${PKGDIR%/}/" =~ /${ARCH:-"${arch}"}/[^/]+/[0-9.]+/ ]]
+			then
+				release="$( # <- Syntax
+						grep -Eo "/${ARCH:-"${arch}"}/[^/]+/[^/]+/" \
+								<<<"${PKGDIR}/" |
+							cut -d'/' -f 4
+					)"
+				# FIXME: 'linux' hard-coded...
+				profile_path="${default_repo_path}/profiles/default/linux/${ARCH:-"${arch}"}/${release:-"__missing__"}"
+				if [[ -d "${profile_path}" ]] && [[ -s "${profile_path}/parent" ]]
 				then
-					release="$( # <- Syntax
-							grep -Eo "/${ARCH:-"${arch}"}/[^/]+/[^/]+/" \
-									<<<"${PKGDIR}/" |
-								cut -d'/' -f 4
-						)"
-					# FIXME: 'linux' hard-coded...
-					profile_path="${default_repo_path}/profiles/default/linux/${ARCH:-"${arch}"}/${release:-"__missing__"}"
-					if [[ -d "${profile_path}" ]] &&
-							[[ -s "${profile_path}/parent" ]]
-					then
-						print "Detected Gentoo release ${release} from" \
-							"PKGDIR '${PKGDIR}'"
-					else
-						unset profile_path release
-					fi
-				fi
-				if [[ -n "${release:-}" ]] && ! [[ -s "${PKGDIR}/.metadata" ]]
-				then
-					warn "PKGDIR '${PKGDIR}' does not contain" \
-						"architecture metadata"
-					if touch "${PKGDIR}/.metadata"; then
-						printf >"${PKGDIR}/.metadata" '%s\n%s\n' \
-								"ARCH=${ARCH:-"${arch}"}" \
-								"CPU=${target_cpu}" ||
-							die "Unable to write package metadata to" \
-								"'${PKGDIR}/.metadata': ${?}"
-						info "Wrote package metadata" \
-							"'(${ARCH:-"${arch}"},${target_cpu})'to" \
-							"'${PKGDIR}/.metadata'"
-					else
-						warn "Could not create '${PKGDIR}/.metadata'"
-					fi
-
-				# We can still check any metadata which might be present...
-				elif [[ -s "${PKGDIR}/.metadata" ]]; then
-					if [[ "${ARCH:-"${arch}"}" != "$( # <- Syntax
-								grep -- '^ARCH=' "${PKGDIR}/.metadata" |
-									cut -d'=' -f 2-
-							)" ]]
-					then
-						error "PKGDIR architecture $( # <- Syntax
-									grep -- '^ARCH=' "${PKGDIR}/.metadata" |
-										cut -d'=' -f 2-
-								)" \
-							"does not match architecture" \
-							"'${ARCH:-"${arch}"}' (from PKGDIR '${PKGDIR}')"
-						: $(( ve ++ ))
-					fi
-					if [[ "${target_cpu}" != "$( # <- Syntax
-								grep -- '^CPU=' "${PKGDIR}/.metadata" |
-									cut -d'=' -f 2-
-							)" ]]
-					then
-						error "PKGDIR target CPU '$( # <- Syntax
-									grep -- '^CPU=' "${PKGDIR}/.metadata" |
-										cut -d'=' -f 2-
-								)'" \
-							"does not match target CPU '${target_cpu}'" \
-							"(from PKGDIR '${PKGDIR}')"
-						: $(( ve ++ ))
-					fi
-					if (( ve )); then
-						die "${ve} error(s) occurred validating PKGDIR" \
-							"'${PKGDIR}'"
-					fi
-
-				else
-					warn "Unrecognised PKGDIR path format and no '.metadata'" \
-						"file present: Unable to validate configuration for" \
+					print "Detected Gentoo release ${release} from" \
 						"PKGDIR '${PKGDIR}'"
+				else
+					unset profile_path release
 				fi
+			fi
+
+			if [[ -s "${PKGDIR}/.metadata" ]]; then
+				if migrate_legacy_pkgdir_metadata_file \
+						"${PKGDIR}/.metadata"
+				then
+					info "Upgraded matching legacy PKGDIR metadata to schema 3" \
+						"in '${PKGDIR}/.metadata'"
+				fi
+				validate_pkgdir_metadata_file "${PKGDIR}/.metadata" ||
+					: $(( ve ++ ))
+			elif [[ -n "${release:-}" ]]; then
+				warn "PKGDIR '${PKGDIR}' does not contain compiler-target metadata"
+				write_pkgdir_metadata "${PKGDIR}/.metadata" ||
+					die "Unable to write package metadata to" \
+						"'${PKGDIR}/.metadata': ${?}"
+				info "Wrote PKGDIR compiler-target metadata to" \
+					"'${PKGDIR}/.metadata'"
+			else
+				warn "Unrecognised PKGDIR path format and no '.metadata'" \
+					"file present: Unable to validate configuration for" \
+					"PKGDIR '${PKGDIR}'"
+			fi
+			if (( ve )); then
+				die "${ve} error(s) occurred validating PKGDIR '${PKGDIR}'"
 			fi
 			unset ve profile_path release
 
 			mountpoints["${PKGDIR}"]="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${GENTOO_PKGHOST:-"container"}"
+			case "${PKGDIR%/}" in
+				/var/cache/portage/pkg/*)
+					pkgdir_seed_path="/var/cache/portage/pkg-seed/${PKGDIR#"/var/cache/portage/pkg/"}"
+					;;
+			esac
+			if [[ -n "${pkgdir_seed_path:-}" ]]; then
+				if [[ ! -d "${pkgdir_seed_path}" ]]; then
+					unset pkgdir_seed_path
+				elif [[ -z "$( find "${pkgdir_seed_path}" -type f \
+						-name Packages -size +0c -print -quit )" ]]
+				then
+					info "PKGDIR seed '${pkgdir_seed_path}' contains no package indexes;" \
+						'disabling seed reuse'
+				else
+					[[ -s "${pkgdir_seed_path}/.metadata" ]] ||
+						die "PKGDIR seed '${pkgdir_seed_path}' has no '.metadata'"
+					validate_pkgdir_metadata_file \
+						"${pkgdir_seed_path}/.metadata" ||
+						die "PKGDIR seed '${pkgdir_seed_path}' is incompatible"
+					pkgdir_seed_container_path="/var/cache/portage/pkg-seed/${ARCH:-"${arch}"}/${GENTOO_PKGHOST:-"container"}"
+					mountpointsro["${pkgdir_seed_path}"]="${pkgdir_seed_container_path}"
+					info "Using read-only PKGDIR seed '${pkgdir_seed_path}'"
+				fi
+			fi
 			unset PKGDIR
 		fi
 		mountpointsro['/etc/portage/repos.conf']='/etc/portage/repos.conf.host'

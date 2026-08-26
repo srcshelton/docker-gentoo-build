@@ -154,7 +154,8 @@ fi
 if [[ -n "${*:-}" ]]; then
 	if grep -Eq -- ' -(h|-help) ' <<<" ${*} "; then
 		output >&2 "Usage: $( basename "${0}" ) [--env] [--stage3] [--init]" \
-			"[[--force] --base] [[--force] --build] [--helper [--force-helper]]"
+			"[[--force] --base] [[--force] --build] [--helper [--force-helper]]" \
+			"[--print-pkgdir-cache-affinity]"
 		output >&2
 		output >&2 'Linux compiler flags retain their normal Portage meaning.'
 		output >&2 'On macOS, ambient compiler flags are ignored unless explicitly'
@@ -163,7 +164,7 @@ if [[ -n "${*:-}" ]]; then
 		container_engine_help >&2
 		exit 0
 	elif ! grep -Eq <<<" ${*} " -- \
-		'^(\s*--(env|stage3|init|base|build|helper|force|force-helper)\s*){1,7}$'
+		'^(\s*--(env|stage3|init|base|build|helper|force|force-helper|print-pkgdir-cache-affinity)\s*){1,7}$'
 	then
 		die "Unknown args '${*}'"
 	fi
@@ -191,9 +192,18 @@ declare target_opt=''
 declare rust_target_opt=''
 declare -i build_helper=0
 declare -i force=0
+declare -i print_pkgdir_cache_affinity=0
+
+if grep -Fq -- ' --print-pkgdir-cache-affinity ' <<<" ${*:-} "; then
+	[[ "${*:-}" == '--print-pkgdir-cache-affinity' ]] ||
+		die "'--print-pkgdir-cache-affinity' cannot be combined with build stages"
+	print_pkgdir_cache_affinity=1
+fi
 
 declare docker_version=''
-if [[ "${_container_engine}" == 'container' ]]; then
+if (( print_pkgdir_cache_affinity )); then
+	docker_version='not-required'
+elif [[ "${_container_engine}" == 'container' ]]; then
 	docker_version="$( # <- Syntax
 			container_engine_run "${_command}" --version |
 				grep -ow 'version [0-9.]\+' |
@@ -278,6 +288,8 @@ unset mask_file
 declare -a args=()
 for arg in "${@:-}"; do
 	case "${arg:-}" in
+		--print-pkgdir-cache-affinity)
+			: ;;
 		*helper)
 			build_helper=1
 			args+=( "${arg}" )
@@ -294,6 +306,12 @@ set -- "${args[@]:-}"
 unset args arg
 
 _docker_setup
+
+if (( print_pkgdir_cache_affinity )); then
+	pkgdir_generation_affinity_metadata
+	printf 'CACHE_LABEL=%s\n' "$( pkgdir_generation_affinity_label )"
+	exit 0
+fi
 
 pushd "${base_dir}" >/dev/null 2>&1 ||
 	die "chdir() to '${base_dir}' failed; ${?}"
@@ -669,13 +687,17 @@ if ! type -pf portageq >/dev/null 2>&1; then
 	# The resolver's ARCH/GENTOO_PKGHOST assignments are intentionally confined
 	# to its subshell.
 	# shellcheck disable=SC2031
+	declare default_pkgdir_path="${PKGDIR_OVERRIDE:-}"
+	# shellcheck disable=SC2031
+	[[ -n "${default_pkgdir_path}" ]] ||
+		default_pkgdir_path="/var/cache/portage/pkg/${ARCH:-"${arch}"}/${GENTOO_PKGHOST:-"container"}/${profile_version}"
 	for dir in /var/cache/portage/dist \
 			"${portage_log_dir:-"/var/log/portage"}" \
-			/var/cache/portage/pkg/${ARCH:-"${arch}"}/${GENTOO_PKGHOST:-"container"}/${profile_version}
+			"${default_pkgdir_path}"
 	do
 		[[ -d "${dir}" ]] || makedir "${dir}"
 	done
-	unset dir portage_log_dir
+	unset default_pkgdir_path dir portage_log_dir
 
 	unset private_gentoo_clone repo_path_gentoo
 
@@ -864,7 +886,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 	# USED_BY: stage3 build
 
 	declare -a build_args=()
-	# shellcheck disable=SC2207
+	# shellcheck disable=SC2031,SC2207
 	build_args+=( # <- Syntax
 		--platform "linux/${docker_arch}"
 
@@ -881,6 +903,7 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 		--build-arg ARCH="${arch}"
 		--build-arg PROFILE_PATH="${profile:-}"
 		--build-arg CHOST="${chost:-}"
+		--build-arg GENTOO_PKGHOST="${GENTOO_PKGHOST:-container}"
 		--build-arg TARGET_CPU="${target_cpu}"
 		--build-arg COMPILER_FAMILY="${compiler_family}"
 		--build-arg TARGET_OPT="${target_opt}"
@@ -1639,7 +1662,6 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --base ' <<<" ${*} "; then
 		export image="${init_name}:${override_tag:-"latest"}"
 		# shellcheck disable=SC2031
 		DOCKER_CMD_VARS="--env ARCH=${arch:-"${ARCH}"}"
-		DOCKER_CMD_VARS+=" --env target_cpu=${target_cpu:-}"
 		export DOCKER_CMD_VARS
 
 		if [[ -d /var/lib/portage/eclass/linux-info ]]; then

@@ -26,6 +26,29 @@ os_headers_arch_flags='raspberrypi rockchip'
 export arch="${ARCH}"
 unset -v ARCH
 
+# A restored PKGDIR generation is mounted read-only at a parallel path.  Keep
+# the writable generation as Portage's PKGDIR and expose only the matching seed
+# namespace as a file:// binary host while each build stage is active.
+pkgdir_generation_root="${PKGDIR%/}"
+pkgdir_seed_root=''
+case "${pkgdir_generation_root}" in
+	/var/cache/portage/pkg/*)
+		pkgdir_seed_candidate="/var/cache/portage/pkg-seed/${pkgdir_generation_root#"/var/cache/portage/pkg/"}"
+		if [ -d "${pkgdir_seed_candidate}" ]; then
+			pkgdir_seed_root="${pkgdir_seed_candidate}"
+		fi
+		unset pkgdir_seed_candidate
+		;;
+esac
+pkgdir_seed_binhost=''
+if [ "${PORTAGE_BINHOST+x}" = x ]; then
+	pkgdir_seed_original_binhost_set=1
+	pkgdir_seed_original_binhost="${PORTAGE_BINHOST}"
+else
+	pkgdir_seed_original_binhost_set=0
+	pkgdir_seed_original_binhost=''
+fi
+
 # Keep the Portage snapshots shell-private: exporting a snapshot would feed its
 # values back into the next Portage query.  Query the complete allowlist in one
 # portageq process because Portage initialisation is expensive on NFS-backed
@@ -162,9 +185,11 @@ check() {
 }  # check
 
 validate_pkgdir_metadata() {
-	vpm='' vpm_rc=0
+	vpm_actual='' vpm_arch='' vpm_expected='' vpm_rc=0
 
-	#inherit PKGDIR ARCH arch target_cpu
+	# inherit PKGDIR ARCH arch CHOST GENTOO_PROFILE _TARGET_CPU
+	#         _TARGET_COMPILER_FAMILY _TARGET_CPU_CFLAGS
+	#         _TARGET_CPU_RUSTFLAGS
 
 	if [ -z "${PKGDIR:-}" ]; then
 		warn "'PKGDIR' not set when validate_pkgdir_metadata called"
@@ -176,39 +201,35 @@ validate_pkgdir_metadata() {
 		return 0
 	fi
 
-	vpm="$( cat "${PKGDIR}/.metadata" | grep -- '^ARCH=' | cut -d'=' -f 2 )"
-	if [ -z "${vpm:-}" ]; then
-		warn "Metadata file '${PKGDIR}/.metadata' exists but does not" \
-			"include ARCH directive"
-	elif [ -z "${ARCH:-"${arch:-}"}" ]; then
-		warn "Metadata file '${PKGDIR}/.metadata' includes ARCH directive" \
-			"but no ARCH value is set to compare this against"
-	elif [ "${ARCH:-"${arch}"}" = "${vpm}" ]; then
-		print "ARCH value from metadata file '${PKGDIR}/.metadata' matches" \
-			"active ARCH value '${ARCH:-"${arch}"}'"
+	vpm_arch="${ARCH:-"${arch:-}"}"
+	if [ -z "${vpm_arch}" ] && [ -n "${GENTOO_PROFILE:-}" ]; then
+		vpm_arch="$( printf '%s\n' "${GENTOO_PROFILE}" | cut -d/ -f3 )"
+	fi
+	vpm_expected="$( # <- Syntax
+		printf '%s\n' \
+			'CACHE_SCHEMA=3' \
+			'TARGET_OS=linux' \
+			"ARCH=${vpm_arch}" \
+			"CHOST=${CHOST:-}" \
+			"COMPILER=${_TARGET_COMPILER_FAMILY:-gcc}" \
+			"CPU=${_TARGET_CPU:-}" \
+			"CC_TARGET_OPTS=${_TARGET_CPU_CFLAGS:-}" \
+			"RUST_TARGET_OPTS=${_TARGET_CPU_RUSTFLAGS:-}"
+	)"
+	vpm_actual="$( cat "${PKGDIR}/.metadata" )"
+	if [ "${vpm_actual}" = "${vpm_expected}" ]; then
+		print "PKGDIR metadata in '${PKGDIR}/.metadata' matches the active" \
+			'compiler target'
 	else
-		error "ARCH value '${vpm}' from metadata file '${PKGDIR}/.metadata'" \
-			"does not match active ARCH value '${ARCH:-"${arch}"}'"
+		error "PKGDIR metadata in '${PKGDIR}/.metadata' is incompatible" \
+			'with the active compiler target'
+		output >&2 '--- recorded PKGDIR metadata'
+		output >&2 '+++ required PKGDIR metadata'
+		printf >&2 '%s\n' "${vpm_actual}" '---' "${vpm_expected}"
 		vpm_rc=1
 	fi
 
-	vpm="$( cat "${PKGDIR}/.metadata" | grep -- '^CPU=' | cut -d'=' -f 2 )"
-	if [ -z "${vpm:-}" ]; then
-		warn "Metadata file '${PKGDIR}/.metadata' exists but does not" \
-			"include CPU directive"
-	elif [ -z "${target_cpu:-}" ]; then
-		warn "Metadata file '${PKGDIR}/.metadata' includes CPU directive" \
-			"but no CPU value is set to compare this against"
-	elif [ "${target_cpu}" = "${vpm}" ]; then
-		print "CPU value from metadata file '${PKGDIR}/.metadata' matches" \
-			"active CPU value '${target_cpu}'"
-	else
-		error "CPU value '${vpm}' from metadata file '${PKGDIR}/.metadata'" \
-			"does not match active CPU value '${target_cpu}'"
-		vpm_rc=1
-	fi
-
-	unset vpm
+	unset vpm_actual vpm_arch vpm_expected
 
 	if [ $(( vpm_rc )) -ne 0 ]; then
 		unset vpm_rc
@@ -218,6 +239,52 @@ validate_pkgdir_metadata() {
 		return 0
 	fi
 }  # validate_pkgdir_metadata
+
+restore_pkgdir_seed_environment() {
+	pkgdir_seed_binhost=''
+	if [ $(( pkgdir_seed_original_binhost_set )) -eq 1 ]; then
+		PORTAGE_BINHOST="${pkgdir_seed_original_binhost}"
+		export PORTAGE_BINHOST
+	else
+		unset PORTAGE_BINHOST
+	fi
+}  # restore_pkgdir_seed_environment
+
+configure_pkgdir_seed() {
+	cps_relative='' cps_seed=''
+	restore_pkgdir_seed_environment
+
+	if [ -z "${pkgdir_seed_root:-}" ]; then
+		unset cps_seed cps_relative
+		return 0
+	fi
+	case "${PKGDIR%/}/" in
+		"${pkgdir_generation_root%/}/"*)
+			cps_relative="${PKGDIR%/}"
+			cps_relative="${cps_relative#"${pkgdir_generation_root%/}"}"
+			;;
+		*)
+			warn "PKGDIR '${PKGDIR}' is outside writable generation root" \
+				"'${pkgdir_generation_root}'; not using the restored seed"
+			unset cps_seed cps_relative
+			return 0
+			;;
+	esac
+
+	cps_seed="${pkgdir_seed_root%/}${cps_relative}"
+	if [ -s "${cps_seed}/Packages" ]; then
+		pkgdir_seed_binhost="file://${cps_seed}"
+		PORTAGE_BINHOST="${pkgdir_seed_binhost}${pkgdir_seed_original_binhost:+ ${pkgdir_seed_original_binhost}}"
+		export PORTAGE_BINHOST
+		info "Using read-only binary-package generation '${cps_seed}' for" \
+			"writable PKGDIR '${PKGDIR}'"
+	else
+		info "No matching package index in read-only generation" \
+			"'${cps_seed}'; this PKGDIR namespace will build without it"
+	fi
+
+	unset cps_seed cps_relative
+}  # configure_pkgdir_seed
 
 get_stage3() {
 	# Extract a given list of get_values from the saved stage3 data...
@@ -440,6 +507,7 @@ setenv() {
 	if [ "${se_var}" = 'PKGDIR' ]; then
 		validate_pkgdir_metadata ||
 			die "Failed to validate metadata for PKGDIR '${PKGDIR}'"
+		configure_pkgdir_seed
 	fi
 
 	unset se_name se_out se_val se_var
@@ -1352,6 +1420,37 @@ do_emerge() {
 		esac
 	done
 
+	# When a read-only previous generation is active, --getbinpkg asks Portage
+	# to fetch a selected binary into the writable PKGDIR.  The next saved
+	# generation therefore contains only packages that were reused or rebuilt,
+	# rather than an ever-growing copy of every historical cache entry.
+	do_emerge_usepkg='' do_emerge_getbinpkg=''
+	for do_emerge_arg in "${@}"; do
+		case "${do_emerge_arg}" in
+			--usepkg|--usepkg=y)
+				do_emerge_usepkg='y'
+				;;
+			--usepkg=n)
+				do_emerge_usepkg='n'
+				;;
+			--getbinpkg|--getbinpkg=y)
+				do_emerge_getbinpkg='y'
+				;;
+			--getbinpkg=n)
+				do_emerge_getbinpkg='n'
+				;;
+		esac
+	done
+	if [ -n "${pkgdir_seed_binhost:-}" ] &&
+			[ "${do_emerge_usepkg:-}" = 'y' ] &&
+			[ -z "${do_emerge_getbinpkg:-}" ]
+	then
+		set -- "${@}" --getbinpkg=y
+		info "Copying selected packages from '${pkgdir_seed_binhost}' into" \
+			"the writable PKGDIR generation"
+	fi
+	unset do_emerge_getbinpkg do_emerge_usepkg
+
 	if ! [ -f /srv/host/var/lib/portage/eclass/linux-info/.keep ]; then
 		warn
 		warn "Running emerge with ROOT='${ROOT:-"/"}' without" \
@@ -2159,6 +2258,7 @@ validate_pkgdir_metadata ||
 
 touch "${PKGDIR}/Packages" ||
 	die "Unable to write to file '${PKGDIR}/Packages': ${?}"
+configure_pkgdir_seed
 
 get_stage3 --cache-only
 info="$( # <- Syntax
@@ -4261,6 +4361,7 @@ setenv FEATURES="$( # <- Syntax
 	) -clean -fail-clean"
 
 # Save environment for later docker stages...
+restore_pkgdir_seed_environment
 printf "#FILTER: '%s'\n\n" \
 	"${environment_filter}" > "${ROOT}${environment_file}"
 export -p |
@@ -4277,6 +4378,7 @@ test -s "${ROOT}${environment_file}" ||
 	warn "'${ROOT%"/"}${environment_file}' is empty"
 grep -- ' ROOT=' "${ROOT}${environment_file}" &&
 	die "Invalid 'ROOT' directive in '${ROOT%"/"}${environment_file}'"
+configure_pkgdir_seed
 #output ' * Initial propagated environment:\n\n%s\n\n' "$( # <- Syntax
 #		cat "${ROOT}${environment_file}"
 #	)"

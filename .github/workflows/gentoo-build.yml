@@ -3,6 +3,7 @@ name: Validate Gentoo container builds
 on:
   pull_request:
     paths:
+      - ".github/pkgcache.sh"
       - ".github/workflows/gentoo-build.yml"
       - "common/**"
       - "gentoo-base/**"
@@ -12,6 +13,7 @@ on:
     branches:
       - master
     paths:
+      - ".github/pkgcache.sh"
       - ".github/workflows/gentoo-build.yml"
       - "common/**"
       - "gentoo-base/**"
@@ -80,17 +82,13 @@ jobs:
             fi
           done < <(git ls-files -z '*.docker' '*.sh')
 
-      - name: Probe the native Docker integration
+      - name: Probe Docker integration
         shell: bash
         env:
           CONTAINER_ENGINE: docker
         run: |
           set -euo pipefail
 
-          lscpu
-          grep -E \
-            '^(vendor_id|model name|flags|CPU implementer|CPU architecture|CPU part|CPU revision|Features)[[:space:]]*:' \
-            /proc/cpuinfo | sort -u
           docker version
           test "$(docker info --format '{{.Architecture}}')" = "$(uname -m)"
           ./gentoo-init.docker --help
@@ -156,6 +154,7 @@ jobs:
           set -euo pipefail
 
           sudo mkdir -p /var/db/repo /var/cache/portage/pkg \
+            /var/cache/portage/pkg-seed \
             /var/cache/portage/dist /var/log/portage
           sudo chown -R "$(id -u):$(id -g)" \
             /var/cache/portage /var/log/portage
@@ -164,16 +163,39 @@ jobs:
           sudo ln -sfn "${GITHUB_WORKSPACE}/.ci-repos/srcshelton" \
             /var/db/repo/srcshelton
 
+      - name: Resolve binary-package generation affinity
+        id: pkg-identity
+        shell: bash
+        env:
+          CONTAINER_ENGINE: docker
+          GENTOO_PKGHOST: github-actions
+        run: |
+          set -euo pipefail
+
+          lscpu
+          grep -E \
+            '^(vendor_id|model name|flags|CPU implementer|CPU architecture|CPU part|CPU revision|Features)[[:space:]]*:' \
+            /proc/cpuinfo | sort -u
+          identity="$(.github/pkgcache.sh identity)"
+          printf '%s\n' "${identity}"
+          {
+            echo "### ${{ matrix.arch }} binary-package generation affinity"
+            echo
+            echo '```text'
+            printf '%s\n' "${identity}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Restore Portage binary-package cache
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.restore_pkgdir_cache }}
         id: pkg-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: /var/cache/portage/pkg
-          key: gentoo-pkgdir-v1-${{ matrix.arch }}-${{ steps.portage-ref.outputs.commit }}-${{ github.run_id }}
+          path: /var/cache/portage/pkg-seed
+          key: gentoo-pkgdir-v${{ steps.pkg-identity.outputs.schema }}-${{ steps.pkg-identity.outputs.label }}-${{ steps.portage-ref.outputs.commit }}-${{ github.run_id }}
           restore-keys: |
-            gentoo-pkgdir-v1-${{ matrix.arch }}-${{ steps.portage-ref.outputs.commit }}-
-            gentoo-pkgdir-v1-${{ matrix.arch }}-
+            gentoo-pkgdir-v${{ steps.pkg-identity.outputs.schema }}-${{ steps.pkg-identity.outputs.label }}-${{ steps.portage-ref.outputs.commit }}-
+            gentoo-pkgdir-v${{ steps.pkg-identity.outputs.schema }}-${{ steps.pkg-identity.outputs.label }}-
 
       - name: Build target image
         shell: bash
@@ -199,25 +221,21 @@ jobs:
             localhost/gentoo-build:latest -c \
             'test -x /usr/bin/emerge && test -x /usr/bin/portageq'
           {
-            echo "### ${{ matrix.arch }} Gentoo build"
+            echo "### ${{ matrix.arch }} Gentoo build result"
             echo
             echo "- Image: \`localhost/gentoo-build:latest\`"
+            echo "- Generation-affinity label: \`${{ steps.pkg-identity.outputs.label }}\`"
             echo "- Uncompressed image bytes: \`$(docker image inspect \
               --format '{{.Size}}' localhost/gentoo-build:latest)\`"
-            echo "- PKGDIR bytes: \`$(du -sb /var/cache/portage/pkg | cut -f1)\`"
+            echo "- Previous-generation bytes: \`$(du -sb /var/cache/portage/pkg-seed | cut -f1)\`"
+            echo "- New-generation bytes: \`$(du -sb /var/cache/portage/pkg | cut -f1)\`"
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Normalize cache ownership
         if: ${{ always() }}
         shell: bash
-        run: sudo chown -R "$(id -u):$(id -g)" /var/cache/portage/pkg
-
-      - name: Save Portage binary-package cache
-        if: ${{ always() && steps.portage-ref.outputs.commit != '' && (github.event_name != 'workflow_dispatch' || inputs.save_pkgdir_cache) }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: /var/cache/portage/pkg
-          key: gentoo-pkgdir-v1-${{ matrix.arch }}-${{ steps.portage-ref.outputs.commit }}-${{ github.run_id }}
+        run: |
+          .github/pkgcache.sh normalize-ownership
 
       - name: Export target image
         if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.upload_image }}
@@ -226,14 +244,14 @@ jobs:
           set -euo pipefail
 
           docker save localhost/gentoo-build:latest |
-            zstd -T0 -10 -o "${RUNNER_TEMP}/gentoo-build-${{ matrix.arch }}.tar.zst"
+            zstd -T0 -10 -o "${RUNNER_TEMP}/gentoo-build-${{ steps.pkg-identity.outputs.label }}.tar.zst"
 
       - name: Upload target image
         if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.upload_image }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: gentoo-build-${{ matrix.arch }}
-          path: ${{ runner.temp }}/gentoo-build-${{ matrix.arch }}.tar.zst
+          name: gentoo-build-${{ steps.pkg-identity.outputs.label }}
+          path: ${{ runner.temp }}/gentoo-build-${{ steps.pkg-identity.outputs.label }}.tar.zst
           compression-level: 0
           if-no-files-found: error
           retention-days: 1
@@ -244,15 +262,31 @@ jobs:
         run: |
           set -euo pipefail
 
-          tar --zstd -cf "${RUNNER_TEMP}/gentoo-pkgdir-${{ matrix.arch }}.tar.zst" \
+          tar --zstd -cf "${RUNNER_TEMP}/gentoo-pkgdir-${{ steps.pkg-identity.outputs.label }}.tar.zst" \
             -C /var/cache/portage pkg
 
       - name: Upload Portage PKGDIR
         if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.upload_pkgdir }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: gentoo-pkgdir-${{ matrix.arch }}
-          path: ${{ runner.temp }}/gentoo-pkgdir-${{ matrix.arch }}.tar.zst
+          name: gentoo-pkgdir-${{ steps.pkg-identity.outputs.label }}
+          path: ${{ runner.temp }}/gentoo-pkgdir-${{ steps.pkg-identity.outputs.label }}.tar.zst
           compression-level: 0
           if-no-files-found: error
           retention-days: 1
+
+      - name: Stage new binary-package generation for cache save
+        id: stage-pkg-cache
+        if: ${{ always() && steps.pkg-identity.outputs.label != '' && (github.event_name != 'workflow_dispatch' || inputs.save_pkgdir_cache) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          .github/pkgcache.sh stage-save
+
+      - name: Save Portage binary-package cache
+        if: ${{ always() && steps.stage-pkg-cache.outputs.ready == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /var/cache/portage/pkg-seed
+          key: gentoo-pkgdir-v${{ steps.pkg-identity.outputs.schema }}-${{ steps.pkg-identity.outputs.label }}-${{ steps.portage-ref.outputs.commit }}-${{ github.run_id }}

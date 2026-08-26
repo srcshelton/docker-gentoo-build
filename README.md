@@ -51,9 +51,43 @@ The `Validate Gentoo container builds` workflow probes the Docker path on the
 native GitHub-hosted amd64 and arm64 Linux runners for relevant pushes and pull
 requests.  A monthly schedule and manual dispatch build and validate the full
 `gentoo-build` image on both architectures.  Portage binary packages are kept
-in the workflow cache to accelerate later builds.  Manual runs can independently
-disable cache restore and cache save: disable both for an isolated no-binary-
-package-cache diagnostic run, or disable restore alone to seed a fresh cache.
+in generational workflow caches to accelerate later builds.  A restored
+generation is mounted read-only as a Portage binary host while the build writes
+to a fresh directory.  Only binaries actually selected from the old generation,
+plus packages built during the run, enter the next generation; unrelated stale
+packages are therefore not carried forward indefinitely.  Manual runs can
+independently disable cache restore and cache save: disable both for an isolated
+no-binary-package-cache diagnostic run, or disable restore alone to seed a fresh
+cache.
+
+Cache keys and optional artifact names contain a generation-affinity label from
+`./gentoo-init.docker --print-pkgdir-cache-affinity`.  Its readable portion
+identifies Linux, Gentoo architecture, `CHOST`, full profile, compiler family,
+and target CPU.  The digest also covers normalized `CPU_FLAGS_ARM` or
+`CPU_FLAGS_X86` and the exact compiler and Rust targets.  The complete record is
+shown in the workflow summary.  Exact affinity matches select a useful
+immutable CI generation; they are deliberately stricter than the safety check
+for a long-lived writable package directory.
+
+The writable `PKGDIR` remains organised as architecture, `GENTOO_PKGHOST`, and
+profile version.  `GENTOO_PKGHOST` is the sharing boundary: machines using the
+same deterministic compiler target can use one value, while heterogeneous
+systems can select CPU-class values such as `cortex-a72`.  Its `.metadata`
+records architecture, `CHOST`, compiler family, target CPU, and exact default C
+and Rust target options.  These are a universal compatibility boundary because
+Portage does not compare `CFLAGS` when selecting packages.  Portage separately
+verifies USE and dependency compatibility with `--binpkg-respect-use=y` and
+`--binpkg-changed-deps=y`; `CPU_FLAGS_*` participate through USE expansion and
+therefore belong to CI affinity rather than the metadata rejection boundary.
+Deliberate `GENTOO_BUILD_*` experiments remain caller-managed and should use an
+isolated `GENTOO_PKGHOST` or disable cache restore and save.
+
+Recognised processors use explicit named compiler targets.  An unknown CPU, or
+a virtual CPU whose exposed features do not satisfy its reported model, uses a
+deterministic architecture baseline instead.  No image-build fallback uses
+`-march=native`, `-mcpu=native`, or Rust `target-cpu=native`; this keeps shared
+package directories and distributed compiler workers independent of whichever
+machine happens to execute the compiler.
 
 A manual dispatch can also upload one-day compressed image and `PKGDIR`
 artifacts.  These are disabled by default because two architectures of images,
@@ -78,6 +112,9 @@ non-Gentoo Linux hosts.  On macOS, ambient compiler variables commonly describe
 Apple's compiler rather than the Linux target and are therefore reported and
 ignored.  Use `GENTOO_BUILD_<FLAG>` to preserve one deliberate value, or
 `GENTOO_USE_HOST_COMPILER_FLAGS=1` to preserve all unprefixed compiler variables.
+These deliberate overrides are not incorporated into persistent package-cache
+metadata or CI generation affinity; callers using experimental flags should
+disable cache reuse or choose a separate `GENTOO_PKGHOST` value for that run.
 
 (If upgrading from a packaged release of `podman` to a more current binary when
 the original has already been executed at least once, it may be necessary to
