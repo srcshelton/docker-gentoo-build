@@ -2166,11 +2166,20 @@ else
 	# next-stage build fails after the ROOT filesystem contents have been
 	# copied across when running 'test -s /usr/libexec/environment.sh'!?
 	trap '' INT
-	docker container commit \
+	if [[ "${_container_engine}" == 'container' ]]; then
+		apple_snapshot_container \
+				"${container_prefix}-${container_name}" \
+				"${container_prefix}-${package_name}:${package_version}" \
+				"${log_dir}/${container_prefix}.${alt_log:-"${container_name}"}.log" \
+				"${IMAGE}" \
+				'Gentoo service image'
+	else
+		docker container commit \
 				"${container_prefix}-${container_name}" \
 				"${container_prefix}-${package_name}:${package_version}" \
 			2>&1 |
-		tee -a "${log_dir}/${container_prefix}.${alt_log:-"${container_name}"}.log"
+			tee -a "${log_dir}/${container_prefix}.${alt_log:-"${container_name}"}.log"
+	fi
 	rc=${?}
 	trap - INT
 	output " -> ${rc}"
