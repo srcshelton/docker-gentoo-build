@@ -1,0 +1,82 @@
+name: Preserve recent Gentoo build caches
+
+on:
+  schedule:
+    # GitHub normally removes caches which have not been accessed for seven
+    # days.  Refresh the newest useful generation twice weekly without
+    # downloading its potentially very large archive.
+    - cron: "43 4 * * 1,4"
+  workflow_dispatch:
+
+concurrency:
+  group: gentoo-cache-keepalive
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  keepalive:
+    name: Preserve newest ${{ matrix.arch }} caches
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Prepare lookup paths
+        shell: bash
+        run: |
+          mkdir -p "${RUNNER_TEMP}/pkgdir" "${RUNNER_TEMP}/success"
+
+      - name: Look up newest binary-package generation
+        id: pkgdir
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/pkgdir
+          key: gentoo-pkgdir-keepalive-v1-${{ matrix.arch }}
+          restore-keys: |
+            gentoo-pkgdir-v3-linux-${{ matrix.arch }}-
+          lookup-only: true
+
+      - name: Look up newest successful-build marker
+        id: success
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/success
+          key: gentoo-build-success-keepalive-v1-${{ matrix.arch }}
+          restore-keys: |
+            gentoo-build-success-v1-${{ matrix.arch }}-
+          lookup-only: true
+
+      - name: Report refreshed entries
+        shell: bash
+        env:
+          PKGDIR_KEY: ${{ steps.pkgdir.outputs.cache-matched-key }}
+          SUCCESS_KEY: ${{ steps.success.outputs.cache-matched-key }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${PKGDIR_KEY}" ]]; then
+            echo '::warning::No matching Portage binary-package generation exists yet'
+          fi
+          if [[ -z "${SUCCESS_KEY}" ]]; then
+            echo '::warning::No matching successful-build marker exists yet'
+          fi
+          {
+            echo "### ${{ matrix.arch }} cache keepalive"
+            echo
+            echo "- Binary packages: \`${PKGDIR_KEY:-not found}\`"
+            echo "- Successful build: \`${SUCCESS_KEY:-not found}\`"
+            echo
+            echo 'The lookup-only restore accesses the newest prefix match without downloading its archive.'
+          } >> "${GITHUB_STEP_SUMMARY}"

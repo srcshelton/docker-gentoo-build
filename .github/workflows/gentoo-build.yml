@@ -3,6 +3,7 @@ name: Validate Gentoo container builds
 on:
   pull_request:
     paths:
+      - ".github/build-state.sh"
       - ".github/cpu-diagnostics.sh"
       - ".github/pkgcache.sh"
       - ".github/workflows/gentoo-build.yml"
@@ -14,6 +15,7 @@ on:
     branches:
       - master
     paths:
+      - ".github/build-state.sh"
       - ".github/cpu-diagnostics.sh"
       - ".github/pkgcache.sh"
       - ".github/workflows/gentoo-build.yml"
@@ -96,8 +98,8 @@ jobs:
           probe_status=0
           probe_output="$(./gentoo-init.docker --help 2>&1)" || probe_status=${?}
           printf '%s\n' "${probe_output}"
-          if grep -Eq \
-              'has no safe named build target|which the build runner does not expose' \
+          if grep -Fq \
+              'has no safe named build target' \
               <<<"${probe_output}"
           then
             if ! .github/cpu-diagnostics.sh; then
@@ -124,7 +126,64 @@ jobs:
       - name: Check out build repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Check out srcshelton overlay
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: srcshelton/gentoo-ebuilds
+          path: .ci-repos/srcshelton
+
+      - name: Resolve successful-build fingerprint
+        id: build-state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p ".ci-state/success-${{ matrix.arch }}"
+          state="$(.github/build-state.sh fingerprint \
+            "${{ matrix.arch }}" .ci-repos/srcshelton)"
+          printf '%s\n' "${state}"
+          {
+            echo "### ${{ matrix.arch }} build-source fingerprint"
+            echo
+            echo '```text'
+            printf '%s\n' "${state}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Look up a successful identical build
+        id: build-success
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ci-state/success-${{ matrix.arch }}
+          key: ${{ steps.build-state.outputs.success-key }}
+          lookup-only: true
+
+      - name: Decide whether to build
+        id: build-decision
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          build=true
+          reason='pushes and manually dispatched runs always validate the requested source'
+          if [[ "${{ github.event_name }}" == 'schedule' ]]; then
+            if [[ "${{ steps.build-success.outputs.cache-hit }}" == 'true' ]]; then
+              build=false
+              reason='an identical source, overlay, Portage pin and stage3 digest already completed successfully'
+            else
+              reason='no successful build marker matches the current scheduled inputs'
+            fi
+          fi
+          printf 'build=%s\nreason=%s\n' "${build}" "${reason}" >> "${GITHUB_OUTPUT}"
+          printf 'Build: %s (%s)\n' "${build}" "${reason}"
+          {
+            echo
+            echo "- Build required: \`${build}\`"
+            echo "- Reason: ${reason}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Reclaim runner disk space
+        if: ${{ steps.build-decision.outputs.build == 'true' }}
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
         with:
           tool-cache: true
@@ -135,13 +194,8 @@ jobs:
           docker-images: true
           swap-storage: true
 
-      - name: Check out srcshelton overlay
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: srcshelton/gentoo-ebuilds
-          path: .ci-repos/srcshelton
-
       - name: Resolve pinned Gentoo repository commit
+        if: ${{ steps.build-decision.outputs.build == 'true' }}
         id: portage-ref
         shell: bash
         run: |
@@ -155,6 +209,7 @@ jobs:
           echo "commit=${commit}" >> "${GITHUB_OUTPUT}"
 
       - name: Check out pinned Gentoo repository
+        if: ${{ steps.build-decision.outputs.build == 'true' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: gentoo/gentoo
@@ -162,6 +217,7 @@ jobs:
           path: .ci-repos/gentoo
 
       - name: Prepare host paths
+        if: ${{ steps.build-decision.outputs.build == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -177,6 +233,7 @@ jobs:
             /var/db/repo/srcshelton
 
       - name: Resolve binary-package generation affinity
+        if: ${{ steps.build-decision.outputs.build == 'true' }}
         id: pkg-identity
         shell: bash
         env:
@@ -200,7 +257,7 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Restore Portage binary-package cache
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.restore_pkgdir_cache }}
+        if: ${{ steps.build-decision.outputs.build == 'true' && (github.event_name != 'workflow_dispatch' || inputs.restore_pkgdir_cache) }}
         id: pkg-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -211,6 +268,7 @@ jobs:
             gentoo-pkgdir-v${{ steps.pkg-identity.outputs.schema }}-${{ steps.pkg-identity.outputs.label }}-
 
       - name: Build target image
+        if: ${{ steps.build-decision.outputs.build == 'true' }}
         shell: bash
         env:
           CONTAINER_ENGINE: docker
@@ -225,6 +283,7 @@ jobs:
           ./gentoo-init.docker
 
       - name: Validate target image
+        if: ${{ steps.build-decision.outputs.build == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -245,13 +304,13 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Normalize cache ownership
-        if: ${{ always() }}
+        if: ${{ always() && steps.build-decision.outputs.build == 'true' }}
         shell: bash
         run: |
           .github/pkgcache.sh normalize-ownership
 
       - name: Export target image
-        if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.upload_image }}
+        if: ${{ success() && steps.build-decision.outputs.build == 'true' && github.event_name == 'workflow_dispatch' && inputs.upload_image }}
         shell: bash
         run: |
           set -euo pipefail
@@ -260,7 +319,7 @@ jobs:
             zstd -T0 -10 -o "${RUNNER_TEMP}/gentoo-build-${{ steps.pkg-identity.outputs.label }}.tar.zst"
 
       - name: Upload target image
-        if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.upload_image }}
+        if: ${{ success() && steps.build-decision.outputs.build == 'true' && github.event_name == 'workflow_dispatch' && inputs.upload_image }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: gentoo-build-${{ steps.pkg-identity.outputs.label }}
@@ -270,7 +329,7 @@ jobs:
           retention-days: 1
 
       - name: Export Portage PKGDIR
-        if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.upload_pkgdir }}
+        if: ${{ success() && steps.build-decision.outputs.build == 'true' && github.event_name == 'workflow_dispatch' && inputs.upload_pkgdir }}
         shell: bash
         run: |
           set -euo pipefail
@@ -279,7 +338,7 @@ jobs:
             -C /var/cache/portage pkg
 
       - name: Upload Portage PKGDIR
-        if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.upload_pkgdir }}
+        if: ${{ success() && steps.build-decision.outputs.build == 'true' && github.event_name == 'workflow_dispatch' && inputs.upload_pkgdir }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: gentoo-pkgdir-${{ steps.pkg-identity.outputs.label }}
@@ -290,7 +349,7 @@ jobs:
 
       - name: Stage new binary-package generation for cache save
         id: stage-pkg-cache
-        if: ${{ always() && steps.pkg-identity.outputs.label != '' && (github.event_name != 'workflow_dispatch' || inputs.save_pkgdir_cache) }}
+        if: ${{ always() && steps.build-decision.outputs.build == 'true' && steps.pkg-identity.outputs.label != '' && (github.event_name != 'workflow_dispatch' || inputs.save_pkgdir_cache) }}
         shell: bash
         run: |
           set -euo pipefail
@@ -303,3 +362,24 @@ jobs:
         with:
           path: /var/cache/portage/pkg-seed
           key: gentoo-pkgdir-v${{ steps.pkg-identity.outputs.schema }}-${{ steps.pkg-identity.outputs.label }}-${{ steps.portage-ref.outputs.commit }}-${{ github.run_id }}
+
+      - name: Record successful build inputs
+        if: ${{ success() && steps.build-decision.outputs.build == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          printf '%s\n' \
+            "fingerprint=${{ steps.build-state.outputs.fingerprint }}" \
+            "repository=${GITHUB_SHA}" \
+            "overlay=$(git -C .ci-repos/srcshelton rev-parse HEAD)" \
+            "portage=${{ steps.portage-ref.outputs.commit }}" \
+            "stage3=${{ steps.build-state.outputs.stage3-digest }}" \
+            > ".ci-state/success-${{ matrix.arch }}/inputs"
+
+      - name: Save successful-build marker
+        if: ${{ success() && steps.build-decision.outputs.build == 'true' && steps.build-success.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ci-state/success-${{ matrix.arch }}
+          key: ${{ steps.build-state.outputs.success-key }}
