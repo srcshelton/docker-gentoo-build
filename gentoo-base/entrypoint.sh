@@ -185,7 +185,8 @@ check() {
 }  # check
 
 validate_pkgdir_metadata() {
-	vpm_actual='' vpm_arch='' vpm_expected='' vpm_rc=0
+	vpm_actual='' vpm_arch='' vpm_expected='' vpm_legacy='' vpm_rc=0
+	vpm_tmp=''
 
 	# inherit PKGDIR ARCH arch CHOST GENTOO_PROFILE _TARGET_CPU
 	#         _TARGET_COMPILER_FAMILY _TARGET_CPU_CFLAGS
@@ -217,19 +218,51 @@ validate_pkgdir_metadata() {
 			"RUST_TARGET_OPTS=${_TARGET_CPU_RUSTFLAGS:-}"
 	)"
 	vpm_actual="$( cat "${PKGDIR}/.metadata" )"
+
+	# Older stage namespaces recorded only the deterministic architecture and
+	# CPU name.  Upgrade that exact legacy identity in place; packages do not
+	# need to be discarded when both values still match the active target.
+	vpm_legacy="$( # <- Syntax
+		printf '%s\n' \
+			"ARCH=${vpm_arch}" \
+			"CPU=${_TARGET_CPU:-}"
+	)"
+	if [ "${vpm_actual}" = "${vpm_legacy}" ]; then
+		if vpm_tmp="$( mktemp "${PKGDIR}/.metadata.tmp.XXXXXX" )" &&
+				printf '%s\n' "${vpm_expected}" >"${vpm_tmp}" &&
+				mv -f -- "${vpm_tmp}" "${PKGDIR}/.metadata"
+		then
+			vpm_actual="${vpm_expected}"
+			vpm_tmp=''
+			info "Upgraded matching legacy PKGDIR metadata to schema 3 in" \
+				"'${PKGDIR}/.metadata'; existing packages were retained"
+		else
+			[ -z "${vpm_tmp}" ] || rm -f -- "${vpm_tmp}"
+			error "Legacy PKGDIR metadata matches the active target, but" \
+				"'${PKGDIR}/.metadata' could not be upgraded"
+			error "Make this PKGDIR directory writable and retry; its cached" \
+				'packages do not need to be removed'
+			vpm_rc=1
+		fi
+	fi
+
 	if [ "${vpm_actual}" = "${vpm_expected}" ]; then
 		print "PKGDIR metadata in '${PKGDIR}/.metadata' matches the active" \
 			'compiler target'
-	else
+	elif [ $(( vpm_rc )) -eq 0 ]; then
 		error "PKGDIR metadata in '${PKGDIR}/.metadata' is incompatible" \
 			'with the active compiler target'
 		output >&2 '--- recorded PKGDIR metadata'
 		output >&2 '+++ required PKGDIR metadata'
 		printf >&2 '%s\n' "${vpm_actual}" '---' "${vpm_expected}"
+		error "Use a separate GENTOO_PKGHOST (with the default PKGDIR) or" \
+			'PKGDIR for this target, or move aside only this cache subtree:'
+		error "  ${PKGDIR}"
+		error 'The shared parent package cache does not need to be removed'
 		vpm_rc=1
 	fi
 
-	unset vpm_actual vpm_arch vpm_expected
+	unset vpm_actual vpm_arch vpm_expected vpm_legacy vpm_tmp
 
 	if [ $(( vpm_rc )) -ne 0 ]; then
 		unset vpm_rc

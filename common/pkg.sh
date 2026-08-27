@@ -177,6 +177,10 @@ if [[ -z "${__COMMON_PKG_INCLUDED:-}" ]]; then
 				<( printf '%s\n' "${actual}" ) \
 				<( printf '%s\n' "${expected}" ) >&2 || :
 		fi
+		error 'Use a separate GENTOO_PKGHOST (with the default PKGDIR) or' \
+			'PKGDIR for this target, or move aside only the cache subtree' \
+			"containing '${metadata_path}'"
+		error 'The shared parent package cache does not need to be removed'
 		return 1
 	}  # validate_pkgdir_metadata_file
 fi

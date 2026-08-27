@@ -79,6 +79,10 @@ Portage does not compare `CFLAGS` when selecting packages.  Portage separately
 verifies USE and dependency compatibility with `--binpkg-respect-use=y` and
 `--binpkg-changed-deps=y`; `CPU_FLAGS_*` participate through USE expansion and
 therefore belong to CI affinity rather than the metadata rejection boundary.
+Legacy metadata containing the same architecture and deterministic CPU is
+upgraded in place without removing cached packages.  A genuine mismatch should
+use another `GENTOO_PKGHOST`/`PKGDIR`, or move aside only the reported cache
+subtree; the shared parent cache need not be deleted.
 Deliberate `GENTOO_BUILD_*` experiments remain caller-managed and should use an
 isolated `GENTOO_PKGHOST` or disable cache restore and save.
 
