@@ -36,4 +36,38 @@ Environment:
 EOF
 }
 
+container_engine_configure_tmpdir() {
+	cet_base=''
+	cet_graphroot="${1:-}"
+	cet_explicit="${PODMAN_TMPDIR:-}"
+	cet_previous="${TMPDIR:-${TMP:-/tmp}}"
+	cet_base="${cet_explicit:-${cet_graphroot}}"
+
+	if [ -z "${cet_base}" ]; then
+		printf >&2 'FATAL: Cannot determine container-engine temporary directory\n'
+		unset cet_base cet_explicit cet_graphroot cet_previous
+		return 1
+	fi
+	cet_tmp="${cet_base%/}/tmp"
+	if mkdir -p "${cet_tmp}" 2>/dev/null && [ -w "${cet_tmp}" ]; then
+		TMPDIR="${cet_tmp}"
+		TMP="${cet_tmp}"
+		export TMPDIR TMP
+		unset cet_base cet_explicit cet_graphroot cet_previous cet_tmp
+		return 0
+	fi
+
+	if [ -n "${cet_explicit}" ]; then
+		printf >&2 "FATAL: PODMAN_TMPDIR temporary directory '%s' is not writable\n" \
+			"${cet_tmp}"
+		unset cet_base cet_explicit cet_graphroot cet_previous cet_tmp
+		return 1
+	fi
+
+	printf >&2 "WARN:  Container-engine storage temporary directory '%s' is not writable; retaining '%s'\n" \
+		"${cet_tmp}" "${cet_previous}"
+	unset cet_base cet_explicit cet_graphroot cet_previous cet_tmp
+	return 0
+}
+
 # vi: set colorcolumn=80 syntax=sh sw=4 ts=4:

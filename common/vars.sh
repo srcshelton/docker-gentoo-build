@@ -332,6 +332,15 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			target_cpu='znver2'
 			cc_target_opts="-march=${target_cpu}"
 			rust_target_opts="-C target-cpu=${target_cpu}" ;;
+		*': AMD EPYC 7763 64-Core Processor'*)
+			# AMD Milan, as currently exposed by GitHub's amd64 runner.
+			# The complete -march=znver3 ISA is checked separately because
+			# hypervisors can mask features while retaining the model name.
+			use_cpu_arch='x86'
+			use_cpu_flags='aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3 vaes vpclmulqdq'
+			target_cpu='znver3'
+			cc_target_opts="-march=${target_cpu}"
+			rust_target_opts="-C target-cpu=${target_cpu}" ;;
 		*': AMD EPYC 9R14')
 			use_cpu_arch='x86'
 			use_cpu_flags='aes avx avx2 avx512_bf16 avx512_bitalg avx512_vbmi2 avx512_vnni avx512_vpopcntdq avx512bw avx512cd avx512dq avx512f avx512ifma avx512vbmi avx512vl f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3 vpclmulqdq'
@@ -520,6 +529,15 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			use_cpu_arch='arm'
 			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp v4 v5 v6 v7 v8 thumb2'
 			target_cpu='neoverse-n1'
+			cc_target_opts="-mcpu=${target_cpu}"
+			rust_target_opts="-C target-cpu=${target_cpu}" ;;
+		*': 0xd49')
+			# Microsoft Azure Cobalt 100 identifies as part 0xd49 and is
+			# handled by Linux and LLVM as a Neoverse N2.  Validate the
+			# complete compiler target against features exposed by the runner.
+			use_cpu_arch='arm'
+			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp sve sve2 i8mm v4 v5 v6 v7 v8 thumb2'
+			target_cpu='neoverse-n2'
 			cc_target_opts="-mcpu=${target_cpu}"
 			rust_target_opts="-C target-cpu=${target_cpu}" ;;
 		*': 0xd40'|'AWS Graviton 3'*)
@@ -822,11 +840,8 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			exit 1
 		fi
 
-		_tmp="${PODMAN_TMPDIR:-"${_graphroot}"}/tmp"
-		mkdir -p "${_tmp:="/var/lib/containers/storage/tmp"}"
-		export TMPDIR="${_tmp}"
-		export TMP="${_tmp}"
-		unset _graphroot _output _tmp
+		container_engine_configure_tmpdir "${_graphroot}" || exit ${?}
+		unset _graphroot _output
 	fi
 fi
 

@@ -3,6 +3,7 @@ name: Validate Gentoo container builds
 on:
   pull_request:
     paths:
+      - ".github/cpu-diagnostics.sh"
       - ".github/pkgcache.sh"
       - ".github/workflows/gentoo-build.yml"
       - "common/**"
@@ -13,6 +14,7 @@ on:
     branches:
       - master
     paths:
+      - ".github/cpu-diagnostics.sh"
       - ".github/pkgcache.sh"
       - ".github/workflows/gentoo-build.yml"
       - "common/**"
@@ -91,7 +93,18 @@ jobs:
 
           docker version
           test "$(docker info --format '{{.Architecture}}')" = "$(uname -m)"
-          ./gentoo-init.docker --help
+          probe_status=0
+          probe_output="$(./gentoo-init.docker --help 2>&1)" || probe_status=${?}
+          printf '%s\n' "${probe_output}"
+          if grep -Eq \
+              'has no safe named build target|which the build runner does not expose' \
+              <<<"${probe_output}"
+          then
+            if ! .github/cpu-diagnostics.sh; then
+              echo '::warning::Unable to collect optional CPU diagnostics'
+            fi
+          fi
+          (( probe_status == 0 )) || exit "${probe_status}"
 
   build:
     name: Build gentoo-build on ${{ matrix.arch }}

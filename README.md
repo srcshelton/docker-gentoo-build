@@ -93,6 +93,11 @@ deterministic architecture baseline instead.  No image-build fallback uses
 package directories and distributed compiler workers independent of whichever
 machine happens to execute the compiler.
 
+CI preserves the warning for an unknown or feature-masked CPU.  Only after that
+warning is detected does it collect `lscpu` and `/proc/cpuinfo` details and, if
+needed, download, verify, and build a pinned `cpuid2cpuflags` release.  Known
+usable CPUs therefore incur no diagnostic download or compilation cost.
+
 A manual dispatch can also upload one-day compressed image and `PKGDIR`
 artifacts.  These are disabled by default because two architectures of images,
 and especially the binary-package directories, can exceed the account's

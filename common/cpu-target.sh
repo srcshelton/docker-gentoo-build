@@ -69,6 +69,12 @@ if [ -z "${__COMMON_CPU_TARGET_INCLUDED:-}" ]; then
 					*) return 1 ;;
 				esac
 				;;
+			prefetchw)
+				case "${available}" in
+					*' 3dnowprefetch '*|*' prefetchw '*) return 0 ;;
+					*) return 1 ;;
+				esac
+				;;
 			sha)
 				case "${available}" in
 					*' sha '*|*' sha_ni '*) return 0 ;;
@@ -138,6 +144,20 @@ if [ -z "${__COMMON_CPU_TARGET_INCLUDED:-}" ]; then
 
 		if [ "${selected_use_arch}" = 'x86' ]; then
 			required="${selected_use_flags}"
+			case "${selected_cpu}" in
+			znver3)
+				# GCC's -march=znver3 enables ISA extensions which do not all
+				# have Gentoo CPU_FLAGS_X86 names.  Require the complete
+				# compiler-target boundary before accepting a virtual CPU's
+				# marketing model.
+				required="${required:+${required} }abm adx aes avx avx2 bmi1"
+				required="${required} bmi2 clflushopt clwb clzero cx16 f16c"
+				required="${required} fma fsgsbase mmx movbe mwaitx pclmulqdq"
+				required="${required} pku popcnt prefetchw rdpid rdseed sha"
+				required="${required} sse sse2 sse3 sse4_1 sse4_2 sse4a"
+				required="${required} ssse3 vaes vpclmulqdq wbnoinvd xsavec xsaves"
+				;;
+			esac
 		else
 			case "${selected_cpu}" in
 			arm1176jzf-s) required='vfp' ;;
@@ -149,6 +169,12 @@ if [ -z "${__COMMON_CPU_TARGET_INCLUDED:-}" ]; then
 			cortex-a720) required='aes asimd sha2 sha3 sm4 sve2' ;;
 			apple-m1) required='asimd asimddp' ;;
 			neoverse-n1) required='aes asimd atomics crc32 sha1 sha2' ;;
+			neoverse-n2)
+				required='asimd asimddp asimdfhm asimdhp asimdrdm atomics'
+				required="${required} bf16 crc32 fcma flagm flagm2 fphp frint"
+				required="${required} i8mm ilrcpc jscvt mte paca pacg rng sb"
+				required="${required} ssbs sve sve2 svebitperm"
+				;;
 			neoverse-v1) required='aes asimd sha1 sha2 sve' ;;
 			neoverse-v2) required='asimd sve2' ;;
 			esac
