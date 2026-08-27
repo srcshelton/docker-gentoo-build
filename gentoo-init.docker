@@ -161,6 +161,8 @@ if [[ -n "${*:-}" ]]; then
 		output >&2 'On macOS, ambient compiler flags are ignored unless explicitly'
 		output >&2 'set as GENTOO_BUILD_<FLAG>, or retained together by setting'
 		output >&2 'GENTOO_USE_HOST_COMPILER_FLAGS=1.'
+		output >&2 'Cache-affinity queries pull the pinned stage3 and ask its GCC'
+		output >&2 'to resolve the build runner CPU into explicit compiler flags.'
 		container_engine_help >&2
 		exit 0
 	elif ! grep -Eq <<<" ${*} " -- \
@@ -306,12 +308,6 @@ set -- "${args[@]:-}"
 unset args arg
 
 _docker_setup
-
-if (( print_pkgdir_cache_affinity )); then
-	pkgdir_generation_affinity_metadata
-	printf 'CACHE_LABEL=%s\n' "$( pkgdir_generation_affinity_label )"
-	exit 0
-fi
 
 pushd "${base_dir}" >/dev/null 2>&1 ||
 	die "chdir() to '${base_dir}' failed; ${?}"
@@ -820,6 +816,155 @@ sum="$( sha1sum entrypoint.sh )"
 sum="$( echo "${sum}" | cut -d' ' -f 1 )"
 [[ -n "${sum}" ]] || die "Could not calculate 'entrypoint.sh' checksum"
 
+prepare_gentoo_stage3_image() {
+	local -i rc=0 need_pull=1
+	local -a untag_args=()
+
+	gentoo_stage3_image="$( # <- Syntax highlight failure
+		grep -- '^ARG gentoo_stage3_image=' Dockerfile.stage3 |
+			cut -d'"' -f 2
+	)"
+	ref=''
+	trap '' INT
+
+	# Pull explicitly so both the compiler probe and the later stage build use
+	# the same architecture-specific, overlay-pinned image.
+	if [[ "${gentoo_stage3_tag}" = 'latest' ]]; then
+		info "Using upstream '${gentoo_stage3_image}' tag" \
+			"'${gentoo_stage3_tag}'"
+
+		case "$( docker image pull --help )" in
+			*'--platform'*)
+				docker image pull "${gentoo_stage3_image}:latest" \
+					--platform "linux/${docker_arch}" || rc=${?}
+				;;
+			*'--override-arch'*)
+				docker image pull "${gentoo_stage3_image}:latest" \
+					--override-arch "${docker_arch}" || rc=${?}
+				;;
+			*'--arch'*)
+				docker image pull "${gentoo_stage3_image}:latest" \
+					--arch "${docker_arch}" || rc=${?}
+				;;
+			*)
+				die "Could not determine method to retrieve" \
+					"non-native architecture with" \
+					"'${_command} image pull'"
+				;;
+		esac
+
+		need_pull=0
+	elif [[ -n "${repo_path_srcshelton:-}" ]] &&
+			[[ -d "${repo_path_srcshelton}" ]]
+	then
+		if [[ -s "${repo_path_srcshelton}/.image_digests" ]]; then
+			ref="$( # <- Syntax
+				grep -m 1 "^${docker_arch} " \
+						"${repo_path_srcshelton}/.image_digests" |
+					cut -d' ' -f 2-
+			)"
+			if ! [[ "${ref%":"*}" == 'sha256' ]]; then
+				warn "Unable to retrieve SHA256 digest for image" \
+					"'${gentoo_stage3_image}:${gentoo_stage3_tag}' with" \
+					"architecture '${docker_arch}' from file" \
+					"'${repo_path_srcshelton}/.image_digests'"
+				need_pull=1
+			else
+				info "Using '${gentoo_stage3_image}' pin '${ref}'"
+
+				# Podman 4.6 can lose a digest when its tag is replaced.  Remove
+				# the tag before pulling the immutable reference.
+				if [[ "${_container_engine}" == 'podman' ]] && [[ -n "$( # <- Syntax
+					docker image list \
+						-q \
+						--filter "reference=${gentoo_stage3_image}:${gentoo_stage3_tag}"
+				)" ]]
+				then
+					untag_args=( image untag )
+					[[ "${_container_engine}" != 'docker' ]] ||
+						untag_args=( image rm )
+					if ! docker "${untag_args[@]}" \
+							"${gentoo_stage3_image}:${gentoo_stage3_tag}"
+					then
+						docker --debug "${untag_args[@]}" \
+								"${gentoo_stage3_image}:${gentoo_stage3_tag}" ||
+							die "${_command} image tag removal failed for" \
+								"'${gentoo_stage3_image}:${gentoo_stage3_tag}' tag"
+					fi
+				fi
+
+				info "Pulling image '${gentoo_stage3_image}@${ref}' ..."
+				if ! docker image pull "${gentoo_stage3_image}@${ref}"; then
+					docker --debug image pull "${gentoo_stage3_image}@${ref}" ||
+						rc=${?}
+				else
+					info "Tagging '${ref}' as" \
+						"'${gentoo_stage3_image}:${gentoo_stage3_tag}'"
+
+					if ! docker image tag "${gentoo_stage3_image}@${ref}" \
+							"${gentoo_stage3_image}:${gentoo_stage3_tag}"
+					then
+						docker --debug image tag \
+							"${gentoo_stage3_image}@${ref}" \
+							"${gentoo_stage3_image}:${gentoo_stage3_tag}" || :
+						warn "Pull of pinned image failed - reverting to tag" \
+							"'${gentoo_stage3_tag}'"
+						need_pull=1
+					else
+						rc=0
+						need_pull=0
+					fi
+				fi
+			fi
+		fi
+	fi
+
+	if (( need_pull )); then
+		warn "Pulling image '${gentoo_stage3_image}:${gentoo_stage3_tag}' ..."
+		if ! docker image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}"; then
+			rc=${?}
+			docker --debug image pull \
+				"${gentoo_stage3_image}:${gentoo_stage3_tag}" || rc=${?}
+		fi
+	fi
+
+	trap - INT
+	if (( rc )); then
+		die "'${_command} image pull' failed to retrieve image" \
+			"'${gentoo_stage3_image}:${gentoo_stage3_tag}' for architecture" \
+			"'${docker_arch}'"
+	fi
+
+	# macOS 'container' has no image ID distinct from the SHA256 digest.
+	if [[ -n "${ref:-}" ]]; then
+		gentoo_stage3_id="$( # <- Syntax
+			if [[ "${_container_engine}" == 'container' ]]; then
+				echo "${ref}"
+			else
+				docker image ls --noheading --digests \
+						--format='{{.Digest}} {{.ID}}' 2>/dev/null |
+					grep -F -- "${ref}" |
+					awk '{print $2}'
+			fi
+		)" || :
+	else
+		gentoo_stage3_id="$( # <- Syntax
+			if [[ "${_container_engine}" == 'container' ]]; then
+				apple_image_digest \
+					"${gentoo_stage3_image}:${gentoo_stage3_tag}"
+			else
+				docker image ls --noheading \
+						--format='{{.ID}}' \
+					"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null
+			fi
+		)" || :
+	fi
+
+	gentoo_stage3_image_ref="${gentoo_stage3_image}:${gentoo_stage3_tag}"
+	[[ -z "${ref:-}" ]] ||
+		gentoo_stage3_image_ref="${gentoo_stage3_image}@${ref}"
+}  # prepare_gentoo_stage3_image
+
 gentoo_stage3_tag='latest'
 # https://hub.docker.com/r/gentoo/stage3 tag-naming is a mess - not only does
 # it keep changing, but there's now an inconsistency as to whether the init
@@ -846,8 +991,188 @@ case "${docker_arch}" in
 	'i386')
 		gentoo_stage3_tag='i686-openrc' ;;
 esac
+
+declare gentoo_stage3_image='' gentoo_stage3_image_ref=''
+declare gentoo_stage3_id='' ref=''
+prepare_gentoo_stage3_image
+
+resolve_stage3_compiler_target() {
+	local stage3_probe='' gcc_probe='' probed_opts='' probed_cpu=''
+	local probed_features='' raw_features='' detected_flags='' baseline_flags=''
+	local model_cpu="${target_cpu:-}" model_rust_cpu="${target_cpu:-generic}"
+	local required='' missing='' rust_required='' rust_missing=''
+	local rust_base_opts='' retained_use='' use_word=''
+	local probe_script=''
+
+	probe_script="$( cat <<'EOF'
+set -eu
+printf '__CPU_FEATURES_BEGIN__\n'
+awk -F':' '
+    /^(flags|Features)[[:space:]]*:/ {
+        delete current
+        count = split($2, words, /[[:space:]]+/)
+        for (word = 1; word <= count; word++) {
+            if (words[word] != "") current[words[word]] = 1
+        }
+        if (records++ == 0) {
+            for (feature in current) common[feature] = 1
+        } else {
+            for (feature in common) {
+                if (!(feature in current)) delete common[feature]
+            }
+        }
+    }
+    END { for (feature in common) print feature }' /proc/cpuinfo
+printf '__CPU_FEATURES_END__\n'
+printf '__AUXV_BEGIN__\n'
+env LD_SHOW_AUXV=1 /bin/true 2>&1 |
+    awk '$1 == "AT_HWCAP:" || $1 == "AT_HWCAP2:" || $1 == "AT_HWCAP3:"'
+printf '__AUXV_END__\n'
+printf '__GCC_NATIVE_BEGIN__\n'
+case "$( uname -m )" in
+    x86_64|amd64|i?86|x86)
+        gcc -march=native -mtune=native -### -E -x c /dev/null 2>&1
+        ;;
+    aarch64|arm64|arm*)
+        gcc -mcpu=native -### -E -x c /dev/null 2>&1
+        ;;
+    *)
+        exit 65
+        ;;
+esac
+printf '__GCC_NATIVE_END__\n'
+EOF
+	)"
+
+	if ! stage3_probe="$( # <- Syntax
+		docker container run \
+			--entrypoint /bin/sh \
+			--network none \
+			--platform "linux/${docker_arch}" \
+			--read-only \
+			--rm \
+			"${gentoo_stage3_image_ref}" -c "${probe_script}" 2>&1
+	)"
+	then
+		warn "Pinned stage3 compiler target probe failed; retaining validated" \
+			"model or portable fallback '${cc_target_opts}'"
+		printf >&2 '%s\n' "${stage3_probe}"
+		return 0
+	fi
+
+	gcc_probe="$( # <- Syntax
+		sed -n '/^__GCC_NATIVE_BEGIN__$/,/^__GCC_NATIVE_END__$/p' \
+			<<<"${stage3_probe}" |
+			sed '1d;$d'
+	)"
+	probed_opts="$( # <- Syntax
+		printf '%s\n' "${gcc_probe}" |
+			cpu_target_parse_gcc_native "${docker_arch}" || :
+	)"
+	probed_cpu="$( # <- Syntax
+		cpu_target_from_compiler_options "${probed_opts}" || :
+	)"
+	raw_features="$( # <- Syntax
+		sed -n '/^__CPU_FEATURES_BEGIN__$/,/^__CPU_FEATURES_END__$/p' \
+			<<<"${stage3_probe}" |
+			sed '1d;$d'
+	)"
+	probed_features="$( cpu_target_normalize_words "${raw_features}" )"
+
+	if [[ -z "${probed_opts}" || -z "${probed_cpu}" ]] ||
+			[[ " ${probed_opts} " == *native* ]]
+	then
+		warn "Pinned stage3 GCC did not produce a safe explicit native target;" \
+			"retaining validated model or portable fallback '${cc_target_opts}'"
+		return 0
+	fi
+
+	required="$( cpu_target_required_features \
+		"${probed_cpu}" "${probed_opts}" '' "${use_cpu_arch}" )"
+	missing="$( cpu_target_missing_features \
+		"${probed_features}" "${required}" )"
+	if [[ -n "${missing}" ]]; then
+		warn "Pinned stage3 GCC target '${probed_opts}' requires features" \
+			"'${missing}' absent from at least one available CPU; retaining" \
+			"validated model or portable fallback '${cc_target_opts}'"
+		return 0
+	fi
+
+	cc_target_opts="${probed_opts}"
+	target_cpu="${probed_cpu}"
+	case "${docker_arch}" in
+		amd64|i386) rust_base_opts="-march=${target_cpu}" ;;
+		arm*) rust_base_opts="-mcpu=${target_cpu}" ;;
+	esac
+	rust_required="$( cpu_target_required_features \
+		"${target_cpu}" "${rust_base_opts}" '' "${use_cpu_arch}" )"
+	rust_missing="$( cpu_target_missing_features \
+		"${cpu_exposed_features}" "${rust_required}" )"
+	if cpu_target_rust_known_cpu "${target_cpu}" &&
+			cpu_target_rust_mask_supported "${target_cpu}" "${rust_missing}"
+	then
+		model_rust_cpu="${target_cpu}"
+	else
+		model_rust_cpu='generic'
+	fi
+	rust_target_opts="$( cpu_target_rust_from_gcc \
+		"${cc_target_opts}" "${target_cpu}" "${model_rust_cpu}" )"
+	cpu_target_source='stage3-gcc-native'
+	cpu_exposed_features="${probed_features}"
+
+	detected_flags="$( cpu_target_gentoo_flags \
+		"${cpu_exposed_features}" \
+		"/var/db/repo/gentoo/profiles/desc/cpu_flags_${use_cpu_arch}.desc" )"
+	baseline_flags="$( # <- Syntax
+		(
+			cpu_target_set_generic "${docker_arch}" >/dev/null 2>&1 || exit 0
+			printf '%s\n' "${cpu_target_baseline_flags:-}"
+		)
+	)"
+	use_cpu_flags_raw="$( cpu_target_normalize_words \
+		"${baseline_flags} ${detected_flags}" )"
+	use_cpu_flags=''
+	if [[ -n "${use_cpu_flags_raw}" ]]; then
+		use_cpu_flags="$( # <- Syntax
+			printf '%s\n' "${use_cpu_flags_raw}" |
+				sed "s/^/cpu_flags_${use_cpu_arch}_/ ; s/ / cpu_flags_${use_cpu_arch}_/g"
+		)"
+	fi
+
+	# common/vars.sh has already assembled USE.  Replace only its CPU_FLAGS_*
+	# terms so the gentoo-env metadata follows the stage3 capability boundary.
+	for use_word in ${use_essential}; do
+		case "${use_word}" in
+			cpu_flags_arm_*|cpu_flags_x86_*) : ;;
+			*) retained_use="${retained_use}${retained_use:+ }${use_word}" ;;
+		esac
+	done
+	use_essential="${retained_use}${use_cpu_flags:+ ${use_cpu_flags}}"
+
+	info "Pinned stage3 GCC resolved CPU target:" \
+		"CPU_FLAGS_${use_cpu_arch}='${use_cpu_flags_raw}'," \
+		"target_cpu='${target_cpu}'," \
+		"compiler='${cc_target_opts}', rust='${rust_target_opts}'"
+	if [[ -n "${model_cpu}" && "${model_cpu}" != "${target_cpu}" ]]; then
+		note "Stage3 compiler target '${target_cpu}' supersedes host model" \
+			"fallback '${model_cpu}'"
+	fi
+	if [[ -n "${debug:-}" ]]; then
+		sed -n '/^__AUXV_BEGIN__$/,/^__AUXV_END__$/p' \
+			<<<"${stage3_probe}"
+	fi
+}  # resolve_stage3_compiler_target
+
+resolve_stage3_compiler_target
 target_opt="${cc_target_opts:-}"
 rust_target_opt="${rust_target_opts:-}"
+
+if (( print_pkgdir_cache_affinity )); then
+	pkgdir_generation_affinity_metadata
+	printf 'CACHE_LABEL=%s\n' "$( pkgdir_generation_affinity_label )"
+	exit 0
+fi
+
 if [[ "${_container_engine}" == 'container' ]]; then
 	env_id="$( # <- Syntax
 		apple_image_digest \
@@ -1038,165 +1363,6 @@ if [[ -z "${*:-}" ]] || grep -Fq -- ' --env ' <<<" ${*} "; then
 	output " ${blue}*${reset} Stage 'env' complete, next is 'stage3' ..."
 	output
 fi
-
-gentoo_stage3_image="$( # <- Syntax highlight failure
-	grep -- '^ARG gentoo_stage3_image=' Dockerfile.stage3 |
-		cut -d'"' -f 2
-)"
-
-declare ref=''
-declare -i rc=0 need_pull=1
-trap '' INT
-
-# We have to 'pull' manually, or else this stage fails ...
-if [[ "${gentoo_stage3_tag}" = 'latest' ]]; then
-	info "Using upstream '${gentoo_stage3_image}' tag" \
-		"'${gentoo_stage3_tag}'"
-
-	case "$( docker image pull --help )" in
-		*'--platform'*)
-			docker image pull "${gentoo_stage3_image}:latest" \
-				--platform "linux/${docker_arch}" || rc=${?}
-			;;
-		*'--override-arch'*)
-			docker image pull "${gentoo_stage3_image}:latest" \
-				--override-arch "${docker_arch}" || rc=${?}
-			;;
-		*'--arch'*)
-			docker image pull "${gentoo_stage3_image}:latest" \
-				--arch "${docker_arch}" || rc=${?}
-			;;
-		*)
-			die "Could not determine method to retrieve" \
-				"non-native architecture with" \
-				"'${_command} image pull'"
-			;;
-	esac
-
-	need_pull=0
-elif [[ -n "${repo_path_srcshelton:-}" ]] &&
-		[[ -d "${repo_path_srcshelton}" ]]
-then
-	if [[ -s "${repo_path_srcshelton}/.image_digests" ]]; then
-		ref="$( # <- Syntax
-			grep -m 1 "^${docker_arch} " \
-					"${repo_path_srcshelton}/.image_digests" |
-				cut -d' ' -f 2-
-		)"
-		if ! [[ "${ref%":"*}" == 'sha256' ]]; then
-			warn "Unable to retrieve SHA256 digest for image" \
-				"'${gentoo_stage3_image}:${gentoo_stage3_tag}' with" \
-				"with architecture '${docker_arch}' from file" \
-				"'${repo_path_srcshelton}/.image_digests'"
-			need_pull=1
-		else
-			info "Using '${gentoo_stage3_image}' pin '${ref}'"
-
-			# podman-4.6.x has strange behaviour where untagging an image
-			# also seems to lose the associated SHA256?
-			#
-			# See https://github.com/containers/podman/issues/19594
-			#
-			# We can work around this by untagging *before* pulling...
-			#
-			if [[ "${_container_engine}" != 'container' ]] && [[ -n "$( # <- Syntax
-				docker image list \
-					-q \
-					--filter "reference=${gentoo_stage3_image}:${gentoo_stage3_tag}"
-			)" ]]
-			then
-				declare -a untag_args=( image untag )
-				[[ "${_container_engine}" != 'docker' ]] ||
-					untag_args=( image rm )
-				if ! docker "${untag_args[@]}" \
-						"${gentoo_stage3_image}:${gentoo_stage3_tag}"
-				then
-					docker --debug "${untag_args[@]}" \
-							"${gentoo_stage3_image}:${gentoo_stage3_tag}" ||
-						die "${_command} image tag removal failed for" \
-							"'${gentoo_stage3_image}:${gentoo_stage3_tag}' tag"
-				fi
-				unset untag_args
-			fi
-
-			info "Pulling image '${gentoo_stage3_image}@${ref}' ..."
-			if ! docker image pull "${gentoo_stage3_image}@${ref}"; then
-				docker --debug image pull "${gentoo_stage3_image}@${ref}" ||
-					rc=${?}
-			else
-				info "Tagging '${ref}' as" \
-					"'${gentoo_stage3_image}:${gentoo_stage3_tag}'"
-
-				if ! docker image tag "${gentoo_stage3_image}@${ref}" \
-						"${gentoo_stage3_image}:${gentoo_stage3_tag}"
-				then
-					docker --debug image tag \
-						"${gentoo_stage3_image}@${ref}" \
-						"${gentoo_stage3_image}:${gentoo_stage3_tag}" || :
-					warn "Pull of pinned image failed - reverting to tag" \
-						"'${gentoo_stage3_tag}'"
-					need_pull=1
-				else
-					rc=0
-					need_pull=0
-				fi
-			fi
-		fi
-	fi
-fi
-
-if (( need_pull )); then
-	warn "Pulling image '${gentoo_stage3_image}:${gentoo_stage3_tag}' ..."
-	if ! docker image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}"; then
-		rc=${?}
-		docker --debug image pull "${gentoo_stage3_image}:${gentoo_stage3_tag}"
-	fi
-fi
-
-unset need_pull
-trap - INT
-
-if (( rc )); then
-	die "'${_command} image pull' failed to retrieve image" \
-		"'${gentoo_stage3_image}:${gentoo_stage3_tag}' for architecture" \
-		"'${docker_arch}'"
-fi
-unset rc
-
-# macOS 'container' has no concept of an ID beyond the SHA256 digest and the
-# container name and tag :o
-if [[ -n "${ref:-}" ]]; then
-	# 'podman image ls' won't show images by SHA256 reference...
-	#gentoo_stage3_id="$( docker image ls --noheading \
-	#		--format='{{.ID}}' \
-	#	"${gentoo_stage3_image}@${ref}" 2>/dev/null
-	#)" || :
-	gentoo_stage3_id="$( # <- Syntax
-		if [[ "${_container_engine}" == 'container' ]]; then
-			echo "${ref}"
-		else
-			docker image ls --noheading --digests \
-					--format='{{.Digest}} {{.ID}}' 2>/dev/null |
-				grep -F -- "${ref}" |
-				awk '{print $2}'
-		fi
-	)" || :
-else
-	gentoo_stage3_id="$( # <- Syntax
-		if [[ "${_container_engine}" == 'container' ]]; then
-			apple_image_digest "${gentoo_stage3_image}:${gentoo_stage3_tag}"
-		else
-			docker image ls --noheading \
-					--format='{{.ID}}' \
-				"${gentoo_stage3_image}:${gentoo_stage3_tag}" 2>/dev/null
-		fi
-	)" || :
-fi
-#unset ref
-
-declare gentoo_stage3_image_ref="${gentoo_stage3_image}:${gentoo_stage3_tag}"
-[[ -z "${ref:-}" ]] ||
-	gentoo_stage3_image_ref="${gentoo_stage3_image}@${ref}"
 
 if [[ -z "${*:-}" ]] || grep -Fq -- ' --stage3 ' <<<" ${*} "; then
 	if [[ -z "${env_id:-}" ]]; then
