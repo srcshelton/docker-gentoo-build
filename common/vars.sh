@@ -313,6 +313,15 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			target_cpu='skylake'
 			cc_target_opts="-march=${target_cpu} -mabm"
 			rust_target_opts="-C target-cpu=${target_cpu}" ;;
+		*': Intel(R) Xeon(R) Platinum 8370C CPU @ '*)
+			# Ice Lake Server as exposed by GitHub's Microsoft hypervisor.
+			# SGX, PKU, PCONFIG and WBNOINVD are masked from this virtual CPU,
+			# so disable the named target's corresponding compiler features.
+			use_cpu_arch='x86'
+			use_cpu_flags='aes avx avx2 avx512_bitalg avx512_vbmi2 avx512_vnni avx512_vpopcntdq avx512bw avx512cd avx512dq avx512f avx512ifma avx512vbmi avx512vl bmi1 bmi2 f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 ssse3 vpclmulqdq'
+			target_cpu='icelake-server'
+			cc_target_opts="-march=${target_cpu} -mno-sgx -mno-pku -mno-pconfig -mno-wbnoinvd"
+			rust_target_opts="-C target-cpu=${target_cpu} -C target-feature=-sgx,-pku,-pconfig,-wbnoinvd" ;;
 
 		*': AMD G-T40E '*)
 			use_cpu_arch='x86'
@@ -533,13 +542,13 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			rust_target_opts="-C target-cpu=${target_cpu}" ;;
 		*': 0xd49')
 			# Microsoft Azure Cobalt 100 identifies as part 0xd49 and is
-			# handled by Linux and LLVM as a Neoverse N2.  Validate the
-			# complete compiler target against features exposed by the runner.
+			# handled by Linux and LLVM as a Neoverse N2.  GitHub's runner
+			# masks MTE, RNG and SSBS, so disable those named-target features.
 			use_cpu_arch='arm'
-			use_cpu_flags='edsp neon thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 asimddp sve sve2 i8mm v4 v5 v6 v7 v8 thumb2'
+			use_cpu_flags='edsp neon neon-fp16 thumb vfp vfpv3 vfpv4 vfp-d32 aes sha1 sha2 crc32 sm4 asimd asimddp asimdfhm asimdhp sve sve2 i8mm v4 v5 v6 v7 v8 thumb2'
 			target_cpu='neoverse-n2'
-			cc_target_opts="-mcpu=${target_cpu}"
-			rust_target_opts="-C target-cpu=${target_cpu}" ;;
+			cc_target_opts="-mcpu=${target_cpu}+nomemtag+norng+nossbs"
+			rust_target_opts="-C target-cpu=${target_cpu} -C target-feature=-mte,-rand,-ssbs" ;;
 		*': 0xd40'|'AWS Graviton 3'*)
 			# Neoverse V1 ("Zeus"): armv8.4-a, "Graviton 3"
 			use_cpu_arch='arm'

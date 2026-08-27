@@ -17,6 +17,16 @@ if [ -z "${__COMMON_CPU_TARGET_INCLUDED:-}" ]; then
 		fi
 	)  # cpu_target_normalize_words
 
+	cpu_target_remove_feature() (
+		words="${1:-}" omitted="${2:-}" word='' retained=''
+
+		for word in ${words}; do
+			[ "${word}" = "${omitted}" ] ||
+				retained="${retained:+${retained} }${word}"
+		done
+		printf '%s\n' "${retained}"
+	)  # cpu_target_remove_feature
+
 	cpu_target_proc_features() (
 		cpuinfo_path="${1:-/proc/cpuinfo}"
 		cpuinfo_features=''
@@ -145,6 +155,14 @@ if [ -z "${__COMMON_CPU_TARGET_INCLUDED:-}" ]; then
 		if [ "${selected_use_arch}" = 'x86' ]; then
 			required="${selected_use_flags}"
 			case "${selected_cpu}" in
+			icelake-server)
+				# The hosted Xeon exposes almost all of Ice Lake Server.  GCC and
+				# Rust explicitly disable SGX, PKU, PCONFIG and WBNOINVD, so they
+				# are deliberately absent from this compiler-target boundary.
+				required="${required:+${required} }abm adx clflushopt clwb cx16"
+				required="${required} fsgsbase fxsr gfni hle lahf_lm movbe"
+				required="${required} prefetchw rdpid rdseed vaes xsave xsavec xsaves"
+				;;
 			znver3)
 				# GCC's -march=znver3 enables ISA extensions which do not all
 				# have Gentoo CPU_FLAGS_X86 names.  Require the complete
@@ -179,6 +197,22 @@ if [ -z "${__COMMON_CPU_TARGET_INCLUDED:-}" ]; then
 			neoverse-v2) required='asimd sve2' ;;
 			esac
 		fi
+
+		case "${selected_opts}" in
+			*+nomemtag*)
+				required="$( cpu_target_remove_feature "${required}" mte )"
+				;;
+		esac
+		case "${selected_opts}" in
+			*+norng*)
+				required="$( cpu_target_remove_feature "${required}" rng )"
+				;;
+		esac
+		case "${selected_opts}" in
+			*+nossbs*)
+				required="$( cpu_target_remove_feature "${required}" ssbs )"
+				;;
+		esac
 
 		case " ${selected_opts} " in
 			*+crypto*) required="${required:+${required} }aes sha1 sha2" ;;
