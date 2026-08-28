@@ -996,8 +996,54 @@ declare gentoo_stage3_image='' gentoo_stage3_image_ref=''
 declare gentoo_stage3_id='' ref=''
 prepare_gentoo_stage3_image
 
+# GCC's native driver expansion is deliberately verbose and changes as GCC
+# learns about new target switches.  Run the shared semantic helpers inside the
+# pinned stage3, then retain only options which change the named -march/-mcpu
+# baseline.  The result remains suitable for distcc and for long-lived package
+# cache metadata without encoding compiler-version defaults.
+stage3_cpu_target_module="$(<../common/cpu-target.sh)"
+
+stage3_gcc_reduce_target_options() {
+	local compiler_options="${1:-}"
+	local preferred_options="${2:-}"
+	local reduce_script=''
+
+	cpu_target_options_safe "${compiler_options}" || return 1
+	if [[ -n "${preferred_options}" ]] &&
+			! cpu_target_options_safe "${preferred_options}"
+	then
+		preferred_options=''
+	fi
+	reduce_script="set -eu
+${stage3_cpu_target_module}
+preferred_fingerprint=''
+target_fingerprint=''
+if [ -n \"\${PREFERRED_OPTIONS:-}\" ] &&
+        preferred_fingerprint=\$( cpu_target_gcc_fingerprint \
+            \"\${PREFERRED_OPTIONS}\" ) &&
+        target_fingerprint=\$( cpu_target_gcc_fingerprint \
+            \"\${TARGET_OPTIONS:-}\" ) &&
+        [ \"\${preferred_fingerprint}\" = \"\${target_fingerprint}\" ]
+then
+    printf '%s\\n' \"\${PREFERRED_OPTIONS}\"
+else
+    cpu_target_reduce_gcc_options \"\${TARGET_OPTIONS:-}\"
+fi
+"
+	docker container run \
+		--entrypoint /bin/sh \
+		--env "PREFERRED_OPTIONS=${preferred_options}" \
+		--env "TARGET_OPTIONS=${compiler_options}" \
+		--network none \
+		--platform "linux/${docker_arch}" \
+		--read-only \
+		--rm \
+		"${gentoo_stage3_image_ref}" -c "${reduce_script}"
+}  # stage3_gcc_reduce_target_options
+
 resolve_stage3_compiler_target() {
-	local stage3_probe='' gcc_probe='' probed_opts='' probed_cpu=''
+	local stage3_probe='' gcc_probe='' probed_opts='' reduced_opts=''
+	local probed_cpu=''
 	local probed_features='' raw_features='' detected_flags='' baseline_flags=''
 	local model_cpu="${target_cpu:-}" model_rust_cpu="${target_cpu:-generic}"
 	local required='' missing='' rust_required='' rust_missing=''
@@ -1097,8 +1143,18 @@ EOF
 			"validated model or portable fallback '${cc_target_opts}'"
 		return 0
 	fi
+	if ! reduced_opts="$( stage3_gcc_reduce_target_options \
+			"${probed_opts}" "${cc_target_opts}" )" ||
+			[[ -z "${reduced_opts}" ]] ||
+			! cpu_target_options_safe "${reduced_opts}"
+	then
+		warn "Pinned stage3 GCC target could not be reduced to a safe" \
+			"compiler-default-independent form; retaining validated model or" \
+			"portable fallback '${cc_target_opts}'"
+		return 0
+	fi
 
-	cc_target_opts="${probed_opts}"
+	cc_target_opts="${reduced_opts}"
 	target_cpu="${probed_cpu}"
 	case "${docker_arch}" in
 		amd64|i386) rust_base_opts="-march=${target_cpu}" ;;
@@ -1119,6 +1175,8 @@ EOF
 		"${cc_target_opts}" "${target_cpu}" "${model_rust_cpu}" )"
 	cpu_target_source='stage3-gcc-native'
 	cpu_exposed_features="${probed_features}"
+	info "Canonicalised pinned stage3 GCC native target to" \
+		"'${cc_target_opts}' after verifying identical effective compiler state"
 
 	detected_flags="$( cpu_target_gentoo_flags \
 		"${cpu_exposed_features}" \

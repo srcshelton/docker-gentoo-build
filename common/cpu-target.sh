@@ -75,9 +75,11 @@ if [ -z "${__COMMON_CPU_TARGET_INCLUDED:-}" ]; then
 	)  # cpu_target_auxv_capabilities
 
 	# GCC expands its native target to an explicit cc1 option list.  Accept only
-	# target switches which are safe to persist in CFLAGS, canonicalise their
-	# order, and reject any result which would defer interpretation until a
-	# later package build or distcc worker.
+	# target switches which are safe to pass back to that compiler, canonicalise
+	# their order, and reject any result which would defer interpretation until
+	# a later package build or distcc worker.  This is an intermediate expansion:
+	# the caller must remove switches which do not change the named CPU target
+	# before persisting it in CFLAGS or package-cache metadata.
 	cpu_target_parse_gcc_native() (
 		probe_arch="${1:-}" probe_output='' probe_options=''
 		primary='' tune='' option='' feature_options='' expect_param=0
@@ -102,26 +104,19 @@ if [ -z "${__COMMON_CPU_TARGET_INCLUDED:-}" ]; then
 			fi
 		)"
 
+		# GCC's native expansion includes host cache geometry as --param values.
+		# That is machine topology, not part of the deterministic named CPU target,
+		# so consume these options but never persist them.
 		while IFS= read -r option; do
 			[ -n "${option}" ] || continue
 			if [ "${expect_param}" -eq 1 ]; then
 				expect_param=0
-				case "${option}" in
-					l1-cache-size=[0-9]*|l1-cache-line-size=[0-9]*|\
-					l2-cache-size=[0-9]*)
-						feature_options="${feature_options}${feature_options:+\n}--param=${option}"
-						;;
-				esac
 				continue
 			fi
 			case "${option}" in
 				*-march=native*|*-mcpu=native*|*-mtune=native*) return 1 ;;
 				--param) expect_param=1 ;;
-				--param=l1-cache-size=[0-9]*|\
-				--param=l1-cache-line-size=[0-9]*|\
-				--param=l2-cache-size=[0-9]*)
-					feature_options="${feature_options}${feature_options:+\n}${option}"
-					;;
+				--param=*) : ;;
 				-march=*|-mcpu=*)
 					case "${option}" in
 						*[!A-Za-z0-9_+.,=:-]*) return 1 ;;
@@ -167,6 +162,89 @@ EOF
 		fi
 		printf '\n'
 	)  # cpu_target_parse_gcc_native
+
+	# Validate an already-tokenised compiler target before a caller passes its
+	# words to a compiler.  In particular, metadata must never reintroduce a
+	# host-dependent native target or GCC response-file syntax.
+	cpu_target_options_safe() (
+		compiler_options="${1:-}" option='' primary=0
+
+		[ -n "${compiler_options}" ] || return 1
+		for option in ${compiler_options}; do
+			case "${option}" in
+				-march=*|-mcpu=*)
+					case "${option}" in
+						*-march=native*|*-mcpu=native*|*[!A-Za-z0-9_+.,=:-]*)
+							return 1
+							;;
+					esac
+					primary=$(( primary + 1 ))
+					;;
+				-mtune=*)
+					case "${option}" in
+						*-mtune=native*|*[!A-Za-z0-9_+.,=:-]*) return 1 ;;
+					esac
+					;;
+				-mno-*|-m[a-zA-Z0-9]*)
+					case "${option}" in
+						-mabi=*|-m32|-m64|-mx32|-mbig-endian|-mlittle-endian)
+							return 1
+							;;
+						*[!A-Za-z0-9_+.,=:-]*) return 1 ;;
+					esac
+					;;
+				*) return 1 ;;
+			esac
+		done
+		[ "${primary}" -eq 1 ]
+	)  # cpu_target_options_safe
+
+	# Render GCC's complete effective target state.  The named target and any
+	# genuine capability masks affect --help=target; native cache geometry and
+	# other target parameters affect --help=params.  Comparing both avoids
+	# mistaking a newly verbose driver expansion for a new package ABI boundary.
+	cpu_target_gcc_fingerprint() (
+		compiler_options="${1:-}"
+
+		cpu_target_options_safe "${compiler_options}" || return 1
+		set -f
+		# shellcheck disable=SC2086 # Validated compiler-option tokens.
+		set -- ${compiler_options}
+		LC_ALL='C' gcc "${@}" -Q --help=target \
+			-S -x c /dev/null -o /dev/null || return ${?}
+		LC_ALL='C' gcc "${@}" -Q --help=params \
+			-S -x c /dev/null -o /dev/null
+	)  # cpu_target_gcc_fingerprint
+
+	# Start with the named -march/-mcpu option and add an expanded option only
+	# when it changes the effective state accumulated so far.  Approaching the
+	# native state from the named baseline avoids persisting the many explicit
+	# enabled and disabled switches which merely restate that baseline.
+	cpu_target_reduce_gcc_options() (
+		compiler_options="${1:-}" expected='' primary='' remaining=''
+		reduced='' reduced_fingerprint='' option='' trial=''
+		trial_fingerprint=''
+
+		cpu_target_options_safe "${compiler_options}" || return 1
+		expected="$( cpu_target_gcc_fingerprint \
+			"${compiler_options}" )" || return ${?}
+		primary="${compiler_options%% *}"
+		remaining="${compiler_options#"${primary}"}"
+		reduced="${primary}"
+		reduced_fingerprint="$( cpu_target_gcc_fingerprint \
+			"${primary}" )" || return ${?}
+		for option in ${remaining}; do
+			trial="${reduced} ${option}"
+			trial_fingerprint="$( cpu_target_gcc_fingerprint \
+				"${trial}" )" || return ${?}
+			if [ "${trial_fingerprint}" != "${reduced_fingerprint}" ]; then
+				reduced="${trial}"
+				reduced_fingerprint="${trial_fingerprint}"
+			fi
+		done
+		[ "${reduced_fingerprint}" = "${expected}" ] || return 1
+		printf '%s\n' "${reduced}"
+	)  # cpu_target_reduce_gcc_options
 
 	cpu_target_from_compiler_options() (
 		compiler_options="${1:-}" compiler_target=''
