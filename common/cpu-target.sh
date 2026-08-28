@@ -482,9 +482,9 @@ EOF
 			cortex-a7) required='neon vfpv4' ;;
 			cortex-a53|cortex-a72) required='asimd crc32' ;;
 			cortex-a76|cortex-a76.cortex-a55)
-				required='aes asimd sha1 sha2'
+				required='aes asimd crc32 sha1 sha2'
 				;;
-			cortex-a720) required='aes asimd sha2 sha3 sm4 sve2' ;;
+			cortex-a720) required='aes asimd crc32 sha2 sha3 sm4 sve2' ;;
 			apple-m1) required='asimd asimddp' ;;
 			neoverse-n1) required='aes asimd atomics crc32 sha1 sha2' ;;
 			neoverse-n2)

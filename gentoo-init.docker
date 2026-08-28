@@ -1006,6 +1006,7 @@ stage3_cpu_target_module="$(<../common/cpu-target.sh)"
 stage3_gcc_reduce_target_options() {
 	local compiler_options="${1:-}"
 	local preferred_options="${2:-}"
+	local prefer_validated_model="${3:-0}"
 	local reduce_script=''
 
 	cpu_target_options_safe "${compiler_options}" || return 1
@@ -1018,6 +1019,14 @@ stage3_gcc_reduce_target_options() {
 ${stage3_cpu_target_module}
 preferred_fingerprint=''
 target_fingerprint=''
+if [ \"\${PREFER_VALIDATED_MODEL:-0}\" -eq 1 ] &&
+		[ -n \"\${PREFERRED_OPTIONS:-}\" ] &&
+		preferred_fingerprint=\$( cpu_target_gcc_fingerprint \
+			\"\${PREFERRED_OPTIONS}\" )
+then
+	printf '%s\\n' \"\${PREFERRED_OPTIONS}\"
+	exit 0
+fi
 if [ -n \"\${PREFERRED_OPTIONS:-}\" ] &&
         preferred_fingerprint=\$( cpu_target_gcc_fingerprint \
             \"\${PREFERRED_OPTIONS}\" ) &&
@@ -1033,6 +1042,7 @@ fi
 	docker container run \
 		--entrypoint /bin/sh \
 		--env "PREFERRED_OPTIONS=${preferred_options}" \
+		--env "PREFER_VALIDATED_MODEL=${prefer_validated_model}" \
 		--env "TARGET_OPTIONS=${compiler_options}" \
 		--network none \
 		--platform "linux/${docker_arch}" \
@@ -1045,8 +1055,14 @@ resolve_stage3_compiler_target() {
 	local stage3_probe='' gcc_probe='' probed_opts='' reduced_opts=''
 	local probed_cpu=''
 	local probed_features='' raw_features='' detected_flags='' baseline_flags=''
-	local model_cpu="${target_cpu:-}" model_rust_cpu="${target_cpu:-generic}"
-	local required='' missing='' rust_required='' rust_missing=''
+	local model_cpu="${target_cpu:-}" model_cc_opts="${cc_target_opts:-}"
+	local model_rust_opts="${rust_target_opts:-}"
+	local model_rust_cpu="${target_cpu:-generic}"
+	local model_source="${cpu_target_source:-generic}"
+	local model_use_flags="${use_cpu_flags_raw:-}"
+	local required='' missing='' model_required='' model_missing=''
+	local prefer_validated_model=0 selected_model=0
+	local rust_required='' rust_missing=''
 	local rust_base_opts='' retained_use='' use_word=''
 	local probe_script=''
 
@@ -1143,8 +1159,31 @@ EOF
 			"validated model or portable fallback '${cc_target_opts}'"
 		return 0
 	fi
+
+	# The model table is policy, while GCC's native expansion is a capability
+	# probe.  Preserve a named model target when the instruction set it requires
+	# is available on every CPU visible to the build container and this stage3
+	# GCC accepts its options.  This retains intentionally conservative targets
+	# (and heterogeneous-system big-core tuning) without host-specific exceptions.
+	if [[ "${model_source}" == 'model' && -n "${model_cpu}" &&
+			-n "${model_cc_opts}" ]]
+	then
+		model_required="$( cpu_target_required_features \
+			"${model_cpu}" "${model_cc_opts}" \
+			"${model_use_flags}" "${use_cpu_arch}" )"
+		model_missing="$( cpu_target_missing_features \
+			"${probed_features}" "${model_required}" )"
+		if [[ -z "${model_missing}" ]]; then
+			prefer_validated_model=1
+		else
+			warn "Named model target '${model_cc_opts}' requires features" \
+				"'${model_missing}' absent from at least one CPU visible to the" \
+				"build container; using its native capability target"
+		fi
+	fi
 	if ! reduced_opts="$( stage3_gcc_reduce_target_options \
-			"${probed_opts}" "${cc_target_opts}" )" ||
+			"${probed_opts}" "${model_cc_opts}" \
+			"${prefer_validated_model}" )" ||
 			[[ -z "${reduced_opts}" ]] ||
 			! cpu_target_options_safe "${reduced_opts}"
 	then
@@ -1154,29 +1193,41 @@ EOF
 		return 0
 	fi
 
-	cc_target_opts="${reduced_opts}"
-	target_cpu="${probed_cpu}"
-	case "${docker_arch}" in
-		amd64|i386) rust_base_opts="-march=${target_cpu}" ;;
-		arm*) rust_base_opts="-mcpu=${target_cpu}" ;;
-	esac
-	rust_required="$( cpu_target_required_features \
-		"${target_cpu}" "${rust_base_opts}" '' "${use_cpu_arch}" )"
-	rust_missing="$( cpu_target_missing_features \
-		"${cpu_exposed_features}" "${rust_required}" )"
-	if cpu_target_rust_known_cpu "${target_cpu}" &&
-			cpu_target_rust_mask_supported "${target_cpu}" "${rust_missing}"
+	if (( prefer_validated_model )) &&
+			[[ "${reduced_opts}" == "${model_cc_opts}" ]]
 	then
-		model_rust_cpu="${target_cpu}"
+		selected_model=1
+		cc_target_opts="${model_cc_opts}"
+		target_cpu="${model_cpu}"
+		rust_target_opts="${model_rust_opts}"
+		cpu_target_source='model-stage3-validated'
+		info "Retaining named compiler target '${cc_target_opts}' after" \
+			"verifying it against every CPU visible to the pinned stage3"
 	else
-		model_rust_cpu='generic'
+		cc_target_opts="${reduced_opts}"
+		target_cpu="${probed_cpu}"
+		case "${docker_arch}" in
+			amd64|i386) rust_base_opts="-march=${target_cpu}" ;;
+			arm*) rust_base_opts="-mcpu=${target_cpu}" ;;
+		esac
+		rust_required="$( cpu_target_required_features \
+			"${target_cpu}" "${rust_base_opts}" '' "${use_cpu_arch}" )"
+		rust_missing="$( cpu_target_missing_features \
+			"${probed_features}" "${rust_required}" )"
+		if cpu_target_rust_known_cpu "${target_cpu}" &&
+				cpu_target_rust_mask_supported "${target_cpu}" "${rust_missing}"
+		then
+			model_rust_cpu="${target_cpu}"
+		else
+			model_rust_cpu='generic'
+		fi
+		rust_target_opts="$( cpu_target_rust_from_gcc \
+			"${cc_target_opts}" "${target_cpu}" "${model_rust_cpu}" )"
+		cpu_target_source='stage3-gcc-native'
+		info "Canonicalised pinned stage3 GCC native target to" \
+			"'${cc_target_opts}' after verifying its effective compiler state"
 	fi
-	rust_target_opts="$( cpu_target_rust_from_gcc \
-		"${cc_target_opts}" "${target_cpu}" "${model_rust_cpu}" )"
-	cpu_target_source='stage3-gcc-native'
 	cpu_exposed_features="${probed_features}"
-	info "Canonicalised pinned stage3 GCC native target to" \
-		"'${cc_target_opts}' after verifying identical effective compiler state"
 
 	detected_flags="$( cpu_target_gentoo_flags \
 		"${cpu_exposed_features}" \
@@ -1211,7 +1262,9 @@ EOF
 		"CPU_FLAGS_${use_cpu_arch}='${use_cpu_flags_raw}'," \
 		"target_cpu='${target_cpu}'," \
 		"compiler='${cc_target_opts}', rust='${rust_target_opts}'"
-	if [[ -n "${model_cpu}" && "${model_cpu}" != "${target_cpu}" ]]; then
+	if (( ! selected_model )) && [[ -n "${model_cpu}" &&
+			"${model_cpu}" != "${target_cpu}" ]]
+	then
 		note "Stage3 compiler target '${target_cpu}' supersedes host model" \
 			"fallback '${model_cpu}'"
 	fi
