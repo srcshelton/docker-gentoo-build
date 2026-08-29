@@ -351,6 +351,9 @@ jobs:
         id: stage-pkg-cache
         if: ${{ always() && steps.build-decision.outputs.build == 'true' && steps.pkg-identity.outputs.label != '' && (github.event_name != 'workflow_dispatch' || inputs.save_pkgdir_cache) }}
         shell: bash
+        env:
+          CONTAINER_ENGINE: docker
+          GENTOO_PKGHOST: github-actions
         run: |
           set -euo pipefail
 
