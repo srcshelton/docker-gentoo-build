@@ -1,0 +1,4 @@
+direct - A directly named feature
+aliased - A feature with an alias [hardware_alias]
+multi - A feature with multiple aliases [missing_alias] [second_alias]
+unavailable - An unavailable feature

@@ -6,6 +6,8 @@ on:
       - ".github/build-state.sh"
       - ".github/cpu-diagnostics.sh"
       - ".github/pkgcache.sh"
+      - ".github/test-data/**"
+      - ".github/test-cpu-target.sh"
       - ".github/workflows/gentoo-build.yml"
       - "common/**"
       - "gentoo-base/**"
@@ -18,6 +20,8 @@ on:
       - ".github/build-state.sh"
       - ".github/cpu-diagnostics.sh"
       - ".github/pkgcache.sh"
+      - ".github/test-data/**"
+      - ".github/test-cpu-target.sh"
       - ".github/workflows/gentoo-build.yml"
       - "common/**"
       - "gentoo-base/**"
@@ -85,6 +89,10 @@ jobs:
               bash -n "${script}"
             fi
           done < <(git ls-files -z '*.docker' '*.sh')
+
+      - name: Validate CPU target helpers
+        shell: bash
+        run: .github/test-cpu-target.sh
 
       - name: Probe Docker integration
         shell: bash

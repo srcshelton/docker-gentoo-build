@@ -51,7 +51,7 @@ if [ -z "${__COMMON_CPU_TARGET_INCLUDED:-}" ]; then
 				END {
 					for (feature in common) print feature
 				}' "${cpuinfo_path}" 2>/dev/null
-		)"
+		)" || return ${?}
 		cpu_target_normalize_words "${cpuinfo_features}"
 	)  # cpu_target_proc_features
 
@@ -418,28 +418,39 @@ EOF
 
 	cpu_target_gentoo_flags() (
 		available="${1:-}" description_path="${2:-}"
-		candidate='' candidates='' flag='' line='' selected=''
+		candidate='' candidates='' flag='' line='' remaining='' selected=''
 
-		[ -n "${available}" ] && [ -s "${description_path}" ] || return 0
+		[ -n "${available}" ] || return 0
+		[ -r "${description_path}" ] && [ -s "${description_path}" ] ||
+			return 1
 		while IFS= read -r line; do
 			case "${line}" in
 				*' - '*) : ;;
 				*) continue ;;
 			esac
 			flag="${line%% *}"
-			candidates="${flag} $( # <- Syntax
-					printf '%s\n' "${line}" |
-						grep -Eo '\[[^][]+\]' |
-						tr -d '[]' |
-						xargs -r
-				)"
+			candidates="${flag}"
+			remaining="${line}"
+			while :; do
+				case "${remaining}" in
+					*'['*']'*)
+						remaining="${remaining#*'['}"
+						candidate="${remaining%%']'*}"
+						[ -n "${candidate}" ] || return 1
+						candidates="${candidates} ${candidate}"
+						remaining="${remaining#*']'}"
+						;;
+					*'['*|*']'*) return 1 ;;
+					*) break ;;
+				esac
+			done
 			for candidate in ${candidates}; do
 				if cpu_target_feature_present "${available}" "${candidate}"; then
 					selected="${selected:+${selected} }${flag}"
 					break
 				fi
 			done
-		done <"${description_path}"
+		done <"${description_path}" || return ${?}
 		cpu_target_normalize_words "${selected}"
 	)  # cpu_target_gentoo_flags
 

@@ -207,15 +207,55 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			;;
 	esac
 
-	cpu_exposed_features="$( cpu_target_proc_features )"
-	if command -v cpuid2cpuflags >/dev/null 2>&1; then
-		cpu_detected_use_flags="$( cpuid2cpuflags | cut -d':' -f 2- )"
-	elif [ -n "${use_cpu_arch:-}" ]; then
-		cpu_detected_use_flags="$( # <- Syntax
-			cpu_target_gentoo_flags "${cpu_exposed_features}" \
-				"/var/db/repo/gentoo/profiles/desc/cpu_flags_${use_cpu_arch}.desc"
-		)"
+	if ! cpu_exposed_features="$( cpu_target_proc_features )"; then
+		cpu_flags_status=${?}
+		echo >&2 "FATAL: Unable to read host CPU capabilities from" \
+			"/proc/cpuinfo (status ${cpu_flags_status})"
+		exit "${cpu_flags_status}"
 	fi
+	if command -v cpuid2cpuflags >/dev/null 2>&1; then
+		if ! cpu_detected_use_flags="$( cpuid2cpuflags | cut -d':' -f 2- )"
+		then
+			cpu_flags_status=${?}
+			echo >&2 "FATAL: cpuid2cpuflags failed while detecting Gentoo" \
+				"CPU USE flags (status ${cpu_flags_status})"
+			exit "${cpu_flags_status}"
+		fi
+	elif [ -n "${use_cpu_arch:-}" ]; then
+		cpu_flags_repo='/var/db/repo/gentoo'
+		cpu_flags_description="${cpu_flags_repo}/profiles/desc"
+		cpu_flags_description="${cpu_flags_description}/cpu_flags_"
+		cpu_flags_description="${cpu_flags_description}${use_cpu_arch}.desc"
+		cpu_flags_status=0
+		# A non-Gentoo host may have neither 'cpuid2cpuflags' nor Portage
+		# metadata.  Keep that fallback optional, but enforce it once the
+		# Gentoo repository or host tooling says that its description should be
+		# available.
+		if [ -e "${cpu_flags_description}" ] ||
+				[ -L "${cpu_flags_description}" ]
+		then
+			if ! cpu_detected_use_flags="$( # <- Syntax
+						cpu_target_gentoo_flags "${cpu_exposed_features}" \
+							"${cpu_flags_description}"
+					)"
+			then
+				cpu_flags_status=${?}
+			fi
+		elif command -v portageq >/dev/null 2>&1 ||
+				[ -d "${cpu_flags_repo}" ] ||
+				[ -L "${cpu_flags_repo}" ]
+		then
+			cpu_flags_status=66 # EX_NOINPUT "cannot open input"
+		fi
+		if [ "${cpu_flags_status}" -ne 0 ]; then
+			echo >&2 "FATAL: Unable to derive Gentoo CPU USE flags from" \
+				"'${cpu_flags_description}' (status ${cpu_flags_status})"
+			echo >&2 "FATAL: Verify that this profile description is present," \
+				"readable, non-empty, and well-formed"
+			exit "${cpu_flags_status}"
+		fi
+	fi
+	unset cpu_flags_description cpu_flags_repo cpu_flags_status
 
 	if [ -n "${CPU_OVERRIDE:-}" ]; then
 		cpu_target_source='override'
@@ -314,8 +354,6 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			cc_target_opts="-march=${target_cpu} -mabm"
 			rust_target_opts="-C target-cpu=${target_cpu}" ;;
 		*': Intel(R) Xeon(R) Platinum 8370C CPU @ '*)
-			# Ice Lake Server.  The stage3 GCC probe resolves any runtime feature
-			# masking; this table is only a capability-validated fallback.
 			use_cpu_arch='x86'
 			use_cpu_flags='aes avx avx2 avx512_bitalg avx512_vbmi2 avx512_vnni avx512_vpopcntdq avx512bw avx512cd avx512dq avx512f avx512ifma avx512vbmi avx512vl bmi1 bmi2 f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 ssse3 vpclmulqdq'
 			target_cpu='icelake-server'
@@ -341,9 +379,6 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 			cc_target_opts="-march=${target_cpu}"
 			rust_target_opts="-C target-cpu=${target_cpu}" ;;
 		*': AMD EPYC 7763 64-Core Processor'*)
-			# AMD Milan, as currently exposed by GitHub's amd64 runner.
-			# The complete -march=znver3 ISA is checked separately because
-			# hypervisors can mask features while retaining the model name.
 			use_cpu_arch='x86'
 			use_cpu_flags='aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3 vaes vpclmulqdq'
 			target_cpu='znver3'
@@ -783,17 +818,6 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	export MAXLOAD="${EMERGE_MAXLOAD:-"${load}.00"}"
 	unset load jobs
 
-	# Allow a separate image directory for persistent images...
-	#store="$( $_command system info | grep -F 'overlay.imagestore:' | cut -d':' -f 2- | awk '{print $1}' )"
-	#if [ -n "${store}" ]; then
-	#	export IMAGE_ROOT="${store}"
-	#	store="$( $_command system info | grep -- 'graphRoot:' | cut -d':' -f 2- | awk '{print $1}' )"
-	#	if [ -n "${store}" ]; then
-	#		export GRAPH_ROOT="${store}"
-	#	fi
-	#fi
-	#unset store
-
 	# Set build targets for multi-SLOT packages...
 	#
 	python_default_target='python3_14'
@@ -819,8 +843,21 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 		echo >&2 "FATAL: Cannot locate 'common/container-engine.sh'"
 		exit 1
 	fi
+	_command=''
+	_container_engine=''
 	# shellcheck disable=SC1091
 	. ./common/container-engine.sh
+
+	# Allow a separate image directory for persistent images...
+	#store="$( $_command system info | grep -F 'overlay.imagestore:' | cut -d':' -f 2- | awk '{print $1}' )"
+	#if [ -n "${store}" ]; then
+	#	export IMAGE_ROOT="${store}"
+	#	store="$( $_command system info | grep -- 'graphRoot:' | cut -d':' -f 2- | awk '{print $1}' )"
+	#	if [ -n "${store}" ]; then
+	#		export GRAPH_ROOT="${store}"
+	#	fi
+	#fi
+	#unset store
 
 	# Set the engine's build-only temporary directory.  Apple 'container' does
 	# not expose Docker/Podman-style storage information and does not need this
