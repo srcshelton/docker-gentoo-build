@@ -160,6 +160,7 @@ services=(
 	unifi103
 	unifi104
 	unifi105
+	unifi106
 	vim
 	watchdog
 	xmrig
@@ -254,6 +255,9 @@ declare ports="${2:-"0"}"
 declare user="${3:-"root"}"
 declare group="${4:-"root"}"
 declare container_cmd="${5:-}"
+# Optional entrypoint.d hook override and additional packaged helper files.
+declare container_cmd_entrypoint=''
+declare container_entrypoint_files=''
 declare container_cwd="${6:-"/"}" # Optional
 declare fs_name="${7:-}" # Optional: If set create /var/{run,log}/${fs_name} in container
 #
@@ -675,6 +679,8 @@ case "${service:-}" in
 		service='=net-misc/unifi-controller-bin-10.4*' ;;
 	unifi105|unifi-controller105|unifi-controller-105|unifi-controller-bin105|unifi-controller-bin-105)
 		service='=net-misc/unifi-controller-bin-10.5*' ;;
+	unifi106|unifi-controller106|unifi-controller-106|unifi-controller-bin106|unifi-controller-bin-106)
+		service='=net-misc/unifi-controller-bin-10.6*' ;;
 	vim|vi)
 		# Launcher loads running services' /usr/share/doc volumes
 		service='app-editors/vim' ;;
@@ -1010,6 +1016,7 @@ case "${package_name}" in
 		#ports='80/tcp 443/tcp'
 		ports='7080/tcp 7443/tcp'
 		container_cmd='/usr/sbin/lighttpd'
+		container_entrypoint_files='roundcube-sync.sh'
 		etcdir='lighttpd'
 		;;
 	*.lynis)
@@ -1210,6 +1217,7 @@ case "${package_name}" in
 		#	>=dev-php/pecl-memcache-4
 
 		container_cmd="/usr/${LIB}/${PHP_SLOT}/bin/php-fpm"
+		container_entrypoint_files='roundcube-sync.sh'
 		etcdir='php'
 		;;
 	*.pinfo)
@@ -1461,12 +1469,21 @@ case "${package_name}" in
 		ports='3478/udp 5514/udp 8080/tcp 8443/tcp 8880/tcp 8843/tcp 6789/tcp 27117/tcp 10001/udp 1900/udp 5656-5699/udp'
 		user='unifi'
 		group='unifi'
+
 		# As of 5.5.24, logs are written to 'logs/server.log' below the
 		# directory from which the class is invoked - so we need to chdir to
 		# the installation directory in order for this to work as anticipated.
 		container_cwd="/opt/unifi-controller-${package_version}"
-		# ace.jar needs to be run within a JVM...
+
+		# ace.jar needs to be run within a JVM.  From 10.6.101, select a
+		# lifecycle hook which keeps the entrypoint alive until the embedded
+		# MongoDB process has stopped.
 		container_cmd='/usr/bin/java'
+		case "${package_version}" in
+			10.6.101|10.6.101-r*)
+				container_cmd_entrypoint='unifi-controller-lifecycle.sh'
+				;;
+		esac
 		;;
 	*.vim)
 		output "Setting build variables for package 'vim' ..."
@@ -2243,6 +2260,8 @@ args+=(
 	--build-arg environment_filter="${environment_filter}"
 	--build-arg image_name="${container_prefix}-${package_name}"
 	--build-arg service_cmd="${container_cmd}"
+	--build-arg service_cmd_entrypoint="${container_cmd_entrypoint}"
+	--build-arg service_entrypoint_files="${container_entrypoint_files}"
 	  $( add_arg container_cwd --build-arg "service_cwd=${container_cwd}" )
 	  $( add_arg fs_name --build-arg "service_fs_name=${fs_name}" )
 	--build-arg service_group="${group}"

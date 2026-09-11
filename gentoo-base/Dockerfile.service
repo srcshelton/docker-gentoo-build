@@ -18,6 +18,8 @@ ARG service_ports
 ARG service_user="root"
 ARG service_group="root"
 ARG service_cmd="/bin/sh"
+ARG service_cmd_entrypoint=""
+ARG service_entrypoint_files=""
 ARG service_cwd="/"
 ARG service_fs_name
 ARG timezone="GB"
@@ -45,6 +47,9 @@ ARG BUILDKIT_PROGRESS
 ARG ROOT
 ARG environment_file
 ARG environment_filter
+ARG service_cmd
+ARG service_cmd_entrypoint
+ARG service_entrypoint_files
 
 
 RUN test -s "${environment_file}"
@@ -75,6 +80,47 @@ RUN set -eu ; \
     fi
 #RUN printf >&2 " * 'service' stage propagated environment:\n\n%s\n\n" "$( cat "${ROOT}${environment_file}" )"
 
+# Stage all candidate entrypoint files prior to deployment to ${ROOT}, then
+# copy over only any hook appropriate to the service being deployed (plus any
+# pre-hook which might exist) as well as any explicitly requested helper files.
+#
+COPY entrypoint.d/ /entrypoint.d-staging/
+RUN set -eu ; \
+    [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
+    copy_entrypoint_file() { \
+        entrypoint_file="${1:-}" ; \
+        case "${entrypoint_file}" in \
+            ''|'.'|'..'|*'/'*) \
+                echo >&2 "FATAL: Invalid entrypoint filename" \
+                    "'${entrypoint_file}'" ; \
+                return 1 ; \
+                ;; \
+        esac ; \
+        if ! [ -f "/entrypoint.d-staging/${entrypoint_file}" ] || \
+                ! [ -s "/entrypoint.d-staging/${entrypoint_file}" ]; \
+        then \
+            return 1 ; \
+        fi ; \
+        mkdir -p "${ROOT}/usr/libexec/entrypoint.d" ; \
+        cp "/entrypoint.d-staging/${entrypoint_file}" \
+            "${ROOT}/usr/libexec/entrypoint.d/" ; \
+    } ; \
+    entrypoint_name="${service_cmd_entrypoint:-"${service_cmd##*"/"}"}" ; \
+    copy_entrypoint_file "${entrypoint_name}.pre" || : ; \
+    if !  copy_entrypoint_file "${entrypoint_name}" && \
+            [ -n "${service_cmd_entrypoint:-}" ]; \
+    then \
+        echo >&2 "FATAL: Unable to locate selected entrypoint" \
+            "'${entrypoint_name}'" ; \
+        exit 1 ; \
+    fi ; \
+    for entrypoint_file in ${service_entrypoint_files:-}; do \
+        copy_entrypoint_file "${entrypoint_file}" || { \
+            echo >&2 "FATAL: Unable to locate entrypoint helper '${entrypoint_file}'" ; \
+            exit 1 ; \
+        } ; \
+    done
+
 
 # -----------------------------------------------------------------------------
 
@@ -93,6 +139,7 @@ ARG service_ports
 ARG service_user
 ARG service_group
 ARG service_cmd
+ARG service_cmd_entrypoint
 ARG service_cwd
 ARG service_fs_name
 ARG timezone="GB"
@@ -108,6 +155,7 @@ ARG smtp_domain
 ARG CHOST
 
 ENV service_cmd="${service_cmd}"
+ENV service_cmd_entrypoint="${service_cmd_entrypoint}"
 ENV fs_name="${service_fs_name}"
 ENV CHOST="${CHOST}"
 
@@ -256,7 +304,6 @@ RUN set -eu ; \
 # to the (hopefully) host-mounted packages directory ...
 #
 COPY entrypoint.sh.service /usr/libexec/entrypoint.sh
-COPY entrypoint.d/ /usr/libexec/entrypoint.d/
 RUN set -eu ; \
     [ $(( BUILDKIT_PROGRESS )) -ne 0 ] && set -x ; \
     { set -o pipefail 2>/dev/null || true ; } ; \
@@ -266,7 +313,7 @@ RUN set -eu ; \
         -e "s|__ENVFILE__|${environment_file}|" \
             /usr/libexec/entrypoint.sh && \
     test -x /usr/libexec/entrypoint.sh ; \
-    chmod 0755 /usr/libexec/entrypoint.d/*.sh || :
+    chmod 0755 /usr/libexec/entrypoint.d/*.sh 2>/dev/null || :
 
 # linter ignore=ER0001,SC2015
 RUN set -eu ; \

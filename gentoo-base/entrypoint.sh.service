@@ -41,6 +41,8 @@ if [ -z "${service_cmd:-}" ]; then
 	exit 1
 fi
 
+entrypoint_name="$( basename "${service_cmd_entrypoint:-"${service_cmd}"}" )"
+
 if set | grep -q -- '=__[A-Z]\+__$'; then
 	echo >&2 "FATAL: Unexpanded variable(s) in environment: $( # <- Syntax
 		set |
@@ -52,11 +54,11 @@ if set | grep -q -- '=__[A-Z]\+__$'; then
 fi
 
 if [ -d /usr/libexec/entrypoint.d ]; then
-	bin="$( basename "${service_cmd}" )"
-	if [ -n "${bin:-}" ] && [ -s "/usr/libexec/entrypoint.d/${bin}.pre" ]
+	if [ -n "${entrypoint_name:-}" ] &&
+		[ -s "/usr/libexec/entrypoint.d/${entrypoint_name}.pre" ]
 	then
 		# shellcheck disable=SC1090
-		. "/usr/libexec/entrypoint.d/${bin}.pre"
+		. "/usr/libexec/entrypoint.d/${entrypoint_name}.pre"
 	fi
 fi
 
@@ -224,17 +226,23 @@ fi
 
 if [ -d /usr/libexec/entrypoint.d ]; then
 	rc=0
-	bin="$( basename "${service_cmd}" )"
-	if [ -n "${bin:-}" ] && [ -s /usr/libexec/entrypoint.d/"${bin}" ]; then
+	# A .pre hook or the saved environment may have changed the command or
+	# explicitly selected a different main hook.
+	entrypoint_name="$( # <- Syntax
+			basename "${service_cmd_entrypoint:-"${service_cmd}"}"
+		)"
+	if [ -n "${entrypoint_name:-}" ] &&
+		[ -s "/usr/libexec/entrypoint.d/${entrypoint_name}" ]
+	then
 		print "Running entrypoint script" \
-			"'/usr/libexec/entrypoint.d/${bin}' ..."
+			"'/usr/libexec/entrypoint.d/${entrypoint_name}' ..."
 		# shellcheck disable=SC1090
-		. /usr/libexec/entrypoint.d/"${bin}" || rc=${?}
+		. "/usr/libexec/entrypoint.d/${entrypoint_name}" || rc=${?}
 		# Now that any entrypoint.d script isn't run in a sub-shell, we can't
 		# capture any result in this way...
 		# ('131' is to allow sa-update to exit successfully)
 		#
-		#print "entrypoint script '${bin}' returned ${rc}"
+		#print "entrypoint script '${entrypoint_name}' returned ${rc}"
 		#case ${rc} in
 		#	0)		: ;;
 		#	131)	exit 0 ;;
