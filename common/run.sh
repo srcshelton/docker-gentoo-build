@@ -2510,7 +2510,7 @@ if [[ "${_container_engine:-}" == 'container' ]]; then
 								for item in ${value//,/ }; do
 									case "${item}" in
 										target=*) target="${item#target=}" ;;
-										# Apple 1.3.0 accepts Linux tmpfs mount
+										# Apple container accepts Linux tmpfs mount
 										# options after the destination path.
 										tmpfs-size=*)
 											tmpfs_options+=( "size=${item#tmpfs-size=}" )

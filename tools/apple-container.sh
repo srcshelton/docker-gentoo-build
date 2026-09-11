@@ -7,7 +7,9 @@ set -eu
 LC_ALL='C'
 export LC_ALL
 
-APPLE_CONTAINER_MIN_VERSION='1.3.0'
+APPLE_CONTAINER_MIN_VERSION='1.4.1'
+APPLE_CONTAINER_CLEAN_MIN_VERSION='1.4.1'
+APPLE_CONTAINER_LAST_VALIDATED_VERSION='1.4.1'
 APPLE_CONTAINER_STOP_MINIMUM=25
 APPLE_CONTAINER_START_MINIMUM=60
 
@@ -80,15 +82,20 @@ die() {
 
 usage() {
 	cat <<EOF
-Usage: ${script_name} [--start | --restart | --reset [--force]] [OPTIONS]
+Usage: ${script_name} [--start | --restart | --clean |
+                      --reset [--force]] [OPTIONS]
 
-Start or restart Apple container services and their image builder. A reset
-stops the system, removes validated application data, and leaves it stopped.
+Start or restart Apple container services and their image builder, or reclaim
+unused filesystem space from running containers. A reset stops the system,
+removes validated application data, and leaves it stopped.
 
 Options:
   --start                 Start services if needed; do not stop a running
                           system
   --restart               Restart running services (default)
+  --clean                 Reclaim unused space from all running containers;
+                          requires Apple container
+                          ${APPLE_CONTAINER_CLEAN_MIN_VERSION} or later
   --reset                 Remove persistent container data; requires --force
   --force                 Allow forced shutdown, builder recreation, and short
                           timeouts
@@ -161,6 +168,9 @@ while [ $(( ${#} )) -gt 0 ]; do
 			;;
 		'--restart')
 			select_mode 'restart'
+			;;
+		'--clean')
+			select_mode 'clean'
 			;;
 		'--reset')
 			select_mode 'reset'
@@ -286,6 +296,27 @@ is_positive_integer() {
 	[ $(( ${1} )) -gt 0 ] 2>/dev/null
 }
 
+version_at_least() {
+	if [ $(( ${#} )) -ne 2 ]; then
+		return 2
+	fi
+	awk -v installed="${1}" -v minimum="${2}" '
+		function component(version, position, fields) {
+			split(version, fields, ".")
+			return fields[position] + 0
+		}
+		BEGIN {
+			for (position = 1; position <= 3; position++) {
+				if (component(installed, position) > component(minimum, position))
+					exit 0
+				if (component(installed, position) < component(minimum, position))
+					exit 1
+			}
+			exit 0
+		}
+	' </dev/null
+}
+
 if ! is_positive_integer "${builder_cpus:-}"; then
 	die "Builder CPU count '${builder_cpus:-}' is not a positive integer"
 fi
@@ -344,18 +375,24 @@ container_version="$(
 if [ -z "${container_version:-}" ]; then
 	die "Executable '${container_binary}' did not return a recognisable" \
 		"Apple container version: '${container_version_output:-"<unknown>"}'"
-elif awk \
-		-v installed="${container_version}" \
-		-v minimum="${APPLE_CONTAINER_MIN_VERSION}" '
-		function number(version, fields) {
-			split(version, fields, ".")
-			return (fields[1] * 1000000) + (fields[2] * 1000) + fields[3]
-		}
-		BEGIN { exit !(number(installed) < number(minimum)) }
-	' </dev/null
+elif ! version_at_least "${container_version}" \
+		"${APPLE_CONTAINER_MIN_VERSION}"
 then
 	die "Apple 'container' ${container_version} is unsupported; upgrade to" \
 			"${APPLE_CONTAINER_MIN_VERSION} or later"
+fi
+if ! version_at_least "${APPLE_CONTAINER_LAST_VALIDATED_VERSION}" \
+		"${container_version}"
+then
+	warn "Apple 'container' ${container_version} is newer than the latest" \
+		"validated release ${APPLE_CONTAINER_LAST_VALIDATED_VERSION}"
+fi
+if [ "${mode}" = 'clean' ] &&
+		! version_at_least "${container_version}" \
+			"${APPLE_CONTAINER_CLEAN_MIN_VERSION}"
+then
+	die "Option --clean requires Apple 'container'" \
+		"${APPLE_CONTAINER_CLEAN_MIN_VERSION} or later; found ${container_version}"
 fi
 unset container_version container_version_output
 
@@ -378,6 +415,36 @@ json_extract() {
 		return 0
 	fi
 	unset json_key json_value
+	return 1
+}
+
+status_json_extract() {
+	if [ $(( ${#} )) -ne 2 ]; then
+		return 2
+	fi
+	if [ -z "${1:-}" ] || [ -z "${2:-}" ]; then
+		return 2
+	fi
+	status_json_value="${1}"
+	status_json_key="${2}"
+
+	# container 1.4.1 grouped system paths beneath a paths object. Retain the
+	# top-level fallback so an otherwise compatible payload can still be read.
+	case "${status_json_key}" in
+		'appRoot'|'installRoot'|'logRoot')
+			if json_extract "${status_json_value}" \
+					"paths.${status_json_key}"
+			then
+				unset status_json_key status_json_value
+				return 0
+			fi
+			;;
+	esac
+	if json_extract "${status_json_value}" "${status_json_key}"; then
+		unset status_json_key status_json_value
+		return 0
+	fi
+	unset status_json_key status_json_value
 	return 1
 }
 
@@ -513,19 +580,19 @@ then
 	if [ "${active_status}" = 'running' ]; then
 		system_was_running=1
 		if ! active_app_root="$(
-				json_extract "${active_status_json}" 'appRoot'
+				status_json_extract "${active_status_json}" 'appRoot'
 			)"
 		then
 			active_app_root=''
 		fi
 		if ! active_install_root="$(
-				json_extract "${active_status_json}" 'installRoot'
+				status_json_extract "${active_status_json}" 'installRoot'
 			)"
 		then
 			active_install_root=''
 		fi
 		if ! active_log_root="$(
-				json_extract "${active_status_json}" 'logRoot'
+				status_json_extract "${active_status_json}" 'logRoot'
 			)"
 		then
 			active_log_root=''
@@ -823,7 +890,7 @@ verify_system_running() {
 
 	verified_app_root=''
 	if ! verified_app_root="$(
-			json_extract "${verified_status_json}" 'appRoot'
+			status_json_extract "${verified_status_json}" 'appRoot'
 		)"
 	then
 		unset verified_status verified_status_json
@@ -845,7 +912,7 @@ verify_system_running() {
 
 	verified_install_root=''
 	if ! verified_install_root="$(
-			json_extract "${verified_status_json}" 'installRoot'
+			status_json_extract "${verified_status_json}" 'installRoot'
 		)"
 	then
 		verified_install_root=''
@@ -873,7 +940,7 @@ verify_system_running() {
 
 	verified_log_root=''
 	if ! verified_log_root="$(
-			json_extract "${verified_status_json}" 'logRoot'
+			status_json_extract "${verified_status_json}" 'logRoot'
 		)"
 	then
 		verified_log_root=''
@@ -1114,6 +1181,31 @@ start_builder() {
 	unset builder_failure
 }
 
+clean_running_containers() {
+	clean_container_ids=''
+	if ! clean_container_ids="$( container_cli list --quiet )"; then
+		die 'Unable to list running Apple containers'
+	fi
+	if [ -z "${clean_container_ids}" ]; then
+		output 'No running Apple containers require cleaning'
+		unset clean_container_ids
+		return 0
+	fi
+	clean_container_count="$(
+		printf '%s\n' "${clean_container_ids}" |
+			/usr/bin/awk 'NF { count++ } END { print count + 0 }'
+	)"
+	output "Reclaiming unused filesystem space from" \
+		"${clean_container_count} running container(s) ..."
+	# Apple container IDs cannot contain shell whitespace or glob characters.
+	# shellcheck disable=SC2086
+	if ! container_cli clean ${clean_container_ids}; then
+		die 'Unable to clean every running Apple container'
+	fi
+	output "Cleaned ${clean_container_count} running Apple container(s)"
+	unset clean_container_count clean_container_ids
+}
+
 running_app_root() {
 	running_status_json=''
 	if ! running_status_json="$(
@@ -1133,7 +1225,10 @@ running_app_root() {
 		return 1
 	fi
 	running_root=''
-	if ! running_root="$( json_extract "${running_status_json}" 'appRoot' )"; then
+	if ! running_root="$(
+		status_json_extract "${running_status_json}" 'appRoot'
+	)"
+	then
 		unset running_root running_status running_status_json
 		return 1
 	fi
@@ -1499,6 +1594,13 @@ case "${mode}" in
 		stop_system
 		start_system
 		start_builder
+		;;
+	'clean')
+		if ! system_is_running; then
+			die 'Container system is not running; use --start before --clean'
+		fi
+		clean_running_containers
+		exit 0
 		;;
 	'reset')
 		validate_reset_roots

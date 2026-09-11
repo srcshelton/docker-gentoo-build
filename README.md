@@ -40,10 +40,17 @@ preferred in the order `container`, `podman`, `docker` on macOS and `podman`,
 has a more complete configured Gentoo image pipeline; completeness takes
 precedence over the creation timestamps of a partial pipeline.
 
-Minimum supported versions are Apple `container` 1.3.0, Podman 3.4.4 on Linux
+Minimum supported versions are Apple `container` 1.4.1, Podman 3.4.4 on Linux
 (4.0.3 for the host-mounted macOS `podman machine` workflow), and Docker
 18.06.0 with client and server API 1.38.  If Podman uses `crun` as its active
 OCI runtime, `crun` 1.0.0 or later is also required.
+
+Apple `container` 1.4.1 is both the minimum accepted release and the recorded
+validation point.  It contains
+[additional upstream security fixes](https://github.com/apple/container/releases/tag/1.4.1).
+The integration handles the nested system-status `paths` object introduced by
+1.4.1.  Later releases pass the minimum version check but remain outside the
+recorded validated range until audited.
 
 ## Continuous integration
 
@@ -147,6 +154,11 @@ eval "${EDITOR} local.sh make.conf"
   ./tools/apple-container.sh --start
   CONTAINER_ENGINE=container ./gentoo-init.docker
   ```
+
+  With 1.4.1 or later, `./tools/apple-container.sh --clean` reclaims unused
+  space from the root filesystem and writable named volumes of every running
+  container.  It does not remove containers, images, or volumes, and does not
+  stop the container system.
 
 - For `podman` or Podman Desktop:
 
