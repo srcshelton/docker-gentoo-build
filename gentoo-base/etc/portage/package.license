@@ -280,6 +280,14 @@ app-misc/jq				 CC-BY-3.0 icu
 dev-libs/libbsd				 BEER-WARE
 dev-python/numpy			 0BSD ZLIB CC0-1.0
 dev-python/python-ldap			 PSF-2
+# required by dev-db/mongodb
+# required by dev-libs/mongo-c-driver
+# required by dev-python/sphinx
+dev-python/roman-numerals		 0BSD CC0-1.0
+# required by dev-db/mongodb
+# required by dev-python/poetry
+dev-python/dulwich			 Apache-2.0-with-LLVM-exceptions Unicode-3.0
+dev-python/keyring			 PSF-2
 # required by net-analyzer/netdata[nodejs]
 net-libs/nodejs				 Apache-1.1 BlueOak-1.0.0
 # required by net-libs/nodejs
@@ -308,6 +316,8 @@ dev-db/mongodb				 SSPL-1
 dev-java/openjdk-bin			 GPL-2-with-classpath-exception
 dev-java/openjdk			 GPL-2-with-classpath-exception
 dev-libs/boost				 Boost-1.0
+dev-python/cryptography			 PSF-2 Apache-2.0-with-LLVM-exceptions Unicode-3.0
+dev-python/distlib			 PSF-2
 dev-python/typing			 PSF-2
 dev-util/boost-build			 Boost-1.0
 #dev-util/gdbus-codegen			 LGPL-2+
