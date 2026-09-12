@@ -150,6 +150,11 @@ if [[ "$( type -t 'resolve_non_gentoo_build_flags' )" != 'function' ]] ||
 then
 	die "Unable to source compiler flag resolvers from 'common/build-flags.sh'"
 fi
+# shellcheck disable=SC1091
+[[ -s common/cpu-target.sh ]] && . common/cpu-target.sh
+if [[ "$( type -t 'cpu_target_from_compiler_options' )" != 'function' ]]; then
+	die "Unable to source CPU target detection from 'common/cpu-target.sh'"
+fi
 
 if [[ -n "${*:-}" ]]; then
 	if grep -Eq -- ' -(h|-help) ' <<<" ${*} "; then
