@@ -1,5 +1,10 @@
 
 #							~amd64 ~arm ~arm64 ~x86
 ~dev-db/mongodb-5.0.26					       ~arm ~arm64 ~x86
+~dev-db/mongodb-5.0.30					~amd64 ~arm ~arm64 ~x86
+~dev-db/mongodb-5.0.32					~amd64 ~arm ~arm64 ~x86
+~dev-db/mongodb-6.0.27					~amd64 ~arm ~arm64 ~x86
+~dev-db/mongodb-7.0.28					~amd64 ~arm ~arm64 ~x86
+~dev-db/mongodb-8.0.12					~amd64 ~arm ~arm64 ~x86
 
 # vi: set syntax=gentoo-package-keywords:
