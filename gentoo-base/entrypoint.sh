@@ -194,11 +194,11 @@ validate_pkgdir_metadata() {
 
 	if [ -z "${PKGDIR:-}" ]; then
 		warn "'PKGDIR' not set when validate_pkgdir_metadata called"
-		unset vpm_rc vpm
+		unset vpm_tmp vpm_rc vpm_legacy vpm_expected vpm_arch vpm_actual
 		return 0
 	fi
 	if ! [ -s "${PKGDIR}/.metadata" ]; then
-		unset vpm_rc vpm
+		unset vpm_tmp vpm_rc vpm_legacy vpm_expected vpm_arch vpm_actual
 		return 0
 	fi
 
@@ -262,7 +262,7 @@ validate_pkgdir_metadata() {
 		vpm_rc=1
 	fi
 
-	unset vpm_actual vpm_arch vpm_expected vpm_legacy vpm_tmp
+	unset vpm_tmp vpm_legacy vpm_expected vpm_arch vpm_actual
 
 	if [ $(( vpm_rc )) -ne 0 ]; then
 		unset vpm_rc
