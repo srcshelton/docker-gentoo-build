@@ -30,11 +30,18 @@ script_name="${0##*"/"}"
 script_dir="$( CDPATH='' cd -P "$( dirname "${0}" )" && pwd )" || exit 1
 # shellcheck disable=SC1091
 . "${script_dir}/../common/container-engine-helpers.sh"
-unset script_dir
 mode='restart'
 mode_set=0
 force=0
 container_debug_option=0
+diagnostic_container=''
+diagnostic_port=''
+diagnostic_timeout=10
+diagnostic_dns='distfiles.gentoo.org'
+diagnostic_address='1.1.1.1'
+diagnostic_outbound_port=443
+diagnostic_published_url=''
+diagnostic_options=0
 
 builder_cpus=${CONTAINER_BUILDER_CPUS:-${DEFAULT_BUILDER_CPUS}}
 builder_memory="${CONTAINER_BUILDER_MEMORY:-"${DEFAULT_BUILDER_MEMORY}"}"
@@ -82,7 +89,7 @@ die() {
 
 usage() {
 	cat <<EOF
-Usage: ${script_name} [--start | --restart | --clean |
+Usage: ${script_name} [--start | --restart | --clean | --diagnose NAME |
                       --reset [--force]] [OPTIONS]
 
 Start or restart Apple container services and their image builder, or reclaim
@@ -97,6 +104,16 @@ Options:
                           requires Apple container
                           ${APPLE_CONTAINER_CLEAN_MIN_VERSION} or later
   --reset                 Remove persistent container data; requires --force
+  --diagnose NAME         Probe an existing running container without changing
+                          services, routes, or stored data (IPv4 only)
+  --port PORT             Container service TCP port to probe from host and
+                          guest loopback; omitted checks are reported SKIP
+  --probe-timeout SECONDS Per-probe timeout (default: 10)
+  --probe-dns NAME        Guest DNS lookup (default: distfiles.gentoo.org)
+  --probe-address IPV4    Host/guest outbound TCP target (default: 1.1.1.1)
+  --probe-port PORT       Outbound TCP port (default: 443)
+  --published-url URL     Optional host HTTP(S) GET through a published port;
+                          require a complete 2xx response (no redirects)
   --force                 Allow forced shutdown, builder recreation, and short
                           timeouts
   --debug                 Pass Apple's global --debug option to container
@@ -124,6 +141,10 @@ Environment:
 
 Command-line values override environment values. The native Apple root
 environment variables are translated into system-start options as needed.
+Diagnostic options require --diagnose. Probes require host jq and guest
+/bin/sh and Python 3; missing guest tools are reported as incomplete checks.
+The optional published URL check also requires host curl.
+Diagnostic exit status: 0 passed, 1 failed, 2 incomplete (including SKIP).
 EOF
 }
 
@@ -174,6 +195,27 @@ while [ $(( ${#} )) -gt 0 ]; do
 			;;
 		'--reset')
 			select_mode 'reset'
+			;;
+		'--diagnose'|'--port'|'--probe-timeout'|'--probe-dns'|\
+		'--probe-address'|'--probe-port'|'--published-url')
+			require_value "${1}" ${#}
+			case "${1}" in
+				'--diagnose')
+					select_mode 'diagnose'
+					diagnostic_container="${2}"
+					;;
+				'--port') diagnostic_port="${2}" ;;
+				'--probe-timeout') diagnostic_timeout="${2}" ;;
+				'--probe-dns') diagnostic_dns="${2}" ;;
+				'--probe-address') diagnostic_address="${2}" ;;
+				'--probe-port') diagnostic_outbound_port="${2}" ;;
+				'--published-url')
+					[ -n "${2}" ] || die 'Published URL cannot be empty'
+					diagnostic_published_url="${2}"
+					;;
+			esac
+			diagnostic_options=1
+			shift
 			;;
 		'--force')
 			force=1
@@ -273,6 +315,9 @@ done
 if [ "${mode}" = 'reset' ] && [ $(( force )) -eq 0 ]; then
 	die 'Option --reset requires --force'
 fi
+if [ "${mode}" != 'diagnose' ] && [ "${diagnostic_options}" -ne 0 ]; then
+	die 'Diagnostic options require --diagnose NAME'
+fi
 
 if [ "$( /usr/bin/uname -s )" != 'Darwin' ]; then
 	die 'This script requires macOS'
@@ -316,6 +361,20 @@ version_at_least() {
 		}
 	' </dev/null
 }
+
+# Dispatch before lifecycle validation, discovery, locks, and recovery. The
+# diagnostic bounds CLI queries, which can hang on a wedged service.
+if [ "${mode}" = 'diagnose' ]; then
+	if [ "${app_root_set}" -ne 0 ]; then
+		CONTAINER_APP_ROOT="${app_root}"
+		export CONTAINER_APP_ROOT
+	fi
+	# shellcheck source=common/apple-container-diagnostics.sh
+	. "${script_dir}/../common/apple-container-diagnostics.sh"
+	apple_container_diagnose
+	exit ${?}
+fi
+unset script_dir
 
 if ! is_positive_integer "${builder_cpus:-}"; then
 	die "Builder CPU count '${builder_cpus:-}' is not a positive integer"
@@ -1100,7 +1159,7 @@ start_system_once() {
 	fi
 	if verify_system_running; then
 		if [ $(( start_command_status )) -ne 0 ]; then
-			warn 'System became healthy despite start command status' \
+			warn 'System reports running despite start command status' \
 				"${start_command_status}"
 		fi
 		unset start_command_status
@@ -1144,7 +1203,7 @@ start_builder_once() {
 	fi
 	if builder_is_running; then
 		if [ $(( start_command_status )) -ne 0 ]; then
-			warn 'Builder became healthy despite start command status' \
+			warn 'Builder reports running despite start command status' \
 				"${start_command_status}"
 		fi
 		unset start_command_status
@@ -1580,7 +1639,7 @@ case "${mode}" in
 				die 'A container system is running with different root' \
 					'settings; use --restart'
 			fi
-			output 'Apple container system is already operational'
+			output 'Apple container system reports running with matching roots'
 		else
 			start_system
 		fi
@@ -1617,20 +1676,21 @@ case "${mode}" in
 esac
 
 if ! verify_system_running; then
-	die 'Final container system health verification failed'
+	die 'Final container system status/root verification failed'
 fi
 if ! builder_is_running; then
-	die 'Final container builder health verification failed'
+	die 'Final container builder status verification failed'
 fi
 
 case "${mode}" in
 	'start')
-		output 'Apple container system and builder are operational'
+		output 'Apple container system and builder report running'
 		;;
 	'restart')
 		output 'Apple container system and builder successfully restarted'
 		;;
 esac
+output 'Network connectivity has not been tested; use --diagnose NAME to probe it'
 output "Application root: ${verified_app_root}"
 output "Installation root: ${verified_install_root:-"<unknown>"}"
 output "Log root: ${verified_log_root:-"<macOS unified logging>"}"

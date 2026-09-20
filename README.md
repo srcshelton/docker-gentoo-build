@@ -160,6 +160,82 @@ eval "${EDITOR} local.sh make.conf"
   container.  It does not remove containers, images, or volumes, and does not
   stop the container system.
 
+  Startup and automatic engine selection check service/builder status, not
+  network connectivity.  A successful restart does not establish that guest
+  DNS, outbound connections, or published ports work.
+
+  To diagnose an **existing running container**, use its name and, optionally,
+  a TCP port on which its service should listen:
+
+  ```sh
+  ./tools/apple-container.sh --diagnose my-container --port 8080
+  ```
+
+  This reports host routes for each attached IPv4 address, host-to-container
+  TCP connections, guest exec availability, guest-loopback TCP, guest DNS,
+  and host/guest outbound TCP separately.  The service port is the port
+  **inside the container**, not a published host port.  A service bound only
+  to a specific address may intentionally fail either the loopback or direct
+  address check.  TCP success establishes a connection, not application health.
+  IPv6 and the separate builder VM are not tested.
+
+  For an HTTP(S) service, optionally test its published host endpoint too:
+
+  ```sh
+  ./tools/apple-container.sh --diagnose my-container --port 8080 \
+    --published-url http://127.0.0.1:18080/health
+  ```
+
+  Supply a health URL served by that container's published port (18080 in
+  this example, mapped to container port 8080).  This host `curl` GET must
+  complete with a 2xx response within the probe timeout; redirects and other
+  HTTP statuses fail.  The response body is discarded without content checks.
+  Proxy environment variables and curl configuration files are ignored, and
+  HTTPS certificates are verified normally.  This tests the supplied endpoint;
+  it does not automatically verify which container owns it.  Without this
+  option, published-port forwarding remains untested and does not affect the
+  diagnostic exit status.
+
+  Each command is bounded by `--probe-timeout SECONDS` (default 10; range
+  2–300).  The default DNS name is `distfiles.gentoo.org`; the outbound probe
+  opens TCP connections to `1.1.1.1:443` independently of DNS.  Override these
+  with `--probe-dns NAME --probe-address IPV4 --probe-port PORT` to use endpoints
+  appropriate to your network.  Host `jq`, `route`, `ifconfig` and `nc` are
+  required; guest probes use `/bin/sh` and Python 3.  Missing guest tools or an
+  omitted `--port` produce incomplete results.  Exit codes are 0 for passed
+  checks, 1 for a failure, and 2 for incomplete checks without a failure.
+  Nothing is installed, restarted, or reconfigured.  On timeout the local
+  probe process is killed; guest Python probes also have their own deadlines.
+  Name resolution uses the guest resolver, including hosts files and caches;
+  success does not necessarily mean that a new DNS query reached a server.
+
+  [Upstream issue #1881](https://github.com/apple/container/issues/1881)
+  describes VPN-related host routing and guest outbound failures.  A
+  [report using 1.4.1](https://github.com/apple/container/issues/1881#issuecomment-5748086051)
+  also describes a stale tunnel despite Tailscale reporting itself stopped,
+  and failures persisting after the host route was corrected.  Inspect the
+  actual route/interface and connectivity results rather than relying on VPN
+  status or DNS success alone.  A hung guest exec does not by itself establish
+  a guest networking fault.
+
+  A [further 1.4.1 report](https://github.com/apple/container/issues/1881#issuecomment-5749912618)
+  found that connecting NordVPN broke published-port access and guest internet
+  access even with correct host routing and working guest loopback.  In that
+  setup, Azure VPN alone worked, and disconnecting NordVPN immediately restored
+  connectivity without a restart.  These are reported observations, not a
+  confirmed diagnosis of the underlying cause or a claim that all VPNs fail.
+
+  Capture diagnostics, resolve or disconnect the interfering VPN/tunnel, then
+  **retest connectivity before restarting anything**.  If failures persist,
+  running the helper with `--restart` is a possible recovery step: an
+  [earlier report](https://github.com/apple/container/issues/1881#issuecomment-4879992099)
+  recovered guest outbound connectivity after disabling the exit node and
+  restarting the system.  Recovery is not guaranteed; the stale-tunnel report
+  did not test that restart in isolation.  Capture diagnostic results before
+  restarting, which interrupts running workloads.  `--clean` only reclaims
+  storage; `--reset` deletes persistent data and is not a demonstrated fix
+  for this networking issue.
+
 - For `podman` or Podman Desktop:
 
   ```sh

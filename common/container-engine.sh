@@ -157,6 +157,7 @@ _container_engine_probe() (
 				printf "Apple 'container' support requires 'jq'\n"
 				exit 0
 			fi
+			# Availability only: neither status query verifies guest networking.
 			if ! container_engine_run "${_engine_path}" system status \
 					>/dev/null 2>&1
 			then
