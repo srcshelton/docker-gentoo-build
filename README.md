@@ -45,12 +45,45 @@ Minimum supported versions are Apple `container` 1.4.1, Podman 3.4.4 on Linux
 18.06.0 with client and server API 1.38.  If Podman uses `crun` as its active
 OCI runtime, `crun` 1.0.0 or later is also required.
 
-Apple `container` 1.4.1 is both the minimum accepted release and the recorded
-validation point.  It contains
+Apple `container` 1.4.1 is both the minimum accepted release and the last
+runtime-validation point.  It contains
 [additional upstream security fixes](https://github.com/apple/container/releases/tag/1.4.1).
 The integration handles the nested system-status `paths` object introduced by
-1.4.1.  Later releases pass the minimum version check but remain outside the
-recorded validated range until audited.
+1.4.1.  The [1.5.0 changes](https://github.com/apple/container/compare/1.4.1...1.5.0)
+have been source-audited: the build, export, lifecycle and cleanup commands,
+resource options, and JSON fields used here remain compatible.  No script
+changes or higher minimum version are required.  The helper still warns about
+versions newer than 1.4.1 because source review and fixture tests do not replace
+a live build with the newer release.
+
+Upgrading to [1.5.0](https://github.com/apple/container/releases/tag/1.5.0)
+provides improvements without additional flags:
+
+- Build contexts beneath symlinked directories no longer lose directory
+  contents.  This is relevant to snapshot builds under macOS temporary paths.
+- Empty image entrypoints are handled correctly, and socket-forwarding
+  connections are cleaned up when clients disconnect.
+- The bundled Containerization update fixes
+  [hard-link handling during image unpacking](https://github.com/apple/containerization/pull/928),
+  [oversized blob downloads](https://github.com/apple/containerization/pull/932),
+  [zstd temporary-disk consumption](https://github.com/apple/containerization/pull/931),
+  [corrupt-layer hangs](https://github.com/apple/containerization/pull/927), and
+  [socket-forwarding/exec stalls](https://github.com/apple/containerization/pull/933).
+  The disk-saving benefit of streaming zstd decompression applies to images
+  with zstd layers; no compression change is needed for our exported tar files.
+
+After upgrading, plan a service restart using
+`./tools/apple-container.sh --restart` so subsequent containers use the updated
+runtime.  This interrupts running workloads; `--reset` is not required.  An
+explicitly configured older `vminit.image` overrides the new default and needs
+separate review.
+
+The removed experimental `k8s start` command is not used here.  There is still
+no `commit` command, so export/rebuild snapshots remain necessary.  New
+Containerization filesystem statistics and runc/seccomp support are not exposed
+through this release's `container` CLI.  Builder CPU/memory options and VM
+resource overhead remain unchanged; the update does not justify reducing
+existing build resource allocations.
 
 ## Continuous integration
 
@@ -217,6 +250,12 @@ eval "${EDITOR} local.sh make.conf"
   actual route/interface and connectivity results rather than relying on VPN
   status or DNS success alone.  A hung guest exec does not by itself establish
   a guest networking fault.
+
+  [1.5.0 fixes egress loss after localhost DNS changes](https://github.com/apple/container/pull/2256)
+  by updating only Container's PF anchor instead of reloading the host's entire
+  ruleset.  That fix addresses a specific DNS-management failure, not all
+  VPN-related failures described above; the diagnostic and recovery guidance
+  remains applicable.
 
   A [further 1.4.1 report](https://github.com/apple/container/issues/1881#issuecomment-5749912618)
   found that connecting NordVPN broke published-port access and guest internet

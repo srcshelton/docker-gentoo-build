@@ -100,6 +100,10 @@ TEST_CASE=old-version
 export TEST_VERSION=1.3.0
 run_case 1 '1.4.1 or later is required' --diagnose fixture
 unset TEST_VERSION
+TEST_CASE='version-1.5.0'
+export TEST_VERSION='1.5.0'
+run_case 0 'PASS: Guest outbound TCP' --diagnose fixture --port 8080
+unset TEST_VERSION
 TEST_CASE=bad-port
 run_case 1 'Service port must be' --diagnose fixture --port 99999
 TEST_CASE=bad-address
