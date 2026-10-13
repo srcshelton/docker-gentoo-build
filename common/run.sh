@@ -431,7 +431,7 @@ replace_flags() {
 }  # replace_flags
 
 add_arg() {
-	local flag="${1:-}" arg=''
+	local var="${1:-}" val='' output='' arg=''
 
 	# add_arg control-var output
 	#
@@ -440,35 +440,41 @@ add_arg() {
 	# values will be individually substituted.
 
 	if [[ -n "${2:-}" ]]; then
-		# We've saved the first argument as 'flag', now ensure that our
+		# We've saved the first argument as 'var', now ensure that our
 		# parameters are the remaining arguments...
 		shift
+		output="${1:-}"
 	fi
 
-	# 'flag' names the controlling variable, so use indirect expansion to test
+	# 'var' names the controlling variable, so use indirect expansion to test
 	# its value (and that it exists).
 	#
 	# N.B. Looping over arguments *after* the first is simply to include an
 	#      initial space before each sucessive parameter.
 	#
-	if [[ -n "${flag:-}" && -n "${!flag:-}" ]]; then
-		if [[ -n "${1:-}" ]]; then
-			# e.g. add_arg 1 2 3 -> 1 ...
-			arg="${1}"
-			arg="${arg//"##"/"${!flag}"}"
-			printf '%s' "${arg//"%%"/"${flag}"}"
-			if [[ -n "${2:-}" ]]; then
-				shift
-				# e.g. add_arg 1 2 3 -> ... 2 3
-				for arg in "${@:-}"; do
-					arg="${arg//"##"/"${!flag}"}"
-					printf ' %s' "${arg//"%%"/"${flag}"}"
-					#       ^
-				done
+	if [[ -n "${var:-}" ]]; then
+		val="${!var:-}"
+		if [[ -n "${val:-}" ]]; then
+			if [[ -n "${output:-}" ]]; then
+				# e.g. add_arg 1 2 3 -> 1 ...
+				arg="${output}"
+				arg="${arg//"##"/"${val}"}"
+				printf '%s' "${arg//"%%"/"${var}"}"
+				if [[ -n "${2:-}" ]]; then
+					shift
+					# e.g. add_arg 1 2 3 -> ... 2 3
+					for arg in "${@:-}"; do
+						if [[ -n "${arg:-}" ]]; then
+							arg="${arg//"##"/"${!var}"}"
+							printf ' %s' "${arg//"%%"/"${var}"}"
+							#       ^
+						fi
+					done
+				fi
+			else
+				# e.g. add_arg test -> 'test'
+				printf '%s' "${var}"
 			fi
-		else
-			# e.g. add_arg test -> 'test'
-			printf '%s' "${flag}"
 		fi
 	fi
 }  # add_arg
