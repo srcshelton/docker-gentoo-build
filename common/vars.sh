@@ -695,9 +695,18 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	export use_cpu_arch use_cpu_flags use_cpu_flags_raw \
 		target_cpu compiler_family cpu_target_source \
 		cc_target_opts rust_target_opts cpu_exposed_features
-	echo >&2 "INFO:  Resolved CPU build profile: CPU_FLAGS_${use_cpu_arch:-unknown}='$use_cpu_flags_raw'," \
-		"target_cpu='${target_cpu}', source='${cpu_target_source}'," \
-		"compiler='${cc_target_opts}', rust='${rust_target_opts}'"
+	# $(( ... )) should evaluate to zero if the variable is unset
+	# shellcheck disable=SC2153
+	if [ -n "${debug:-}" ] && [ $(( DEBUG )) -ne 0 ]; then
+		cpu_flags="$(
+				echo "CPU_FLAGS_${use_cpu_arch:-"x86"}" |
+					tr '[:lower:]' '[:upper:]'
+			)"
+		echo >&2 "DEBUG: Resolved CPU build profile:" \
+			"${cpu_flags}='$use_cpu_flags_raw'," \
+			"target_cpu='${target_cpu}', source='${cpu_target_source}'," \
+			"compiler='${cc_target_opts}', rust='${rust_target_opts}'"
+	fi
 
 	#
 	# End platform-specific variables
@@ -876,7 +885,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 		)" || :
 
 		if [ -n "${PODMAN_TMPDIR:-}" ]; then
-			[ -z "${debug:-}" ] ||
+			[ -z "${debug:-}" ] || [ $(( DEBUG )) -eq 0 ] ||
 				echo >&2 "DEBUG: Setting PODMAN_TMPDIR ('${PODMAN_TMPDIR}')" \
 					"as temporary directory ..."
 		elif [ -z "${_graphroot:-}" ]; then
