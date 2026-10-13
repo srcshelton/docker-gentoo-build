@@ -140,7 +140,7 @@ parse_opt() {
 	po_var="po_emerge_$( echo "${ROOT:-"/root"}" | cut -d'/' -f 2 )_opts"
 	if [ -z "$( eval "echo \${${po_var}:-}" )" ]; then
 		print "parse_opt: Generating new emerge option list for root" \
-			"'${ROOT:-}'"
+			"'${ROOT:-}' as '${po_var}' ..."
 		eval "${po_var}=\$(
 				emerge --bad_option 2>&1 |
 					grep -v -- \
@@ -151,7 +151,10 @@ parse_opt() {
 					tr '\n' '!'
 			)"
 	fi
-	[ -n "$( eval "echo \${${po_var}:-}" )" ] || return 1
+	if [ -z "$( eval "echo \${${po_var}:-}" )" ]; then
+		error "Failed to evaluate '${po_var}'"
+		return 1
+	fi
 
 	while read -r po_line; do
 		[ $(( po_matched )) -eq 1 ] && break
@@ -252,12 +255,13 @@ parse_opt() {
 }  # parse_opt
 
 parse_opt_get() {
-	pog_mode='' pog_arg='' pog_next_arg='' pog_first='' pog_done=0
+	pog_mode='' pog_arg='' pog_next_arg='' pog_space='' pog_done=0
 
 	if [ -n "${1:-}" ] && [ -n "${2:-}" ]; then
 		pog_mode="${1}"
 		shift
 	else
+		error "parse_opt_get: invalid invocation '${*}'"
 		return 1
 	fi
 	case "${pog_mode}" in
@@ -270,15 +274,34 @@ parse_opt_get() {
 			;;
 	esac
 
+	print "parse_opt_get: ${#} initial parameters $( # <- Syntax
+			printf "'%s' " "${@}" |
+				sed 's/ $//'
+		)"
+	for pog_arg in "${@}"; do
+		if [ $(( pog_done )) -eq 0 ]; then
+			set --
+		fi
+		if [ -n "${pog_arg:-}" ] && [ "_${pog_arg}_" != '__' ]; then
+			set -- "${@}" "${pog_arg}"
+		else
+			print "parse_opt_get: parameter ${pog_done} was blank," \
+				"skipping ..."
+		fi
+		_=$(( pog_done = pog_done + 1 )) || :
+	done
+	pog_done=0
+
 	while [ -n "${1:-}" ] && [ $(( pog_done )) -eq 0 ]; do
-		print "parse_get_opt: Looping with ${#} parameters, first is '${1}'," \
-			"second is '${2:-}' (done: ${pog_done})"
+		print "parse_opt_get: mode '${pog_mode}', looping with ${#}" \
+			"parameters, first is '${1}', second is '${2:-}'" \
+			"(done: ${pog_done})"
 		pog_arg="${1}"
 		pog_next_arg="${2:-}"
 		case "${pog_arg}" in
-			-*)
+			'-'*)
 				# We'll naively assume that anything starting with a hyphen is
-				# a valid option...
+				# a portage option to be validated...
 				#
 				pog_result="$( parse_opt "${pog_arg}" "${pog_next_arg:-}" )"
 				case "${pog_result:-}" in
@@ -332,16 +355,16 @@ parse_opt_get() {
 						fi
 						;;
 					*)
-						die "parse_get_opt: Unknown parse_opt() result" \
+						die "parse_opt_get: Unknown parse_opt() result" \
 							"'${pog_result}'"
 						;;
 				esac
 				if [ "${pog_mode}" = 'opt' ]; then
 					printf '%s%s%s' \
-						"${pog_first}" \
+						"${pog_space}" \
 						"${pog_arg}" \
 						"${pog_next_arg:+" ${pog_next_arg}"}"
-					pog_first=' '
+					pog_space=' '
 				fi
 				;;
 
@@ -358,16 +381,16 @@ parse_opt_get() {
 						;;
 					'pkgs')
 						printf '%s%s' \
-							"${pog_first}" \
+							"${pog_space}" \
 							"${pog_arg}"
-						pog_first=' '
+						pog_space=' '
 						shift
 						;;
 				esac
 				;;
 		esac
 	done
-	[ "${pog_first:-}" = ' ' ] && printf '\n'
+	[ "${pog_space:-}" = ' ' ] && printf '\n'
 
 	unset pog_arg pog_last_arg
 }  # parse_opt_get
@@ -376,9 +399,9 @@ parse_opt_get_options() {
 	parse_opt_get 'opt' "${@:-}" | xargs -r
 }  # parse_opt_get_options
 
-parse_opt_get_package() {
+parse_opt_get_first_package() {
 	parse_opt_get 'pkg' "${@:-}"
-}  # parse_opt_get_package
+}  # parse_opt_get_first_package
 
 parse_opt_get_packages() {
 	parse_opt_get 'pkgs' "${@:-}" | xargs -r
@@ -1141,6 +1164,74 @@ do_container_setup() {
 }  # do_container_setup
 
 do_emerge() {
+
+	# TODO:
+	#
+	# sys-apps/portage has ongoing problems with (ironically, given the core
+	# nature of this feature) USE flags - for example, it's not possible to
+	# specify per-package USE flags without writing the desired flags to a file
+	# whilst it remains entirely possible to express global flags via the 'USE'
+	# environment variable, which would appear to invalidate any argument that
+	# these flags are intended to have a greater persistence.  USE_EXPAND flags
+	# which are set by default in a profile can't be reduced without removing
+	# their prefixed form from USE directly, and there's no indication of when
+	# superfluous flags have been declared.
+	#
+	# To try to work around some of these issues, do_emerge will adopt the
+	# following features:
+	#
+	# 1. If ${DEBUG_FEATURES} includes 'use' and the 'USE' environment-variable
+	#    is set then do_emerge will run:
+	#
+	#      USE='' emerge -pv ${package-list}
+	#
+	#    ... and check that there are USE flags which apply to the selected
+	#    packages and record the details.  It will then run the same command
+	#    with the provided USE values and compare the result.  For each flag
+	#    specified in the environment, a warning will be issued if it has no
+	#    additional effect;  If an environment USE flag is given for a
+	#    multi-package build, then a warning wll further be issued if the flag
+	#    applies to one package only suggesting that the flag instead be
+	#    expressed in a file, or by using extended USE syntax - see below.
+	#    This second warning may need to be applied alongside '--emptytree'
+	#    and/or '--with-bdeps=y' for accuracy, in which case it might want be
+	#    gated behind an additional DEBUG_FEATURES flag if this greatly
+	#    increases the dependency-resolution stage of the build (sys-devel/gcc
+	#    took ~3 seconds without '--emptytree' and ~6 seconds with, the
+	#    presence or absence of '--with-bdeps=y' seemed to have little
+	#    additional effect);
+	#
+	# 2. Additionally, if ${DEBUG_FEATURES} includes 'use-deprecated' then
+	#    flags specified in files will be checked against packages being built
+	#    or installed and a warning issued if values are specified in files for
+	#    any given package which no longer apply to that package, or if any
+	#    flag specified for the package or globally doesn't exist in
+	#    use.local.desc and/or use.desc (for non='::gentoo' packages, only
+	#    global flags should be checked as individual packages may have custom
+	#    flags for which there is no description);
+	#
+	# 3. The syntax of the 'ENV' environment-variable will be extended to
+	#    mirror ebuild syntax: string fragments such as:
+	#
+	#      >=sys-devel/gcc-15.2.1[zstd]
+	#      sys-devel/gcc[-jit,zstd]
+	#      sys-devel/gcc,sys-libs/glibc[-cet]
+	#
+	#    (the latter being a form beyond what ebuild syntax allows) will be
+	#    accepted and implemented by creating a temporary file in the
+	#    container's 'package.use' directory with the specified flags expanded.
+	#
+	# 4. The above approach does bring the risk of over-propagating the
+	#    one-time flags if a parallel but unrelated build is started before the
+	#    temporary file is removed... if this is felt to be a risk, then one
+	#    option would be to create a temporary SYSROOT/PORTAGE_CONFIGROOT for
+	#    the build with a mirror of ${EROOT}/etc/portage and the additional USE
+	#    flag(s) defined on-disk within.  This would ensure that there's no
+	#    chance of contaigen between parallel bulids (within the same
+	#    container - which is unlikely) but with the down-side that every such
+	#    build would effectively be a '--empty-tree' build.
+	#
+
 	#inherit USE ROOT
 	do_emerge_arg=''
 	do_emerge_args=''
@@ -2705,20 +2796,20 @@ fi
 
 gcc_exclude=''
 
-case "${1:-}" in
-	sh|/bin/sh)
+case "${1:-} ${2:-}" in
+	'sh '|'/bin/sh '|'env sh'|'/usr/bin/env sh')
 		[ -n "${2:-}" ] && shift
 
 		exec /bin/sh "${@}"
 		;;
 
-	bash|/bin/bash)
+	'bash '|'/bin/bash '|'env bash'|'/usr/bin/env bash')
 		[ -n "${2:-}" ] && shift
 
 		exec /bin/bash "${@}"
 		;;
 
-	'')
+	' ')
 		output
 		output
 		output " * Building default '${package}' package ..."
@@ -2779,6 +2870,8 @@ case "${1:-}" in
 		git_safedirectory_markall
 		;;
 	*)
+		print "gentoo-base/entrypoint.sh.build received args '${*}'"
+
 		# If 'locale-gen' is initially present, then we *should* already have
 		# run it... but then, we're invoking it with '--update' and so
 		# re-running should be a no-op?
@@ -2798,7 +2891,7 @@ case "${1:-}" in
 
 		# Extract first package, to pass to check() if we've built a package...
 		#
-		first_package="$( parse_opt_get_package "${@}" )"
+		first_package="$( parse_opt_get_first_package "${@}" )"
 		print "First package from '${*}' is '${first_package}'"
 		if [ -z "${first_package:-}" ]; then
 			die "Unable to identify initial package"
