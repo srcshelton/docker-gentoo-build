@@ -18,4 +18,22 @@ sys-apps/earlyoom -man
 #
 sys-apps/nvme-cli -hugepages
 
+# Sam James <sam@gentoo.org> (2024-02-24)
+# Only works on amd64 (and x32).
+#
+# Update: Also works on arm64, under a different name (PAC & BTI) but
+#         controlled by the same USE flag: unmasking
+#
+# N.B.    Having said that, some packages have 'cet' support which means
+#         strictly Intel 'cet' only, so this USE flag is currently rather
+#         awkward.
+#
+dev-debug/gdb -cet
+sys-devel/binutils -cet
+sys-devel/binutils-hppa64 -cet
+llvm-core/clang-common -cet
+sys-devel/gcc -cet
+sys-libs/binutils-libs -cet
+sys-libs/glibc -cet
+
 # vi: set nowrap syntax=gentoo-package-use sw=8 ts=8:
