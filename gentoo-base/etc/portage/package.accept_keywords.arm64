@@ -42,6 +42,7 @@
 ~sys-apps/raspberrypi-tools-1.20250304			~arm64
 ~sys-apps/raspberrypi-tools-1.20250318			~arm64
 ~sys-apps/raspberrypi-tools-1.20250428			~arm64
+~sys-apps/raspberrypi-tools-1.20260811			~arm64
 
 ~sys-boot/raspberrypi-firmware-1.20210303		~arm64
 ~sys-boot/raspberrypi-firmware-1.20210430		~arm64
@@ -80,12 +81,24 @@
 ~sys-boot/raspberrypi-firmware-1.20250305		~arm64
 ~sys-boot/raspberrypi-firmware-1.20250326		~arm64
 ~sys-boot/raspberrypi-firmware-1.20250430		~arm64
+~sys-boot/raspberrypi-firmware-1.20250915		~arm64
+~sys-boot/raspberrypi-firmware-1.20260408		~arm64
+~sys-boot/raspberrypi-firmware-1.20260521		~arm64
+~sys-boot/raspberrypi-firmware-1.20260824		~arm64
+~sys-boot/raspberrypi-firmware-1.20260907		~arm64
+~sys-boot/raspberrypi-firmware-1.20260915		~arm64
 
 #=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p9	~arm64
 #=sys-firmware/raspberrypi-wifi-ucode-20190114.1_p10	~arm64
 ~sys-firmware/raspberrypi-wifi-ucode-20190114.1_p11	~arm64
 ~sys-firmware/raspberrypi-wifi-ucode-20221012.1_p1	~arm64
 ~sys-firmware/raspberrypi-wifi-ucode-20240709.2_p3	~arm64
+~sys-firmware/raspberrypi-wifi-ucode-20240709.2_p4	~arm64
+~sys-firmware/raspberrypi-wifi-ucode-20241210.1_p2	~arm64
+~sys-firmware/raspberrypi-wifi-ucode-20241210.1_p3	~arm64
+~sys-firmware/raspberrypi-wifi-ucode-20241210.1_p4	~arm64
+~sys-firmware/raspberrypi-wifi-ucode-20250410.2_p1	~arm64
+~sys-firmware/raspberrypi-wifi-ucode-20260519.1_p1	~arm64
 
 ~sys-kernel/raspberrypi-image-5.10.17_p20210303		~arm64
 ~sys-kernel/raspberrypi-image-5.10.17_p20210430		~arm64
@@ -123,6 +136,27 @@
 ~sys-kernel/raspberrypi-image-6.6.74_p20250127		~arm64
 ~sys-kernel/raspberrypi-image-6.12.20_p20250326		~arm64
 ~sys-kernel/raspberrypi-image-6.12.25_p20250430		~arm64
+~sys-kernel/raspberrypi-image-6.12.62			~arm64
+~sys-kernel/raspberrypi-image-6.12.75			~arm64
+~sys-kernel/raspberrypi-image-6.12.75_p20260408		~arm64
+~sys-kernel/raspberrypi-image-6.12.87			~arm64
+~sys-kernel/raspberrypi-image-6.12.93			~arm64
+~sys-kernel/raspberrypi-image-6.18.29			~arm64
+~sys-kernel/raspberrypi-image-6.18.29_p20260513		~arm64
+~sys-kernel/raspberrypi-image-6.18.32_p20260521		~arm64
+~sys-kernel/raspberrypi-image-6.18.33			~arm64
+~sys-kernel/raspberrypi-image-6.18.34			~arm64
+~sys-kernel/raspberrypi-image-6.18.46_p20260824		~arm64
+~sys-kernel/raspberrypi-image-6.18.48_p20260907		~arm64
+~sys-kernel/raspberrypi-image-6.18.50			~arm64
+~sys-kernel/raspberrypi-image-6.18.50_p20260915		~arm64
+
+~sys-kernel/raspberrypi-headers-5.10			~arm64
+~sys-kernel/raspberrypi-headers-5.15			~arm64
+~sys-kernel/raspberrypi-headers-6.1			~arm64
+~sys-kernel/raspberrypi-headers-6.6			~arm64
+~sys-kernel/raspberrypi-headers-6.12			~arm64
+~sys-kernel/raspberrypi-headers-6.18			~arm64
 
 ~sys-kernel/raspberrypi-sources-5.10.17_p20210303	~arm64
 ~sys-kernel/raspberrypi-sources-5.10.17_p20210430	~arm64
@@ -163,6 +197,20 @@
 ~sys-kernel/raspberrypi-sources-6.6.74_p20250127	~arm64
 ~sys-kernel/raspberrypi-sources-6.12.20_p20250326	~arm64
 ~sys-kernel/raspberrypi-sources-6.12.25_p20250430	~arm64
+~sys-kernel/raspberrypi-sources-6.12.34_p20250702	~arm64
+~sys-kernel/raspberrypi-sources-6.12.47_p20250916	~arm64
+~sys-kernel/raspberrypi-sources-6.12.62			~arm64
+~sys-kernel/raspberrypi-sources-6.12.75			~arm64
+~sys-kernel/raspberrypi-sources-6.12.93			~arm64
+~sys-kernel/raspberrypi-sources-6.18.29			~arm64
+~sys-kernel/raspberrypi-sources-6.18.33			~arm64
+~sys-kernel/raspberrypi-sources-6.18.33_p20260527	~arm64
+~sys-kernel/raspberrypi-sources-6.18.34			~arm64
+~sys-kernel/raspberrypi-sources-6.18.34_p20260609	~arm64
+~sys-kernel/raspberrypi-sources-6.18.39			~arm64
+~sys-kernel/raspberrypi-sources-6.18.39_p20260724	~arm64
+~sys-kernel/raspberrypi-sources-6.18.50			~arm64
+~sys-kernel/raspberrypi-sources-6.18.50_p20260911	~arm64
 
 # arm64 is currently not well-keyworded, so match specific 'arm' stable
 # packages in order to build an equivalent base-system, with the intent that
@@ -212,6 +260,11 @@
 ~sys-power/pmtools-20130209				 **
 ~sys-power/powertop-2.15				~arm64
 ~sys-process/incron-0.5.12_p20171113			~arm64
+
+# required by net-analyzer/netdata
+~net-firewall/nfacct-1.0.2				~arm ~arm64
+~net-libs/libnetfilter_acct-1.0.3			~arm ~arm64
+~sys-power/apcupsd-3.14.14				~arm ~arm64
 
 # required by net-misc/kea-2.4.0-r1
 ~dev-libs/log4cplus-2.1.2				~arm64
