@@ -1694,6 +1694,10 @@ validate_python_installation() {
 				echo "${python_default_targets%%" "*}" |
 					sed 's/_/./'
 			)" \
+			"${ROOT:+"${ROOT%"/"}"}/usr/lib/portage/$( # <- Syntax
+				echo "${python_default_targets%%" "*}" |
+					sed 's/_/./'
+			)" \
 			"${ROOT:+"${ROOT%"/"}"}/usr/include/$( # <- Syntax
 				echo "${python_default_targets%%" "*}" |
 					sed 's/_/./'
