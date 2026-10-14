@@ -176,7 +176,7 @@ mail-filter/dcc				 DCC
 
 dev-util/gtk-doc			 FDL-1.1
 
-net-analyzer/netdata			 MPL-2.0 NCUL1
+net-analyzer/netdata			 CC0-1.0 CDLA-Permissive-2.0 MPL-2.0 NCUL1 Unicode-3.0 ZLIB
 
 net-misc/kea				 MPL-2.0 SSLeay
 
@@ -289,7 +289,7 @@ dev-python/roman-numerals		 0BSD CC0-1.0
 dev-python/dulwich			 Apache-2.0-with-LLVM-exceptions Unicode-3.0
 dev-python/keyring			 PSF-2
 # required by net-analyzer/netdata[nodejs]
-net-libs/nodejs				 Apache-1.1 BlueOak-1.0.0
+#net-libs/nodejs			 Apache-1.1 BlueOak-1.0.0
 # required by net-libs/nodejs
 dev-libs/simdjson			 Boost-1.0
 # required by dev-python/jsonschema

@@ -145,7 +145,7 @@ ARG timezone="GB"
 
 ARG keep_base
 
-#ARG zxtm_service_version
+ARG zxtm_service_version
 ARG ZEUSHOME
 
 ARG ROOT
@@ -177,6 +177,10 @@ RUN test -L "${ZEUSHOME}/zxtm/conf"
 
 # Copy GeoIP data into the current image
 COPY --from=geoip /usr/local/zeus/zxtm/etc/geo "${ZEUSHOME}/zxtm/etc/geo/"
+
+# Copy any custom actions/actionprogs into the current image
+COPY --from=base "/service${ZEUSHOME}/zxtm-${zxtm_service_version}/conf/actions" "${ZEUSHOME}/zxtm/conf/actions"
+COPY --from=base "/service${ZEUSHOME}/zxtm-${zxtm_service_version}/conf/actionprogs" "${ZEUSHOME}/zxtm/conf/actionprogs"
 
 COPY --from=base /etc/group /etc/base/
 #COPY --from=base /etc/gshadow /etc/base/  # Doesn't exist in source image
@@ -271,6 +275,50 @@ RUN set -eu ; \
         "${ZEUSHOME}"/perl \
         "${ZEUSHOME}"/rc.d \
         "${ZEUSHOME}"/zxtmadmin/lang ; \
+	if [ ! -d "$ZEUSHOME/zxtm/conf" ]; then \
+		echo >&2 "FATAL: '$ZEUSHOME/zxtm/conf' is not a directory" ; \
+		exit 1 ; \
+	else \
+		if getent group vtm-actionprog >/dev/null 2>&1; then \
+			if chgrp vtm-actionprog "$ZEUSHOME/zxtm/conf" 2>/dev/null; then \
+				if ! chmod 750 "$ZEUSHOME/zxtm/conf"; then \
+					echo >&2 "FATAL: failed to change mode of" \
+						"'$ZEUSHOME/zxtm/conf': ${?}" ; \
+					exit 1 ; \
+				fi ; \
+			else \
+				echo >&2 "FATAL: failed to change group of" \
+					"'$ZEUSHOME/zxtm/conf': ${?}" ; \
+				exit 1 ; \
+			fi ; \
+		else \
+			if chgrp 65532 "$ZEUSHOME/zxtm/conf" 2>/dev/null; then \
+				if ! chmod 750 "$ZEUSHOME/zxtm/conf"; then \
+					echo >&2 "FATAL: failed to change mode of" \
+						"'$ZEUSHOME/zxtm/conf': ${?}" ; \
+					exit 1 ; \
+				fi ; \
+			else \
+				echo >&2 "FATAL: failed to change numeric group of" \
+					"'$ZEUSHOME/zxtm/conf': ${?}" ; \
+				exit 1 ; \
+			fi ; \
+		fi ; \
+	fi ; \
+	mkdir -p "${ZEUSHOME}"/zxtm/internal/spool ; \
+	if getent passwd vtm-actionprog >/dev/null 2>&1; then \
+		if ! chown vtm-actionprog "$ZEUSHOME/zxtm/internal/spool" 2>/dev/null; then \
+			echo >&2 "FATAL: failed to change owner of" \
+				"'$ZEUSHOME/zxtm/internal/spool': ${?}" ; \
+			exit 1 ; \
+		fi ; \
+	else \
+		if ! chown 65532 "$ZEUSHOME/zxtm/internal/spool" 2>/dev/null; then \
+			echo >&2 "FATAL: failed to change numeric owner of" \
+				"'$ZEUSHOME/zxtm/internal/spool': ${?}" ; \
+			exit 1 ; \
+		fi ; \
+	fi ; \
     rm \
         "${ZEUSHOME}"/.zdocker \
         "${ZEUSHOME}"/admin/website.old \
@@ -289,7 +337,11 @@ RUN set -eu ; \
     ln -s var/website "${ZEUSHOME}"/admin/website ; \
     sed -i "${ZEUSHOME}/runzeus.sh" \
         -e "/^zeushome=/ s|\"[^\"]*\"$|\"${ZEUSHOME}\"|" \
-        -e "s|__ENVFILE__|${environment_file}|"
+        -e "s|__ENVFILE__|${environment_file}|" ; \
+	sed -i "${ZEUSHOME}/zxtm/rc.configure" \
+		-e 's|chmod 710|chmod 755|' ; \
+	sed -i "${ZEUSHOME}/zxtmadmin/lib/perl/ui/zxtm/MainIndex.pm" \
+		-e '/mfa_enabled.*yY/ s|\!\~ \/\^\[yY|=~ /^xX|'
 
 # linter ignore=SC2174,SC2050
 RUN set -eu ; \

@@ -18,7 +18,11 @@ dev-scheme/guile			 deprecated
 # 2.8.x+:
 #net-analyzer/netdata			 ap apcups -beanstalkd bind bpf +compression cups +dashboard +dbengine debug demo dhcp dovecot filecaps firehol +go ipmi ipset +jsonc lto lxc machine-learning mongodb mysql nfacct nginx nodejs nvme opentelemetry podman postfix postgres prometheus +python qos sensors smart snmp systemd tor xen
 #
-net-analyzer/netdata			-lto -postfix aclk apcups bind bpf cloud compression dashboard dbengine dhcp dovecot go ipmi jsonc machine-learning mysql nfacct nodejs nvme podman python qos sensors smart snmp
+#net-analyzer/netdata			-lto -postfix aclk apcups bind bpf cloud compression dashboard dbengine dhcp dovecot go ipmi jsonc machine-learning mysql nfacct nodejs nvme podman python qos sensors smart snmp
+#
+# 2.12.x+:
+#net-analyzer/netdata			 ap apcups bind bpf +compression cups +dashboard +dbengine -debug -demo dhcp dovecot firehol +go ipmi ipset +jsonc lto lxc +machine-learning mold mongodb mysql netflow nfacct nginx nvme -opentelemetry pandas podman postfix postgres prometheus +python qos sensors smart snmp systemd tor xen
+net-analyzer/netdata			-lto -postfix apcups bind bpf compression dashboard dbengine dhcp dovecot go ipmi jsonc machine-learning mold mysql netflow nfacct nvme opentelemetry pandas podman python qos sensors smart snmp
 
 net-analyzer/tcpdump			 suid
 #net-libs/libwebsockets			 access-log caps cgi client dbus extensions generic-sessions http-proxy http2 (+ipv6) +lejp libev libevent libuv mbedtls peer-limits server-status smtp socks5 sqlite3 (+ssl) (+threads) zip

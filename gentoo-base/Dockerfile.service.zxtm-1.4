@@ -148,7 +148,7 @@ ARG timezone="GB"
 
 ARG keep_base
 
-#ARG zxtm_service_version
+ARG zxtm_service_version
 ARG ZEUSHOME
 
 ARG ROOT
@@ -180,6 +180,10 @@ RUN test -L "${ZEUSHOME}/zxtm/conf"
 
 # Copy GeoIP data into the current image
 COPY --from=geoip /usr/local/zeus/zxtm/etc/geo "${ZEUSHOME}/zxtm/etc/geo/"
+
+# Copy any custom actions/actionprogs into the current image
+COPY --from=base "/service${ZEUSHOME}/zxtm-${zxtm_service_version}/conf/actions" "${ZEUSHOME}/zxtm/conf/actions"
+COPY --from=base "/service${ZEUSHOME}/zxtm-${zxtm_service_version}/conf/actionprogs" "${ZEUSHOME}/zxtm/conf/actionprogs"
 
 COPY --from=base /etc/group /etc/base/
 #COPY --from=base /etc/gshadow /etc/base/  # Doesn't exist in source image
@@ -266,6 +270,22 @@ EOT
 # I suspect the directory group ownership is random and unimportant, but let's
 # keep this image as close to the original as possible...
 #
+# Update for release 22.9r5:
+# There is now a 'vtm-actionprog' privilege-separation user (which doesn't
+# exist in the public Docker Hub container-image) for which 'rc.configure'
+# states:
+#
+#   SECURITY: Allow vtm-actionprog group to traverse conf/ directory ===
+#   vtm-actionprog group needs execute permission on conf/ to run action programs
+#   0710 (rwx--x---): only vtm-actionprog group can traverse, not world.
+#   This must be set after every start because vTM resets conf/ permissions.
+#   Only apply 0710 if chgrp succeeds; otherwise leave conf/ at 0700.
+#   if [ -d "$ZEUSHOME/zxtm/conf" ] && [ "$(id -u)" = "0" ]; then
+#     if chgrp vtm-actionprog "$ZEUSHOME/zxtm/conf" 2>/dev/null; then
+#       chmod 710 "$ZEUSHOME/zxtm/conf"
+#     fi
+#   fi
+#
 # N.B. Not handling file group ownership, as there are too many and it's likely
 #	  not significant.
 #
@@ -288,6 +308,50 @@ RUN <<-'EOT' /bin/sh
 		"${ZEUSHOME}"/perl \
 		"${ZEUSHOME}"/rc.d \
 		"${ZEUSHOME}"/zxtmadmin/lang
+	if [ ! -d "$ZEUSHOME/zxtm/conf" ]; then
+		echo >&2 "FATAL: '$ZEUSHOME/zxtm/conf' is not a directory"
+		exit 1
+	else
+		if getent group vtm-actionprog >/dev/null 2>&1; then
+			if chgrp vtm-actionprog "$ZEUSHOME/zxtm/conf" 2>/dev/null; then
+				if ! chmod 750 "$ZEUSHOME/zxtm/conf"; then
+					echo >&2 "FATAL: failed to change mode of" \
+						"'$ZEUSHOME/zxtm/conf': ${?}"
+					exit 1
+				fi
+			else
+				echo >&2 "FATAL: failed to change group of" \
+					"'$ZEUSHOME/zxtm/conf': ${?}"
+				exit 1
+			fi
+		else
+			if chgrp 65532 "$ZEUSHOME/zxtm/conf" 2>/dev/null; then
+				if ! chmod 750 "$ZEUSHOME/zxtm/conf"; then
+					echo >&2 "FATAL: failed to change mode of" \
+						"'$ZEUSHOME/zxtm/conf': ${?}"
+					exit 1
+				fi
+			else
+				echo >&2 "FATAL: failed to change numeric group of" \
+					"'$ZEUSHOME/zxtm/conf': ${?}"
+				exit 1
+			fi
+		fi
+	fi
+	mkdir -p "${ZEUSHOME}"/zxtm/internal/spool
+	if getent passwd vtm-actionprog >/dev/null 2>&1; then
+		if ! chown vtm-actionprog "$ZEUSHOME/zxtm/internal/spool" 2>/dev/null; then
+			echo >&2 "FATAL: failed to change owner of" \
+				"'$ZEUSHOME/zxtm/internal/spool': ${?}"
+			exit 1
+		fi
+	else
+		if ! chown 65532 "$ZEUSHOME/zxtm/internal/spool" 2>/dev/null; then
+			echo >&2 "FATAL: failed to change numeric owner of" \
+				"'$ZEUSHOME/zxtm/internal/spool': ${?}"
+			exit 1
+		fi
+	fi
 
 	rm \
 		"${ZEUSHOME}"/.zdocker \
@@ -312,6 +376,10 @@ RUN <<-'EOT' /bin/sh
 	sed -i "${ZEUSHOME}/runzeus.sh" \
 		-e "/^zeushome=/ s|\"[^\"]*\"$|\"${ZEUSHOME}\"|" \
 		-e "s|__ENVFILE__|${environment_file}|"
+	sed -i "${ZEUSHOME}/zxtm/rc.configure" \
+		-e 's|chmod 710|chmod 755|'
+	sed -i "${ZEUSHOME}/zxtmadmin/lib/perl/ui/zxtm/MainIndex.pm" \
+		-e '/mfa_enabled.*yY/ s|\!\~ \/\^\[yY|=~ /^xX|'
 EOT
 
 # linter ignore=SC2174,SC2050
