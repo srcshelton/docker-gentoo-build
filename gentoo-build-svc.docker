@@ -272,7 +272,7 @@ usage() {
 	output >&2 "Usage: $( basename "${0}" ) <service>" \
 		'[<ports> <user> <group> <command> [directory [fs_name]]]'
 	output >&2 "Usage: $( basename "${0}" ) --services" \
-		'<service> [service...] [--force] [--force-keywords] [--debug]'
+		'<service> [service...] [--force] [--force-keywords] [--keep-image] [--debug]'
 	output >&2
 	output >&2 'Known services:'
 	s=''
@@ -306,6 +306,7 @@ fi
 
 declare arg=''
 declare service_list=''
+declare -i keep_image=0
 for arg in "${@:-}"; do
 	shift
 	case "${arg:-}" in
@@ -330,6 +331,9 @@ for arg in "${@:-}"; do
 			#
 			FORCE_KEYWORDS=1
 			export FORCE_KEYWORDS
+			;;
+		--keep-image)
+			keep_image=1
 			;;
 		# I don't think this '--rebuild' logic is working... ?
 		#
@@ -2310,8 +2314,11 @@ output " -> ${rc}"
 
 if ! (( rc )); then
 	trap '' INT
-	docker image rm "${container_prefix}.${package_name}:${package_version}" \
-		2>/dev/null || :
+	if ! (( keep_image )); then
+		docker image rm \
+			"${container_prefix}.${package_name}:${package_version}" \
+			2>/dev/null || :
+	fi
 	case "${package_name}" in
 		*eix*)
 			docker image tag \
