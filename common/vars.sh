@@ -758,14 +758,14 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 	#
 	# N.B. There are three versions of pypy in the current portage tree:
 	#
-	#        2.7  - dev-python/pypy-exe,
-	#               dev-python/pypy-exe-bin;
-	#        3.10 - dev-python/pypy3,
-	#               dev-python/pypy3_10-exe,
-	#               dev-python/pypy3_10-exe-bin;
-	#        3.11 - dev-lang/pypy,
-	#               dev-lang/pypy3-exe,
-	#               dev-lang/pypy3-exe-bin
+	#        2.7  -  dev-python/pypy-exe,
+	#                dev-python/pypy-exe-bin;
+	#        3.10 -  dev-python/pypy3,
+	#                dev-python/pypy3_10-exe,
+	#                dev-python/pypy3_10-exe-bin;
+	#        3.11+ - dev-lang/pypy,
+	#                dev-lang/pypy3-exe,
+	#                dev-lang/pypy3-exe-bin
 	#
 	case "$( uname -m )" in
 		x86_64|i686)
@@ -778,7 +778,7 @@ if [ -z "${__COMMON_VARS_INCLUDED:-}" ]; then
 				# Enable pypy support for Portage accleration of ~35%!
 				pkg_pypy="dev-lang/pypy"
 				pkg_pypy_use="bzip2 jit"
-				pkg_pypy_post_remove="dev-lang/python:2.7"
+				#pkg_pypy_post_remove="dev-lang/python:2.7"
 				# Update: dev-python/pypy3_10-exe-7.3.12_p2 now requires 10GB
 				#         RAM in order to build successfully :(
 				if [ $(( memtotal )) -gt 9 ]; then
