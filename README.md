@@ -78,12 +78,58 @@ runtime.  This interrupts running workloads; `--reset` is not required.  An
 explicitly configured older `vminit.image` overrides the new default and needs
 separate review.
 
-The removed experimental `k8s start` command is not used here.  There is still
-no `commit` command, so export/rebuild snapshots remain necessary.  New
-Containerization filesystem statistics and runc/seccomp support are not exposed
-through this release's `container` CLI.  Builder CPU/memory options and VM
-resource overhead remain unchanged; the update does not justify reducing
-existing build resource allocations.
+The removed experimental `k8s start` command is not used here.  In 1.5.0 there
+is no `commit` command; see the 1.6.0 qualification below.  Containerization
+filesystem statistics and runc/seccomp support are not exposed through these
+releases' `container` CLI.  Builder CPU/memory options and VM resource overhead
+remain unchanged; the updates do not justify reducing existing allocations.
+
+### Apple Container 1.6.0
+
+The [1.6.0 source changes](https://github.com/apple/container/compare/1.5.0...1.6.0)
+have been reviewed against the commands and JSON fields used here.  The minimum
+remains 1.4.1, and 1.6.0 is covered by version-acceptance fixtures, not a live
+1.6.0 build.  The helper's runtime-validation marker therefore remains 1.4.1.
+
+- `build` and `builder` are now CLI plugins, but their command names and options
+  remain compatible.  Install the complete distribution, including both
+  plugins, rather than copying only the `container` executable.  Plugin
+  discovery needs running system services, so a failed `builder --help` while
+  the system is stopped is not evidence of a missing installation.  The helper
+  places debug flags after the builder subcommand so they reach the plugin;
+  non-empty `CONTAINER_DEBUG` is also forwarded as an explicit flag.
+- Native [`container commit`](https://github.com/apple/container/blob/1.6.0/Sources/ContainerCommands/Container/ContainerCommit.swift)
+  is available, but is not a drop-in snapshot replacement.  Its
+  [image metadata](https://github.com/apple/container/blob/1.6.0/Sources/ContainerCommands/Image/OCIImageArchive.swift)
+  preserves the container's effective executable, arguments, environment, user
+  and working directory, with no Docker-style `--change` overrides.  Our helper
+  deliberately copies parent-image environment, resets root variables and the
+  entrypoint/command, and records new provenance labels.  Keep export/rebuild
+  snapshots until native commit can preserve that contract.  Native commit
+  also exports the whole rootfs into one layer; it is not an incremental-layer
+  or copy-on-write optimisation.
+- Build-context `read`/`info` now reject absolute-target symlinks, even when the
+  target is inside the context.  Relative links confined to the context remain
+  valid; normal `walk` transfers are unchanged.  Tracked build inputs contain
+  no symlinks, but locally added links should be checked if a build fails.
+- `image list` can return valid partial JSON **and a non-zero status** when an
+  image record is unreadable.  Our checked JSON paths still fail closed rather
+  than mistaking that partial list for a complete inventory.  Repair the image
+  store instead of suppressing this status.
+- DNS aliases, including subtree aliases, can be set with repeatable
+  `alias=NAME` properties on `--network`.  These may help service deployments;
+  they are not needed for package builds.  Use Apple's network syntax explicitly
+  on 1.6.0 or later; Docker's `--network-alias` is not translated here.
+
+Upgrading also fixes sandboxed `system status` false negatives, sparse OCI
+image imports, and missing/initially empty container logs.  Builder shim
+0.13.2 and Containerization 0.52.1 are selected by the new upstream defaults.
+The runtime update fixes registry authentication without a `service` challenge
+parameter, verifies registry content digests, and corrects EXT4 image layout
+edge cases.  These improvements need no new flags.  Cloud Hypervisor direct-I/O
+and virtiofsd tuning additions are not applicable to this macOS Virtualization
+backend, and the new detailed library network statistics are not exposed by
+the CLI's statistics payload.
 
 ## Continuous integration
 

@@ -410,11 +410,31 @@ container_cli() {
 	if [ $(( ${#} )) -eq 0 ]; then
 		return 2
 	fi
-	if [ $(( container_debug_option )) -ne 0 ]; then
-		container_engine_run "${container_binary}" --debug "${@}"
-	else
-		container_engine_run "${container_binary}" "${@}"
+	if [ $(( container_debug_option )) -ne 0 ] ||
+			[ -n "${CONTAINER_DEBUG:-}" ]
+	then
+		# Since 1.6.0, build/builder exec CLI plugins: a root-level flag
+		# is consumed before exec and does not reach the plugin's logger.
+		case "${1}" in
+			'builder')
+				if [ $(( ${#} )) -lt 2 ]; then
+					return 2
+				fi
+				container_cli_action="${2}"
+				shift 2
+				set -- 'builder' "${container_cli_action}" '--debug' "${@}"
+				unset container_cli_action
+				;;
+			'build')
+				shift
+				set -- 'build' '--debug' "${@}"
+				;;
+			*)
+				set -- '--debug' "${@}"
+				;;
+		esac
 	fi
+	container_engine_run "${container_binary}" "${@}"
 }
 
 container_version_output=''

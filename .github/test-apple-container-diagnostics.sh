@@ -100,9 +100,11 @@ TEST_CASE=old-version
 export TEST_VERSION=1.3.0
 run_case 1 '1.4.1 or later is required' --diagnose fixture
 unset TEST_VERSION
-TEST_CASE='version-1.5.0'
-export TEST_VERSION='1.5.0'
-run_case 0 'PASS: Guest outbound TCP' --diagnose fixture --port 8080
+for TEST_VERSION in '1.5.0' '1.6.0'; do
+	export TEST_VERSION
+	TEST_CASE="version-${TEST_VERSION}"
+	run_case 0 'PASS: Guest outbound TCP' --diagnose fixture --port 8080
+done
 unset TEST_VERSION
 TEST_CASE=bad-port
 run_case 1 'Service port must be' --diagnose fixture --port 99999
@@ -126,8 +128,49 @@ import signal
 import subprocess
 import sys
 import os
+import re
 import threading
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+# Exercise the real POSIX wrapper without running the lifecycle script. The
+# mock exposes argv so flags consumed before a plugin exec cannot go unnoticed.
+wrapper_source = (Path(sys.argv[1]) / "tools/apple-container.sh").read_text()
+wrapper = re.search(r"^container_cli\(\) \{\n.*?^\}", wrapper_source, re.M | re.S)
+assert wrapper is not None
+wrapper_script = wrapper.group() + r'''
+set -eu
+container_binary='fixture'
+container_debug_option=$1
+shift
+container_engine_run() { printf '%s\n' "$@"; }
+container_cli "$@"
+'''
+wrapper_environment = dict(os.environ)
+wrapper_environment.pop("CONTAINER_DEBUG", None)
+
+def check_wrapper(arguments, expected, *, debug=0, inherited=None):
+    environment = dict(wrapper_environment)
+    if inherited is not None:
+        environment["CONTAINER_DEBUG"] = inherited
+    result = subprocess.run(["/bin/sh", "-c", wrapper_script, "sh", str(debug),
+                             *arguments], capture_output=True, text=True,
+                            env=environment, timeout=5)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["fixture", *expected], result.stdout
+
+for action in ("start", "stop", "status", "rm", "delete"):
+    arguments = ["builder", action, "--help"]
+    expected = ["builder", action, "--debug", "--help"]
+    check_wrapper(arguments, arguments)
+    check_wrapper(arguments, expected, debug=1)
+    check_wrapper(arguments, expected, inherited="1")
+check_wrapper(["build", "--file", "path with spaces", "."],
+              ["build", "--debug", "--file", "path with spaces", "."], debug=1)
+check_wrapper(["system", "status"], ["--debug", "system", "status"], debug=1)
+check_wrapper(["exec", "fixture", "echo", "--debug"],
+              ["--debug", "exec", "fixture", "echo", "--debug"], debug=1)
+print("PASS: POSIX CLI wrapper plugin debug forwarding and argument boundaries")
 
 script = r'''
 set -eu

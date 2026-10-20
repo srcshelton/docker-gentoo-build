@@ -182,9 +182,9 @@ apple_dockerfile_escape() {
 	printf '%s' "${1:-}" | sed 's/\\/\\\\/g ; s/"/\\"/g'
 }  # apple_dockerfile_escape
 
-# Apple 'container' has no commit operation.  Preserve a stopped container by
-# exporting its root filesystem and building a replacement image with the
-# relevant configuration copied from its parent image.
+# Preserve a stopped container with selected parent-image configuration rather
+# than its build-time process/environment. Native commit (1.6.0+) preserves the
+# latter and lacks metadata overrides, so retain export/rebuild snapshots.
 apple_snapshot_container() (
 	local snapshot_name="${1:-}"
 	local image_ref="${2:-}"
@@ -2969,7 +2969,8 @@ if [[ "${_container_engine:-}" == 'container' ]]; then
 						return 0
 						;;
 					commit)
-						warn "Apple 'container' does not support 'container commit'"
+						warn 'Docker commit options are not translated for Apple container;' \
+							'use apple_snapshot_container'
 						return 125
 						;;
 					*)
