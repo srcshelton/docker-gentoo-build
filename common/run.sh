@@ -1336,12 +1336,12 @@ _docker_run() {
 	docker ${DOCKER_VARS:-} container ps --noheading |
 			grep -qw -- "${name:-"${container_name}"}$" &&
 		docker ${DOCKER_VARS:-} container stop --time 2 \
-				"${name:-"${container_name}"}" >/dev/null
+				"${name:-"${container_name}"}" >/dev/null || :
 	# shellcheck disable=SC2086
 	docker ${DOCKER_VARS:-} container ps --noheading -a |
 			grep -qw -- "${name:-"${container_name}"}$" &&
 		docker ${DOCKER_VARS:-} container rm --volumes \
-				"${name:-"${container_name}"}" >/dev/null
+				"${name:-"${container_name}"}" >/dev/null || :
 	trap - INT
 
 	# --privileged is required for portage sandboxing... or alternatively
@@ -2307,7 +2307,7 @@ _docker_prune() {
 		grep -- '_' |
 		while IFS= read -r container_name; do
 			docker ${DOCKER_VARS:-} container rm --volumes \
-				"${container_name}" >/dev/null
+				"${container_name}" >/dev/null || :
 		done || :
 
 	# shellcheck disable=SC2031,SC2086
