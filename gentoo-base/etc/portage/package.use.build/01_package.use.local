@@ -50,6 +50,12 @@
 #*/*					 VIDEO_CARDS: vc4          # Raspberry Pi VideoCore IV
 #*/*					 VIDEO_CARDS: vesa matrox  # x86 embedded graphics
 
+# See profiles/desc/amdgpu_targets.desc
+#
+# ... same problem as above
+#
+*/*					-amdgpu_targets_gfx90a -amdgpu_targets_gfx908 -amdgpu_targets_gfx942 -amdgpu_targets_gfx950 -amdgpu_targets_gfx1030 -amdgpu_targets_gfx1100 -amdgpu_targets_gfx1101 -amdgpu_targets_gfx1200 -amdgpu_targets_gfx1201
+
 # See profiles/desc/llvm_targets.desc
 #
 #  AArch64 AMDGPU ARC ARM AVR BPF CSKY DirectX Hexagon Lanai LoongArch M68k
