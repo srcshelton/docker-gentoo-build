@@ -1546,13 +1546,14 @@ with_use="${use_cpu_flags}${with_use:+" ${with_use}"}"
 #        (/bin/login) and sys-libs/libxcrypt (/lib64/libcrypt.so.1.1.0)
 #
 if ! grep -q -- ' sys-devel/gcc ' <<<"${pre_pkgs:-}"; then
+	# shellcheck disable=SC2116
 	if
-			echo " ${use_essential:-} ${use_essential_gcc:-}" \
-						"${pre_use:-} ${with_use:-} ${post_use:-}" \
-						"${gcc_extra_use_flags:-} " |
-					grep -q -- ' openmp ' ||
-				echo " ${cflags} ${cxxflags} " |
-					grep -q -- '\s-fopenmp\s'
+			grep -q -- ' openmp ' <<<"$( echo " ${use_essential:-}" \
+					"${use_essential_gcc:-}" \
+					"${pre_use:-} ${with_use:-} ${post_use:-}" \
+					"${gcc_extra_use_flags:-} "
+				)" ||
+			grep -q -- '\s-fopenmp\s' <<<" ${cflags} ${cxxflags} "
 	then
 		print "Adding pre-installation package 'sys-devel/gcc' due to" \
 			"presence of 'openmp' USE flag or C(XX)FLAG"
@@ -1599,20 +1600,22 @@ esac
 case " ${pre_pkgs} " in
 	*' sys-devel/gcc '*)
 		print "Considering sys-devel/gcc additional flags ..."
+		# shellcheck disable=SC2116
 		if
-				echo " ${use_essential:-} ${use_essential_gcc:-}" \
-						"${pre_use:-} ${with_use:-} ${post_use:-}" \
-						"${gcc_extra_use_flags:-} " |
-					grep -q -- ' openmp '
+				grep -q -- ' openmp ' <<<"$( echo " ${use_essential:-} " \
+						"${use_essential_gcc:-} " \
+						"${pre_use:-} ${with_use:-} ${post_use:-} " \
+						"${gcc_extra_use_flags:-} "
+					)"
 		then
 			print "Force-enabling 'openmp' initial USE flag"
 			gcc_extra_use_flags="$( # <- Syntax
 				replace_flags 'openmp' -- "${gcc_extra_use_flags:-}"
 			)"
 		fi
-		if echo " ${cflags} ${cxxflags} " |
-				grep -Fqw -e '-fgraphite' -e '-fgraphite-identity' \
-					-e '-floop-nest-optimize' -e '-floop-parallelize-all'
+		if grep -Fqw -e '-fgraphite' -e '-fgraphite-identity' \
+				-e '-floop-nest-optimize' -e '-floop-parallelize-all' \
+				<<<" ${cflags} ${cxxflags} "
 		then
 			print "Force-enabling 'graphite' initial USE flag"
 			gcc_extra_use_flags="$( # <- Syntax
@@ -1675,10 +1678,7 @@ case " ${pre_pkgs} " in
 		#				"${pre_use:-} ${with_use:-} ${post_use:-}" \
 		#				"${gcc_extra_use_flags:-} " |
 		#			grep -q -- ' zstd '
-		if
-				echo " ${post_use:-}" |
-					grep -q -- ' zstd '
-		then
+		if grep -q -- ' zstd ' <<<" ${post_use:-} "; then
 			print "Adding post-installation package 'app-arch/zstd' due to" \
 				"presence of 'zstd' USE flag"
 			post_pkgs="app-arch/zstd${post_pkgs:+" ${post_pkgs}"}"
@@ -1768,10 +1768,12 @@ then
 	post_use="$( replace_flags 'cet' -- "${post_use}" )"
 fi
 
-if echo " ${use_essential:-} ${use_essential_gcc:-}" \
+# shellcheck disable=SC2116
+if grep -Fq -e ' compile-locales ' -e ' minimal ' <<<"$( echo \
+			" ${use_essential:-} ${use_essential_gcc:-}" \
 			"${pre_use:-} ${with_use:-} ${post_use:-}" \
-			"${gcc_extra_use_flags:-} " |
-		grep -Fq -e ' compile-locales ' -e ' minimal '
+			"${gcc_extra_use_flags:-} "
+		)"
 then
 	pre_pkgs="${pre_pkgs:+"${pre_pkgs} "}sys-libs/glibc"
 	extra_pkgs="${extra_pkgs:+"${extra_pkgs} "}sys-libs/glibc"
@@ -2128,10 +2130,12 @@ else
 	output >&2
 
 	trap '' INT
-	docker container stop "${container_prefix}.${container_name}" \
-		2>&1 >/dev/null | grep -v 'no such container' || :
-	docker container rm --volumes "${container_prefix}.${container_name}" \
-		2>&1 >/dev/null | grep -Fv -- 'no such container' || :
+	set -x
+	{ docker container stop "${container_prefix}.${container_name}" \
+		2>&1 >/dev/null || : ; } | grep -Fv -- 'no such container' || :
+	{ docker container rm --volumes "${container_prefix}.${container_name}" \
+		2>&1 >/dev/null || : ; } | grep -Fv -- 'no such container' || :
+	set +x
 	trap - INT
 
 	# Remove glibc dependencies on gzip, grep, awk...
@@ -2215,8 +2219,10 @@ fi
 unset images
 
 trap '' INT
-docker container rm --volumes "${container_prefix}.${container_name}" \
-	2>&1 >/dev/null | grep -Fv -- 'no such container' || :
+set -x
+{ docker container rm --volumes "${container_prefix}.${container_name}" \
+	2>&1 >/dev/null || : ; } | grep -Fv -- 'no such container' || :
+set +x
 trap - INT
 
 cd "${base_dir}" || die "chdir() to '${base_dir}' failed: ${?}"
